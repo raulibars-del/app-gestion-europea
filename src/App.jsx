@@ -43,11 +43,11 @@ const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Per
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
 const initialData = {
   usuarios: [
-    { id:1,nombre:"Jose Antonio Garcia",password:"1234",rol:"manager",avatar:"J",activo:true },
-    { id:2,nombre:"Cristina Tarin",password:"1234",rol:"admin",avatar:"C",activo:true },
-    { id:3,nombre:"Carlos V.",password:"1234",rol:"tecnico",avatar:"C",activo:true },
-    { id:4,nombre:"Miguel R.",password:"1234",rol:"tecnico",avatar:"M",activo:true },
-    { id:5,nombre:"Juan P.",password:"1234",rol:"tecnico",avatar:"J",activo:true },
+    { id:1,nombre:"Raul Ibars",password:"963221478",rol:"manager",avatar:"R",activo:true },
+    { id:2,nombre:"Cristina Tarin",password:"3011",rol:"admin",avatar:"C",activo:true },
+    { id:3,nombre:"Juanjo Romero",password:"3004",rol:"tecnico",avatar:"JJ",activo:true },
+    { id:4,nombre:"Jose Antonio García.",password:"3008",rol:"admin",avatar:"JA",activo:true },
+    { id:5,nombre:"Luka",password:"3000",rol:"tecnico",avatar:"L",activo:true },
   ],clientes: [
     { id:0,nombreEmpresa:"Europea de Maquinaria PMM SL",nombreFiscal:"Europea de Maquinaria PMM SL",cif:"B98527583",localidad:"Torrent (Valencia)",esCliente:false,esPropia:true,dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",provinciaFiscal:"Valencia",contactos:[{id:1,nombre:"Jose Antonio Garcia",puesto:"Gerente",tel:"",email:"info@europeademaquinaria.com",principal:true}],maquinas:[],notas:"Cuenta interna — máquinas propias, trabajos internos y albaranes propios." },
     { id:1,nombreEmpresa:"Carpintería Martínez S.L.",nombreFiscal:"Carpintería Martínez Sociedad Limitada",localidad:"Valencia",esCliente:true,contactos:[{id:1,nombre:"Luis Martínez",puesto:"Gerente",tel:"600 123 456",email:"luis@carpinteria.es",principal:true},{id:2,nombre:"Marta Martínez",puesto:"Administración",tel:"600 123 457",email:"marta@carpinteria.es",principal:false}],maquinas:[{id:1,nombre:"Escuadradora Casadei SC2",marca:"Casadei",modelo:"SC2",serie:"SC2-2019-441",anyo:"2019",notas:"Mantenimiento anual en mayo",foto:null},{id:2,nombre:"Tupi Vitap Alpha 21",marca:"Vitap",modelo:"Alpha 21",serie:"VA21-2020-112",anyo:"2020",notas:"",foto:null}],notas:"Cliente desde 2018." },
