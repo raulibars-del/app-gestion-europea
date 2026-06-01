@@ -345,7 +345,7 @@ const Clientes = ({ data, setData }) => {
   const fc=k=>e=>setFormC(p=>({...p,[k]:e.target.value}));
   const fm=k=>e=>setFormM(p=>({...p,[k]:e.target.value}));
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
-  const cliente=vista?data.clientes.find(c=>c.id===vista):null;
+  const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
   const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase()));
   const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
@@ -394,7 +394,7 @@ const Clientes = ({ data, setData }) => {
   const delCo=cid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,contactos:c.contactos.filter(x=>x.id!==cid)})}));
   const handleFoto=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>setFormM(p=>({...p,foto:ev.target.result})); r.readAsDataURL(f); };
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
-  if(!vista) return (
+  if(vista===null) return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
