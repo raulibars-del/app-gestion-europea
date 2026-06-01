@@ -41,6 +41,7 @@ const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","Resuelto","Cancelad
 const TIPOS_AVISO = ["Reparación","Montaje","Problema","Consulta","Otro"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
+const inic = (n) => (n||"").trim().split(/\s+/).filter(Boolean).map(w=>w[0]||"").join("").toUpperCase().slice(0,3);
 const initialData = {
   usuarios: [
     { id:1,nombre:"Raul Ibars",password:"963221478",rol:"manager",avatar:"R",activo:true },
@@ -328,12 +329,6 @@ const Login = ({ usuarios, onLogin }) => {
         {err&&<div style={{background:"#dc262618",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",color:"#dc2626",fontSize:13,marginBottom:12}}>{err}</div>}
         <button onClick={handle} style={{...btnPrimary,width:"100%",justifyContent:"center",padding:"12px",fontSize:15,marginTop:4}}>Iniciar sesión</button>
         <div style={{marginTop:20,textAlign:"center",color:"#6b7a99",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software creado por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v1.0</div>
-        <div style={{marginTop:16,background:"#0d1117",borderRadius:10,padding:"10px 12px"}}>
-          <div style={{fontSize:11,color:"#6b7a99",marginBottom:4,fontWeight:700}}>ACCESOS DE PRUEBA (pass: 1234)</div>
-          {[["Admin Manager","Manager"],["Carlos V.","Técnico"],["Roberto S.","Comercial"]].map(([nombre,rol])=>(
-            <div key={nombre} onClick={()=>{setUsuario(nombre);setPass("1234");}} style={{fontSize:12,color:"#3b82f6",cursor:"pointer",padding:"2px 0"}}>· {nombre} — {rol}</div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -765,7 +760,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   };
   const abrirPrivado=uid2=>{const k=pKey(userActual.id,uid2);setData(d=>{const ch={...d.chat};if(!ch.privados[k])ch.privados={...ch.privados,[k]:[]};return{...d,chat:ch};});setCanal(k);setBuscar("");};
   const nU=id=>data.usuarios.find(u=>u.id===id)?.nombre||"?";
-  const avU=id=>{const u=data.usuarios.find(u=>u.id===id);return u?{av:u.avatar,rol:u.rol}:{av:"?",rol:"tecnico"};};
+  const avU=id=>{const u=data.usuarios.find(u=>u.id===id);return u?{av:inic(u.nombre),rol:u.rol}:{av:"?",rol:"tecnico"};};
   const fmtH=ts=>new Date(ts).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
   const fmtD=ts=>{const d=new Date(ts);const h=new Date();return d.toDateString()===h.toDateString()?"Hoy":d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"});};
   const usersChat=data.usuarios.filter(u=>u.id!==userActual.id&&u.activo&&buscar&&u.nombre.toLowerCase().includes(buscar.toLowerCase()));
@@ -780,7 +775,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
             <input value={buscar} onChange={e=>setBuscar(e.target.value)} placeholder="Mensaje directo..." style={{width:"100%",background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 9px",color:"#f1f3f9",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
             {usersChat.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,zIndex:10,marginTop:2}}>
               {usersChat.map(u=><div key={u.id} onClick={()=>abrirPrivado(u.id)} style={{padding:"7px 9px",cursor:"pointer",display:"flex",alignItems:"center",gap:7,borderBottom:"1px solid #1a2236"}}>
-                <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:10}}>{u.avatar}</div>
+                <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:10}}>{inic(u.nombre)}</div>
                 <div style={{color:"#f1f3f9",fontSize:12}}>{u.nombre}</div>
               </div>)}
             </div>}
@@ -792,7 +787,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
           {privK.length>0&&<>
             <div style={{fontSize:10,color:"#6b7a99",fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",padding:"9px 7px 5px"}}>Directos</div>
             {privK.map(k=>{const u=data.usuarios.find(x=>x.id===oUId(k));if(!u)return null;return<button key={k} onClick={()=>setCanal(k)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===k?"#1e2a3a":"transparent",color:canal===k?"#f1f3f9":"#6b7a99",fontSize:12,fontWeight:canal===k?700:400,marginBottom:1,textAlign:"left"}}>
-              <div style={{width:20,height:20,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:9,flexShrink:0}}>{u.avatar}</div>{u.nombre}
+              <div style={{width:20,height:20,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:9,flexShrink:0}}>{inic(u.nombre)}</div>{u.nombre}
             </button>;})}
           </>}
         </div>
@@ -1361,7 +1356,7 @@ const Ventas = ({ data, setData, userActual }) => {
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Ventas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:9}}>{userActual.avatar}</div>
+            <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:9}}>{inic(userActual.nombre)}</div>
             <span style={{color:"#6b7a99",fontSize:13}}>{userActual.nombre}</span>
           </div>
         </div>
@@ -1570,7 +1565,7 @@ const Tareas = ({ data, setData, userActual }) => {
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Tareas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <div style={{width:24,height:24,borderRadius:6,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:10}}>{userActual.avatar}</div>
+            <div style={{width:24,height:24,borderRadius:6,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:10}}>{inic(userActual.nombre)}</div>
             <span style={{color:"#6b7a99",fontSize:13}}>{userActual.nombre} · <span style={{color:"#8b5cf6",fontWeight:700}}>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span></span>
           </div>
         </div>
@@ -2355,7 +2350,7 @@ const Usuarios = ({ data, setData, userActual }) => {
       <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
       <tbody>{data.usuarios.map(u=>(
         <tr key={u.id} style={{borderBottom:"1px solid #1a2236"}}>
-          <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:800,fontSize:12}}>{u.avatar}</div><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
+          <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:800,fontSize:12}}>{inic(u.nombre)}</div><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
           <td style={{padding:"11px 14px"}}><RolBadge rol={u.rol}/></td>
           <td style={{padding:"11px 14px"}}><span style={{color:u.activo?"#16a34a":"#dc2626",fontSize:12,fontWeight:700}}>{u.activo?"● Activo":"● Inactivo"}</span></td>
           <td style={{padding:"11px 14px"}}>{u.id!==userActual.id&&<div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button><button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button></div>}</td>
@@ -4370,7 +4365,7 @@ const Fichaje = ({ data, setData, userActual }) => {
             return(
               <div key={u.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 10px",borderRadius:8,background:"#0d1117",marginBottom:5}}>
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
-                  <div style={{width:30,height:30,borderRadius:7,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:800,fontSize:11}}>{u.avatar}</div>
+                  <div style={{width:30,height:30,borderRadius:7,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:800,fontSize:11}}>{inic(u.nombre)}</div>
                   <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{u.nombre}</div><RolBadge rol={u.rol}/></div>
                 </div>
                 <div style={{textAlign:"right"}}>
@@ -4601,7 +4596,7 @@ export default function App() {
               </button>
               {notifOpen&&<NotifPanel notifs={misNotifs} onLeer={leerN} onLeerTodas={leerT} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
             </div>
-            <div style={{width:28,height:28,borderRadius:7,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{user.avatar}</div>
+            <div style={{width:28,height:28,borderRadius:7,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{inic(user.nombre)}</div>
           </div>
         </>
       ):(
@@ -4650,7 +4645,7 @@ export default function App() {
         ):(
           <>
             <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
-              <div style={{width:26,height:26,borderRadius:6,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{user.avatar}</div>
+              <div style={{width:26,height:26,borderRadius:6,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{inic(user.nombre)}</div>
               <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
             </div>
             <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#6b7a99",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
@@ -4710,7 +4705,7 @@ export default function App() {
         {/* Usuario info + logout en el drawer */}
         <div style={{borderTop:"1px solid #1a2236",paddingTop:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:32,height:32,borderRadius:8,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:13}}>{user.avatar}</div>
+            <div style={{width:32,height:32,borderRadius:8,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:13}}>{inic(user.nombre)}</div>
             <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
           </div>
           <button onClick={()=>setUser(null)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:8,padding:"7px 12px",color:"#6b7a99",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:600}}><Icon name="logout" size={12}/>Salir</button>
