@@ -1,4 +1,4 @@
-name: Deploy to europeademaquinaria.com/gestion
+name: Deploy to gestion.europeademaquinaria.com
 
 on:
   push:
@@ -34,6 +34,6 @@ jobs:
           SFTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           lftp -u "$SFTP_USER,$SFTP_PASS" \
-            -e "set sftp:auto-confirm yes; set net:timeout 15; mirror --reverse --delete --verbose dist/ /em/gestion/; bye" \
+            -e "set sftp:auto-confirm yes; set net:timeout 15; mirror --reverse --delete --verbose dist/ /gestion/; bye" \
             sftp://home444205640.1and1-data.host:22
 
