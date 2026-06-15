@@ -16,7 +16,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -25,12 +25,12 @@ jobs:
       - name: Construir app
         run: npm run build
 
-      - name: Subir al servidor vía SFTP
+      - name: Subir al servidor vía FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          protocol: sftp
+          protocol: ftps
           server: home444205640.1and1-data.host
-          port: 22
+          port: 21
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
