@@ -25,13 +25,16 @@ jobs:
       - name: Construir app
         run: npm run build
 
-      - name: Subir al servidor vía FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          protocol: ftps
-          server: home444205640.1and1-data.host
-          port: 21
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/
-          server-dir: /gestion/
+      - name: Instalar lftp
+        run: sudo apt-get install -y lftp
+
+      - name: Desplegar vía SFTP
+        run: |
+          lftp -c "
+          set sftp:auto-confirm yes;
+          set net:timeout 15;
+          set net:max-retries 3;
+          open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} sftp://home444205640.1and1-data.host:22;
+          mirror --reverse --delete --verbose ./dist/ /gestion/;
+          bye;
+          "
