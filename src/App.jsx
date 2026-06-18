@@ -4604,7 +4604,7 @@ export default function App() {
       "img, video, canvas, svg { max-width: 100% !important; }",
       "@media (max-width: 767px) {",
       "  .ficha-grid { grid-template-columns: 1fr !important; }",
-      "  input, select, textarea { max-width: 100% !important; }",
+      "  input, select, textarea { max-width: 100% !important; font-size: 16px !important; }",
       "}"
     ].join("\n");
     style.textContent = css;
