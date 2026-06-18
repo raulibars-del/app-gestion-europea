@@ -4471,6 +4471,27 @@ const NAV_ITEMS = [
   {id:"usuarios",label:"Usuarios",icon:"users",color:"#8b5cf6"},
   {id:"ajustes",label:"Ajustes",icon:"settings",color:"#6b7a99"},
 ];
+// ─── Sincronización con servidor (todos los usuarios comparten los mismos datos) ──
+const SYNC_LABELS = { cargando:"Cargando datos...", ok:"Sincronizado con el servidor", guardando:"Guardando...", error:"Error al guardar", offline:"Sin conexión con el servidor (usando copia local)" };
+const SYNC_COLORS = { cargando:"#6b7a99", ok:"#10b981", guardando:"#f59e0b", error:"#ef4444", offline:"#ef4444" };
+const API_URL = "/api/data.php";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
+
+async function apiGetData(){
+  const res = await fetch(API_URL, { headers: { "X-Api-Key": API_KEY } });
+  if(!res.ok) throw new Error("GET "+res.status);
+  return res.json(); // { data, updated_at }
+}
+async function apiSaveData(payload){
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify(payload),
+  });
+  if(!res.ok) throw new Error("POST "+res.status);
+  return res.json();
+}
+
 export default function App() {
   const [data,setData]=useState(()=>{
     try {
@@ -4489,11 +4510,78 @@ export default function App() {
     } catch(e){}
     return initialData;
   });
+  const [syncStatus,setSyncStatus]=useState("cargando"); // cargando | ok | guardando | error | offline
+  const lastSyncedRef = useRef(null); // JSON de los datos que sabemos están en el servidor
+  const dataRef = useRef(data);
+  const saveTimerRef = useRef(null);
+  useEffect(()=>{ dataRef.current = data; },[data]);
 
-  // Persist ALL data to localStorage on every change
+  // Carga inicial desde el servidor: si hay datos remotos, son la fuente de verdad
+  // para que todos los usuarios vean lo mismo. Si el servidor está vacío (primera
+  // vez), sembramos con lo que tengamos en local (defaults o datos previos).
+  useEffect(()=>{
+    let cancelled=false;
+    (async ()=>{
+      try{
+        const res = await apiGetData();
+        if(cancelled) return;
+        if(res.data){
+          lastSyncedRef.current = JSON.stringify(res.data);
+          setData(res.data);
+        } else {
+          try { await apiSaveData(dataRef.current); lastSyncedRef.current = JSON.stringify(dataRef.current); } catch(e){}
+        }
+        setSyncStatus("ok");
+      }catch(e){
+        setSyncStatus("offline"); // sin conexión al servidor: seguimos con la copia local
+      }
+    })();
+    return ()=>{ cancelled=true; };
+  },[]);
+
+  // Persist ALL data to localStorage on every change (caché local / modo offline)
   useEffect(()=>{
     try { localStorage.setItem("em_data", JSON.stringify(data)); } catch(e){}
   },[data]);
+
+  // Guardar en el servidor cuando cambian los datos (con pequeño debounce)
+  useEffect(()=>{
+    const json = JSON.stringify(data);
+    if(json === lastSyncedRef.current) return;
+    setSyncStatus("guardando");
+    if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(()=>{
+      apiSaveData(data)
+        .then(()=>{ lastSyncedRef.current = json; setSyncStatus("ok"); })
+        .catch(()=>setSyncStatus("error"));
+    }, 1200);
+    return ()=>clearTimeout(saveTimerRef.current);
+  },[data]);
+
+  // Pull periódico para ver cambios hechos por otros usuarios (solo si no tenemos
+  // cambios locales propios pendientes de guardar, para no pisarlos)
+  useEffect(()=>{
+    const pull = async ()=>{
+      try{
+        const res = await apiGetData();
+        if(res.data){
+          const remoteJson = JSON.stringify(res.data);
+          const localJson = JSON.stringify(dataRef.current);
+          if(remoteJson !== localJson && localJson === lastSyncedRef.current){
+            lastSyncedRef.current = remoteJson;
+            setData(res.data);
+          }
+        }
+        setSyncStatus(s => s==="offline" ? "ok" : s);
+      }catch(e){
+        setSyncStatus("offline");
+      }
+    };
+    const interval = setInterval(pull, 20000);
+    window.addEventListener("focus", pull);
+    return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); };
+  },[]);
+
   const [user,setUser]=useState(null);
   const [active,setActive]=useState("asistencia");
   const [notifOpen,setNotifOpen]=useState(false);
@@ -4590,6 +4678,7 @@ export default function App() {
           </div>
           {/* Notifs + avatar */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
             <div ref={notifRef} style={{position:"relative"}}>
               <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:noLeidas>0?"#ef4444":"#6b7a99",display:"flex",alignItems:"center",gap:3}}>
                 <Icon name="bell" size={16}/>{noLeidas>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:8,padding:"1px 5px",fontSize:10,fontWeight:800}}>{noLeidas}</span>}
@@ -4604,11 +4693,14 @@ export default function App() {
           <div style={{color:"#f1f3f9",fontWeight:700,fontSize:15}}>
             {navV.find(n=>n.id===active)?.label||""}
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
           <div ref={notifRef} style={{position:"relative"}}>
             <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:noLeidas>0?"#ef4444":"#6b7a99",display:"flex",alignItems:"center",gap:4}}>
               <Icon name="bell" size={16}/>{noLeidas>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:8,padding:"1px 5px",fontSize:10,fontWeight:800}}>{noLeidas}</span>}
             </button>
             {notifOpen&&<NotifPanel notifs={misNotifs} onLeer={leerN} onLeerTodas={leerT} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
+          </div>
           </div>
         </>
       )}

@@ -22,6 +22,24 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Generar config.php con credenciales de BD
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          cat > public/api/config.php << EOF
+          <?php
+          define('DB_HOST', '$DB_HOST');
+          define('DB_NAME', '$DB_NAME');
+          define('DB_USER', '$DB_USER');
+          define('DB_PASS', '$DB_PASS');
+          define('API_KEY', '$API_KEY');
+          EOF
+          echo "VITE_API_KEY=$API_KEY" > .env.production
+
       - name: Construir app
         run: npm run build
 
