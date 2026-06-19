@@ -1105,6 +1105,24 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           </div>
         ))}
       </div>
+      {modal&&<Modal title="Editar máquina" onClose={()=>setModal(false)}>
+        <Field label="Nombre"><Input value={form.nombre} onChange={f("nombre")}/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Field label="Marca"><Input value={form.marca} onChange={f("marca")}/></Field>
+          <Field label="Modelo"><Input value={form.modelo} onChange={f("modelo")}/></Field>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Field label="Nº de serie / matrícula"><Input value={form.serie} onChange={f("serie")}/></Field>
+          <Field label="Año"><Input value={form.anyo} onChange={f("anyo")}/></Field>
+        </div>
+        <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
+        <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
+        <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
+          <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
+          <button onClick={save} style={btnPrimary}>Guardar</button>
+        </div>
+      </Modal>}
     </div>);
   }
 
