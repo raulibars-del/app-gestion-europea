@@ -2433,7 +2433,11 @@ const Partes = ({ data, setData }) => {
       doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
       // Título parte (derecha)
       doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
-      doc.text(esMultiple?"PARTE DE TRABAJO (CONTINUADO)":"PARTE DE TRABAJO",W-mg,13,{align:"right"});
+      doc.text("PARTE DE TRABAJO",W-mg,esMultiple?11:13,{align:"right"});
+      if(esMultiple){
+        doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+        doc.text("(CONTINUADO)",W-mg,15.5,{align:"right"});
+      }
       doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
       doc.text("Nº: "+numeroMostrar,W-mg,21,{align:"right"});
       doc.text(esMultiple?(piezas.length+" visitas"):("Fecha: "+fmtFecha(parte.fecha)),W-mg,27,{align:"right"});
