@@ -788,7 +788,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   const verLista = !isMobile || mView==="lista";
   const verMsgs  = !isMobile || mView==="msgs";
   return (
-    <div style={{display:"flex",flexDirection:"column",height:isMobile?"calc(100vh - 130px)":"calc(100vh - 110px)",minHeight:300}}>
+    <div style={{display:"flex",flexDirection:"column",height:isMobile?"100%":"calc(100vh - 110px)",flex:isMobile?1:undefined,minHeight:isMobile?0:300}}>
     <div style={{display:"flex",flex:1,minHeight:0,background:"#0d1117",borderRadius:14,overflow:"hidden",border:"1px solid #2a3550"}}>
       {verLista && <div style={{width:isMobile?"100%":210,background:"#0a0f1a",borderRight:isMobile?"none":"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0}}>
         <div style={{padding:"13px 12px 9px",borderBottom:"1px solid #1a2236"}}>
@@ -4915,7 +4915,7 @@ export default function App() {
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
-        <main style={{flex:1,overflow:"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%"}}>
+        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData}/>}
