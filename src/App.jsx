@@ -416,8 +416,8 @@ const Clientes = ({ data, setData }) => {
                     <div>
                       <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{pc.nombre} <span style={{color:"#6b7a99",fontWeight:400}}>· {pc.puesto}</span></div>
                       <div style={{display:"flex",gap:8}}>
-                        {pc.tel&&<span style={{color:"#9aa3b8",fontSize:11}}>📞 {pc.tel}</span>}
-                        {pc.email&&<span style={{color:"#3b82f6",fontSize:11}}>{pc.email}</span>}
+                        {pc.tel&&<a href={"tel:"+pc.tel.replace(/\s+/g,"")} onClick={e=>e.stopPropagation()} style={{color:"#9aa3b8",fontSize:11,textDecoration:"none"}}>📞 {pc.tel}</a>}
+                        {pc.email&&<a href={"mailto:"+pc.email} onClick={e=>e.stopPropagation()} style={{color:"#3b82f6",fontSize:11,textDecoration:"none"}}>{pc.email}</a>}
                       </div>
                     </div>
                     {pc.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 5px",fontSize:9,fontWeight:700,marginLeft:2}}>★</span>}
@@ -545,8 +545,8 @@ const Clientes = ({ data, setData }) => {
                       {ct.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>Principal</span>}
                     </div>
                     <div style={{color:"#6b7a99",fontSize:12,marginBottom:2}}>💼 {ct.puesto}</div>
-                    {ct.tel&&<div style={{color:"#9aa3b8",fontSize:12}}>📞 {ct.tel}</div>}
-                    {ct.email&&<div style={{color:"#3b82f6",fontSize:12}}>{ct.email}</div>}
+                    {ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#9aa3b8",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}
+                    {ct.email&&<a href={"mailto:"+ct.email} style={{color:"#3b82f6",fontSize:12,textDecoration:"none",display:"block"}}>{ct.email}</a>}
                   </div>
                   <div style={{display:"flex",gap:3}}><button onClick={()=>{setFormCo({...ct});setModalCo(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button><button onClick={()=>delCo(ct.id)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button></div>
                 </div>
@@ -736,39 +736,61 @@ const Clientes = ({ data, setData }) => {
 };
 const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   const [canal,setCanal]=useState("general"); const [texto,setTexto]=useState(""); const [buscar,setBuscar]=useState("");
-  const endRef=useRef(null);
+  const [mView,setMView]=useState("lista"); const [subiendo,setSubiendo]=useState(false);
+  const endRef=useRef(null); const fileRef=useRef(null);
   const canalesV=data.chat.canales.filter(c=>c.tipo==="general");
   const privK=Object.keys(data.chat.privados||{}).filter(k=>k.split("_").includes(String(userActual.id)));
   const oUId=k=>{const[a,b]=k.split("_").map(Number);return a===userActual.id?b:a;};
   const pKey=(a,b)=>[Math.min(a,b),Math.max(a,b)].join("_");
   const msgs=canal.includes("_")?(data.chat.privados[canal]||[]):(data.chat.mensajes[canal]||[]);
   useEffect(()=>endRef.current?.scrollIntoView({behavior:"smooth"}),[msgs]);
+  const pushMsg=msg=>setData(d=>{const ch={...d.chat};if(canal.includes("_")){ch.privados={...ch.privados,[canal]:[...(ch.privados[canal]||[]),msg]}}else{ch.mensajes={...ch.mensajes,[canal]:[...(ch.mensajes[canal]||[]),msg]};}return{...d,chat:ch};});
+  const notificar=resumen=>{
+    if(!addNotif)return;
+    const canalNombre = canal.includes("_")
+      ? "Mensaje directo de "+userActual.nombre
+      : data.chat.canales.find(c=>c.id===canal)?.nombre||canal;
+    data.usuarios.filter(u=>u.activo&&u.id!==userActual.id).forEach(u=>{
+      addNotif(u.id,"chat","💬 "+userActual.nombre+" en "+canalNombre, resumen);
+    });
+  };
   const enviar=()=>{
     if(!texto.trim())return;
     const msg={id:uid(),autorId:userActual.id,texto:texto.trim(),ts:new Date().toISOString()};
-    setData(d=>{const ch={...d.chat};if(canal.includes("_")){ch.privados={...ch.privados,[canal]:[...(ch.privados[canal]||[]),msg]}}else{ch.mensajes={...ch.mensajes,[canal]:[...(ch.mensajes[canal]||[]),msg]}};return{...d,chat:ch};});
-    // Notificar a todos los usuarios activos excepto al que escribe
-    if(addNotif){
-      const canalNombre = canal.includes("_")
-        ? "Mensaje directo de "+userActual.nombre
-        : data.chat.canales.find(c=>c.id===canal)?.nombre||canal;
-      data.usuarios.filter(u=>u.activo&&u.id!==userActual.id).forEach(u=>{
-        addNotif(u.id,"chat","💬 "+userActual.nombre+" en "+canalNombre, texto.trim().length>60?texto.trim().slice(0,60)+"...":texto.trim());
-      });
-    }
+    pushMsg(msg);
+    notificar(texto.trim().length>60?texto.trim().slice(0,60)+"...":texto.trim());
     setTexto("");
   };
-  const abrirPrivado=uid2=>{const k=pKey(userActual.id,uid2);setData(d=>{const ch={...d.chat};if(!ch.privados[k])ch.privados={...ch.privados,[k]:[]};return{...d,chat:ch};});setCanal(k);setBuscar("");};
+  const enviarArchivo=async file=>{
+    if(!file)return;
+    if(file.size>8*1024*1024){alert("El archivo pesa demasiado (máx. 8 MB).");return;}
+    setSubiendo(true);
+    try{
+      const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+      const up=await apiUploadFile({base64,filename:file.name,mime:file.type});
+      pushMsg({id:uid(),autorId:userActual.id,texto:"",ts:new Date().toISOString(),adjunto:{url:up.url,nombre:up.nombre,mime:up.mime}});
+      notificar("📎 "+up.nombre);
+    }catch(e){
+      alert("No se pudo subir el archivo.\n\n"+e.message);
+    }finally{
+      setSubiendo(false);
+      if(fileRef.current) fileRef.current.value="";
+    }
+  };
+  const abrirPrivado=uid2=>{const k=pKey(userActual.id,uid2);setData(d=>{const ch={...d.chat};if(!ch.privados[k])ch.privados={...ch.privados,[k]:[]};return{...d,chat:ch};});setCanal(k);setBuscar("");if(isMobile)setMView("msgs");};
+  const irA=id=>{setCanal(id);if(isMobile)setMView("msgs");};
   const nU=id=>data.usuarios.find(u=>u.id===id)?.nombre||"?";
   const avU=id=>{const u=data.usuarios.find(u=>u.id===id);return u?{av:inic(u.nombre),rol:u.rol}:{av:"?",rol:"tecnico"};};
   const fmtH=ts=>new Date(ts).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
   const fmtD=ts=>{const d=new Date(ts);const h=new Date();return d.toDateString()===h.toDateString()?"Hoy":d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"});};
   const usersChat=data.usuarios.filter(u=>u.id!==userActual.id&&u.activo&&buscar&&u.nombre.toLowerCase().includes(buscar.toLowerCase()));
   const canalN=()=>{if(!canal.includes("_")){const c=data.chat.canales.find(x=>x.id===canal);return c?`# ${c.nombre}`:"Canal";}return`💬 ${nU(oUId(canal))}`;};
+  const verLista = !isMobile || mView==="lista";
+  const verMsgs  = !isMobile || mView==="msgs";
   return (
     <div style={{display:"flex",flexDirection:"column",height:isMobile?"calc(100vh - 130px)":"calc(100vh - 110px)",minHeight:300}}>
     <div style={{display:"flex",flex:1,minHeight:0,background:"#0d1117",borderRadius:14,overflow:"hidden",border:"1px solid #2a3550"}}>
-      <div style={{width:210,background:"#0a0f1a",borderRight:"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0}}>
+      {verLista && <div style={{width:isMobile?"100%":210,background:"#0a0f1a",borderRight:isMobile?"none":"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0}}>
         <div style={{padding:"13px 12px 9px",borderBottom:"1px solid #1a2236"}}>
           <div style={{fontWeight:800,fontSize:13,color:"#f1f3f9",marginBottom:9}}>💬 Chat</div>
           <div style={{position:"relative"}}>
@@ -782,30 +804,40 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
           </div>
         </div>
         <div style={{flex:1,overflow:"auto",padding:"6px 5px"}}>
-          
-          {canalesV.map(c=><button key={c.id} onClick={()=>setCanal(c.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===c.id?"#1e2a3a":"transparent",color:canal===c.id?"#f1f3f9":"#6b7a99",fontSize:12,fontWeight:canal===c.id?700:400,marginBottom:1,textAlign:"left"}}><span>{c.tipo==="general"?"🌐":"👥"}</span>{c.nombre}</button>)}
+
+          {canalesV.map(c=><button key={c.id} onClick={()=>irA(c.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===c.id?"#1e2a3a":"transparent",color:canal===c.id?"#f1f3f9":"#6b7a99",fontSize:12,fontWeight:canal===c.id?700:400,marginBottom:1,textAlign:"left"}}><span>{c.tipo==="general"?"🌐":"👥"}</span>{c.nombre}</button>)}
           {privK.length>0&&<>
             <div style={{fontSize:10,color:"#6b7a99",fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",padding:"9px 7px 5px"}}>Directos</div>
-            {privK.map(k=>{const u=data.usuarios.find(x=>x.id===oUId(k));if(!u)return null;return<button key={k} onClick={()=>setCanal(k)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===k?"#1e2a3a":"transparent",color:canal===k?"#f1f3f9":"#6b7a99",fontSize:12,fontWeight:canal===k?700:400,marginBottom:1,textAlign:"left"}}>
+            {privK.map(k=>{const u=data.usuarios.find(x=>x.id===oUId(k));if(!u)return null;return<button key={k} onClick={()=>irA(k)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===k?"#1e2a3a":"transparent",color:canal===k?"#f1f3f9":"#6b7a99",fontSize:12,fontWeight:canal===k?700:400,marginBottom:1,textAlign:"left"}}>
               <div style={{width:20,height:20,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:9,flexShrink:0}}>{inic(u.nombre)}</div>{u.nombre}
             </button>;})}
           </>}
         </div>
-      </div>
-      <div style={{flex:1,display:"flex",flexDirection:"column"}}>
-        <div style={{padding:"11px 16px",borderBottom:"1px solid #1a2236",background:"#0a0f1a"}}><span style={{fontWeight:700,fontSize:14,color:"#f1f3f9"}}>{canalN()}</span></div>
+      </div>}
+      {verMsgs && <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+        <div style={{padding:"11px 16px",borderBottom:"1px solid #1a2236",background:"#0a0f1a",display:"flex",alignItems:"center",gap:8}}>
+          {isMobile&&<button onClick={()=>setMView("lista")} style={{background:"none",border:"none",color:"#9aa3b8",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}><Icon name="back" size={17}/></button>}
+          <span style={{fontWeight:700,fontSize:14,color:"#f1f3f9"}}>{canalN()}</span>
+        </div>
         <div style={{flex:1,overflow:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:1}}>
           {msgs.length===0&&<div style={{textAlign:"center",color:"#6b7a99",fontSize:13,marginTop:36}}>Empieza la conversación...</div>}
           {msgs.map((msg,i)=>{
             const esMio=msg.autorId===userActual.id; const av=avU(msg.autorId);
             const showD=i===0||fmtD(msgs[i-1]?.ts)!==fmtD(msg.ts);
+            const esImg=msg.adjunto&&msg.adjunto.mime&&msg.adjunto.mime.startsWith("image/");
             return <div key={msg.id}>
               {showD&&<div style={{textAlign:"center",margin:"8px 0 5px"}}><span style={{background:"#1a2236",color:"#6b7a99",borderRadius:9,padding:"3px 11px",fontSize:10}}>{fmtD(msg.ts)}</span></div>}
               <div style={{display:"flex",alignItems:"flex-end",gap:7,flexDirection:esMio?"row-reverse":"row",marginBottom:2}}>
                 {!esMio&&<div style={{width:26,height:26,borderRadius:7,background:ROLES_COLOR[av.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[av.rol],fontWeight:700,fontSize:10,flexShrink:0}}>{av.av}</div>}
                 <div style={{maxWidth:"68%"}}>
                   {!esMio&&<div style={{fontSize:11,color:"#6b7a99",marginBottom:2,marginLeft:2}}>{nU(msg.autorId)}</div>}
-                  <div style={{background:esMio?"#2563eb":"#1e2a3a",color:"#f1f3f9",borderRadius:esMio?"11px 11px 3px 11px":"11px 11px 11px 3px",padding:"8px 11px",fontSize:13,lineHeight:1.5,wordBreak:"break-word"}}>{msg.texto}</div>
+                  <div style={{background:esMio?"#2563eb":"#1e2a3a",color:"#f1f3f9",borderRadius:esMio?"11px 11px 3px 11px":"11px 11px 11px 3px",padding:msg.adjunto&&!msg.texto?6:"8px 11px",fontSize:13,lineHeight:1.5,wordBreak:"break-word"}}>
+                    {msg.adjunto && (esImg
+                      ? <img src={msg.adjunto.url} alt={msg.adjunto.nombre} style={{maxWidth:200,maxHeight:200,borderRadius:7,display:"block",cursor:"pointer",marginBottom:msg.texto?6:0}} onClick={()=>window.open(msg.adjunto.url,"_blank")}/>
+                      : <a href={msg.adjunto.url} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:6,background:"rgba(0,0,0,.25)",borderRadius:7,padding:"7px 9px",color:"inherit",textDecoration:"none",fontSize:12,marginBottom:msg.texto?6:0}}><Icon name="documentacion" size={14}/>{msg.adjunto.nombre}</a>
+                    )}
+                    {msg.texto}
+                  </div>
                   <div style={{fontSize:10,color:"#3a4560",marginTop:2,textAlign:esMio?"right":"left"}}>{fmtH(msg.ts)}</div>
                 </div>
               </div>
@@ -813,13 +845,15 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
           })}
           <div ref={endRef}/>
         </div>
-        <div style={{padding:"10px 14px",borderTop:"1px solid #1a2236",display:"flex",gap:7}}>
-          <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&enviar()} placeholder={`Escribe en ${canalN()}...`} style={{flex:1,background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 13px",color:"#f1f3f9",fontSize:13,outline:"none"}}/>
-          <button onClick={enviar} disabled={!texto.trim()} style={{background:texto.trim()?"#3b82f6":"#1a2236",border:"none",borderRadius:9,padding:"9px 13px",cursor:texto.trim()?"pointer":"default",color:texto.trim()?"#fff":"#3a4560",display:"flex",alignItems:"center",gap:5,fontWeight:700,fontSize:13}}>
-            <Icon name="send" size={15}/>Enviar
+        <div style={{padding:"10px 14px",borderTop:"1px solid #1a2236",display:"flex",gap:7,alignItems:"center"}}>
+          <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style={{display:"none"}} onChange={e=>enviarArchivo(e.target.files[0])}/>
+          <button onClick={()=>fileRef.current?.click()} disabled={subiendo} title="Adjuntar archivo" style={{background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 11px",cursor:subiendo?"default":"pointer",color:"#9aa3b8",fontSize:15,flexShrink:0}}>{subiendo?"…":"📎"}</button>
+          <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&enviar()} placeholder={`Escribe en ${canalN()}...`} style={{flex:1,background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 13px",color:"#f1f3f9",fontSize:13,outline:"none",minWidth:0}}/>
+          <button onClick={enviar} disabled={!texto.trim()} style={{background:texto.trim()?"#3b82f6":"#1a2236",border:"none",borderRadius:9,padding:"9px 13px",cursor:texto.trim()?"pointer":"default",color:texto.trim()?"#fff":"#3a4560",display:"flex",alignItems:"center",gap:5,fontWeight:700,fontSize:13,flexShrink:0}}>
+            <Icon name="send" size={15}/>{!isMobile&&"Enviar"}
           </button>
         </div>
-      </div>
+      </div>}
     </div>
     </div>
   );
@@ -1327,7 +1361,7 @@ const Ventas = ({ data, setData, userActual }) => {
               {(cl.contactos.find(c => c.principal) || cl.contactos[0]) && (() => { const ct = cl.contactos.find(c => c.principal) || cl.contactos[0]; return (
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div style={{width:32,height:32,borderRadius:8,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6",fontWeight:800,fontSize:13}}>{ct.nombre.charAt(0)}</div>
-                  <div><div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{ct.nombre} <span style={{color:"#6b7a99",fontWeight:400}}>· {ct.puesto}</span></div><div style={{color:"#9aa3b8",fontSize:12}}>📞 {ct.tel}</div><div style={{color:"#3b82f6",fontSize:12}}>{ct.email}</div></div>
+                  <div><div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{ct.nombre} <span style={{color:"#6b7a99",fontWeight:400}}>· {ct.puesto}</span></div>{ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#9aa3b8",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}{ct.email&&<a href={"mailto:"+ct.email} style={{color:"#3b82f6",fontSize:12,textDecoration:"none",display:"block"}}>{ct.email}</a>}</div>
                 </div>
               ); })()}
             </div>}
@@ -4534,6 +4568,20 @@ async function apiSendMail(payload){
       ? "El SMTP no está configurado (ve a Ajustes)."
       : (json.detail || json.error || ("HTTP "+res.status));
     throw new Error(msg);
+  }
+  return json;
+}
+const UPLOAD_API_URL = "/api/upload.php";
+async function apiUploadFile(payload){
+  const res = await fetch(UPLOAD_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error){
+    const msgs = { tipo_no_permitido:"Tipo de archivo no permitido.", archivo_demasiado_grande:"El archivo pesa demasiado (máx. 8 MB)." };
+    throw new Error(msgs[json.error] || json.error || ("HTTP "+res.status));
   }
   return json;
 }

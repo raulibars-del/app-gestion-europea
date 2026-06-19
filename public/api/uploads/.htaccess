@@ -1,0 +1,8 @@
+# Los archivos subidos por usuarios nunca deben ejecutarse como script,
+# aunque alguien consiga subir algo con extensión engañosa.
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+<FilesMatch "\.(php|phtml|php\d)$">
+  Require all denied
+</FilesMatch>

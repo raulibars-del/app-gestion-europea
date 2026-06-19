@@ -1,0 +1,62 @@
+name: Backup semanal de archivos subidos (Chat)
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'   # cada lunes a las 03:00 UTC
+  workflow_dispatch: {}    # también se puede lanzar a mano desde GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cambiar a la rama "backups" (crearla si no existe)
+        run: |
+          git fetch origin backups || true
+          if git show-ref --verify --quiet refs/remotes/origin/backups; then
+            git checkout backups
+          else
+            git checkout --orphan backups
+            git rm -rf . > /dev/null 2>&1 || true
+            mkdir -p uploads
+            echo "Copias de seguridad semanales de public/api/uploads/. Esta rama no se despliega ni se mezcla con main." > README.md
+            git add README.md
+          fi
+
+      - name: Instalar lftp y zip
+        run: sudo apt-get install -y lftp zip
+
+      - name: Descargar api/uploads/ del servidor IONOS
+        env:
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          SFTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          rm -rf /tmp/descarga && mkdir -p /tmp/descarga
+          lftp -u "$SFTP_USER,$SFTP_PASS" \
+            -e "set sftp:auto-confirm yes; set net:timeout 15; mirror /gestion/api/uploads/ /tmp/descarga/; bye" \
+            sftp://home444205640.1and1-data.host:22
+
+      - name: Empaquetar todo en un único zip con fecha
+        run: |
+          FECHA=$(date +%Y-%m-%d)
+          mkdir -p uploads
+          if [ -z "$(ls -A /tmp/descarga 2>/dev/null)" ]; then
+            echo "No hay archivos en api/uploads/ todavía, no se crea zip."
+          else
+            (cd /tmp/descarga && zip -rq /tmp/backup-uploads-$FECHA.zip .)
+            mv /tmp/backup-uploads-$FECHA.zip uploads/
+            git add uploads/backup-uploads-$FECHA.zip
+          fi
+
+      - name: Commit y push
+        run: |
+          git -c user.name="backup-bot" -c user.email="backup-bot@users.noreply.github.com" \
+            commit -m "Backup semanal de api/uploads/ - $(date +%Y-%m-%d)" || echo "Nada nuevo que respaldar esta semana"
+          git push origin backups
