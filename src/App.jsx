@@ -2524,6 +2524,20 @@ const Partes = ({ data, setData }) => {
         y+=5;
       }
     });
+    // Resumen del trabajo completo (solo cuando hay varias visitas en la cadena)
+    if(esMultiple){
+      const totalHoras = piezas.reduce((s,pz)=>s+(parseFloat(pz.horasT)||0),0);
+      const visitasConDesplaz = piezas.filter(pz=>pz.km>0||pz.desplazamiento==="si").length;
+      const totalKm = piezas.reduce((s,pz)=>s+(parseFloat(pz.km)||0),0);
+      const tecnicosUnicos = [...new Set(piezas.flatMap(pz=>listaNombres(pz,"tecnicos","tecnico")))];
+      asegurarEspacio(34);
+      y+=2;
+      y=box("Resumen del trabajo (cadena completa)",[
+        ["Total horas trabajadas",totalHoras+" h"],
+        ["Total visitas con desplazamiento",visitasConDesplaz+" de "+piezas.length+(totalKm>0?" ("+totalKm+" km)":"")],
+        ["Tecnicos que han intervenido",tecnicosUnicos.join(", ")||"—"],
+      ],y);
+    }
     // Firma y conformidad — una sola vez, al cierre del trabajo completo
     asegurarEspacio(60);
     y+=4;
@@ -3073,6 +3087,22 @@ const Partes = ({ data, setData }) => {
                       </div>
                     );
                   })}
+                  {esMultiplePrev&&(()=>{
+                    const totalHorasPrev = piezasPrev.reduce((s,pz)=>s+(parseFloat(pz.horasT)||0),0);
+                    const visitasDesplazPrev = piezasPrev.filter(pz=>pz.km>0||pz.desplazamiento==="si").length;
+                    const totalKmPrev = piezasPrev.reduce((s,pz)=>s+(parseFloat(pz.km)||0),0);
+                    const tecnicosUnicosPrev = [...new Set(piezasPrev.flatMap(pz=>listaNombres(pz,"tecnicos","tecnico")))];
+                    return (
+                      <div style={{marginTop:10,background:"#151b2a",borderRadius:8,padding:"10px 12px",border:"1px solid #2a3550"}}>
+                        <div style={{fontSize:10,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",marginBottom:6}}>Resumen del trabajo (cadena completa)</div>
+                        <div style={{display:"grid",gap:"3px"}}>
+                          <div><span style={{color:"#6b7a99",fontSize:11}}>Total horas trabajadas: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{totalHorasPrev} h</span></div>
+                          <div><span style={{color:"#6b7a99",fontSize:11}}>Total visitas con desplazamiento: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{visitasDesplazPrev} de {piezasPrev.length}{totalKmPrev>0?" ("+totalKmPrev+" km)":""}</span></div>
+                          <div><span style={{color:"#6b7a99",fontSize:11}}>Tecnicos que han intervenido: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{tecnicosUnicosPrev.join(", ")||"—"}</span></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 {/* Firma */}
                 <div style={{marginBottom:18}}>
