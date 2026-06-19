@@ -5276,7 +5276,10 @@ export default function App() {
       alert("No se pudo enviar el email de prueba.\n\n"+e.message);
     }
   };
-  if(articuloPublico)return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
+  if(articuloPublico){
+    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>setUser(u)}/>;
+    return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
+  }
   if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");}}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
     const n=crearNotif(userId,tipo,titulo,mensaje);
