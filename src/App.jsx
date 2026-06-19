@@ -2196,9 +2196,16 @@ const SignaturePad = ({ onSave, onClear, canvasRef }) => {
     </div>
   );
 };
-const Partes = ({ data, setData }) => {
+const Partes = ({ data, setData, userActual }) => {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
+  // Técnicos activos, con el usuario que tiene la sesión abierta siempre primero en la lista
+  // (así es el primer chip que ve y el más rápido de seleccionar).
+  const usuariosTecnicos = useMemo(() => {
+    const activos = data.usuarios.filter(u => u.activo);
+    if (!userActual) return activos;
+    return [...activos.filter(u => u.id === userActual.id), ...activos.filter(u => u.id !== userActual.id)];
+  }, [data.usuarios, userActual]);
   const [parteContinuado, setParteContinuado] = useState(false);
   const [modalRetomar, setModalRetomar] = useState(false);
   const [modalPDF, setModalPDF] = useState(null);
@@ -2259,6 +2266,7 @@ const Partes = ({ data, setData }) => {
     return { ...it, stock: (parseFloat(it.stock)||0) + stockExtra, historialEntregas: (it.historialEntregas||[]).filter(h => h.parteId !== parteId) };
   });
   const save = (continuado) => {
+    if (!form.tecnicos || form.tecnicos.length === 0) { alert("Selecciona al menos un técnico antes de guardar el parte."); return; }
     const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
     const esNuevo = !form.id;
     const parteId = form.id || Date.now();
@@ -2332,8 +2340,10 @@ const Partes = ({ data, setData }) => {
     setModoMaterial("manual"); setBuscarArt("");
   };
   const abrirNuevo = () => {
-    const nombresUsuarios=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
-    setForm({ tecnicos:nombresUsuarios[0]?[nombresUsuarios[0]]:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
+    // Sin técnico preseleccionado: hay que elegirlo explícitamente (es obligatorio al guardar).
+    // Así se evita que, al estar uno ya marcado por defecto, el siguiente clic "añada" a otro
+    // técnico en vez de sustituirlo.
+    setForm({ tecnicos:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
     setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
     setClienteSel(null); setBusqCliente(""); setMostrarDropCliente(false);
@@ -2371,9 +2381,9 @@ const Partes = ({ data, setData }) => {
     const base = cadenaBaseDe(origen);
     const cadena = obtenerCadenaPartes(data.partes, origen);
     const nuevoNumCont = (Math.max(0, ...cadena.map(p=>p.numContinuacion||0))) + 1;
-    const nombresUsuarios=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
     setForm({
-      tecnicos:nombresUsuarios[0]?[nombresUsuarios[0]]:[],
+      // Sin técnico preseleccionado por defecto (igual que en abrirNuevo): hay que elegirlo.
+      tecnicos:[],
       fecha:today(),horasT:"",
       reparacionId:origen.reparacionId||"",
       avisoId:origen.avisoId||"",
@@ -2695,8 +2705,8 @@ const Partes = ({ data, setData }) => {
         })}
       </div>
       {modal && <Modal title={form.id ? "Editar Parte" : "Nuevo Parte"} onClose={() => { setModal(null); setClienteSel(null); setBusqCliente(""); setListaMateriales([]); }} wide>
-        <Field label="Tecnico/s (puedes elegir varios si lo realizan entre 2)">
-          <SelectorTecnicos value={form.tecnicos} onChange={v=>setForm(p=>({...p,tecnicos:v}))} usuarios={data.usuarios.filter(u=>u.activo)} />
+        <Field label="Tecnico/s (puedes elegir varios si lo realizan entre 2) *">
+          <SelectorTecnicos value={form.tecnicos} onChange={v=>setForm(p=>({...p,tecnicos:v}))} usuarios={usuariosTecnicos} />
         </Field>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
           <Field label="Fecha"><Input type="date" value={form.fecha} onChange={f("fecha")} /></Field>
@@ -6275,7 +6285,7 @@ export default function App() {
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
-          {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData}/>}
+          {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
