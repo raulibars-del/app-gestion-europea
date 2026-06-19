@@ -27,6 +27,11 @@ const listaNombres = (obj, campoArray, campoLegacy) => {
   return legacy ? [legacy] : [];
 };
 const fmtNombres = (obj, campoArray, campoLegacy) => listaNombres(obj, campoArray, campoLegacy).join(" y ") || "—";
+// Cadena de partes continuados: varios partes del mismo trabajo (visitas distintas), identificados
+// por compartir "cadenaBase" (el numeroParte del parte original). Si un parte no tiene cadenaBase
+// (datos antiguos o parte suelto) se usa su propio numeroParte como base.
+const cadenaBaseDe = p => (p && (p.cadenaBase || p.numeroParte)) || ("id-" + (p && p.id));
+const obtenerCadenaPartes = (partes, p) => (partes||[]).filter(x => cadenaBaseDe(x) === cadenaBaseDe(p)).sort((a,b)=>(a.numContinuacion||0)-(b.numContinuacion||0));
 
 const diasDesde = (f) => { const d = Math.floor((new Date() - new Date(f)) / 86400000); return d < 0 ? 0 : d; };
 const uid = () => Date.now() + Math.random();
@@ -2195,7 +2200,9 @@ const Partes = ({ data, setData }) => {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [parteContinuado, setParteContinuado] = useState(false);
+  const [modalRetomar, setModalRetomar] = useState(false);
   const [modalPDF, setModalPDF] = useState(null);
+  const [modalPDFCadena, setModalPDFCadena] = useState(null);
   const [emailCliente, setEmailCliente] = useState("");
   const [firmada, setFirmada] = useState(false);
   const [conforme, setConforme] = useState(null); // true=Conforme, false=No conforme, null=sin marcar
@@ -2256,11 +2263,17 @@ const Partes = ({ data, setData }) => {
     const esNuevo = !form.id;
     const parteId = form.id || Date.now();
     const numeroParte = form.numeroParte || generarNumParte(form.fecha, data.partes);
+    // Cadena de partes continuados (mismo trabajo, varias visitas): el primer parte de la
+    // cadena usa su propio numeroParte como base; los retomados heredan la base del original.
+    const cadenaBase = form.cadenaBase || numeroParte;
     const clienteObj = form.clienteDirectoId ? data.clientes.find(c=>c.id===form.clienteDirectoId) : rCliente(form.reparacionId);
     const clienteNombre = clienteObj?.nombreEmpresa || clienteObj?.nombreFiscal || "Cliente sin nombre";
     const item = { ...form,
       id: parteId,
       numeroParte,
+      cadenaBase,
+      numContinuacion: form.numContinuacion||0,
+      continuaDeId: form.continuaDeId||null,
       horasT: parseFloat(form.horasT)||0,
       km: form.desplazamiento==="si" ? parseFloat(form.kmValor)||0 : 0,
       materiales: matsStr,
@@ -2274,6 +2287,11 @@ const Partes = ({ data, setData }) => {
       // Guardar parte
       if (esNuevo) nuevo.partes = [...nuevo.partes, item];
       else nuevo.partes = nuevo.partes.map(p => p.id===item.id ? item : p);
+      // Al finalizar (no continuado) se cierra todo el trabajo: todos los partes de la
+      // misma cadena (visitas anteriores) quedan tambien como Finalizado.
+      if (!continuado) {
+        nuevo.partes = nuevo.partes.map(p => cadenaBaseDe(p)===cadenaBase ? { ...p, estadoParte:"Finalizado" } : p);
+      }
       // Actualizar aviso vinculado: siempre se registra la fecha de última intervención
       if (item.avisoId) {
         nuevo.avisos = nuevo.avisos.map(a => {
@@ -2332,42 +2350,97 @@ const Partes = ({ data, setData }) => {
     setClienteSel(cl||null); setBusqCliente(cl?.nombreEmpresa||"");
     setModal(true);
   };
-  const abrirPDF = p => {
+  // Partes "Continuado" que todavia no han sido retomados por otro parte posterior
+  // (es decir, son el final actual de su cadena y se puede seguir trabajando sobre ellos).
+  const partesRetomables = data.partes.filter(p =>
+    p.estadoParte==="Continuado" && !data.partes.some(x => x.continuaDeId===p.id)
+  );
+  // Agrupa los partes por cadena (mismo trabajo, varias visitas) para mostrarlos
+  // uno debajo de otro en el listado. Los grupos se ordenan por el id mas reciente.
+  const gruposPartes = useMemo(() => {
+    const mapa = {};
+    data.partes.forEach(p => {
+      const base = cadenaBaseDe(p);
+      (mapa[base] = mapa[base]||[]).push(p);
+    });
+    return Object.values(mapa)
+      .map(g => g.slice().sort((a,b)=>(a.numContinuacion||0)-(b.numContinuacion||0)))
+      .sort((a,b) => Math.max(...b.map(p=>p.id)) - Math.max(...a.map(p=>p.id)));
+  }, [data.partes]);
+  const retomarParte = (origen) => {
+    const base = cadenaBaseDe(origen);
+    const cadena = obtenerCadenaPartes(data.partes, origen);
+    const nuevoNumCont = (Math.max(0, ...cadena.map(p=>p.numContinuacion||0))) + 1;
+    const nombresUsuarios=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
+    setForm({
+      tecnicos:nombresUsuarios[0]?[nombresUsuarios[0]]:[],
+      fecha:today(),horasT:"",
+      reparacionId:origen.reparacionId||"",
+      avisoId:origen.avisoId||"",
+      descripcion:"",
+      desplazamiento:"no",kmValor:"",materiales:"",
+      clienteDirectoId:origen.clienteDirectoId||"",
+      maquinaId:origen.maquinaId||"",
+      marca:origen.marca||"",modelo:origen.modelo||"",matricula:origen.matricula||"",
+      cadenaBase:base,
+      numContinuacion:nuevoNumCont,
+      continuaDeId:origen.id,
+      numeroParte:base+"-CONT"+nuevoNumCont,
+    });
+    setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
+    setModoMaterial("manual"); setBuscarArt("");
+    const cl = origen.clienteDirectoId ? data.clientes.find(c=>c.id===origen.clienteDirectoId) : rCliente(origen.reparacionId);
+    setClienteSel(cl||null); setBusqCliente(cl?.nombreEmpresa||"");
+    setParteContinuado(false);
+    setModalRetomar(false);
+    setModal(true);
+  };
+  const abrirPDF = (p, cadena) => {
     const cl = p.clienteDirectoId ? data.clientes.find(c => c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
     const emailPre = cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
-    setModalPDF(p); setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
+    setModalPDF(p); setModalPDFCadena(cadena && cadena.length>1 ? cadena : null);
+    setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
     setConforme(p.conforme??null); setNotasConformidad(p.notasConformidad||"");
     setForm(prev=>({...prev,firmaNombre:p.firmaNombre||""}));
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
-  const generarYDescargarPDF = async (parte, conFirma, soloDescarga) => {
+  // Abre el PDF combinado de toda la cadena (todas las visitas del mismo trabajo, una
+  // debajo de otra), usando como representante el ultimo parte (el que cierra el trabajo).
+  const abrirPDFCadena = (grupo) => abrirPDF(grupo[grupo.length-1], grupo);
+  const generarYDescargarPDF = async (parte, conFirma, soloDescarga, cadenaCompleta) => {
     // jsPDF importado estáticamente
     const cl = parte.clienteDirectoId ? data.clientes.find(c=>c.id===parte.clienteDirectoId) : rCliente(parte.reparacionId);
-    const rep = data.reparaciones.find(r=>r.id===parseInt(parte.reparacionId));
-    const aviso = data.avisos.find(a=>a.id===parseInt(parte.avisoId));
+    // Si se pasa una cadena de varios partes (trabajo continuado), se genera un unico
+    // PDF con una seccion de intervencion por cada visita, una debajo de otra.
+    const piezas = (cadenaCompleta && cadenaCompleta.length>1) ? cadenaCompleta : [parte];
+    const esMultiple = piezas.length>1;
+    const numeroMostrar = esMultiple ? (cadenaBaseDe(piezas[0])) : (parte.numeroParte||("PT-"+String(parte.id).slice(-6)));
     const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4" });
     const W=210; const mg=18;
-    // ── Header profesional (fondo claro) ──────────────────────────────────────
-    // Banda superior azul oscuro
-    doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
-    // Línea dorada separadora
-    doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
-    // Logo empresa (círculo)
-    try { doc.addImage(LOGO_CIRCULO, "JPEG", mg, 3, 26, 26); } catch(e) {}
-    // Nombre empresa
-    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
-    doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
-    doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
-    doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
-    doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
-    // Título parte (derecha)
-    doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
-    doc.text("PARTE DE TRABAJO",W-mg,13,{align:"right"});
-    doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
-    doc.text("Nº: "+(parte.numeroParte||("PT-"+String(parte.id).slice(-6))),W-mg,21,{align:"right"});
-    doc.text("Fecha: "+fmtFecha(parte.fecha),W-mg,27,{align:"right"});
-    // Fondo blanco explícito para todo el cuerpo del documento
-    doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+    // ── Header profesional (fondo claro) — se repite en cada pagina ───────────
+    const dibujarHeader = () => {
+      // Banda superior azul oscuro
+      doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+      // Línea dorada separadora
+      doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+      // Logo empresa (círculo)
+      try { doc.addImage(LOGO_CIRCULO, "JPEG", mg, 3, 26, 26); } catch(e) {}
+      // Nombre empresa
+      doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+      doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+      doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+      doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
+      doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
+      // Título parte (derecha)
+      doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
+      doc.text(esMultiple?"PARTE DE TRABAJO (CONTINUADO)":"PARTE DE TRABAJO",W-mg,13,{align:"right"});
+      doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+      doc.text("Nº: "+numeroMostrar,W-mg,21,{align:"right"});
+      doc.text(esMultiple?(piezas.length+" visitas"):("Fecha: "+fmtFecha(parte.fecha)),W-mg,27,{align:"right"});
+      // Fondo blanco explícito para todo el cuerpo del documento
+      doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+    };
+    dibujarHeader();
     let y=42;
     const box=(titulo,filas,yStart)=>{
       // Cabecera sección - fondo gris azulado claro
@@ -2388,7 +2461,11 @@ const Partes = ({ data, setData }) => {
       });
       return fy+4;
     };
-    // Datos cliente
+    // Asegura que quede suficiente espacio en la pagina actual; si no, salta de pagina.
+    const asegurarEspacio = (necesario) => {
+      if (y+necesario > 268) { doc.addPage(); dibujarHeader(); y=42; }
+    };
+    // Datos cliente (una sola vez — es el mismo cliente para todo el trabajo)
     const dirFiscal=[cl?.dirFiscal,cl?.cpFiscal,cl?.localidad,cl?.provinciaFiscal].filter(Boolean).join(", ");
     const dirFabrica=[cl?.dirFabrica,cl?.cpFabrica,cl?.localidadFabrica,cl?.provinciaFabrica].filter(Boolean).join(", ");
     y=box("Datos del cliente",[
@@ -2400,47 +2477,51 @@ const Partes = ({ data, setData }) => {
       ["Contacto",cl?.contactos?.find(c=>c.principal)?.nombre||cl?.contactos?.[0]?.nombre||"—"],
       ["Telefono",cl?.contactos?.find(c=>c.principal)?.tel||cl?.contactos?.[0]?.tel||"—"],
     ],y);
-    // Datos intervencion
-    const matsStr=parte.materialesList?.length>0
-      ? parte.materialesList.map(m=>m.cantidad+"x "+m.material).join(", ")
-      : (parte.materiales||"—");
-    y=box("Datos de la intervencion",[
-      ["Tecnico",fmtNombres(parte,"tecnicos","tecnico")],
-      ["Maquina",parte.marca||(parte.modelo?"":"")?[parte.marca,parte.modelo].filter(Boolean).join(" "):"—"],
-      ["Matricula",parte.matricula||"—"],
-      ...(aviso?[["Aviso","#"+aviso.id+" - "+aviso.titulo]]:[] ),
-      ...(rep?[["Reparacion","#"+rep.id+" - "+rep.maquina]]:[] ),
-      ["Descripcion trabajo",parte.descripcion],
-      ["Horas trabajadas",parte.horasT+" h"],
-      ["Desplazamiento",parte.km>0||parte.desplazamiento==="si"?"Si":"No"],
-    ],y);
-    // Tabla materiales
-    if(parte.materialesList?.length>0){
-      // Cabecera sección materiales
-      doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
-      doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
-      doc.setDrawColor(255,255,255);
-      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
-      doc.text("MATERIALES UTILIZADOS",mg+4,y+5); y+=11;
-      // Cabecera columnas
-      doc.setFillColor(40,60,110); doc.rect(mg,y,W-mg*2,6,"F");
-      doc.setDrawColor(255,255,255);
-      doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
-      doc.text("MATERIAL",mg+3,y+4.5);
-      doc.text("CANTIDAD",W-mg-3,y+4.5,{align:"right"}); y+=7;
-      // Filas
-      parte.materialesList.forEach((m,i)=>{
-        const bgClr = i%2===0 ? [248,250,255] : [255,255,255];
-        doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
-        doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","normal");
-        doc.text(m.material,mg+3,y+4);
-        doc.setFont("helvetica","bold"); doc.setTextColor(15,100,55);
-        doc.text(String(m.cantidad),W-mg-3,y+4,{align:"right"});
-        y+=7;
-      });
-      y+=5;
-    }
-    // Firma
+    // Datos de cada intervencion — una seccion por cada parte de la cadena, una debajo de otra
+    piezas.forEach((pz,i)=>{
+      const repPz = data.reparaciones.find(r=>r.id===parseInt(pz.reparacionId));
+      const avisoPz = data.avisos.find(a=>a.id===parseInt(pz.avisoId));
+      asegurarEspacio(48);
+      y=box(esMultiple?("Intervencion "+(i+1)+" de "+piezas.length+" — "+(pz.numeroParte||"")+" — "+fmtFecha(pz.fecha)):"Datos de la intervencion",[
+        ["Tecnico",fmtNombres(pz,"tecnicos","tecnico")],
+        ["Maquina",[pz.marca,pz.modelo].filter(Boolean).join(" ")||"—"],
+        ["Matricula",pz.matricula||"—"],
+        ...(avisoPz?[["Aviso","#"+avisoPz.id+" - "+avisoPz.titulo]]:[] ),
+        ...(repPz?[["Reparacion","#"+repPz.id+" - "+repPz.maquina]]:[] ),
+        ["Descripcion trabajo",pz.descripcion],
+        ["Horas trabajadas",pz.horasT+" h"],
+        ["Desplazamiento",pz.km>0||pz.desplazamiento==="si"?"Si":"No"],
+      ],y);
+      // Tabla materiales de esta intervencion
+      if(pz.materialesList?.length>0){
+        asegurarEspacio(14+pz.materialesList.length*7);
+        // Cabecera sección materiales
+        doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+        doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
+        doc.setDrawColor(255,255,255);
+        doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+        doc.text("MATERIALES UTILIZADOS",mg+4,y+5); y+=11;
+        // Cabecera columnas
+        doc.setFillColor(40,60,110); doc.rect(mg,y,W-mg*2,6,"F");
+        doc.setDrawColor(255,255,255);
+        doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+        doc.text("MATERIAL",mg+3,y+4.5);
+        doc.text("CANTIDAD",W-mg-3,y+4.5,{align:"right"}); y+=7;
+        // Filas
+        pz.materialesList.forEach((m,j)=>{
+          const bgClr = j%2===0 ? [248,250,255] : [255,255,255];
+          doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
+          doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","normal");
+          doc.text(m.material,mg+3,y+4);
+          doc.setFont("helvetica","bold"); doc.setTextColor(15,100,55);
+          doc.text(String(m.cantidad),W-mg-3,y+4,{align:"right"});
+          y+=7;
+        });
+        y+=5;
+      }
+    });
+    // Firma y conformidad — una sola vez, al cierre del trabajo completo
+    asegurarEspacio(60);
     y+=4;
     doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
     doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
@@ -2448,7 +2529,7 @@ const Partes = ({ data, setData }) => {
     doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
     doc.text("CONFORMIDAD DEL CLIENTE",mg+4,y+5); y+=13;
     doc.setTextColor(60,75,100); doc.setFontSize(8); doc.setFont("helvetica","normal");
-    doc.text("El cliente declara haber recibido y verificado los trabajos descritos en este parte.",mg+4,y); y+=8;
+    doc.text(esMultiple?"El cliente declara haber recibido y verificado los trabajos descritos en este parte (todas las visitas).":"El cliente declara haber recibido y verificado los trabajos descritos en este parte.",mg+4,y); y+=8;
     if(parte.conforme===true||parte.conforme===false){
       const esConforme = parte.conforme===true;
       doc.setFont("helvetica","bold"); doc.setFontSize(9);
@@ -2476,12 +2557,17 @@ const Partes = ({ data, setData }) => {
     doc.setTextColor(107,122,153); doc.setFontSize(8);
     doc.text("Firma y sello del cliente",mg,y); y+=8;
     doc.text("Fecha de firma: "+today(),mg,y);
-    // Pie de página
-    doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
-    doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
-    doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
-    doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
-    if(soloDescarga) doc.save("parte-"+(parte.numeroParte||String(parte.id).slice(-6))+".pdf");
+    // Pie de página — en todas las paginas del documento
+    const totalPaginas = doc.getNumberOfPages();
+    for(let pg=1; pg<=totalPaginas; pg++){
+      doc.setPage(pg);
+      doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+      doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+      doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+      doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
+      if(totalPaginas>1){ doc.setTextColor(190,200,220); doc.text("Pagina "+pg+"/"+totalPaginas,W-mg,291,{align:"right"}); }
+    }
+    if(soloDescarga) doc.save("parte-"+numeroMostrar+".pdf");
     return doc.output("datauristring");
   };
   const enviarEmail = async () => {
@@ -2489,19 +2575,22 @@ const Partes = ({ data, setData }) => {
     setEnviando(true);
     try{
       const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad};
-      const dataUri = await generarYDescargarPDF(parteFinal,firmada,true);
+      const cadena = modalPDFCadena;
+      const numeroMostrado = cadena ? cadenaBaseDe(cadena[0]) : (modalPDF.numeroParte||"");
+      const dataUri = await generarYDescargarPDF(parteFinal,firmada,true,cadena);
       const base64 = dataUri.split(",")[1];
       const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
       await apiSendMail({
         to: emailCliente,
         cc: ccUsada,
-        subject: "Parte de trabajo "+(modalPDF.numeroParte||"")+" — Europea de Maquinaria",
-        html: "<p>Buenas,</p><p>Adjuntamos documento relativo a gestión de trabajo realizada, parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>La cuenta gestion@europeademaquinaria.com es para envío de información y no es una vía de contacto válida. Para información general, escriba a info@europeademaquinaria.com; para aspectos técnicos, a servicio@europeademaquinaria.com o al teléfono 961550707.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+        subject: "Parte de trabajo "+numeroMostrado+" — Europea de Maquinaria",
+        html: "<p>Buenas,</p><p>Adjuntamos documento relativo a gestión de trabajo realizada, parte de trabajo <strong>"+numeroMostrado+"</strong>"+(cadena?" (incluye las "+cadena.length+" visitas realizadas)":"")+".</p><p>La cuenta gestion@europeademaquinaria.com es para envío de información y no es una vía de contacto válida. Para información general, escriba a info@europeademaquinaria.com; para aspectos técnicos, a servicio@europeademaquinaria.com o al teléfono 961550707.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
         attachmentBase64: base64,
-        attachmentName: "parte-"+(modalPDF.numeroParte||String(modalPDF.id).slice(-6))+".pdf",
+        attachmentName: "parte-"+numeroMostrado+".pdf",
         attachmentMime: "application/pdf",
       });
-      setData(d=>({...d,partes:d.partes.map(pt=>pt.id===modalPDF.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
+      const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
       setEnviado(true);
     }catch(e){
       alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
@@ -2513,52 +2602,75 @@ const Partes = ({ data, setData }) => {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Partes de Trabajo</h2><p style={{color:"#6b7a99",fontSize:12,margin:"2px 0 0"}}>Genera PDFs firmados y envíalos al cliente por email</p></div>
-        <button onClick={abrirNuevo} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14} />Nuevo</button>
+        <div style={{display:"flex",gap:8}}>
+          {partesRetomables.length>0&&<button onClick={()=>setModalRetomar(true)} style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={14} />Retomar parte continuado</button>}
+          <button onClick={abrirNuevo} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14} />Nuevo</button>
+        </div>
       </div>
-      <div style={{display:"grid",gap:7}}>
-        {data.partes.map(p => {
-          const cl = p.clienteDirectoId
-            ? data.clientes.find(c => c.id === p.clienteDirectoId)
-            : rCliente(p.reparacionId);
-          return (
-            <div key={p.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div style={{flex:1}}>
-                <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>{fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#6b7a99",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span></div>
-                {(p.marca||p.modelo||p.matricula)&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:3}}>
-                  {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",border:"1px solid #0ea5e933",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>{p.marca}</span>}
-                  {p.modelo&&<span style={{background:"#0ea5e910",color:"#0ea5e9",borderRadius:4,padding:"1px 7px",fontSize:11}}>{p.modelo}</span>}
-                  {p.matricula&&<span style={{color:"#6b7a99",fontSize:11}}>Matr. {p.matricula}</span>}
-                </div>}
-                <div style={{color:"#f1f3f9",fontSize:13,marginBottom:3}}>{p.descripcion}</div>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  {cl && <span style={{color:"#9aa3b8",fontSize:12,fontWeight:600}}>🏢 {cl.nombreEmpresa}</span>}
-                  {p.reparacionId && <span style={{color:"#6b7a99",fontSize:12}}>{rL(p.reparacionId)}</span>}
-                  {p.materiales && <span style={{color:"#6b7a99",fontSize:12}}>🔩 {p.materiales}</span>}
+      <div style={{display:"grid",gap:12}}>
+        {gruposPartes.map(grupo => {
+          const esCadena = grupo.length>1;
+          const renderCard = (p, dentroDeCadena) => {
+            const cl = p.clienteDirectoId
+              ? data.clientes.find(c => c.id === p.clienteDirectoId)
+              : rCliente(p.reparacionId);
+            return (
+              <div key={p.id} style={{background:"#151b2a",border:"1px solid "+(dentroDeCadena?"#f59e0b33":"#2a3550"),borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>
+                    {dentroDeCadena&&<span style={{color:"#f59e0b",marginRight:6}}>{p.numContinuacion>0?("CONT"+p.numContinuacion):"Inicio"}</span>}
+                    {fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#6b7a99",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span>
+                  </div>
+                  {(p.marca||p.modelo||p.matricula)&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:3}}>
+                    {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",border:"1px solid #0ea5e933",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>{p.marca}</span>}
+                    {p.modelo&&<span style={{background:"#0ea5e910",color:"#0ea5e9",borderRadius:4,padding:"1px 7px",fontSize:11}}>{p.modelo}</span>}
+                    {p.matricula&&<span style={{color:"#6b7a99",fontSize:11}}>Matr. {p.matricula}</span>}
+                  </div>}
+                  <div style={{color:"#f1f3f9",fontSize:13,marginBottom:3}}>{p.descripcion}</div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {cl && <span style={{color:"#9aa3b8",fontSize:12,fontWeight:600}}>🏢 {cl.nombreEmpresa}</span>}
+                    {p.reparacionId && <span style={{color:"#6b7a99",fontSize:12}}>{rL(p.reparacionId)}</span>}
+                    {p.materiales && <span style={{color:"#6b7a99",fontSize:12}}>🔩 {p.materiales}</span>}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0,marginLeft:14}}>
+                  <div style={{color:"#f1f3f9",fontWeight:800,fontSize:20}}>{p.horasT}h</div>
+                  <div style={{color:"#6b7a99",fontSize:11}}>{(p.km>0||p.desplazamiento==="si")?"Con desplazamiento":"Sin desplazamiento"}</div>
+                  {p.estadoParte && (
+                    <div style={{display:"inline-block",marginTop:5,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.estadoParte==="Continuado"?"#f59e0b20":"#10b98120",color:p.estadoParte==="Continuado"?"#f59e0b":"#10b981",border:"1px solid "+(p.estadoParte==="Continuado"?"#f59e0b44":"#10b98144")}}>
+                      {p.estadoParte==="Continuado"?"🔄 Continuado":"✅ Finalizado"}
+                    </div>
+                  )}
+                  <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#6b7a9920",color:p.emailEnviado?"#10b981":"#6b7a99",border:"1px solid "+(p.emailEnviado?"#10b98144":"#6b7a9944")}}>
+                    {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
+                  </div>
+                  {(p.conforme===true||p.conforme===false)&&(
+                    <div title={p.notasConformidad||""} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.conforme?"#16a34a20":"#dc262620",color:p.conforme?"#16a34a":"#dc2626",border:"1px solid "+(p.conforme?"#16a34a44":"#dc262644")}}>
+                      {p.conforme?"✅ Conforme":"❌ No conforme"}
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                    <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
+                      <Icon name="parts" size={12} />PDF
+                    </button>
+                    <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
+                    <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                  </div>
                 </div>
               </div>
-              <div style={{textAlign:"right",flexShrink:0,marginLeft:14}}>
-                <div style={{color:"#f1f3f9",fontWeight:800,fontSize:20}}>{p.horasT}h</div>
-                <div style={{color:"#6b7a99",fontSize:11}}>{(p.km>0||p.desplazamiento==="si")?"Con desplazamiento":"Sin desplazamiento"}</div>
-                {p.estadoParte && (
-                  <div style={{display:"inline-block",marginTop:5,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.estadoParte==="Continuado"?"#f59e0b20":"#10b98120",color:p.estadoParte==="Continuado"?"#f59e0b":"#10b981",border:"1px solid "+(p.estadoParte==="Continuado"?"#f59e0b44":"#10b98144")}}>
-                    {p.estadoParte==="Continuado"?"🔄 Continuado":"✅ Finalizado"}
-                  </div>
-                )}
-                <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#6b7a9920",color:p.emailEnviado?"#10b981":"#6b7a99",border:"1px solid "+(p.emailEnviado?"#10b98144":"#6b7a9944")}}>
-                  {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
-                </div>
-                {(p.conforme===true||p.conforme===false)&&(
-                  <div title={p.notasConformidad||""} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.conforme?"#16a34a20":"#dc262620",color:p.conforme?"#16a34a":"#dc2626",border:"1px solid "+(p.conforme?"#16a34a44":"#dc262644")}}>
-                    {p.conforme?"✅ Conforme":"❌ No conforme"}
-                  </div>
-                )}
-                <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                  <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
-                    <Icon name="parts" size={12} />PDF
-                  </button>
-                  <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
-                  <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
-                </div>
+            );
+          };
+          if(!esCadena) return renderCard(grupo[0], false);
+          return (
+            <div key={cadenaBaseDe(grupo[0])} style={{border:"1px dashed #f59e0b55",borderRadius:14,padding:"10px 10px 4px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,padding:"0 4px"}}>
+                <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>🔗 Trabajo continuado — {grupo.length} visitas — {cadenaBaseDe(grupo[0])}</div>
+                <button onClick={()=>abrirPDFCadena(grupo)} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:7,padding:"4px 10px",cursor:"pointer",color:"#f59e0b",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
+                  <Icon name="parts" size={12} />PDF cadena completa
+                </button>
+              </div>
+              <div style={{display:"grid",gap:7}}>
+                {grupo.map(p => renderCard(p, true))}
               </div>
             </div>
           );
@@ -2837,11 +2949,39 @@ const Partes = ({ data, setData }) => {
           <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim()} style={{...btnPrimary,opacity:formNuevoCliente.nombreEmpresa?.trim() ? 1 :0.5}}>Crear y seleccionar</button>
         </div>
       </Modal>}
+      {/* Modal: elegir parte continuado a retomar */}
+      {modalRetomar && <Modal title="Retomar parte continuado" onClose={() => setModalRetomar(false)}>
+        <div style={{color:"#6b7a99",fontSize:12,marginBottom:12}}>
+          Selecciona el parte que vas a continuar. El nuevo parte se asociará al mismo trabajo y heredará su numeración (CONT1, CONT2...).
+        </div>
+        {partesRetomables.length===0 ? (
+          <div style={{color:"#6b7a99",fontSize:13,padding:"10px 0"}}>No hay partes marcados como "Continuado" pendientes de retomar.</div>
+        ) : (
+          <div style={{display:"grid",gap:8,maxHeight:"55vh",overflow:"auto"}}>
+            {partesRetomables.map(po=>{
+              const cl = po.clienteDirectoId ? data.clientes.find(c=>c.id===po.clienteDirectoId) : rCliente(po.reparacionId);
+              const cadena = obtenerCadenaPartes(data.partes, po);
+              return (
+                <button key={po.id} onClick={()=>retomarParte(po)} style={{textAlign:"left",background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,padding:"11px 14px",cursor:"pointer",color:"inherit"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontWeight:700,color:"#f1f3f9",fontSize:13}}>{po.numeroParte}</span>
+                    <span style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>{cadena.length} visita{cadena.length>1?"s":""} hasta ahora</span>
+                  </div>
+                  <div style={{color:"#9aa3b8",fontSize:12,marginTop:3}}>{cl?.nombreEmpresa||"Sin cliente"} · {fmtFecha(po.fecha)}</div>
+                  <div style={{color:"#6b7a99",fontSize:11,marginTop:2}}>{po.descripcion}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Modal>}
       {modalPDF && (() => {
         const p = modalPDF;
+        const cadenaPrev = modalPDFCadena;
+        const piezasPrev = cadenaPrev && cadenaPrev.length>1 ? cadenaPrev : [p];
+        const esMultiplePrev = piezasPrev.length>1;
+        const numeroMostradoPrev = esMultiplePrev ? cadenaBaseDe(piezasPrev[0]) : (p.numeroParte||("PT-"+String(p.id).slice(-6)));
         const cl = p.clienteDirectoId ? data.clientes.find(c=>c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
-        const rep = data.reparaciones.find(r => r.id === parseInt(p.reparacionId));
-        const aviso = data.avisos.find(a => a.id === parseInt(p.avisoId));
         const dirFiscal=[cl?.dirFiscal,cl?.cpFiscal,cl?.localidad,cl?.provinciaFiscal].filter(Boolean).join(", ");
         const contactoPpal = cl?.contactos?.find(c=>c.principal)||cl?.contactos?.[0];
         return (
@@ -2849,8 +2989,8 @@ const Partes = ({ data, setData }) => {
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:window.innerWidth<768?"18px 18px 0 0":18,width:"100%",maxWidth:window.innerWidth<768?"100%":640,maxHeight:"95vh",overflow:"auto",boxShadow:"0 32px 80px rgba(0,0,0,.7)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 24px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
                 <div>
-                  <span style={{fontWeight:800,fontSize:17,color:"#f1f3f9"}}>Parte de Trabajo — PDF</span>
-                  <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))} · {fmtFecha(p.fecha)}</div>
+                  <span style={{fontWeight:800,fontSize:17,color:"#f1f3f9"}}>Parte de Trabajo — PDF{esMultiplePrev?" (cadena completa)":""}</span>
+                  <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
                 </div>
                 <button onClick={()=>setModalPDF(null)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#8892a4",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
               </div>
@@ -2863,8 +3003,8 @@ const Partes = ({ data, setData }) => {
                       <div style={{fontSize:10,color:"#6b7a99"}}>Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>PARTE DE TRABAJO</div>
-                      <div style={{color:"#6b7a99",fontSize:11}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))} · {fmtFecha(p.fecha)}</div>
+                      <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>{esMultiplePrev?"PARTE DE TRABAJO (CONTINUADO)":"PARTE DE TRABAJO"}</div>
+                      <div style={{color:"#6b7a99",fontSize:11}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
                     </div>
                   </div>
                   {/* Datos cliente */}
@@ -2882,36 +3022,45 @@ const Partes = ({ data, setData }) => {
                       <div style={{color:"#ef4444",fontSize:12}}>Sin cliente vinculado</div>
                     )}
                   </div>
-                  {/* Datos intervencion */}
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:"3px 20px"}}>
-                    {[
-                      ["Tecnico",fmtNombres(p,"tecnicos","tecnico")],
-                      ...(p.marca||p.modelo?[["Maquina",[p.marca,p.modelo].filter(Boolean).join(" ")]]:[] ),
-                      ...(p.matricula?[["Matricula",p.matricula]]:[] ),
-                      ...(aviso?[["Aviso","#"+aviso.id+" - "+aviso.titulo]]:[] ),
-                      ...(rep?[["Reparacion","#"+rep.id+" - "+rep.maquina]]:[] ),
-                      ["Trabajo",p.descripcion],
-                      ["Horas",p.horasT+" h"],
-                      ["Desplazamiento",p.km>0||p.desplazamiento==="si"?"Si":"No"],
-                    ].map(([l,v])=>(
-                      <div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span></div>
-                    ))}
-                  </div>
-                  {p.materialesList?.length>0&&(
-                    <div style={{marginTop:8,background:"#0f172a",borderRadius:6,padding:"8px 10px",border:"1px solid #334155"}}>
-                      <div style={{fontSize:10,fontWeight:700,color:"#10b981",marginBottom:6,textTransform:"uppercase",letterSpacing:".6px"}}>Materiales utilizados</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"2px 8px"}}>
-                        <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3}}>Material</div>
-                        <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3,textAlign:"right"}}>Cant.</div>
-                        {p.materialesList.map((m,i)=>(
-                          <div key={i} style={{display:"contents"}}>
-                            <div style={{fontSize:11,color:"#e2e8f0",padding:"2px 0"}}>{m.material}</div>
-                            <div style={{fontSize:11,color:"#10b981",fontWeight:700,textAlign:"right",padding:"2px 0"}}>{m.cantidad}</div>
+                  {/* Datos intervencion — una por cada visita de la cadena */}
+                  {piezasPrev.map((pz,iPrev)=>{
+                    const repPz = data.reparaciones.find(r => r.id === parseInt(pz.reparacionId));
+                    const avisoPz = data.avisos.find(a => a.id === parseInt(pz.avisoId));
+                    return (
+                      <div key={pz.id||iPrev} style={{marginBottom:iPrev<piezasPrev.length-1?10:0,paddingBottom:iPrev<piezasPrev.length-1?10:0,borderBottom:iPrev<piezasPrev.length-1?"1px dashed #2a3550":"none"}}>
+                        {esMultiplePrev&&<div style={{fontSize:10,fontWeight:700,color:"#f59e0b",marginBottom:5,textTransform:"uppercase"}}>Visita {iPrev+1} de {piezasPrev.length} — {pz.numeroParte} — {fmtFecha(pz.fecha)}</div>}
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:"3px 20px"}}>
+                          {[
+                            ["Tecnico",fmtNombres(pz,"tecnicos","tecnico")],
+                            ...(pz.marca||pz.modelo?[["Maquina",[pz.marca,pz.modelo].filter(Boolean).join(" ")]]:[] ),
+                            ...(pz.matricula?[["Matricula",pz.matricula]]:[] ),
+                            ...(avisoPz?[["Aviso","#"+avisoPz.id+" - "+avisoPz.titulo]]:[] ),
+                            ...(repPz?[["Reparacion","#"+repPz.id+" - "+repPz.maquina]]:[] ),
+                            ["Trabajo",pz.descripcion],
+                            ["Horas",pz.horasT+" h"],
+                            ["Desplazamiento",pz.km>0||pz.desplazamiento==="si"?"Si":"No"],
+                          ].map(([l,v])=>(
+                            <div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span></div>
+                          ))}
+                        </div>
+                        {pz.materialesList?.length>0&&(
+                          <div style={{marginTop:8,background:"#0f172a",borderRadius:6,padding:"8px 10px",border:"1px solid #334155"}}>
+                            <div style={{fontSize:10,fontWeight:700,color:"#10b981",marginBottom:6,textTransform:"uppercase",letterSpacing:".6px"}}>Materiales utilizados</div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"2px 8px"}}>
+                              <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3}}>Material</div>
+                              <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3,textAlign:"right"}}>Cant.</div>
+                              {pz.materialesList.map((m,i)=>(
+                                <div key={i} style={{display:"contents"}}>
+                                  <div style={{fontSize:11,color:"#e2e8f0",padding:"2px 0"}}>{m.material}</div>
+                                  <div style={{fontSize:11,color:"#10b981",fontWeight:700,textAlign:"right",padding:"2px 0"}}>{m.cantidad}</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
                 {/* Firma */}
                 <div style={{marginBottom:18}}>
@@ -2972,18 +3121,20 @@ const Partes = ({ data, setData }) => {
                   <button onClick={() => setModalPDF(null)} style={btnOutline}>Cerrar</button>
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
-                    // Guardar firmaNombre y conformidad en el parte
-                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
-                    generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true);
+                    // Guardar firmaNombre y conformidad en el parte (y en toda la cadena si aplica)
+                    const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
+                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
+                    generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true,modalPDFCadena);
                   }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
-                    <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</span>
+                    <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
                   </button>
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
-                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
+                    const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
+                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
                     enviarEmail();
                   }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
-                    {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}</>}
+                    {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
                   </button>
                 </div>
               </div>
