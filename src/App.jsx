@@ -111,7 +111,7 @@ const initialData = {
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
-    dashboard:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",clients:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8",sales:"M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z",repair:"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",tasks:"M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",parts:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8",bell:"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",gear:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",plus:"M12 5v14 M5 12h14",edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",trash:"M3 6h18 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",close:"M18 6L6 18 M6 6l12 12",search:"M11 17.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z M21 21l-4.35-4.35",clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",check:"M20 6L9 17l-5-5",logout:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",fire:"M12 2c0 0-5 5-5 10a5 5 0 0 0 10 0C17 7 12 2 12 2z",mail:"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6",chat:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",send:"M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",image:"M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z",phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z",back:"M19 12H5 M12 19l-7-7 7-7",albaran:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2 M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2 M12 12h4 M12 16h4 M8 12h.01 M8 16h.01",stock:"M2 20h20 M4 20V10l8-6 8 6v10 M9 20v-5h6v5 M12 10v2 M10 13h4",inventario:"M20 12V22H4V12 M22 7H2v5h20V7z M12 22V7 M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z",documentacion:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01 M16 18h.01",
+    dashboard:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",clients:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8",sales:"M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z",repair:"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",tasks:"M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",parts:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8",bell:"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",gear:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",plus:"M12 5v14 M5 12h14",edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",trash:"M3 6h18 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",close:"M18 6L6 18 M6 6l12 12",search:"M11 17.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z M21 21l-4.35-4.35",clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",check:"M20 6L9 17l-5-5",logout:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",fire:"M12 2c0 0-5 5-5 10a5 5 0 0 0 10 0C17 7 12 2 12 2z",mail:"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6",chat:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",send:"M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",image:"M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z",phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z",back:"M19 12H5 M12 19l-7-7 7-7",albaran:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2 M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2 M12 12h4 M12 16h4 M8 12h.01 M8 16h.01",stock:"M2 20h20 M4 20V10l8-6 8 6v10 M9 20v-5h6v5 M12 10v2 M10 13h4",inventario:"M20 12V22H4V12 M22 7H2v5h20V7z M12 22V7 M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z",documentacion:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01 M16 18h.01",print:"M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z",
   };
   const d = P[name]||"";
   return (
@@ -2451,8 +2451,8 @@ const Ajustes = ({ data, setData, onPrueba }) => {
       </div>
     </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
-      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes de Trabajo</div>
-      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes y Albaranes</div>
+      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo o albarán enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
       <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"/></Field>
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
@@ -2655,9 +2655,9 @@ const Albaran = ({ data, setData, userActual }) => {
     setFirmada(false); setEnviado(false);
     setTimeout(() => { if (canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,160); }, 80);
   };
-  const generarPDF = async (alb, conFirma, soloDescargar) => {
+  const generarPDF = async (alb, conFirma, modo) => {
     const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4" });
-    const W = 210; const mg = 15;
+    const W = 210; const mg = 18;
     // ── Cabecera (mismo estilo que partes) ──────────────────────────
     doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
     doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
@@ -2666,8 +2666,8 @@ const Albaran = ({ data, setData, userActual }) => {
     doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
     doc.text(EMPRESA.nombre, mg+30, 12);
     doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
-    doc.text(EMPRESA.direccion+"  ·  "+EMPRESA.cp+"  ·  CIF: "+EMPRESA.cif, mg+30, 18);
-    doc.text(EMPRESA.web+"  ·  "+EMPRESA.email, mg+30, 24);
+    doc.text(EMPRESA.direccion+"  ·  "+EMPRESA.cp+" (Valencia)  ·  CIF: "+EMPRESA.cif, mg+30, 18);
+    doc.text(EMPRESA.web+"  ·  "+EMPRESA.email+"  ·  Tel: 961550707", mg+30, 24);
     // Título y número alineados a la derecha
     doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
     doc.text("ALBARÁN DE ENTREGA", W-mg, 13, {align:"right"});
@@ -2759,7 +2759,13 @@ const Albaran = ({ data, setData, userActual }) => {
     doc.setDrawColor(255,255,255);
     doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
     doc.text(EMPRESA.nombre+"  ·  CIF: "+EMPRESA.cif+"  ·  "+EMPRESA.web, W/2, 291, {align:"center"});
-    if (soloDescargar) {
+    if (modo === "imprimir") {
+      try {
+        const blobUrl = doc.output("bloburl");
+        const w = window.open(blobUrl, "_blank");
+        if (w) setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 700);
+      } catch(e) {}
+    } else if (modo) {
       doc.save(`albaran-${alb.numero}.pdf`);
     }
     return doc.output("datauristring");
@@ -2769,22 +2775,23 @@ const Albaran = ({ data, setData, userActual }) => {
     if (!alb) return;
     setEnviando(true);
     try{
-      const dataUri = await generarPDF(alb, firmada, true);
+      const dataUri = await generarPDF(alb, firmada, "descargar");
       setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
+        const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com";
         await apiSendMail({
           to: destino,
-          cc: EMPRESA.email,
+          cc: ccUsada,
           subject: "Albarán "+alb.numero+" — Europea de Maquinaria",
           html: "<p>Buenas,</p><p>Adjuntamos el albarán <strong>"+alb.numero+"</strong> firmado.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
           attachmentBase64: base64,
           attachmentName: "albaran-"+alb.numero+".pdf",
           attachmentMime: "application/pdf",
         });
-        setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,emailEnviado:true,emailEnviadoA:destino,emailEnviadoCC:EMPRESA.email } : a) }));
-        alert("Email enviado a "+destino+", con copia a "+EMPRESA.email+".");
+        setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,emailEnviado:true,emailEnviadoA:destino,emailEnviadoCC:ccUsada } : a) }));
+        alert("Email enviado a "+destino+", con copia a "+ccUsada+".");
       }
       setEnviado(true);
       if (vista) setVista(alb.id);
@@ -2810,7 +2817,8 @@ const Albaran = ({ data, setData, userActual }) => {
             </div>
             <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>📅 {alb.fecha} · 👤 {emisor?.nombre || "—"}</div>
           </div>
-          <button onClick={() => generarPDF(alb, alb.firmada, true)} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
+          <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
+          <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
           {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>✍️ Firmar y enviar</button>}
           <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
         </div>
@@ -2831,7 +2839,7 @@ const Albaran = ({ data, setData, userActual }) => {
             </div>}
             {alb.firmada && <div style={{background:"#16a34a12",border:"1px solid #16a34a33",borderRadius:12,padding:"14px 16px"}}>
               <div style={{fontSize:11,fontWeight:700,color:"#16a34a",textTransform:"uppercase",letterSpacing:".7px",marginBottom:5}}>✅ Firmado el {alb.fechaFirma}</div>
-              <div style={{color:"#6b7a99",fontSize:12}}>Copia enviada a {alb.receptorEmail||"—"} y {EMPRESA.email}</div>
+              <div style={{color:"#6b7a99",fontSize:12}}>{alb.emailEnviado?("Email enviado a "+(alb.emailEnviadoA||alb.receptorEmail||"—")+", con copia a "+(alb.emailEnviadoCC||"—")):"Firmado, sin envío de email registrado"}</div>
             </div>}
           </div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
@@ -2890,7 +2898,8 @@ const Albaran = ({ data, setData, userActual }) => {
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                 {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",fontWeight:700,fontSize:11}}>✍️ Firmar</button>}
-                <button onClick={() => generarPDF(alb, alb.firmada, true)} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
+                <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
+                <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
                 <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
                 <button onClick={() => setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
@@ -2974,12 +2983,13 @@ const Albaran = ({ data, setData, userActual }) => {
                   <input value={firmEmail} onChange={e => setFirmEmail(e.target.value)} type="email" placeholder="email@cliente.es" style={inputStyle}/>
                 </Field>
                 <div style={{fontSize:11,color:"#6b7a99",marginBottom:16}}>
-                  Copia empresa: <span style={{color:"#9aa3b8"}}>{EMPRESA.email}</span>
+                  Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}</span>
                 </div>
-                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+EMPRESA.email):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
+                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+(data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com")):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
                 <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => setModalFirma(null)} style={btnOutline}>Cancelar</button>
-                  <button onClick={() => generarPDF(alb, firmada, true)} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Solo descargar</button>
+                  <button onClick={() => generarPDF(alb, firmada, "imprimir")} style={{...btnOutline,color:"#10b981",borderColor:"#10b98144",display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
+                  <button onClick={() => generarPDF(alb, firmada, "descargar")} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Solo descargar</button>
                   <button onClick={firmarYEnviar} disabled={enviando} style={{background:enviando?"#1a2236":"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
                     {enviando ? "Generando..." : <>{firmada ? "✅" : "📄"} {firmada ? "Firmar y enviar" : "Enviar sin firma"}</>}
                   </button>
