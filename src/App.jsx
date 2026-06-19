@@ -3430,20 +3430,25 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     const urlArticulo = `${window.location.origin}/?articulo=${encodeURIComponent(item.codigo)}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(urlArticulo)}`;
 
-    // Ventana de impresión: solo empresa + código + QR
+    // Ventana de impresión: empresa + nombre + codigo interno + codigos externos (sin proveedor) + QR
+    const codigosExternos = [item.codigoExterno1, item.codigoExterno2].filter(Boolean);
     const w = window.open("","_blank","width=360,height=360");
     w.document.write(`<!DOCTYPE html><html><head><title>Etiqueta ${item.codigo}</title><style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}
 .et{border:2px solid #000;padding:14px;width:230px;text-align:center}
-.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:10px;font-weight:700}
-.cod{font-size:22px;font-weight:900;letter-spacing:4px;color:#000;margin-bottom:10px}
+.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:8px;font-weight:700}
+.nom{font-size:12px;font-weight:700;color:#000;margin-bottom:6px;word-break:break-word}
+.cod{font-size:22px;font-weight:900;letter-spacing:4px;color:#000;margin-bottom:6px}
+.ext{font-size:9px;color:#333;margin-bottom:10px}
 img{display:block;margin:0 auto}
 @media print{body{min-height:0}}
 </style></head><body>
 <div class="et">
   <div class="emp">EUROPEA DE MAQUINARIA PMM SL</div>
+  <div class="nom">${item.nombre||""}</div>
   <div class="cod">${item.codigo}</div>
+  ${codigosExternos.length ? `<div class="ext">Cod. externo: ${codigosExternos.join(" · ")}</div>` : ""}
   <img src="${qrUrl}" width="190" height="190" alt="QR"/>
 </div>
 <script>
