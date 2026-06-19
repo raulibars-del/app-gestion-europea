@@ -2736,13 +2736,21 @@ const Partes = ({ data, setData }) => {
           if(form.clienteDirectoId) avisosDisp = avisosDisp.filter(a=>a.clienteId===form.clienteDirectoId);
           // FILTRO CLAVE: si hay máquina seleccionada, mostrar SOLO avisos de esa máquina
           if(form.maquinaId) avisosDisp = avisosDisp.filter(a=>String(a.maquinaId)===String(form.maquinaId));
+          // Si el parte ya viene con un aviso vinculado (p.ej. al "Retomar parte continuado" —
+          // el trabajo sigue sobre el mismo aviso, que permanece abierto hasta finalizar la
+          // cadena), ese aviso debe aparecer y quedar seleccionado siempre, aunque no encaje
+          // con el filtro de cliente/máquina por algún dato antiguo o inconsistente.
+          if(form.avisoId && !avisosDisp.some(a=>a.id===parseInt(form.avisoId))){
+            const avVinculado = data.avisos.find(a=>a.id===parseInt(form.avisoId));
+            if(avVinculado) avisosDisp = [avVinculado, ...avisosDisp];
+          }
           const filtraMaquina = !!(form.clienteDirectoId && form.maquinaId);
           const labelAviso = filtraMaquina
             ? `Avisos de esta máquina (${avisosDisp.length} activo${avisosDisp.length!==1?"s":""})`
             : "Vincular a aviso (opcional)";
           return (
             <Field label={labelAviso}>
-              {filtraMaquina && avisosDisp.length===0 && (
+              {filtraMaquina && avisosDisp.length===0 && !form.avisoId && (
                 <div style={{background:"#f59e0b12",border:"1px solid #f59e0b33",borderRadius:8,padding:"9px 12px",color:"#f59e0b",fontSize:12,marginBottom:6}}>
                   No hay avisos activos para esta máquina — el parte se creará sin aviso vinculado
                 </div>
