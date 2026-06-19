@@ -38,7 +38,7 @@ const PRIORIDADES = ["Alta","Media","Leve"];
 const PCOLOR = { "Alta":"#ef4444", "Media":"#f59e0b", "Leve":"#16a34a" };
 const PRIORIDAD_ORDER = { "Alta":0, "Media":1, "Leve":2 };
 const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Enviado presupuesto a espera aceptacion","Resuelto","Cancelado"];
-const TIPOS_AVISO = ["Reparación","Montaje","Problema","Consulta","Otro"];
+const TIPOS_AVISO = ["Reparación","Montaje","Ajuste/mantenimiento","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
@@ -1092,7 +1092,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
       {/* Modal detalle */}
       {detalle && (()=>{
         const clD = data.clientes.find(c=>c.id===detalle.clienteId);
-        const telD = clD?.contactos?.find(c=>c.principal)?.tel || clD?.contactos?.[0]?.tel || "—";
+        const contactoD = clD?.contactos?.find(c=>c.principal) || clD?.contactos?.[0];
+        const telD = contactoD?.tel ? `${contactoD.tel} (${contactoD.nombre})` : "—";
         const dirD = [clD?.dirFiscal,clD?.cpFiscal,clD?.localidad,clD?.provinciaFiscal].filter(Boolean).join(", ") || "—";
         const maqD = [detalle.marca, detalle.modelo, detalle.matricula?("(" + detalle.matricula + ")"):""].filter(Boolean).join(" ") || "—";
         return <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
