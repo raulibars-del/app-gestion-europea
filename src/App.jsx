@@ -645,7 +645,7 @@ const Clientes = ({ data, setData, onIrADocMaquina }) => {
             <div style={{fontSize:11,fontWeight:700,color:"#e2b714",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>📂 Documentacion ({docsCliente.length} maquina{docsCliente.length!==1?"s":""})</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(240px,100%),1fr))",gap:8}}>
               {docsCliente.map(doc=>(
-                <div key={doc.id} style={{background:"#0d1117",borderRadius:9,padding:"10px 13px",border:"1px solid #e2b71422"}}>
+                <div key={doc.id} onClick={()=>onIrADocMaquina&&onIrADocMaquina({clienteId:doc.clienteId,maquinaId:doc._maquinaClienteId,marca:doc.marca,modelo:doc.modelo,serie:doc.matricula})} style={{background:"#0d1117",borderRadius:9,padding:"10px 13px",border:"1px solid #e2b71422",cursor:onIrADocMaquina?"pointer":"default"}}>
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:3}}>{doc.marca} {doc.modelo}</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                     {doc.matricula&&<span style={{color:"#6b7a99",fontSize:11}}>Matr. {doc.matricula}</span>}
