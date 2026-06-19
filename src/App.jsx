@@ -3543,6 +3543,19 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     });
   };
 
+  // Subida rapida de documentos directamente desde la vista detalle (sin abrir el modal de edicion)
+  const handleArchivosRapido = (e, docId) => {
+    Array.from(e.target.files).forEach(file => {
+      const r = new FileReader();
+      r.onload = ev => {
+        const nuevo = { id: Date.now()+Math.random(), nombre: file.name, tipo: detectarTipo(file.name), tamanyo: file.size, data: ev.target.result };
+        setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:[...(x.archivos||[]), nuevo]} : x) }));
+      };
+      r.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
   const detectarTipo = nombre => {
     const n = nombre.toLowerCase();
     if (n.includes("manual")) return "Manual de usuario";
@@ -3688,6 +3701,10 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
           <div style={{padding:"12px 16px",borderBottom:"1px solid #2a3550",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{(doc.archivos||[]).length} documento{(doc.archivos||[]).length!==1?"s":""}</div>
+            <label style={{display:"flex",alignItems:"center",gap:6,background:"#e2b71415",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e2b714",fontSize:12,fontWeight:700}}>
+              📎 Añadir documento
+              <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={e=>handleArchivosRapido(e,doc.id)} style={{display:"none"}}/>
+            </label>
           </div>
           {(doc.archivos||[]).length === 0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99"}}>Sin archivos adjuntos</div>}
           {(doc.archivos||[]).map((a,i) => {
@@ -3730,6 +3747,61 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           })}
         </div>
         {doc.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13,lineHeight:1.6}}>{doc.notas}</div></div>}
+
+        {/* Modal editar maquina (también accesible desde la vista detalle) */}
+        {modal && (
+          <Modal title={form.id?"Editar maquina":"Nueva maquina"} onClose={()=>setModal(false)} wide>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:11}}>
+              <Field label="Marca *"><Input value={form.marca||""} onChange={f("marca")} placeholder="Casadei, Busellato..."/></Field>
+              <Field label="Modelo *"><Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3, Jet Start..."/></Field>
+              <Field label="Matricula / Nro serie"><Input value={form.matricula||""} onChange={f("matricula")}/></Field>
+              <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")} placeholder="2022"/></Field>
+            </div>
+            <Field label="Cliente (propietario de la maquina)"><ClientePicker clientes={data.clientes} value={form.clienteId||""} onChange={id=>setForm(p=>({...p,clienteId:id}))}/></Field>
+            <Field label="Descripcion breve"><Input value={form.descripcion||""} onChange={f("descripcion")} placeholder="Ej: Escuadradora de precision 3200mm"/></Field>
+
+            {/* Subida de archivos */}
+            <div style={{marginBottom:4}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
+                Documentos ({archivos.length})
+              </div>
+              <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #e2b71444",borderRadius:8,padding:"12px 14px",cursor:"pointer",marginBottom:8}}>
+                <span style={{fontSize:20}}>📎</span>
+                <div>
+                  <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
+                  <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — sin limite</div>
+                </div>
+                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
+              </label>
+
+              {archivos.length > 0 && (
+                <div style={{display:"grid",gap:5}}>
+                  {archivos.map((a,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#0d1117",borderRadius:8,padding:"8px 12px",border:"1px solid #2a3550"}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{iconoTipo(a.tipo)}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
+                        <div style={{color:"#6b7a99",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
+                      </div>
+                      {/* Selector de tipo */}
+                      <select value={a.tipo} onChange={e=>setArchivos(p=>p.map((x,j)=>j===i?{...x,tipo:e.target.value}:x))}
+                        style={{...inputStyle,width:"auto",fontSize:10,padding:"3px 6px"}}>
+                        {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")} placeholder="Observaciones, notas de mantenimiento..."/></Field>
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+              <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
+              <button onClick={save} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{form.id?"Guardar":"Crear ficha"}</button>
+            </div>
+          </Modal>
+        )}
       </div>
     );
   }
