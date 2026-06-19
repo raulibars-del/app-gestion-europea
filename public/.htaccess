@@ -4,3 +4,13 @@ RewriteBase /
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [QSA,L]
+
+# Evita que index.html y el manifest se queden cacheados para siempre en
+# apps añadidas a pantalla de inicio (iOS las cachea muy agresivamente).
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
