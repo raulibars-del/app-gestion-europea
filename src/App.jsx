@@ -868,9 +868,15 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     </div>
   );
 };
-const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
+const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoId, onAbrirAvisoId }) => {
   const [modalAv, setModalAv] = useState(null);
   const [detalle, setDetalle] = useState(null);
+  useEffect(() => {
+    if (!abrirAvisoId) return;
+    const av = data.avisos.find(a => a.id === abrirAvisoId);
+    if (av) setDetalle(av);
+    onAbrirAvisoId && onAbrirAvisoId();
+  }, [abrirAvisoId]);
   const [formAv, setFormAv] = useState({});
   const [fe, setFe] = useState("Activos");
   const [fp, setFp] = useState("Todos");
@@ -4402,7 +4408,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 const TIPOS_EVENTO = ["Aviso","Visita","Feria","Medico","Vacaciones","Formacion","Otro"];
 const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#10b981",Vacaciones:"#a855f7",Formacion:"#06b6d4",Otro:"#6b7a99"};
 
-const Calendario = ({ data, setData, userActual }) => {
+const Calendario = ({ data, setData, userActual, irAAviso }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
   const [semanaOffset, setSemanaOffset] = useState(0);
   const [modal, setModal] = useState(false);
@@ -4572,7 +4578,10 @@ const Calendario = ({ data, setData, userActual }) => {
                 const maq=av.maquinaId&&cl?cl.maquinas?.find(m=>m.id===parseInt(av.maquinaId)):null;
                 const uN=data.usuarios.find(u=>u.nombre===av.asignado);
                 return(
-                  <div key={av.id} style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",border:"1px solid "+( av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550")}}>
+                  <div key={av.id} onClick={()=>irAAviso&&irAAviso(av.id)}
+                    style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",cursor:irAAviso?"pointer":"default",border:"1px solid "+( av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550"),transition:"border-color .15s"}}
+                    onMouseEnter={e=>irAAviso&&(e.currentTarget.style.borderColor="#3b82f6")}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor=av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550"}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,marginBottom:3}}>
                       <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,flex:1}}>{av.titulo}</div>
                       <span style={{background:av.prioridad==="Alta"?"#ef444420":av.prioridad==="Media"?"#f59e0b20":"#10b98120",color:av.prioridad==="Alta"?"#ef4444":av.prioridad==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{av.prioridad}</span>
@@ -5391,6 +5400,8 @@ export default function App() {
     const n=crearNotif(user.id,"diario","📋 Resumen diario — "+today(),`${act.length} avisos activos:\n${resumen}`);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:[n,...(d.notificaciones[user.id]||[])]}}));
   },[user]);
+  const [avisoAAbrir,setAvisoAAbrir]=useState(null);
+  const irAAviso=id=>{setAvisoAAbrir(id);setActive("asistencia");};
   const onNuevoAviso=aviso=>{
     setData(d=>{
       const nn={...d.notificaciones};
@@ -5596,7 +5607,7 @@ export default function App() {
         {!isMobile&&<Sidebar/>}
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
-          {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso}/>}
+          {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
@@ -5605,7 +5616,7 @@ export default function App() {
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
-          {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user}/>}
+          {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
