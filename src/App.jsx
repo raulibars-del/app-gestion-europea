@@ -1594,16 +1594,25 @@ const Tareas = ({ data, setData, userActual }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [verCompletadas, setVerCompletadas] = useState(false);
+  const [verAsigCompletadas, setVerAsigCompletadas] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id);
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const mostrar = verCompletadas ? misTareas : pendientes;
-  const sorted = [...mostrar].sort((a, b) => {
+  const ordenar = lista => [...lista].sort((a, b) => {
     const po = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
     if (po !== pb) return po - pb;
     return new Date(a.vence) - new Date(b.vence);
   });
+  const sorted = ordenar(mostrar);
+  // Tareas que yo he asignado a otra persona: quedan en "común" — sigo viéndolas
+  // como pendientes en mi pantalla hasta que la persona asignada las marque como Completada.
+  const asignadasPorMi = data.tareas.filter(t => t.creadoPor === userActual.id && t.asignadoId !== userActual.id);
+  const asigPendientes = asignadasPorMi.filter(t => t.estado !== "Completada");
+  const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
+  const asigMostrar = verAsigCompletadas ? asignadasPorMi : asigPendientes;
+  const asigSorted = ordenar(asigMostrar);
   const uN = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "—";
   const diasVence = vence => {
     const d = Math.ceil((new Date(vence) - new Date(today())) / 86400000);
@@ -1729,6 +1738,46 @@ const Tareas = ({ data, setData, userActual }) => {
           );
         })}
       </div>
+      {/* Tareas que he asignado a otros — quedan en común, las veo como pendientes hasta que el destinatario las complete */}
+      {asignadasPorMi.length > 0 && (
+        <>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"22px 0 10px"}}>
+            <div>
+              <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>Tareas que he asignado</div>
+              <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}><span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span> de que las complete la persona asignada</div>
+            </div>
+            <button onClick={() => setVerAsigCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#6b7a99",fontSize:12,cursor:"pointer",fontWeight:600}}>
+              {verAsigCompletadas ? "Ocultar completadas" : `Ver completadas (${asigCompletadas.length})`}
+            </button>
+          </div>
+          <div style={{display:"grid",gap:6}}>
+            {asigSorted.map(t => {
+              const vc = venceColor(t.vence);
+              return (
+                <div key={t.id} style={{background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
+                  <div style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>
+                    {t.estado === "Completada" && "✓"}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
+                      <span style={{color:"#6b7a99",fontSize:11}}>Asignada a {uN(t.asignadoId)}</span>
+                      {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+                    <Badge text={t.prioridad} />
+                    <Badge text={t.estado} />
+                    <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
+                    <button onClick={() => del(t.id)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
       {/* Modal nueva/editar tarea */}
       {modal && <Modal title={form.id ? "Editar tarea" : "Nueva tarea"} onClose={() => setModal(false)}>
         <Field label="Título de la tarea"><Input value={form.titulo} onChange={f("titulo")} placeholder="Describe la tarea..." /></Field>
