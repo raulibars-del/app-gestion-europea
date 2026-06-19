@@ -37,7 +37,7 @@ const TECNICOS_NOMBRES = []; // legacy - now dynamic from data.usuarios
 const PRIORIDADES = ["Alta","Media","Leve"];
 const PCOLOR = { "Alta":"#ef4444", "Media":"#f59e0b", "Leve":"#16a34a" };
 const PRIORIDAD_ORDER = { "Alta":0, "Media":1, "Leve":2 };
-const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","Resuelto","Cancelado"];
+const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Enviado presupuesto a espera aceptacion","Resuelto","Cancelado"];
 const TIPOS_AVISO = ["Reparación","Montaje","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
@@ -115,7 +115,7 @@ const initialData = {
     {id:1,codigo:"INV0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
     {id:2,codigo:"INV0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:3,codigo:"INV0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
-  ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com,servicio@europeademaquinaria.com"},
+  ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
@@ -129,7 +129,7 @@ const Icon = ({ name, size=18 }) => {
   );
 };
 const Badge = ({ text }) => {
-  const map = {"Facturada":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#6b7280","Perdida":"#dc2626","Cancelada":"#6b7280","Cancelado":"#6b7280","Sin asignar":"#dc2626","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#6b7280"};
+  const map = {"Facturada":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#6b7280","Perdida":"#dc2626","Cancelada":"#6b7280","Cancelado":"#6b7280","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Enviado presupuesto a espera aceptacion":"#0ea5e9","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#6b7280"};
   const c = map[text]||"#6b7280";
   return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{text}</span>;
 };
@@ -878,12 +878,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
   const [s, setS] = useState("");
   const [soloSinAsignar, setSoloSinAsignar] = useState(false);
   const [soloAntiguos, setSoloAntiguos] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [motivoCancel, setMotivoCancel] = useState("");
   const fa = k => e => setFormAv(p => ({ ...p, [k]: e.target.value }));
   const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
   const avs = useMemo(() => {
     let l = [...data.avisos];
     if (fe === "Activos") l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
     else if (fe === "Resueltos") l = l.filter(a => a.estado === "Resuelto");
+    else if (fe === "Cancelados") l = l.filter(a => a.estado === "Cancelado");
     if (soloSinAsignar) l = l.filter(a => !a.asignado || a.estado === "Sin asignar");
     if (soloAntiguos) l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
     if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
@@ -906,6 +909,12 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
     setModalAv(null); setDetalle(null);
   };
   const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto" } : a) }));
+  const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today() } : a) }));
+  const confirmarCancelacion = () => {
+    if (!motivoCancel.trim()) { alert("Indica el motivo de la cancelación"); return; }
+    cancelarAv(cancelTarget, motivoCancel.trim());
+    setCancelTarget(null); setMotivoCancel(""); setDetalle(null);
+  };
   const delAv = id => { setData(d => ({ ...d,avisos: d.avisos.filter(a => a.id !== id) })); setDetalle(null); };
   const crit = data.avisos.filter(a => a.prioridad === "Alta" && a.estado !== "Resuelto" && a.estado !== "Cancelado");
   const sinA = data.avisos.filter(a => a.estado === "Sin asignar");
@@ -994,7 +1003,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
       {/* Filtros */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
         <div style={{display:"flex",gap:3}}>
-          {["Activos", "Resueltos", "Todos"].map(e => (
+          {["Activos", "Resueltos", "Cancelados", "Todos"].map(e => (
             <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#6b7a99",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{e}</button>
           ))}
         </div>
@@ -1066,8 +1075,11 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
                 <DiasBadge fecha={av.fechaAviso} estado={av.estado} />
                 <Badge text={av.estado} />
                 <div style={{display:"flex",gap:3}}>
-                  {av.estado !== "Resuelto" && (
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); resolverAv(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
+                  )}
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
+                    <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
                   )}
                   <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={12} /></button>
                   <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
@@ -1078,9 +1090,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
         })}
       </div>
       {/* Modal detalle */}
-      {detalle && <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
+      {detalle && (()=>{
+        const clD = data.clientes.find(c=>c.id===detalle.clienteId);
+        const telD = clD?.contactos?.find(c=>c.principal)?.tel || clD?.contactos?.[0]?.tel || "—";
+        const dirD = [clD?.dirFiscal,clD?.cpFiscal,clD?.localidad,clD?.provinciaFiscal].filter(Boolean).join(", ") || "—";
+        const maqD = [detalle.marca, detalle.modelo, detalle.matricula?("(" + detalle.matricula + ")"):""].filter(Boolean).join(" ") || "—";
+        return <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9,marginBottom:11}}>
-          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===detalle.clienteId);return cl?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null;})()}</span>], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", detalle.asignado || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
+          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>], ["Teléfono cliente", telD], ["Dirección", dirD], ["Máquina", maqD], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", detalle.asignado || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
             <div key={l} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:"#6b7a99",textTransform:"uppercase",marginBottom:2}}>{l}</div>
               <div style={{color:"#f1f3f9",fontWeight:700}}>{v}</div>
@@ -1097,15 +1114,37 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
             <div style={{color:"#c4cad8",fontSize:12}}>{detalle.notas}</div>
           </div>
         )}
+        {detalle.estado === "Cancelado" && detalle.motivoCancelacion && (
+          <div style={{background:"#dc26260d",border:"1px solid #dc262633",borderRadius:8,padding:"10px 12px",marginBottom:11}}>
+            <div style={{fontSize:11,color:"#dc2626",textTransform:"uppercase",marginBottom:3}}>Motivo de cancelación{detalle.fechaCancelacion?" · "+detalle.fechaCancelacion:""}</div>
+            <div style={{color:"#c4cad8",fontSize:12}}>{detalle.motivoCancelacion}</div>
+          </div>
+        )}
         <div style={{display:"flex",gap:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
-          {detalle.estado !== "Resuelto" && (
+          {detalle.estado !== "Resuelto" && detalle.estado !== "Cancelado" && (
             <button onClick={() => { resolverAv(detalle.id); setDetalle(null); }} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
               <Icon name="check" size={13} />Resuelto
+            </button>
+          )}
+          {detalle.estado !== "Resuelto" && detalle.estado !== "Cancelado" && (
+            <button onClick={() => { setCancelTarget(detalle.id); setMotivoCancel(""); }} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
+              <Icon name="close" size={13} />Cancelar
             </button>
           )}
           <button onClick={() => { openEditAv(detalle); setDetalle(null); }} style={{...btnPrimary,display:"flex",alignItems:"center",gap:5}}>
             <Icon name="edit" size={13} />Editar
           </button>
+        </div>
+      </Modal>;
+      })()}
+      {/* Modal motivo de cancelación */}
+      {cancelTarget && <Modal title="Motivo de cancelación" onClose={() => setCancelTarget(null)}>
+        <Field label="Motivo de la cancelación *">
+          <Textarea value={motivoCancel} onChange={e=>setMotivoCancel(e.target.value)} placeholder="Indica por qué se cancela este aviso"/>
+        </Field>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:11}}>
+          <button onClick={()=>setCancelTarget(null)} style={btnOutline}>Volver</button>
+          <button onClick={confirmarCancelacion} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer"}}>Confirmar cancelación</button>
         </div>
       </Modal>}
       {/* Modal form aviso */}
@@ -1171,7 +1210,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
           <Field label="Prioridad"><Select value={formAv.prioridad} onChange={fa("prioridad")} options={PRIORIDADES}/></Field>
-          <Field label="Estado"><Select value={formAv.estado} onChange={fa("estado")} options={ESTADOS_AVISO}/></Field>
+          <Field label="Estado"><Select value={formAv.estado} onChange={e=>setFormAv(p=>({...p,estado:e.target.value,...(e.target.value==="Cancelado"&&!p.fechaCancelacion?{fechaCancelacion:today()}:{})}))} options={ESTADOS_AVISO}/></Field>
           <Field label="Tecnico asignado">
             <select value={formAv.asignado} onChange={fa("asignado")} style={{...inputStyle}}>
               <option value="">Sin asignar</option>
@@ -1206,6 +1245,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
             }
           </div>
         )}
+        {/* Motivo de cancelacion — aparece si el estado se pone en Cancelado desde el desplegable */}
+        {formAv.estado === "Cancelado" && (
+          <div style={{background:"#dc26260d",border:"1px solid #dc262644",borderRadius:9,padding:"12px 14px"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#dc2626",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>
+              Motivo de la cancelación *
+            </div>
+            <Textarea value={formAv.motivoCancelacion||""} onChange={fa("motivoCancelacion")} placeholder="Indica por qué se cancela este aviso"/>
+          </div>
+        )}
         <Field label="Notas"><Textarea value={formAv.notas} onChange={fa("notas")}/></Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
           <button onClick={()=>setModalAv(null)} style={btnOutline}>Cancelar</button>
@@ -1215,6 +1263,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
             if(!cl?.maquinas?.length){alert("El cliente no tiene maquinas registradas.\nVe a su ficha y añade la maquina primero.");return;}
             if(!formAv.maquinaId){alert("Selecciona la maquina afectada");return;}
             if(!formAv.titulo?.trim()){alert("El titulo es obligatorio");return;}
+            if(formAv.estado==="Cancelado" && !formAv.motivoCancelacion?.trim()){alert("Indica el motivo de la cancelación");return;}
             saveAv();
           }} style={btnPrimary}>Guardar aviso</button>
         </div>
@@ -1977,7 +2026,7 @@ const Partes = ({ data, setData }) => {
     try{
       const dataUri = await generarYDescargarPDF(modalPDF,firmada,true);
       const base64 = dataUri.split(",")[1];
-      const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com";
+      const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
       await apiSendMail({
         to: emailCliente,
         cc: ccUsada,
@@ -2367,11 +2416,11 @@ const Partes = ({ data, setData }) => {
                     <div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>El cliente no tiene email — introducelo manualmente</div>
                   )}
                   <div style={{fontSize:11,color:"#6b7a99",marginTop:4}}>
-                    Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}</span>
+                    Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
                   </div>
                 </div>
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"10px 14px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
-                  <Icon name="check" size={15} />PDF descargado y email enviado a {p.emailEnviadoA||emailCliente}, con copia a {p.emailEnviadoCC||data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}
+                  <Icon name="check" size={15} />PDF descargado y email enviado a {p.emailEnviadoA||emailCliente}, con copia a {p.emailEnviadoCC||data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}
                 </div>}
                 <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => setModalPDF(null)} style={btnOutline}>Cerrar</button>
@@ -2461,7 +2510,7 @@ const Ajustes = ({ data, setData, onPrueba }) => {
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes y Albaranes</div>
       <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo o albarán enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
-      <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"/></Field>
+      <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com"/></Field>
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
         {ok&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
@@ -2479,6 +2528,8 @@ const Ajustes = ({ data, setData, onPrueba }) => {
 const Dashboard = ({ data, setActive, userActual }) => {
   const activos  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
   const criticos = activos.filter(a => a.prioridad === "Alta");
+  const faltaMaterial = activos.filter(a => a.estado === "A falta de material");
+  const presupuestoEspera = activos.filter(a => a.estado === "Enviado presupuesto a espera aceptacion");
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id && t.estado !== "Completada");
   const misTareasHoy = misTareas.filter(t => {
     const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
@@ -2509,6 +2560,32 @@ const Dashboard = ({ data, setActive, userActual }) => {
           <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Avisos activos</div>
           {criticos.length > 0 && <div style={{marginTop:5,color:"#ef4444",fontSize:11,fontWeight:700}}>🔴 {criticos.length} alta prioridad</div>}
         </div>
+        {/* A falta de material → va a asistencia */}
+        {faltaMaterial.length > 0 && (
+          <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:"1px solid #f59e0b44",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#f59e0b44"; e.currentTarget.style.transform = "none"; }}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div style={{width:34,height:34,borderRadius:9,background:"#f59e0b20",display:"flex",alignItems:"center",justifyContent:"center",color:"#f59e0b"}}><Icon name="parts" size={16} /></div>
+              <span style={{color:"#6b7a99",fontSize:11}}>→</span>
+            </div>
+            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{faltaMaterial.length}</div>
+            <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>A falta de material</div>
+          </div>
+        )}
+        {/* Presupuesto enviado, en espera de aceptación → va a asistencia */}
+        {presupuestoEspera.length > 0 && (
+          <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:"1px solid #0ea5e944",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#0ea5e9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#0ea5e944"; e.currentTarget.style.transform = "none"; }}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div style={{width:34,height:34,borderRadius:9,background:"#0ea5e920",display:"flex",alignItems:"center",justifyContent:"center",color:"#0ea5e9"}}><Icon name="send" size={16} /></div>
+              <span style={{color:"#6b7a99",fontSize:11}}>→</span>
+            </div>
+            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{presupuestoEspera.length}</div>
+            <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Presupuesto en espera</div>
+          </div>
+        )}
         {/* Mis tareas pendientes → va a tareas */}
         <div onClick={() => setActive("tareas")} style={{background:"#151b2a",border:`1px solid ${misTareasHoy.length > 0 ? "#8b5cf644" :"#2a3550"}`,borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#8b5cf6"; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -2788,7 +2865,7 @@ const Albaran = ({ data, setData, userActual }) => {
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
-        const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com";
+        const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
         await apiSendMail({
           to: destino,
           cc: ccUsada,
@@ -2991,9 +3068,9 @@ const Albaran = ({ data, setData, userActual }) => {
                   <input value={firmEmail} onChange={e => setFirmEmail(e.target.value)} type="email" placeholder="email@cliente.es" style={inputStyle}/>
                 </Field>
                 <div style={{fontSize:11,color:"#6b7a99",marginBottom:16}}>
-                  Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}</span>
+                  Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
                 </div>
-                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+(data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com")):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
+                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+(data.smtp?.ccPartes||"gestion@europeademaquinaria.com")):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
                 <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => setModalFirma(null)} style={btnOutline}>Cancelar</button>
                   <button onClick={() => generarPDF(alb, firmada, "imprimir")} style={{...btnOutline,color:"#10b981",borderColor:"#10b98144",display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
@@ -3281,7 +3358,9 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     .filter(i => !busq || i.codigo?.toLowerCase().includes(busq.toLowerCase()) || i.nombre?.toLowerCase().includes(busq.toLowerCase()));
 
   const save = () => {
-    const item = {...form, precioCompra: parseFloat(form.precioCompra)||0, precioVenta: parseFloat(form.precioVenta)||0, stock: parseInt(form.stock)||0};
+    const item = {...form, precioCompra: parseFloat(form.precioCompra)||0, precioVenta: parseFloat(form.precioVenta)||0, stock: parseInt(form.stock)||0,
+      precioCompraProveedor1: form.precioCompraProveedor1!==undefined&&form.precioCompraProveedor1!==""?parseFloat(form.precioCompraProveedor1)||0:"",
+      precioCompraProveedor2: form.precioCompraProveedor2!==undefined&&form.precioCompraProveedor2!==""?parseFloat(form.precioCompraProveedor2)||0:""};
     if (!item.id) setData(d => ({...d, inventario: [...d.inventario, {...item, id: Date.now()}]}));
     else setData(d => ({...d, inventario: d.inventario.map(i => i.id===item.id ? item : i)}));
     setModal(false);
@@ -3513,6 +3592,32 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             {puedeVerCompra && <Field label="Precio compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
             <Field label="Precio venta EUR"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>
           </div>
+          {puedeVerCompra && (
+            <>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginTop:4}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Proveedor externo 1 (compra alternativa)</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:9}}>
+                  <Field label="Código externo 1"><Input value={form.codigoExterno1||""} onChange={f("codigoExterno1")} placeholder="Código en ese proveedor"/></Field>
+                  <Field label="Proveedor externo 1"><Input value={form.proveedorExterno1||""} onChange={f("proveedorExterno1")} placeholder="Nombre del proveedor"/></Field>
+                  <Field label="Precio compra proveedor 1 EUR">
+                    <Input type="number" value={form.precioCompraProveedor1||""} onChange={e=>setForm(p=>({...p,precioCompraProveedor1:e.target.value,...(e.target.value&&!p.fechaPrecioProveedor1?{fechaPrecioProveedor1:today()}:{})}))}/>
+                  </Field>
+                  <Field label="Fecha del precio"><Input type="date" value={form.fechaPrecioProveedor1||""} onChange={f("fechaPrecioProveedor1")}/></Field>
+                </div>
+              </div>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Proveedor externo 2 (compra alternativa)</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:9}}>
+                  <Field label="Código externo 2"><Input value={form.codigoExterno2||""} onChange={f("codigoExterno2")} placeholder="Código en ese proveedor"/></Field>
+                  <Field label="Proveedor externo 2"><Input value={form.proveedorExterno2||""} onChange={f("proveedorExterno2")} placeholder="Nombre del proveedor"/></Field>
+                  <Field label="Precio compra proveedor 2 EUR">
+                    <Input type="number" value={form.precioCompraProveedor2||""} onChange={e=>setForm(p=>({...p,precioCompraProveedor2:e.target.value,...(e.target.value&&!p.fechaPrecioProveedor2?{fechaPrecioProveedor2:today()}:{})}))}/>
+                  </Field>
+                  <Field label="Fecha del precio"><Input type="date" value={form.fechaPrecioProveedor2||""} onChange={f("fechaPrecioProveedor2")}/></Field>
+                </div>
+              </div>
+            </>
+          )}
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
             <button onClick={save} style={{...btnPrimary,background:"#a855f7"}}>{form.id?"Guardar":"Crear artículo"}</button>
@@ -4795,6 +4900,13 @@ async function apiSaveData(payload){
 }
 const MAIL_API_URL = "/api/send-mail.php";
 async function apiSendMail(payload){
+  // Nunca se envía copia a servicio@: solo cliente + gestion@europeademaquinaria.com.
+  if (payload && typeof payload.cc === "string") {
+    payload = {
+      ...payload,
+      cc: payload.cc.split(",").map(e=>e.trim()).filter(e=>e && !/^servicio@europeademaquinaria\.com$/i.test(e)).join(", "),
+    };
+  }
   const res = await fetch(MAIL_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
