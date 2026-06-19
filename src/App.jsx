@@ -1923,15 +1923,29 @@ const Partes = ({ data, setData }) => {
     doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
     doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
     if(soloDescarga) doc.save("parte-"+(parte.numeroParte||String(parte.id).slice(-6))+".pdf");
-    else return doc.output("datauristring");
+    return doc.output("datauristring");
   };
   const enviarEmail = async () => {
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
     setEnviando(true);
-    await generarYDescargarPDF(modalPDF,firmada,true);
-    await new Promise(r=>setTimeout(r,900));
-    setEnviando(false); setEnviado(true);
-    alert("PDF generado y descargado.\n\nEn produccion con SMTP configurado se enviaria automaticamente a:\n- "+emailCliente+" (cliente)\n- servicio@europeademaquinaria.com (copia empresa)\n\nConfigura el servidor SMTP en Ajustes para activar el envio real.");
+    try{
+      const dataUri = await generarYDescargarPDF(modalPDF,firmada,true);
+      const base64 = dataUri.split(",")[1];
+      await apiSendMail({
+        to: emailCliente,
+        cc: "servicio@europeademaquinaria.com",
+        subject: "Parte de trabajo "+(modalPDF.numeroParte||"")+" — Europea de Maquinaria",
+        html: "<p>Buenas,</p><p>Adjuntamos el parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+        attachmentBase64: base64,
+        attachmentName: "parte-"+(modalPDF.numeroParte||String(modalPDF.id).slice(-6))+".pdf",
+        attachmentMime: "application/pdf",
+      });
+      setEnviado(true);
+    }catch(e){
+      alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
+    }finally{
+      setEnviando(false);
+    }
   };
   return (
     <div>
@@ -2695,21 +2709,37 @@ const Albaran = ({ data, setData, userActual }) => {
     doc.text(EMPRESA.nombre+"  ·  CIF: "+EMPRESA.cif+"  ·  "+EMPRESA.web, W/2, 291, {align:"center"});
     if (soloDescargar) {
       doc.save(`albaran-${alb.numero}.pdf`);
-    } else {
-      return doc.output("datauristring");
     }
+    return doc.output("datauristring");
   };
   const firmarYEnviar = async () => {
     const alb = data.albaranes.find(a => a.id === modalFirma);
     if (!alb) return;
     setEnviando(true);
-    await generarPDF(alb, firmada, true);
-    setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail } : a) }));
-    await new Promise(r => setTimeout(r, 900));
-    setEnviando(false); setEnviado(true);
-    if (vista) setVista(alb.id);
-    alert(`✅ Albarán ${alb.numero} generado y descargado.\n\nEn producción con SMTP configurado se enviaría a:\n· ${firmEmail || alb.receptorEmail || "—"} (receptor)\n· ${EMPRESA.email} (copia empresa)\n\nConfigura el SMTP en Ajustes para activar el envío real.`);
-    setModalFirma(null);
+    try{
+      const dataUri = await generarPDF(alb, firmada, true);
+      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail } : a) }));
+      const destino = firmEmail || alb.receptorEmail;
+      if(destino){
+        const base64 = dataUri.split(",")[1];
+        await apiSendMail({
+          to: destino,
+          cc: EMPRESA.email,
+          subject: "Albarán "+alb.numero+" — Europea de Maquinaria",
+          html: "<p>Buenas,</p><p>Adjuntamos el albarán <strong>"+alb.numero+"</strong> firmado.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+          attachmentBase64: base64,
+          attachmentName: "albaran-"+alb.numero+".pdf",
+          attachmentMime: "application/pdf",
+        });
+      }
+      setEnviado(true);
+      if (vista) setVista(alb.id);
+    }catch(e){
+      alert("El albarán se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
+    }finally{
+      setEnviando(false);
+      setModalFirma(null);
+    }
   };
   if (vista) {
     const alb = data.albaranes.find(a => a.id === vista);
@@ -4491,6 +4521,22 @@ async function apiSaveData(payload){
   if(!res.ok) throw new Error("POST "+res.status);
   return res.json();
 }
+const MAIL_API_URL = "/api/send-mail.php";
+async function apiSendMail(payload){
+  const res = await fetch(MAIL_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error){
+    const msg = json.error === "smtp_not_configured"
+      ? "El SMTP no está configurado (ve a Ajustes)."
+      : (json.detail || json.error || ("HTTP "+res.status));
+    throw new Error(msg);
+  }
+  return json;
+}
 
 export default function App() {
   const [data,setData]=useState(()=>{
@@ -4636,11 +4682,22 @@ export default function App() {
       return{...d,notificaciones:nn};
     });
   };
-  const onPrueba=()=>{
+  const onPrueba=async()=>{
     const act=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     const n=crearNotif(user.id,"diario","📋 Resumen manual",`${act.length} avisos activos`);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:[n,...(d.notificaciones[user.id]||[])]}}));
-    alert(`Resumen generado: ${act.length} avisos activos.\nEn producción se enviaría por SMTP.`);
+    const destino=data.smtp?.from||data.smtp?.user;
+    if(!destino){alert("Configura y guarda el SMTP antes de enviar la prueba.");return;}
+    try{
+      await apiSendMail({
+        to: destino,
+        subject: "Prueba SMTP — Europea de Maquinaria",
+        html: "<p>Esto es un email de prueba.</p><p>Avisos activos: <strong>"+act.length+"</strong>.</p><p>Si lo has recibido, el SMTP está bien configurado.</p>",
+      });
+      alert("Email de prueba enviado a "+destino+".");
+    }catch(e){
+      alert("No se pudo enviar el email de prueba.\n\n"+e.message);
+    }
   };
   if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");}}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
@@ -4664,7 +4721,7 @@ export default function App() {
   };
   const handleNav = id => { setActive(id); setMenuOpen(false); };
   const Topbar = () => (
-    <div style={{height:isMobile?52:48,background:"#0a0f1a",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:"space-between",padding:isMobile?"0 14px":"0 20px",flexShrink:0,position:"relative",zIndex:10}}>
+    <div style={{height:isMobile?"calc(52px + env(safe-area-inset-top))":48,background:"#0a0f1a",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:"space-between",padding:isMobile?"env(safe-area-inset-top) 14px 0":"0 20px",flexShrink:0,position:"relative",zIndex:10}}>
       {isMobile?(
         <>
           {/* Logo móvil */}

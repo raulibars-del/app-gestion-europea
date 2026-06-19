@@ -1,0 +1,113 @@
+<?php
+// Cliente SMTP mínimo, sin librerías externas (no se puede usar composer en el
+// hosting compartido de IONOS). Soporta STARTTLS (puerto 587), SSL implícito
+// (puerto 465) y AUTH LOGIN. Suficiente para enviar emails con un PDF adjunto.
+
+function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null, $cc = null) {
+    $host = $cfg['host'];
+    $port = (int)($cfg['port'] ?: 587);
+    $timeout = 15;
+
+    $transport = ($port === 465) ? "ssl://$host" : $host;
+
+    $errno = 0; $errstr = '';
+    $socket = @fsockopen($transport, $port, $errno, $errstr, $timeout);
+    if (!$socket) {
+        throw new Exception("No se pudo conectar a $host:$port ($errstr)");
+    }
+    stream_set_timeout($socket, $timeout);
+
+    $readLine = function() use ($socket) {
+        $data = '';
+        while (($line = fgets($socket, 515)) !== false) {
+            $data .= $line;
+            // La última línea de una respuesta multilinea tiene un espacio tras el código
+            if (strlen($line) < 4 || $line[3] === ' ') break;
+        }
+        return $data;
+    };
+    $send = function($cmd) use ($socket) { fwrite($socket, $cmd . "\r\n"); };
+    $expect = function($codes) use ($readLine) {
+        $resp = $readLine();
+        $codes = is_array($codes) ? $codes : [$codes];
+        $ok = false;
+        foreach ($codes as $c) { if (substr($resp, 0, 3) === (string)$c) { $ok = true; break; } }
+        if (!$ok) throw new Exception("Respuesta SMTP inesperada: " . trim($resp));
+        return $resp;
+    };
+
+    $heloName = $_SERVER['SERVER_NAME'] ?? 'europeademaquinaria.com';
+
+    $expect(220);
+    $send("EHLO $heloName");
+    $expect(250);
+
+    if ($port === 587) {
+        $send("STARTTLS");
+        $expect(220);
+        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            throw new Exception("No se pudo iniciar TLS (STARTTLS)");
+        }
+        $send("EHLO $heloName");
+        $expect(250);
+    }
+
+    $send("AUTH LOGIN");
+    $expect(334);
+    $send(base64_encode($cfg['user']));
+    $expect(334);
+    $send(base64_encode($cfg['pass']));
+    $expect(235);
+
+    $from = $cfg['from'] ?: $cfg['user'];
+    $send("MAIL FROM:<$from>");
+    $expect(250);
+    $send("RCPT TO:<$to>");
+    $expect([250, 251]);
+    if ($cc) {
+        $send("RCPT TO:<$cc>");
+        $expect([250, 251]);
+    }
+    $send("DATA");
+    $expect(354);
+
+    $boundary = "em_" . md5(uniqid('', true));
+    $headers = [];
+    $headers[] = "From: Europea de Maquinaria <$from>";
+    $headers[] = "To: " . ($toName ? "$toName <$to>" : $to);
+    if ($cc) $headers[] = "Cc: $cc";
+    $headers[] = "Subject: " . mb_encode_mimeheader($subject, 'UTF-8', 'B');
+    $headers[] = "MIME-Version: 1.0";
+    $headers[] = "Date: " . date('r');
+
+    $body = '';
+    if ($attachment) {
+        $headers[] = "Content-Type: multipart/mixed; boundary=\"$boundary\"";
+        $body .= "--$boundary\r\n";
+        $body .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+        $body .= $html . "\r\n\r\n";
+        $body .= "--$boundary\r\n";
+        $mime = $attachment['mime'] ?: 'application/octet-stream';
+        $name = $attachment['name'] ?: 'documento.pdf';
+        $body .= "Content-Type: $mime; name=\"$name\"\r\n";
+        $body .= "Content-Transfer-Encoding: base64\r\n";
+        $body .= "Content-Disposition: attachment; filename=\"$name\"\r\n\r\n";
+        $body .= chunk_split($attachment['base64']) . "\r\n";
+        $body .= "--$boundary--\r\n";
+    } else {
+        $headers[] = "Content-Type: text/html; charset=UTF-8";
+        $body .= $html . "\r\n";
+    }
+
+    $message = implode("\r\n", $headers) . "\r\n\r\n" . $body;
+    // Dot-stuffing: las líneas que empiecen por "." se escapan duplicando el punto
+    $message = preg_replace('/\r\n\./', "\r\n..", $message);
+
+    fwrite($socket, $message . "\r\n.\r\n");
+    $expect(250);
+
+    $send("QUIT");
+    fclose($socket);
+    return true;
+}
