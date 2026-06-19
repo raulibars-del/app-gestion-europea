@@ -104,9 +104,9 @@ const initialData = {
       ],comerciales:[],
     },privados:{},
   },fichajes:[],notificaciones:{},documentacion:[],calendario:[],inventario:[
-    {id:1,codigo:"INV-0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
-    {id:2,codigo:"INV-0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
-    {id:3,codigo:"INV-0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
+    {id:1,codigo:"INV0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
+    {id:2,codigo:"INV0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
+    {id:3,codigo:"INV0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com,servicio@europeademaquinaria.com"},
 };
 const Icon = ({ name, size=18 }) => {
@@ -2634,7 +2634,7 @@ const Albaran = ({ data, setData, userActual }) => {
   const [enviado,    setEnviado]    = useState(false);
   const canvasRef = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
-  const nextNum = () => generarNum("ALB", today(), data.albaranes, "numero");
+  const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
   const openNew = () => {
     setForm({ numero: nextNum(),fecha: today(),emisorId: userActual.id,receptorNombre:"",receptorEmail:"",receptorDireccion:"",notas:"",firmada:false,fechaFirma:"" });
     setLineas([{ desc:"",cant:1,unidad:"ud" }]);
@@ -2664,7 +2664,7 @@ const Albaran = ({ data, setData, userActual }) => {
     doc.setDrawColor(255,255,255);
     try { doc.addImage(LOGO_CIRCULO,"JPEG",mg,3,26,26); } catch(e){}
     doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
-    doc.text(EMPRESA.nombre, mg+30, 12);
+    doc.text("EUROPEA DE MAQUINARIA PMM SL", mg+30, 12);
     doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
     doc.text(EMPRESA.direccion+"  ·  "+EMPRESA.cp+" (Valencia)  ·  CIF: "+EMPRESA.cif, mg+30, 18);
     doc.text(EMPRESA.web+"  ·  "+EMPRESA.email+"  ·  Tel: 961550707", mg+30, 24);
@@ -2686,8 +2686,8 @@ const Albaran = ({ data, setData, userActual }) => {
       doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
       doc.text(titulo.toUpperCase(), mg+4, yS+5);
     };
-    // ── Datos del receptor ──
-    seccion("Datos del receptor", y); y += 11;
+    // ── Datos del cliente ──
+    seccion("Datos del cliente", y); y += 11;
     const filasDest = [
       ["Empresa / Receptor", alb.receptorNombre],
       ["Dirección entrega",  alb.receptorDireccion || "—"],
@@ -3171,32 +3171,81 @@ const Inventario = ({ data, setData }) => {
   const [modalMovimiento, setModalMovimiento] = useState(null);
   const [cantMovimiento, setCantMovimiento] = useState("");
   const [fichaQR, setFichaQR] = useState(null); // producto abierto desde QR
-  const [lectorQR, setLectorQR] = useState(false);
+  const [vistaQR, setVistaQR] = useState(false); // false | "elegir" | "manual" | "camara"
   const [qrInput, setQrInput] = useState("");
+  const [camError, setCamError] = useState("");
+  const videoRef = useRef(null);
+  const canvasScanRef = useRef(null);
+  const rafRef = useRef(null);
+  const streamRef = useRef(null);
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
 
+  const pararCamara = () => {
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current = null; }
+  };
+
+  const cerrarLectorQR = () => { pararCamara(); setVistaQR(false); setQrInput(""); setCamError(""); };
+
   const abrirFichaDesdeQR = (texto) => {
+    const t = (texto||"").trim();
+    if (!t) return;
+    // QR que apunta a una página web (etiqueta impresa o enlace externo): abrirla directamente
+    if (/^data:text\/html|^https?:\/\//i.test(t)) {
+      window.open(t, "_blank");
+      cerrarLectorQR();
+      return;
+    }
     try {
-      const datos = JSON.parse(texto);
-      if (datos.id) {
-        const prod = data.inventario.find(i => i.id === datos.id);
-        if (prod) { setFichaQR(prod); setLectorQR(false); setQrInput(""); return; }
-        // Si no está en el inventario actual, usar los datos del QR directamente
-        setFichaQR(datos); setLectorQR(false); setQrInput("");
+      const datos = JSON.parse(t);
+      if (datos.id || datos.codigo) {
+        const prod = data.inventario.find(i => i.id === datos.id || i.codigo === datos.codigo);
+        if (prod) { setFichaQR(prod); cerrarLectorQR(); return; }
+        setFichaQR(datos); cerrarLectorQR();
+        return;
       }
     } catch(e) {
-      // El texto no es JSON válido, buscar por código
-      const prod = data.inventario.find(i => i.codigo === texto.trim());
-      if (prod) { setFichaQR(prod); setLectorQR(false); setQrInput(""); }
+      // El texto no es JSON, seguimos y lo tratamos como código de artículo
     }
+    const prod = data.inventario.find(i => i.codigo === t);
+    if (prod) { setFichaQR(prod); cerrarLectorQR(); }
+    else alert("No se ha encontrado ningún artículo con ese código o QR.");
   };
+
+  useEffect(() => {
+    if (vistaQR !== "camara") return;
+    let activo = true;
+    setCamError("");
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        if (!activo) { stream.getTracks().forEach(t=>t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(()=>{}); }
+        const tick = () => {
+          if (!activo) return;
+          const video = videoRef.current, canvas = canvasScanRef.current;
+          if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR) {
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = window.jsQR(img.data, img.width, img.height);
+            if (code && code.data) { abrirFichaDesdeQR(code.data); return; }
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      })
+      .catch(err => setCamError("No se pudo acceder a la cámara: " + (err.message||err)));
+    return () => { activo = false; pararCamara(); };
+  }, [vistaQR]);
 
   const categorias = [...new Set(data.inventario.map(i => i.categoria).filter(Boolean))];
 
   const nextCodigo = () => {
-    const nums = data.inventario.map(i => parseInt(i.codigo?.replace("INV-",""))||0);
+    const nums = data.inventario.map(i => parseInt((i.codigo||"").replace(/^INV-?/,""))||0);
     const max = nums.length ? Math.max(...nums) : 0;
-    return `INV-${String(max+1).padStart(4,"0")}`;
+    return `INV${String(max+1).padStart(4,"0")}`;
   };
 
   const filtrados = data.inventario
@@ -3317,7 +3366,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <p style={{color:"#6b7a99",fontSize:13,margin:"3px 0 0"}}>Materiales y repuestos · Codigos · Etiquetas</p>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setLectorQR(true)} style={{background:"#1a2236",color:"#a855f7",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+          <button onClick={()=>setVistaQR("elegir")} style={{background:"#1a2236",color:"#a855f7",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <span style={{fontSize:16}}>📷</span>Leer QR
           </button>
           <button onClick={()=>{setForm({codigo:nextCodigo(),nombre:"",descripcion:"",categoria:"",unidad:"ud",stock:0,precioCompra:"",precioVenta:""});setModal(true);}} style={{background:"linear-gradient(135deg,#a855f7,#7c3aed)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
@@ -3446,12 +3495,32 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </Modal>
       )}
 
-      {/* Modal Lector QR */}
-      {lectorQR && (
-        <Modal title="Lector de QR — Inventario" onClose={()=>{setLectorQR(false);setQrInput("");}}>
+      {/* Modal Lector QR — elegir método */}
+      {vistaQR === "elegir" && (
+        <Modal title="Leer QR — Inventario" onClose={cerrarLectorQR}>
+          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>¿Cómo quieres identificar el artículo?</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>setVistaQR("camara")} style={{background:"#151b2a",border:"1px solid #a855f755",borderRadius:10,padding:"14px 16px",color:"#f1f3f9",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:12,fontSize:14,textAlign:"left"}}>
+              <span style={{fontSize:24}}>📷</span>
+              <span>Abrir cámara<div style={{color:"#6b7a99",fontSize:11,fontWeight:400,marginTop:2}}>Enfoca el QR del artículo y se abrirá su ficha</div></span>
+            </button>
+            <button onClick={()=>setVistaQR("manual")} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"14px 16px",color:"#f1f3f9",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:12,fontSize:14,textAlign:"left"}}>
+              <span style={{fontSize:24}}>⌨️</span>
+              <span>Introducir código manualmente<div style={{color:"#6b7a99",fontSize:11,fontWeight:400,marginTop:2}}>Escribe el código o usa un lector USB/Bluetooth</div></span>
+            </button>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+            <button onClick={cerrarLectorQR} style={btnOutline}>Cancelar</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Lector QR — manual */}
+      {vistaQR === "manual" && (
+        <Modal title="Introducir código — Inventario" onClose={cerrarLectorQR}>
           <div style={{background:"#0d1117",borderRadius:10,padding:"14px",marginBottom:14,textAlign:"center"}}>
-            <div style={{fontSize:48,marginBottom:8}}>📷</div>
-            <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>Pega aquí el contenido del QR o escánealo con un lector USB/Bluetooth</div>
+            <div style={{fontSize:48,marginBottom:8}}>⌨️</div>
+            <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>Pega aquí el contenido del QR o escanéalo con un lector USB/Bluetooth</div>
             <textarea
               autoFocus
               value={qrInput}
@@ -3460,11 +3529,30 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               placeholder="El lector QR escribirá aquí automáticamente..."
               style={{width:"100%",background:"#151b2a",border:"1px solid #a855f755",borderRadius:8,padding:"10px 12px",color:"#f1f3f9",fontSize:13,resize:"vertical",minHeight:80,outline:"none",boxSizing:"border-box"}}
             />
-            <div style={{color:"#6b7a99",fontSize:11,marginTop:6}}>También puedes escribir el código del artículo (ej: INV-0001) y pulsar Enter</div>
+            <div style={{color:"#6b7a99",fontSize:11,marginTop:6}}>También puedes escribir el código del artículo (ej: INV0001) y pulsar Enter</div>
           </div>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-            <button onClick={()=>{setLectorQR(false);setQrInput("");}} style={btnOutline}>Cancelar</button>
+            <button onClick={()=>setVistaQR("elegir")} style={btnOutline}>Atrás</button>
             <button onClick={()=>{if(qrInput.trim())abrirFichaDesdeQR(qrInput.trim());}} style={{...btnPrimary,background:"#a855f7"}}>Abrir ficha</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Lector QR — cámara */}
+      {vistaQR === "camara" && (
+        <Modal title="Escanear QR — Inventario" onClose={cerrarLectorQR}>
+          <div style={{background:"#000",borderRadius:10,overflow:"hidden",marginBottom:14,position:"relative",minHeight:240,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {camError ? (
+              <div style={{color:"#ef4444",fontSize:13,padding:20,textAlign:"center"}}>{camError}</div>
+            ) : (
+              <video ref={videoRef} autoPlay muted playsInline style={{width:"100%",display:"block"}}/>
+            )}
+            <canvas ref={canvasScanRef} style={{display:"none"}}/>
+          </div>
+          <div style={{color:"#6b7a99",fontSize:11,marginBottom:14,textAlign:"center"}}>Enfoca el QR del artículo con la cámara; se abrirá automáticamente</div>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={()=>setVistaQR("elegir")} style={btnOutline}>Atrás</button>
+            <button onClick={()=>setVistaQR("manual")} style={btnOutline}>Introducir manualmente</button>
           </div>
         </Modal>
       )}
