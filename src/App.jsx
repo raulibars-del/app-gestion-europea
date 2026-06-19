@@ -107,7 +107,7 @@ const initialData = {
     {id:1,codigo:"INV-0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
     {id:2,codigo:"INV-0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:3,codigo:"INV-0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
-  ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30"},
+  ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com,servicio@europeademaquinaria.com"},
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
@@ -1971,7 +1971,7 @@ const Partes = ({ data, setData }) => {
       const base64 = dataUri.split(",")[1];
       await apiSendMail({
         to: emailCliente,
-        cc: "servicio@europeademaquinaria.com",
+        cc: data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com",
         subject: "Parte de trabajo "+(modalPDF.numeroParte||"")+" — Europea de Maquinaria",
         html: "<p>Buenas,</p><p>Adjuntamos el parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
         attachmentBase64: base64,
@@ -2442,6 +2442,15 @@ const Ajustes = ({ data, setData, onPrueba }) => {
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
         <button onClick={onPrueba} style={{...btnOutline,display:"flex",alignItems:"center",gap:5}}><Icon name="mail" size={12}/>Enviar prueba</button>
+        {ok&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
+      </div>
+    </div>
+    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes de Trabajo</div>
+      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
+      <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"/></Field>
+      <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
+        <button onClick={guardar} style={btnPrimary}>Guardar</button>
         {ok&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
       </div>
     </div>

@@ -59,13 +59,23 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
     $send(base64_encode($cfg['pass']));
     $expect(235);
 
+    // $cc puede venir como string ("a@x.com,b@x.com"), array, o vacío/null.
+    $ccList = [];
+    if ($cc) {
+        $ccRaw = is_array($cc) ? $cc : explode(',', $cc);
+        foreach ($ccRaw as $addr) {
+            $addr = trim($addr);
+            if ($addr !== '') $ccList[] = $addr;
+        }
+    }
+
     $from = $cfg['from'] ?: $cfg['user'];
     $send("MAIL FROM:<$from>");
     $expect(250);
     $send("RCPT TO:<$to>");
     $expect([250, 251]);
-    if ($cc) {
-        $send("RCPT TO:<$cc>");
+    foreach ($ccList as $addr) {
+        $send("RCPT TO:<$addr>");
         $expect([250, 251]);
     }
     $send("DATA");
@@ -75,7 +85,7 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
     $headers = [];
     $headers[] = "From: Europea de Maquinaria <$from>";
     $headers[] = "To: " . ($toName ? "$toName <$to>" : $to);
-    if ($cc) $headers[] = "Cc: $cc";
+    if ($ccList) $headers[] = "Cc: " . implode(', ', $ccList);
     $headers[] = "Subject: " . mb_encode_mimeheader($subject, 'UTF-8', 'B');
     $headers[] = "MIME-Version: 1.0";
     $headers[] = "Date: " . date('r');
