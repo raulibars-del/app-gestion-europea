@@ -19,6 +19,14 @@ const generarNum = (prefijo, fecha, lista, campoNum) => {
 };
 // Keep backward compat alias
 const generarNumParte = (fecha, partes) => generarNum("P", fecha, partes, "numeroParte");
+// Lista de nombres asignados/tecnicos: soporta el array nuevo (varios) y el string legacy (uno solo)
+const listaNombres = (obj, campoArray, campoLegacy) => {
+  const arr = obj && obj[campoArray];
+  if (Array.isArray(arr) && arr.length) return arr;
+  const legacy = obj && obj[campoLegacy];
+  return legacy ? [legacy] : [];
+};
+const fmtNombres = (obj, campoArray, campoLegacy) => listaNombres(obj, campoArray, campoLegacy).join(" y ") || "—";
 
 const diasDesde = (f) => { const d = Math.floor((new Date() - new Date(f)) / 86400000); return d < 0 ? 0 : d; };
 const uid = () => Date.now() + Math.random();
@@ -148,12 +156,12 @@ const initialData = {
     {id:2,titulo:"Pedir recambio husillo",asignadoId:3,creadoPor:1,prioridad:"Alta",vence:"2026-05-26",estado:"En curso",notas:"Proveedor: Casadei"},
     {id:3,titulo:"Preparar presupuesto escuadradora",asignadoId:2,creadoPor:1,prioridad:"Media",vence:"2026-05-28",estado:"Pendiente",notas:""},
   ],partes:[
-    {id:1,tecnico:"Carlos V.",fecha:"2026-05-23",horasT:8,reparacionId:1,descripcion:"Desmontaje y sustitución motor.",km:45,materiales:"Motor 2.2kW ref. CAS-M22",estadoParte:"Finalizado"},
+    {id:1,tecnicos:["Carlos V."],fecha:"2026-05-23",horasT:8,reparacionId:1,descripcion:"Desmontaje y sustitución motor.",km:45,materiales:"Motor 2.2kW ref. CAS-M22",estadoParte:"Finalizado"},
   ],avisos:[
-    {id:1,clienteId:1,tipo:"Reparación",titulo:"Motor escuadradora hace ruido extraño",descripcion:"Ruido metálico al arrancar.",dadoPor:"Luis Martínez (cliente)",fechaAviso:"2026-05-09",prioridad:"Alta",estado:"En curso",asignado:"Carlos V.",notas:"Motor a sustituir."},
-    {id:2,clienteId:2,tipo:"Montaje",titulo:"Instalación CNC Busellato pendiente",descripcion:"Coordinar fecha de instalación.",dadoPor:"Ana García (cliente)",fechaAviso:"2026-05-16",prioridad:"Alta",estado:"Pendiente",asignado:"Miguel R.",notas:""},
-    {id:3,clienteId:3,tipo:"Problema",titulo:"Lijadora se para sola",descripcion:"Se detiene automáticamente.",dadoPor:"Pedro Rodríguez (cliente)",fechaAviso:"2026-05-19",prioridad:"Media",estado:"Pendiente",asignado:"Juan P.",notas:""},
-    {id:4,clienteId:2,tipo:"Reparación",titulo:"CNC Masterwood error E-301",descripcion:"No reconoce herramienta en posición 3.",dadoPor:"Ana García (cliente)",fechaAviso:"2026-05-05",prioridad:"Alta",estado:"Sin asignar",asignado:"",notas:"Máquina parada."},
+    {id:1,clienteId:1,tipo:"Reparación",titulo:"Motor escuadradora hace ruido extraño",descripcion:"Ruido metálico al arrancar.",dadoPor:"Luis Martínez (cliente)",fechaAviso:"2026-05-09",prioridad:"Alta",estado:"En curso",asignados:["Carlos V."],notas:"Motor a sustituir."},
+    {id:2,clienteId:2,tipo:"Montaje",titulo:"Instalación CNC Busellato pendiente",descripcion:"Coordinar fecha de instalación.",dadoPor:"Ana García (cliente)",fechaAviso:"2026-05-16",prioridad:"Alta",estado:"Pendiente",asignados:["Miguel R."],notas:""},
+    {id:3,clienteId:3,tipo:"Problema",titulo:"Lijadora se para sola",descripcion:"Se detiene automáticamente.",dadoPor:"Pedro Rodríguez (cliente)",fechaAviso:"2026-05-19",prioridad:"Media",estado:"Pendiente",asignados:["Juan P."],notas:""},
+    {id:4,clienteId:2,tipo:"Reparación",titulo:"CNC Masterwood error E-301",descripcion:"No reconoce herramienta en posición 3.",dadoPor:"Ana García (cliente)",fechaAviso:"2026-05-05",prioridad:"Alta",estado:"Sin asignar",asignados:[],notas:"Máquina parada."},
   ],chat:{
     canales:[{id:"general",nombre:"General",tipo:"general"}],mensajes:{
       general:[
@@ -216,6 +224,25 @@ const Field = ({ label, children }) => (
 );
 const Input = ({ value, onChange, type="text", placeholder="" }) => <input type={type} value={value||""} onChange={onChange} placeholder={placeholder} style={inputStyle}/>;
 const Select = ({ value, onChange, options }) => <select value={value} onChange={onChange} style={{...inputStyle}}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
+// Selector de varios tecnicos a la vez (chips toggle) — para avisos/partes que realizan 2+ personas
+const SelectorTecnicos = ({ value, onChange, usuarios }) => {
+  const sel = Array.isArray(value) ? value : (value ? [value] : []);
+  const toggle = (nombre) => onChange(sel.includes(nombre) ? sel.filter(n => n !== nombre) : [...sel, nombre]);
+  return (
+    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+      {usuarios.map(u => {
+        const on = sel.includes(u.nombre);
+        return (
+          <button key={u.id} type="button" onClick={() => toggle(u.nombre)}
+            style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#3b82f6":"#2a3550"),background:on?"#3b82f615":"#0d1117",color:on?"#3b82f6":"#6b7a99",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+            {on && <Icon name="check" size={11} />}{u.nombre}
+          </button>
+        );
+      })}
+      {sel.length === 0 && <span style={{color:"#6b7a99",fontSize:11,alignSelf:"center"}}>Sin asignar</span>}
+    </div>
+  );
+};
 const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -682,7 +709,7 @@ const Clientes = ({ data, setData, onIrADocMaquina }) => {
                 <div key={p.id} style={{background:"#0d1117",borderRadius:9,padding:"10px 13px",border:"1px solid #0ea5e922",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                   <div style={{flex:1}}>
                     <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
-                      <span style={{color:"#0ea5e9",fontWeight:700,fontSize:12}}>{p.tecnico}</span>
+                      <span style={{color:"#0ea5e9",fontWeight:700,fontSize:12}}>{fmtNombres(p,"tecnicos","tecnico")}</span>
                       <span style={{color:"#6b7a99",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
                       {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>{p.marca} {p.modelo}</span>}
                       {p.matricula&&<span style={{color:"#6b7a99",fontSize:10}}>Matr. {p.matricula}</span>}
@@ -1172,15 +1199,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     if (fe === "Activos") l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
     else if (fe === "Resueltos") l = l.filter(a => a.estado === "Resuelto");
     else if (fe === "Cancelados") l = l.filter(a => a.estado === "Cancelado");
-    if (soloSinAsignar) l = l.filter(a => !a.asignado || a.estado === "Sin asignar");
+    if (soloSinAsignar) l = l.filter(a => listaNombres(a,"asignados","asignado").length===0 || a.estado === "Sin asignar");
     if (soloAntiguos) l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
     if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
     if (ft !== "Todos") l = l.filter(a => a.tipo === ft);
     if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => a.titulo.toLowerCase().includes(q) || cN(a.clienteId).toLowerCase().includes(q)); }
     return l.sort((a, b) => { const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9; return pa !== pb ? pa - pb : diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso); });
   }, [data.avisos, fe, fp, ft, s, soloSinAsignar, soloAntiguos]);
-  const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignado:"",fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
-  const openEditAv = item => { setFormAv({ ...item }); setModalAv("form"); };
+  const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignados:[],fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
+  const openEditAv = item => { setFormAv({ ...item, asignados: listaNombres(item,"asignados","asignado") }); setModalAv("form"); };
   const saveAv = () => {
     const item = { ...formAv,clienteId: parseInt(formAv.clienteId) };
     if (!item.id) {
@@ -1328,8 +1355,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           const isCrit = av.prioridad === "Alta" && av.estado !== "Resuelto";
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
-              data-sinasignar={(!av.asignado || av.estado === "Sin asignar") ? "true" : undefined}
-              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(!av.asignado||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11}}>
+              data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
+              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
@@ -1349,7 +1376,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                       🔧 Última intervención: {av.fechaUltimaIntervencion}
                     </span>
                   )}
-                  {av.asignado && <span style={{color:"#6b7a99",fontSize:11}}>🔧 {av.asignado}</span>}
+                  {listaNombres(av,"asignados","asignado").length>0 && <span style={{color:"#6b7a99",fontSize:11}}>🔧 {fmtNombres(av,"asignados","asignado")}</span>}
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
@@ -1383,7 +1410,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         const maqD = [detalle.marca, detalle.modelo, detalle.matricula?("(" + detalle.matricula + ")"):""].filter(Boolean).join(" ") || "—";
         return <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9,marginBottom:11}}>
-          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>], ["Teléfono cliente", telD], ["Dirección", dirD], ["Máquina", maqD], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []), ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", detalle.asignado || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
+          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>], ["Teléfono cliente", telD], ["Dirección", dirD], ["Máquina", maqD], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []), ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
             <div key={l} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:"#6b7a99",textTransform:"uppercase",marginBottom:2}}>{l}</div>
               <div style={{color:"#f1f3f9",fontWeight:700}}>{v}</div>
@@ -1497,21 +1524,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
           <Field label="Prioridad"><Select value={formAv.prioridad} onChange={fa("prioridad")} options={PRIORIDADES}/></Field>
           <Field label="Estado"><Select value={formAv.estado} onChange={e=>setFormAv(p=>({...p,estado:e.target.value,...(e.target.value==="Cancelado"&&!p.fechaCancelacion?{fechaCancelacion:today()}:{})}))} options={ESTADOS_AVISO}/></Field>
-          <Field label="Tecnico asignado">
-            <select value={formAv.asignado} onChange={fa("asignado")} style={{...inputStyle}}>
-              <option value="">Sin asignar</option>
-              {data.usuarios.filter(u=>u.activo).map(t=><option key={t.id} value={t.nombre}>{t.nombre}</option>)}
-            </select>
-          </Field>
         </div>
-        {/* Fecha de resolucion — aparece cuando hay tecnico asignado */}
-        {formAv.asignado && (
+        <Field label="Tecnico/s asignado/s (puedes elegir varios si lo hacen entre 2)">
+          <SelectorTecnicos value={formAv.asignados} onChange={v=>setFormAv(p=>({...p,asignados:v}))} usuarios={data.usuarios.filter(u=>u.activo)} />
+        </Field>
+        {/* Fecha de resolucion — aparece cuando hay tecnico/s asignado/s */}
+        {listaNombres(formAv,"asignados","asignado").length>0 && (
           <div style={{background:"#0d1117",borderRadius:9,padding:"12px 14px",border:"1px solid #3b82f633"}}>
             <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>
               📅 Fecha prevista de resolucion
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-              <Field label={"Dia que "+formAv.asignado+" va a resolver el aviso"}>
+              <Field label={"Dia que "+listaNombres(formAv,"asignados","asignado").join(" y ")+" va/n a resolver el aviso"}>
                 <Input type="date" value={formAv.fechaResolucion||""} onChange={fa("fechaResolucion")}/>
               </Field>
               <Field label="Momento del dia">
@@ -1526,8 +1550,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               </Field>
             </div>
             {formAv.fechaResolucion
-              ? <div style={{color:"#10b981",fontSize:11,marginTop:4}}>Aparecera en el calendario de {formAv.asignado} el {formAv.fechaResolucion}</div>
-              : <div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>Indica la fecha para que aparezca en el calendario del tecnico</div>
+              ? <div style={{color:"#10b981",fontSize:11,marginTop:4}}>Aparecera en el calendario de {listaNombres(formAv,"asignados","asignado").join(" y ")} el {formAv.fechaResolucion}</div>
+              : <div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>Indica la fecha para que aparezca en el calendario del/los tecnico/s</div>
             }
           </div>
         )}
@@ -2290,8 +2314,8 @@ const Partes = ({ data, setData }) => {
     setModoMaterial("manual"); setBuscarArt("");
   };
   const abrirNuevo = () => {
-    const tecnicos=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
-    setForm({ tecnico:tecnicos[0]||"",fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
+    const nombresUsuarios=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
+    setForm({ tecnicos:nombresUsuarios[0]?[nombresUsuarios[0]]:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
     setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
     setClienteSel(null); setBusqCliente(""); setMostrarDropCliente(false);
@@ -2299,7 +2323,7 @@ const Partes = ({ data, setData }) => {
     setModal(true);
   };
   const abrirEditar = p => {
-    setForm({ ...p, desplazamiento:p.km>0?"si":"no", kmValor:p.km>0?String(p.km):"" });
+    setForm({ ...p, tecnicos:listaNombres(p,"tecnicos","tecnico"), desplazamiento:p.km>0?"si":"no", kmValor:p.km>0?String(p.km):"" });
     setListaMateriales(p.materialesList||[]);
     setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
@@ -2381,7 +2405,7 @@ const Partes = ({ data, setData }) => {
       ? parte.materialesList.map(m=>m.cantidad+"x "+m.material).join(", ")
       : (parte.materiales||"—");
     y=box("Datos de la intervencion",[
-      ["Tecnico",parte.tecnico],
+      ["Tecnico",fmtNombres(parte,"tecnicos","tecnico")],
       ["Maquina",parte.marca||(parte.modelo?"":"")?[parte.marca,parte.modelo].filter(Boolean).join(" "):"—"],
       ["Matricula",parte.matricula||"—"],
       ...(aviso?[["Aviso","#"+aviso.id+" - "+aviso.titulo]]:[] ),
@@ -2499,7 +2523,7 @@ const Partes = ({ data, setData }) => {
           return (
             <div key={p.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>{p.tecnico} <span style={{color:"#6b7a99",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span></div>
+                <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>{fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#6b7a99",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span></div>
                 {(p.marca||p.modelo||p.matricula)&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:3}}>
                   {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",border:"1px solid #0ea5e933",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>{p.marca}</span>}
                   {p.modelo&&<span style={{background:"#0ea5e910",color:"#0ea5e9",borderRadius:4,padding:"1px 7px",fontSize:11}}>{p.modelo}</span>}
@@ -2541,8 +2565,10 @@ const Partes = ({ data, setData }) => {
         })}
       </div>
       {modal && <Modal title={form.id ? "Editar Parte" : "Nuevo Parte"} onClose={() => { setModal(null); setClienteSel(null); setBusqCliente(""); setListaMateriales([]); }} wide>
+        <Field label="Tecnico/s (puedes elegir varios si lo realizan entre 2)">
+          <SelectorTecnicos value={form.tecnicos} onChange={v=>setForm(p=>({...p,tecnicos:v}))} usuarios={data.usuarios.filter(u=>u.activo)} />
+        </Field>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Tecnico"><Select value={form.tecnico} onChange={f("tecnico")} options={data.usuarios.filter(u=>u.activo).map(u=>u.nombre)} /></Field>
           <Field label="Fecha"><Input type="date" value={form.fecha} onChange={f("fecha")} /></Field>
         </div>
 
@@ -2859,7 +2885,7 @@ const Partes = ({ data, setData }) => {
                   {/* Datos intervencion */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:"3px 20px"}}>
                     {[
-                      ["Tecnico",p.tecnico],
+                      ["Tecnico",fmtNombres(p,"tecnicos","tecnico")],
                       ...(p.marca||p.modelo?[["Maquina",[p.marca,p.modelo].filter(Boolean).join(" ")]]:[] ),
                       ...(p.matricula?[["Matricula",p.matricula]]:[] ),
                       ...(aviso?[["Aviso","#"+aviso.id+" - "+aviso.titulo]]:[] ),
@@ -4493,7 +4519,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                       <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:2}}>
                         <span style={{color:"#0ea5e9",fontWeight:700,fontSize:12}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</span>
                         <span style={{color:"#6b7a99",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
-                        <span style={{color:"#9aa3b8",fontSize:11}}>· {p.tecnico}</span>
+                        <span style={{color:"#9aa3b8",fontSize:11}}>· {fmtNombres(p,"tecnicos","tecnico")}</span>
                         {cl&&<span style={{background:"#faff0015",color:"#faff00",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:700}}>{cl.nombreEmpresa}</span>}
                       </div>
                       <div style={{color:"#c4cad8",fontSize:12}}>{p.descripcion}</div>
@@ -4798,16 +4824,16 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
 
   // Avisos como eventos — solo los que tienen fechaResolucion asignada
   const avisosEventos = data.avisos
-    .filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado"&&a.fechaResolucion&&a.asignado)
-    .map(a=>({
-      id:"av-"+a.id, tipo:"Aviso", fecha:a.fechaResolucion,
+    .filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado"&&a.fechaResolucion&&listaNombres(a,"asignados","asignado").length>0)
+    .flatMap(a=>listaNombres(a,"asignados","asignado").map(nombre=>({
+      id:"av-"+a.id+"-"+nombre, tipo:"Aviso", fecha:a.fechaResolucion,
       titulo:a.titulo,
       hora:a.horaResolucion||"",
-      usuarioId: data.usuarios.find(u=>u.nombre===a.asignado)?.id||null,
+      usuarioId: data.usuarios.find(u=>u.nombre===nombre)?.id||null,
       avisoId:a.id, color:"#ef4444", readOnly:true,
       clienteNombre:data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"",
       prioridad:a.prioridad,
-    }));
+    })));
 
   const todosEventos = [...avisosEventos, ...eventos];
 
@@ -4920,7 +4946,7 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
       {(()=>{
         const misAvisos = data.avisos.filter(a=>{
           if(a.estado==="Resuelto"||a.estado==="Cancelado") return false;
-          if(!esAdmin) return data.usuarios.find(u=>u.nombre===a.asignado)?.id===userActual.id;
+          if(!esAdmin) return listaNombres(a,"asignados","asignado").some(n=>data.usuarios.find(u=>u.nombre===n)?.id===userActual.id);
           return true;
         }).sort((a,b)=>(a.fechaResolucion||a.fechaAviso).localeCompare(b.fechaResolucion||b.fechaAviso)).slice(0,6);
         if(!misAvisos.length) return null;
@@ -4933,7 +4959,7 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
               {misAvisos.map(av=>{
                 const cl=data.clientes.find(c=>c.id===av.clienteId);
                 const maq=av.maquinaId&&cl?cl.maquinas?.find(m=>m.id===parseInt(av.maquinaId)):null;
-                const uN=data.usuarios.find(u=>u.nombre===av.asignado);
+                const nombresAsig=listaNombres(av,"asignados","asignado").join(" y ");
                 return(
                   <div key={av.id} onClick={()=>irAAviso&&irAAviso(av.id)}
                     style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",cursor:irAAviso?"pointer":"default",border:"1px solid "+( av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550"),transition:"border-color .15s"}}
@@ -4949,7 +4975,7 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
                     </div>
                     {cl&&<div style={{color:"#6b7a99",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
                     {maq&&<div style={{color:"#6b7a99",fontSize:11}}>🔧 {maq.nombre}</div>}
-                    {esAdmin&&uN&&<div style={{color:"#3b82f6",fontSize:11}}>👤 {uN.nombre}</div>}
+                    {esAdmin&&nombresAsig&&<div style={{color:"#3b82f6",fontSize:11}}>👤 {nombresAsig}</div>}
                   </div>
                 );
               })}
@@ -5847,7 +5873,7 @@ export default function App() {
       d.usuarios.filter(u=>u.activo).forEach(u=>{
         const n=crearNotif(u.id,"nuevo_aviso",
           `🔔 Nuevo aviso: ${aviso.titulo}`,
-          `Cliente: ${clienteNombre} · Prioridad: ${aviso.prioridad} · Asignado: ${aviso.asignado||"Sin asignar"}`
+          `Cliente: ${clienteNombre} · Prioridad: ${aviso.prioridad} · Asignado: ${listaNombres(aviso,"asignados","asignado").join(" y ")||"Sin asignar"}`
         );
         nn[u.id]=[n,...(nn[u.id]||[])];
       });
