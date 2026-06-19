@@ -2134,6 +2134,8 @@ const Partes = ({ data, setData }) => {
   const [modalPDF, setModalPDF] = useState(null);
   const [emailCliente, setEmailCliente] = useState("");
   const [firmada, setFirmada] = useState(false);
+  const [conforme, setConforme] = useState(null); // true=Conforme, false=No conforme, null=sin marcar
+  const [notasConformidad, setNotasConformidad] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [busqCliente, setBusqCliente] = useState("");
@@ -2270,6 +2272,7 @@ const Partes = ({ data, setData }) => {
     const cl = p.clienteDirectoId ? data.clientes.find(c => c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
     const emailPre = cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
     setModalPDF(p); setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
+    setConforme(p.conforme??null); setNotasConformidad(p.notasConformidad||"");
     setForm(prev=>({...prev,firmaNombre:p.firmaNombre||""}));
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
@@ -2381,7 +2384,19 @@ const Partes = ({ data, setData }) => {
     doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
     doc.text("CONFORMIDAD DEL CLIENTE",mg+4,y+5); y+=13;
     doc.setTextColor(60,75,100); doc.setFontSize(8); doc.setFont("helvetica","normal");
-    doc.text("El cliente declara haber recibido y verificado los trabajos descritos en este parte.",mg+4,y); y+=10;
+    doc.text("El cliente declara haber recibido y verificado los trabajos descritos en este parte.",mg+4,y); y+=8;
+    if(parte.conforme===true||parte.conforme===false){
+      const esConforme = parte.conforme===true;
+      doc.setFont("helvetica","bold"); doc.setFontSize(9);
+      doc.setTextColor(...(esConforme?[22,163,74]:[220,38,38]));
+      doc.text("Estado: "+(esConforme?"CONFORME":"NO CONFORME"),mg+4,y); y+=7;
+      if(parte.notasConformidad?.trim()){
+        doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(60,75,100);
+        const notasLines = doc.splitTextToSize("Notas: "+parte.notasConformidad,W-mg*2-8);
+        doc.text(notasLines,mg+4,y); y+=notasLines.length*5+3;
+      }
+      y+=2;
+    }
     if(conFirma&&canvasRef.current){
       try {
         // Canvas temporal con fondo blanco para evitar negro en PDF
@@ -2409,7 +2424,8 @@ const Partes = ({ data, setData }) => {
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
     setEnviando(true);
     try{
-      const dataUri = await generarYDescargarPDF(modalPDF,firmada,true);
+      const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad};
+      const dataUri = await generarYDescargarPDF(parteFinal,firmada,true);
       const base64 = dataUri.split(",")[1];
       const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
       await apiSendMail({
@@ -2421,7 +2437,7 @@ const Partes = ({ data, setData }) => {
         attachmentName: "parte-"+(modalPDF.numeroParte||String(modalPDF.id).slice(-6))+".pdf",
         attachmentMime: "application/pdf",
       });
-      setData(d=>({...d,partes:d.partes.map(pt=>pt.id===modalPDF.id?{...pt,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
+      setData(d=>({...d,partes:d.partes.map(pt=>pt.id===modalPDF.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
       setEnviado(true);
     }catch(e){
       alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
@@ -2467,6 +2483,11 @@ const Partes = ({ data, setData }) => {
                 <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#6b7a9920",color:p.emailEnviado?"#10b981":"#6b7a99",border:"1px solid "+(p.emailEnviado?"#10b98144":"#6b7a9944")}}>
                   {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
                 </div>
+                {(p.conforme===true||p.conforme===false)&&(
+                  <div title={p.notasConformidad||""} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.conforme?"#16a34a20":"#dc262620",color:p.conforme?"#16a34a":"#dc2626",border:"1px solid "+(p.conforme?"#16a34a44":"#dc262644")}}>
+                    {p.conforme?"✅ Conforme":"❌ No conforme"}
+                  </div>
+                )}
                 <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                   <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                     <Icon name="parts" size={12} />PDF
@@ -2841,6 +2862,23 @@ const Partes = ({ data, setData }) => {
                     {!form.firmaNombre?.trim()&&<div style={{color:"#f59e0b",fontSize:10,marginTop:-4,marginBottom:6}}>Obligatorio antes de generar el PDF</div>}
                   </Field>
                   <SignaturePad canvasRef={canvasRef} onSave={()=>setFirmada(true)} onClear={()=>setFirmada(false)}/>
+                  <div style={{marginTop:12}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".8px",marginBottom:6}}>Conformidad del cliente</div>
+                    <div style={{display:"flex",gap:8,marginBottom:8}}>
+                      <button type="button" onClick={()=>setConforme(true)} style={{flex:1,background:conforme===true?"#16a34a":"transparent",color:conforme===true?"#fff":"#9aa3b8",border:"1px solid "+(conforme===true?"#16a34a":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        <Icon name="check" size={14}/>Conforme
+                      </button>
+                      <button type="button" onClick={()=>setConforme(false)} style={{flex:1,background:conforme===false?"#dc2626":"transparent",color:conforme===false?"#fff":"#9aa3b8",border:"1px solid "+(conforme===false?"#dc2626":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        <Icon name="close" size={14}/>No conforme
+                      </button>
+                    </div>
+                    <textarea
+                      value={notasConformidad}
+                      onChange={e=>setNotasConformidad(e.target.value)}
+                      placeholder="Notas u observaciones del cliente sobre la conformidad (opcional)..."
+                      style={{...inputStyle,minHeight:60,resize:"vertical"}}
+                    />
+                  </div>
                 </div>
                 {/* Email — auto-relleno desde cliente */}
                 <div style={{marginBottom:20}}>
@@ -2868,15 +2906,15 @@ const Partes = ({ data, setData }) => {
                   <button onClick={() => setModalPDF(null)} style={btnOutline}>Cerrar</button>
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
-                    // Guardar firmaNombre en el parte
-                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre}:pt)}));
-                    generarYDescargarPDF({...p,firmaNombre:form.firmaNombre},firmada,true);
+                    // Guardar firmaNombre y conformidad en el parte
+                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
+                    generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true);
                   }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
                     <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</span>
                   </button>
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
-                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre}:pt)}));
+                    setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
                     enviarEmail();
                   }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
                     {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}</>}
