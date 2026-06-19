@@ -1857,11 +1857,19 @@ const Partes = ({ data, setData }) => {
   const [formNuevoCliente, setFormNuevoCliente] = useState({});
   const [listaMateriales, setListaMateriales] = useState([]);
   const [nuevoMat, setNuevoMat] = useState({material:"",cantidad:"1"});
+  const [modoMaterial, setModoMaterial] = useState("manual"); // "manual" | "inventario"
+  const [buscarArt, setBuscarArt] = useState("");
   const canvasRef = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
   const rL = id => { const r = data.reparaciones.find(r => r.id === parseInt(id)); return r ? `#${r.id} · ${r.maquina}` : "—"; };
   const rCliente = id => { const r = data.reparaciones.find(r => r.id === parseInt(id)); if (!r) return null; return data.clientes.find(c => c.id === r.clienteId); };
+  const listaMaterialesManual = listaMateriales.filter(m => !m.esInventario);
+  const listaMaterialesInv = listaMateriales.filter(m => m.esInventario);
+  const articulosFiltrados = buscarArt.trim().length < 1 ? [] : (data.inventario||[]).filter(it => {
+    const q = buscarArt.toLowerCase();
+    return it.nombre?.toLowerCase().includes(q) || it.codigo?.toLowerCase().includes(q);
+  }).slice(0, 8);
   const clientesFiltrados = busqCliente.trim().length < 1 ? data.clientes.slice(0, 8) :
     data.clientes.filter(c => {
       const q = busqCliente.toLowerCase();
@@ -1879,8 +1887,12 @@ const Partes = ({ data, setData }) => {
     setListaMateriales(p => [...p, {id:Date.now(), material:nuevoMat.material.trim(), cantidad:nuevoMat.cantidad||"1"}]);
     setNuevoMat({material:"",cantidad:"1"});
   };
+  const añadirMaterialInventario = (item) => {
+    setListaMateriales(p => [...p, {id:Date.now(), material:item.nombre, codigo:item.codigo, inventarioId:item.id, cantidad:nuevoMat.cantidad||"1", esInventario:true}]);
+    setBuscarArt(""); setNuevoMat(p => ({...p, cantidad:"1"}));
+  };
   const save = (continuado) => {
-    const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}`).join(" | ") : (form.materiales||"");
+    const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
     const item = { ...form,
       horasT: parseFloat(form.horasT)||0,
       km: form.desplazamiento==="si" ? parseFloat(form.kmValor)||0 : 0,
@@ -1912,11 +1924,13 @@ const Partes = ({ data, setData }) => {
     });
     setModal(null);
     setClienteSel(null); setBusqCliente(""); setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
+    setModoMaterial("manual"); setBuscarArt("");
   };
   const abrirNuevo = () => {
     const tecnicos=data.usuarios.filter(u=>u.activo).map(u=>u.nombre);
     setForm({ tecnico:tecnicos[0]||"",fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
     setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
+    setModoMaterial("manual"); setBuscarArt("");
     setClienteSel(null); setBusqCliente(""); setMostrarDropCliente(false);
     setParteContinuado(false);
     setModal(true);
@@ -1925,6 +1939,7 @@ const Partes = ({ data, setData }) => {
     setForm({ ...p, desplazamiento:p.km>0?"si":"no", kmValor:p.km>0?String(p.km):"" });
     setListaMateriales(p.materialesList||[]);
     setNuevoMat({material:"",cantidad:"1"});
+    setModoMaterial("manual"); setBuscarArt("");
     setParteContinuado(p.estadoParte==="Continuado");
     const cl = p.clienteDirectoId ? data.clientes.find(c => c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
     setClienteSel(cl||null); setBusqCliente(cl?.nombreEmpresa||"");
@@ -2275,30 +2290,81 @@ const Partes = ({ data, setData }) => {
 
         {/* Materiales dinamicos */}
         <Field label="Materiales utilizados">
-          <div style={{display:"grid",gridTemplateColumns:"1fr 90px 36px",gap:6,marginBottom:6}}>
-            <input value={nuevoMat.material} onChange={e=>setNuevoMat(p=>({...p,material:e.target.value}))}
-              onKeyDown={e=>e.key==="Enter"&&añadirMaterial()}
-              placeholder="Material o referencia..." style={{...inputStyle}}/>
-            <input type="number" value={nuevoMat.cantidad} onChange={e=>setNuevoMat(p=>({...p,cantidad:e.target.value}))}
-              placeholder="Cant." style={{...inputStyle,textAlign:"center"}}/>
-            <button onClick={añadirMaterial} type="button"
-              style={{background:"#10b981",border:"none",borderRadius:7,color:"#fff",fontWeight:800,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          <div style={{display:"flex",gap:6,marginBottom:8}}>
+            <button type="button" onClick={()=>{setModoMaterial("manual");setBuscarArt("");}}
+              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="manual"?"#10b981":"#2a3550"),background:modoMaterial==="manual"?"#10b98115":"transparent",color:modoMaterial==="manual"?"#10b981":"#6b7a99",fontWeight:700,cursor:"pointer",fontSize:12}}>✏️ Manual</button>
+            <button type="button" onClick={()=>setModoMaterial("inventario")}
+              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="inventario"?"#0ea5e9":"#2a3550"),background:modoMaterial==="inventario"?"#0ea5e915":"transparent",color:modoMaterial==="inventario"?"#0ea5e9":"#6b7a99",fontWeight:700,cursor:"pointer",fontSize:12}}>📦 Desde inventario</button>
           </div>
-          {listaMateriales.length>0&&(
-            <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
+
+          {modoMaterial==="manual" ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 90px 36px",gap:6,marginBottom:6}}>
+              <input value={nuevoMat.material} onChange={e=>setNuevoMat(p=>({...p,material:e.target.value}))}
+                onKeyDown={e=>e.key==="Enter"&&añadirMaterial()}
+                placeholder="Material o referencia..." style={{...inputStyle}}/>
+              <input type="number" value={nuevoMat.cantidad} onChange={e=>setNuevoMat(p=>({...p,cantidad:e.target.value}))}
+                placeholder="Cant." style={{...inputStyle,textAlign:"center"}}/>
+              <button onClick={añadirMaterial} type="button"
+                style={{background:"#10b981",border:"none",borderRadius:7,color:"#fff",fontWeight:800,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            </div>
+          ) : (
+            <div style={{marginBottom:6}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 90px",gap:6}}>
+                <input value={buscarArt} onChange={e=>setBuscarArt(e.target.value)}
+                  placeholder="Buscar artículo por nombre o código..." style={{...inputStyle}}/>
+                <input type="number" value={nuevoMat.cantidad} onChange={e=>setNuevoMat(p=>({...p,cantidad:e.target.value}))}
+                  placeholder="Cant." style={{...inputStyle,textAlign:"center"}}/>
+              </div>
+              {buscarArt.trim().length>0&&(
+                <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,marginTop:4,maxHeight:180,overflowY:"auto"}}>
+                  {articulosFiltrados.length===0&&<div style={{padding:"8px 10px",color:"#6b7a99",fontSize:12}}>Sin resultados</div>}
+                  {articulosFiltrados.map(it=>(
+                    <div key={it.id} onClick={()=>añadirMaterialInventario(it)}
+                      style={{padding:"8px 10px",borderTop:"1px solid #1a2236",cursor:"pointer",display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
+                      <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{it.nombre}</span>
+                      <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{it.codigo}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {listaMaterialesManual.length>0&&(
+            <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden",marginBottom:listaMaterialesInv.length>0?10:0}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",padding:"5px 10px",background:"#0a0f1a"}}>
                 {["Material","Cant.",""].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
               </div>
-              {listaMateriales.map((m,i)=>(
+              {listaMaterialesManual.map((m)=>(
                 <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
                   <span style={{color:"#f1f3f9",fontSize:12}}>{m.material}</span>
                   <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{m.cantidad}</span>
-                  <button onClick={()=>setListaMateriales(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,lineHeight:1}}>x</button>
+                  <button onClick={()=>setListaMateriales(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,lineHeight:1}}>x</button>
                 </div>
               ))}
             </div>
           )}
-          {listaMateriales.length===0&&<div style={{color:"#6b7a99",fontSize:11,fontStyle:"italic",marginTop:4}}>Sin materiales añadidos — pulsa + para añadir</div>}
+
+          {listaMaterialesInv.length>0&&(
+            <div>
+              <div style={{color:"#0ea5e9",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>📦 Material de inventario</div>
+              <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #0ea5e944",overflow:"hidden"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 90px 70px 32px",padding:"5px 10px",background:"#0a0f1a"}}>
+                  {["Artículo","Código","Cant.",""].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                </div>
+                {listaMaterialesInv.map((m)=>(
+                  <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 70px 32px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
+                    <span style={{color:"#f1f3f9",fontSize:12}}>{m.material}</span>
+                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{m.codigo}</span>
+                    <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{m.cantidad}</span>
+                    <button onClick={()=>setListaMateriales(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,lineHeight:1}}>x</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {listaMateriales.length===0&&<div style={{color:"#6b7a99",fontSize:11,fontStyle:"italic",marginTop:4}}>Sin materiales añadidos</div>}
         </Field>
 
         {/* Estado del parte: Finalizado o Continuado */}
