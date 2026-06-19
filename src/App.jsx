@@ -6118,7 +6118,10 @@ export default function App() {
   const misNotifs=data.notificaciones[user.id]||[];
   const noLeidas=misNotifs.filter(n=>!n.leida).length;
   const avisosActivos=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
-  const asistenciaActiva=avisosActivos + data.reparaciones.filter(r=>r.estado!=="Completada"&&r.estado!=="Cancelada").length;
+  // El badge de "Avisos" en la nav debe reflejar solo los avisos activos: antes se le sumaba
+  // también el recuento de "reparaciones" (un dato antiguo que no se gestiona desde ninguna
+  // pantalla), lo que hacía que con p.ej. 2 avisos activos el número mostrado fuera 4.
+  const asistenciaActiva=avisosActivos;
   const leerN=id=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>n.id===id?{...n,leida:true}:n)}}));
   const leerT=()=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>({...n,leida:true}))}}));
   const misTareasPend=data.tareas.filter(t=>t.asignadoId===user.id&&t.estado!=="Completada").length;
