@@ -1891,9 +1891,24 @@ const Partes = ({ data, setData }) => {
     setListaMateriales(p => [...p, {id:Date.now(), material:item.nombre, codigo:item.codigo, inventarioId:item.id, cantidad:nuevoMat.cantidad||"1", esInventario:true}]);
     setBuscarArt(""); setNuevoMat(p => ({...p, cantidad:"1"}));
   };
+  // Deshace el efecto sobre stock/historial que un parte concreto hubiera dejado en el
+  // inventario (se usa al editar un parte —antes de reaplicar— y al eliminarlo).
+  const revertirInventarioParte = (inventario, parteId) => (inventario||[]).map(it => {
+    const previas = (it.historialEntregas||[]).filter(h => h.parteId === parteId);
+    if (previas.length === 0) return it;
+    const stockExtra = previas.reduce((s,h) => s + (parseFloat(h.cantidad)||0), 0);
+    return { ...it, stock: (parseFloat(it.stock)||0) + stockExtra, historialEntregas: (it.historialEntregas||[]).filter(h => h.parteId !== parteId) };
+  });
   const save = (continuado) => {
     const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
+    const esNuevo = !form.id;
+    const parteId = form.id || Date.now();
+    const numeroParte = form.numeroParte || generarNumParte(form.fecha, data.partes);
+    const clienteObj = form.clienteDirectoId ? data.clientes.find(c=>c.id===form.clienteDirectoId) : rCliente(form.reparacionId);
+    const clienteNombre = clienteObj?.nombreEmpresa || clienteObj?.nombreFiscal || "Cliente sin nombre";
     const item = { ...form,
+      id: parteId,
+      numeroParte,
       horasT: parseFloat(form.horasT)||0,
       km: form.desplazamiento==="si" ? parseFloat(form.kmValor)||0 : 0,
       materiales: matsStr,
@@ -1905,7 +1920,7 @@ const Partes = ({ data, setData }) => {
     setData(d => {
       let nuevo = {...d};
       // Guardar parte
-      if (!item.id) { const np=generarNumParte(item.fecha,nuevo.partes); nuevo.partes = [...nuevo.partes, {...item, id:Date.now(), numeroParte:np}]; }
+      if (esNuevo) nuevo.partes = [...nuevo.partes, item];
       else nuevo.partes = nuevo.partes.map(p => p.id===item.id ? item : p);
       // Actualizar aviso vinculado: siempre se registra la fecha de última intervención
       if (item.avisoId) {
@@ -1920,6 +1935,26 @@ const Partes = ({ data, setData }) => {
           }
         });
       }
+      // Stock/historial de inventario: primero deshacemos lo que este mismo parte
+      // hubiera aplicado antes (caso edición) y luego aplicamos los materiales actuales.
+      // El descuento siempre se hace contra el artículo concreto (inventarioId/código
+      // interno), nunca por nombre, para no mezclar artículos distintos con el mismo nombre.
+      let inv = revertirInventarioParte(nuevo.inventario, item.id);
+      const entregasInv = listaMateriales.filter(m => m.esInventario && m.inventarioId);
+      if (entregasInv.length > 0) {
+        inv = inv.map(it => {
+          const propias = entregasInv.filter(m => m.inventarioId === it.id);
+          if (propias.length === 0) return it;
+          let stock = parseFloat(it.stock)||0;
+          const nuevasEntregas = propias.map(m => {
+            const cant = parseFloat(m.cantidad)||0;
+            stock -= cant;
+            return { id:Date.now()+Math.random(), fecha:item.fecha, clienteNombre, parteId:item.id, numeroParte:item.numeroParte, cantidad:cant };
+          });
+          return { ...it, stock: Math.max(0, stock), historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
+        });
+      }
+      nuevo.inventario = inv;
       return nuevo;
     });
     setModal(null);
@@ -2151,7 +2186,7 @@ const Partes = ({ data, setData }) => {
                     <Icon name="parts" size={12} />PDF
                   </button>
                   <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
-                  <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                  <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                 </div>
               </div>
             </div>
@@ -2322,7 +2357,10 @@ const Partes = ({ data, setData }) => {
                     <div key={it.id} onClick={()=>añadirMaterialInventario(it)}
                       style={{padding:"8px 10px",borderTop:"1px solid #1a2236",cursor:"pointer",display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
                       <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{it.nombre}</span>
-                      <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{it.codigo}</span>
+                      <span style={{display:"flex",gap:7,alignItems:"center",flexShrink:0}}>
+                        <span style={{color:(it.stock||0)<=0?"#ef4444":"#6b7a99",fontSize:10}}>Stock: {it.stock||0}</span>
+                        <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{it.codigo}</span>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -2331,7 +2369,9 @@ const Partes = ({ data, setData }) => {
           )}
 
           {listaMaterialesManual.length>0&&(
-            <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden",marginBottom:listaMaterialesInv.length>0?10:0}}>
+            <div style={{marginBottom:listaMaterialesInv.length>0?10:0}}>
+              <div style={{color:"#10b981",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>✏️ Material utilizado</div>
+              <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",padding:"5px 10px",background:"#0a0f1a"}}>
                 {["Material","Cant.",""].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
               </div>
@@ -2342,6 +2382,7 @@ const Partes = ({ data, setData }) => {
                   <button onClick={()=>setListaMateriales(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,lineHeight:1}}>x</button>
                 </div>
               ))}
+              </div>
             </div>
           )}
 
@@ -3371,6 +3412,7 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
   const [filtroCategoria, setFiltroCategoria] = useState("Todas");
   const [modalMovimiento, setModalMovimiento] = useState(null);
   const [cantMovimiento, setCantMovimiento] = useState("");
+  const [modalHistorial, setModalHistorial] = useState(null); // artículo cuyo historial de entregas se está viendo
   const [fichaQR, setFichaQR] = useState(null); // producto abierto desde QR
   const [vistaQR, setVistaQR] = useState(false); // false | "elegir" | "manual" | "camara"
   const [qrInput, setQrInput] = useState("");
@@ -3615,6 +3657,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                 </div>
                 <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#10b981",fontSize:11,fontWeight:700}}>+/-</button>
+                  <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#3b82f6",fontSize:11,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#a855f7",fontSize:11,fontWeight:700}}>🏷️</button>
                   <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
                   <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
@@ -3653,6 +3696,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                 <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
                 <div style={{display:"flex",gap:3}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
+                  <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#3b82f6",fontSize:10,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
                   <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
                   <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
@@ -3678,6 +3722,41 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               <button onClick={()=>setModalMovimiento(null)} style={btnOutline}>Cancelar</button>
               <button onClick={()=>ajustarStock("salida")} style={{...btnPrimary,background:"#ef4444"}}>- Salida</button>
               <button onClick={()=>ajustarStock("entrada")} style={{...btnPrimary,background:"#10b981"}}>+ Entrada</button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* Modal historial de entregas (a qué cliente/parte se ha entregado este artículo) */}
+      {modalHistorial && (()=>{
+        const item = data.inventario.find(i=>i.id===modalHistorial);
+        if (!item) return null;
+        const historial = [...(item.historialEntregas||[])].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+        return (
+          <Modal title={`Historial de entregas — ${item.nombre}`} onClose={()=>setModalHistorial(null)}>
+            <div style={{background:"#0d1117",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between"}}>
+              <span style={{color:"#6b7a99",fontSize:12}}>Código interno</span>
+              <span style={{color:"#a855f7",fontWeight:700,fontSize:13,fontFamily:"monospace"}}>{item.codigo}</span>
+            </div>
+            {historial.length===0 ? (
+              <div style={{color:"#6b7a99",fontSize:12,fontStyle:"italic",textAlign:"center",padding:"14px 0"}}>Este artículo aún no se ha entregado en ningún parte de trabajo.</div>
+            ) : (
+              <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
+                <div style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"5px 10px",background:"#0a0f1a"}}>
+                  {["Fecha","Cliente","Parte","Cant."].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                </div>
+                {historial.map(h=>(
+                  <div key={h.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
+                    <span style={{color:"#6b7a99",fontSize:11}}>{fmtFecha(h.fecha)}</span>
+                    <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{h.clienteNombre}</span>
+                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.numeroParte||"—"}</span>
+                    <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{h.cantidad}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:14}}>
+              <button onClick={()=>setModalHistorial(null)} style={btnOutline}>Cerrar</button>
             </div>
           </Modal>
         );
