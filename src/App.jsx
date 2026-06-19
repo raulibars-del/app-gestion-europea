@@ -3480,6 +3480,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:11}}>
             <Field label="Nombre del artículo"><Input value={form.nombre||""} onChange={f("nombre")} placeholder="Ej: Rodamiento 6205 2RS"/></Field>
             <Field label="Categoría"><Input value={form.categoria||""} onChange={f("categoria")} placeholder="Ej: Rodamientos, Correas..."/></Field>
+            <Field label="Ubicación"><Input value={form.ubicacion||""} onChange={f("ubicacion")} placeholder="Ej: Taller, Sala de recambios, Despacho, Oficina Jose..."/></Field>
           </div>
           <Field label="Descripción"><Input value={form.descripcion||""} onChange={f("descripcion")} placeholder="Descripción detallada del artículo"/></Field>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
@@ -3560,7 +3561,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {/* Modal Ficha de producto (abierta desde QR) */}
       {fichaQR && (()=>{
         const item = data.inventario.find(i=>i.id===fichaQR.id) || fichaQR;
-        const qrData = encodeURIComponent(JSON.stringify({id:item.id,codigo:item.codigo,nombre:item.nombre,categoria:item.categoria||"",stock:item.stock,unidad:item.unidad||"ud",precioVenta:item.precioVenta||0,descripcion:item.descripcion||""}));
+        const qrData = encodeURIComponent(JSON.stringify({id:item.id,codigo:item.codigo,nombre:item.nombre,categoria:item.categoria||"",ubicacion:item.ubicacion||"",stock:item.stock,unidad:item.unidad||"ud",precioVenta:item.precioVenta||0,descripcion:item.descripcion||""}));
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`;
         return (
           <Modal title={`Ficha: ${item.codigo} — ${item.nombre}`} onClose={()=>setFichaQR(null)} wide>
@@ -3571,6 +3572,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                     ["Código",item.codigo,"#a855f7"],
                     ["Nombre",item.nombre,"#f1f3f9"],
                     ["Categoría",item.categoria||"—","#9aa3b8"],
+                    ["Ubicación",item.ubicacion||"—","#9aa3b8"],
                     ["Unidad",item.unidad||"ud","#9aa3b8"],
                     ["Stock actual",`${item.stock} ${item.unidad||"ud"}`,item.stock<=0?"#ef4444":"#10b981"],
                     ["Precio venta",`EUR ${(item.precioVenta||0).toFixed(2)}`,"#10b981"],
