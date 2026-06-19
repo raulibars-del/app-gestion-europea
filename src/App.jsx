@@ -43,6 +43,14 @@ const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
 const inic = (n) => (n||"").trim().split(/\s+/).filter(Boolean).map(w=>w[0]||"").join("").toUpperCase().slice(0,3);
+const Avatar = ({ u, size=26, fontSize=11, color, onClick, style }) => {
+  const c = color || ROLES_COLOR[u?.rol] || "#6b7a99";
+  return u?.foto ? (
+    <img src={u.foto} onClick={onClick} alt={u.nombre||"avatar"} style={{width:size,height:size,borderRadius:size>=28?8:7,objectFit:"cover",flexShrink:0,cursor:onClick?"pointer":"default",border:"1px solid "+c+"55",...style}}/>
+  ) : (
+    <div onClick={onClick} style={{width:size,height:size,borderRadius:size>=28?8:7,background:c+"30",display:"flex",alignItems:"center",justifyContent:"center",color:c,fontWeight:800,fontSize,flexShrink:0,cursor:onClick?"pointer":"default",...style}}>{inic(u?.nombre)}</div>
+  );
+};
 const initialData = {
   usuarios: [
     { id:1,nombre:"Raul Ibars",password:"963221478",rol:"manager",avatar:"R",activo:true },
@@ -782,7 +790,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   const abrirPrivado=uid2=>{const k=pKey(userActual.id,uid2);setData(d=>{const ch={...d.chat};if(!ch.privados[k])ch.privados={...ch.privados,[k]:[]};return{...d,chat:ch};});setCanal(k);setBuscar("");if(isMobile)setMView("msgs");};
   const irA=id=>{setCanal(id);if(isMobile)setMView("msgs");};
   const nU=id=>data.usuarios.find(u=>u.id===id)?.nombre||"?";
-  const avU=id=>{const u=data.usuarios.find(u=>u.id===id);return u?{av:inic(u.nombre),rol:u.rol}:{av:"?",rol:"tecnico"};};
+  const avU=id=>data.usuarios.find(u=>u.id===id)||{nombre:"?",rol:"tecnico"};
   const fmtH=ts=>new Date(ts).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
   const fmtD=ts=>{const d=new Date(ts);const h=new Date();return d.toDateString()===h.toDateString()?"Hoy":d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"});};
   const usersChat=data.usuarios.filter(u=>u.id!==userActual.id&&u.activo&&buscar&&u.nombre.toLowerCase().includes(buscar.toLowerCase()));
@@ -799,7 +807,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
             <input value={buscar} onChange={e=>setBuscar(e.target.value)} placeholder="Mensaje directo..." style={{width:"100%",background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 9px",color:"#f1f3f9",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
             {usersChat.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,zIndex:10,marginTop:2}}>
               {usersChat.map(u=><div key={u.id} onClick={()=>abrirPrivado(u.id)} style={{padding:"7px 9px",cursor:"pointer",display:"flex",alignItems:"center",gap:7,borderBottom:"1px solid #1a2236"}}>
-                <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:10}}>{inic(u.nombre)}</div>
+                <Avatar u={u} size={22} fontSize={10}/>
                 <div style={{color:"#f1f3f9",fontSize:12}}>{u.nombre}</div>
               </div>)}
             </div>}
@@ -830,7 +838,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
             return <div key={msg.id}>
               {showD&&<div style={{textAlign:"center",margin:"8px 0 5px"}}><span style={{background:"#1a2236",color:"#6b7a99",borderRadius:9,padding:"3px 11px",fontSize:10}}>{fmtD(msg.ts)}</span></div>}
               <div style={{display:"flex",alignItems:"flex-end",gap:7,flexDirection:esMio?"row-reverse":"row",marginBottom:2}}>
-                {!esMio&&<div style={{width:26,height:26,borderRadius:7,background:ROLES_COLOR[av.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[av.rol],fontWeight:700,fontSize:10,flexShrink:0}}>{av.av}</div>}
+                {!esMio&&<Avatar u={av} size={26} fontSize={10}/>}
                 <div style={{maxWidth:"68%"}}>
                   {!esMio&&<div style={{fontSize:11,color:"#6b7a99",marginBottom:2,marginLeft:2}}>{nU(msg.autorId)}</div>}
                   <div style={{background:esMio?"#2563eb":"#1e2a3a",color:"#f1f3f9",borderRadius:esMio?"11px 11px 3px 11px":"11px 11px 11px 3px",padding:msg.adjunto&&!msg.texto?6:"8px 11px",fontSize:13,lineHeight:1.5,wordBreak:"break-word"}}>
@@ -1394,7 +1402,7 @@ const Ventas = ({ data, setData, userActual }) => {
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Ventas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <div style={{width:22,height:22,borderRadius:5,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:9}}>{inic(userActual.nombre)}</div>
+            <Avatar u={userActual} size={22} fontSize={9}/>
             <span style={{color:"#6b7a99",fontSize:13}}>{userActual.nombre}</span>
           </div>
         </div>
@@ -1603,7 +1611,7 @@ const Tareas = ({ data, setData, userActual }) => {
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Tareas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <div style={{width:24,height:24,borderRadius:6,background:ROLES_COLOR[userActual.rol] + "30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[userActual.rol],fontWeight:800,fontSize:10}}>{inic(userActual.nombre)}</div>
+            <Avatar u={userActual} size={24} fontSize={10}/>
             <span style={{color:"#6b7a99",fontSize:13}}>{userActual.nombre} · <span style={{color:"#8b5cf6",fontWeight:700}}>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span></span>
           </div>
         </div>
@@ -2407,10 +2415,10 @@ const Usuarios = ({ data, setData, userActual }) => {
       <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
       <tbody>{data.usuarios.map(u=>(
         <tr key={u.id} style={{borderBottom:"1px solid #1a2236"}}>
-          <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:800,fontSize:12}}>{inic(u.nombre)}</div><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
+          <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar u={u} size={30} fontSize={12}/><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
           <td style={{padding:"11px 14px"}}><RolBadge rol={u.rol}/></td>
           <td style={{padding:"11px 14px"}}><span style={{color:u.activo?"#16a34a":"#dc2626",fontSize:12,fontWeight:700}}>{u.activo?"● Activo":"● Inactivo"}</span></td>
-          <td style={{padding:"11px 14px"}}>{u.id!==userActual.id&&<div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button><button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button></div>}</td>
+          <td style={{padding:"11px 14px"}}><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>{u.id!==userActual.id&&<button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button>}</div></td>
         </tr>
       ))}</tbody></table>
     </div>
@@ -3163,7 +3171,8 @@ return(<div>
 </div>);
 };
 // ── INVENTARIO ──────────────────────────────────────────────
-const Inventario = ({ data, setData }) => {
+const Inventario = ({ data, setData, userActual, isMobile }) => {
+  const puedeVerCompra = userActual?.rol==="manager"||userActual?.rol==="admin";
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [busq, setBusq] = useState("");
@@ -3179,6 +3188,12 @@ const Inventario = ({ data, setData }) => {
   const rafRef = useRef(null);
   const streamRef = useRef(null);
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
+  const handleFotoArt = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => setForm(p => ({...p, foto: ev.target.result}));
+    r.readAsDataURL(file);
+  };
 
   const pararCamara = () => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
@@ -3190,8 +3205,21 @@ const Inventario = ({ data, setData }) => {
   const abrirFichaDesdeQR = (texto) => {
     const t = (texto||"").trim();
     if (!t) return;
-    // QR que apunta a una página web (etiqueta impresa o enlace externo): abrirla directamente
-    if (/^data:text\/html|^https?:\/\//i.test(t)) {
+    // QR generado por esta misma app (https://dominio/?articulo=CODIGO): buscamos el
+    // artículo y abrimos su ficha dentro de la app, sin salir a una pestaña nueva.
+    if (/^https?:\/\//i.test(t)) {
+      try {
+        const u = new URL(t);
+        const cod = u.searchParams.get("articulo");
+        if (cod) {
+          const prod = data.inventario.find(i => i.codigo === cod);
+          if (prod) { setFichaQR(prod); cerrarLectorQR(); return; }
+          alert("No se ha encontrado ningún artículo con ese código.");
+          cerrarLectorQR();
+          return;
+        }
+      } catch(e) {}
+      // Enlace externo que no es de esta app: lo abrimos en una pestaña nueva
       window.open(t, "_blank");
       cerrarLectorQR();
       return;
@@ -3267,68 +3295,12 @@ const Inventario = ({ data, setData }) => {
   };
 
   const imprimirEtiqueta = (item) => {
-    // Página de ficha: se abre en ventana nueva y su URL se codifica en el QR
-    // Usamos window.open + location.href para obtener la URL base de la app
-    const params = new URLSearchParams({
-      codigo: item.codigo,
-      nombre: item.nombre,
-      categoria: item.categoria||"",
-      stock: String(item.stock||0),
-      unidad: item.unidad||"ud",
-      precioCompra: String((item.precioCompra||0).toFixed(2)),
-      precioVenta: String((item.precioVenta||0).toFixed(2)),
-      descripcion: item.descripcion||""
-    });
-
-    // Construimos la ficha como página autónoma
-    const fichaHtml = `<!DOCTYPE html><html lang="es"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${item.codigo} · Ficha Producto</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#0d1117;color:#f1f3f9;padding:0;min-height:100vh}
-.top{background:#151b2a;border-bottom:2px solid #a855f733;padding:18px 20px 14px;text-align:center}
-.emp{font-size:10px;color:#a855f7;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:6px}
-.cod{font-size:32px;font-weight:900;letter-spacing:5px;color:#f1f3f9;line-height:1}
-.nom{font-size:14px;color:#9aa3b8;margin-top:6px}
-.body{padding:16px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.card{background:#151b2a;border:1px solid #2a3550;border-radius:10px;padding:14px 16px}
-.lbl{font-size:10px;color:#6b7a99;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px}
-.val{font-size:26px;font-weight:900}
-.green{color:#10b981}.blue{color:#3b82f6}.purple{color:#a855f7}.gray{color:#9aa3b8;font-size:18px!important}
-.desc{background:#151b2a;border:1px solid #2a3550;border-radius:10px;padding:14px 16px;font-size:13px;color:#9aa3b8;line-height:1.6}
-.foot{text-align:center;padding:16px;font-size:10px;color:#3b4460;border-top:1px solid #1a2236;margin-top:4px}
-</style></head><body>
-<div class="top">
-  <div class="emp">EUROPEA DE MAQUINARIA PMM SL</div>
-  <div class="cod">${item.codigo}</div>
-  <div class="nom">${item.nombre}</div>
-</div>
-<div class="body">
-  <div class="grid">
-    <div class="card"><div class="lbl">Precio compra</div><div class="val blue">EUR ${(item.precioCompra||0).toFixed(2)}</div></div>
-    <div class="card"><div class="lbl">Precio venta</div><div class="val green">EUR ${(item.precioVenta||0).toFixed(2)}</div></div>
-    <div class="card"><div class="lbl">Stock actual</div><div class="val purple">${item.stock||0} ${item.unidad||"ud"}</div></div>
-    <div class="card"><div class="lbl">Categoría</div><div class="val gray">${item.categoria||"—"}</div></div>
-  </div>
-  ${item.descripcion ? `<div class="desc">${item.descripcion}</div>` : ""}
-</div>
-<div class="foot">Europea de Maquinaria PMM SL &middot; ${item.codigo}</div>
-</body></html>`;
-
-    // Abrimos la ficha en una ventana nueva para obtener su URL real
-    const fichaBlob = new Blob([fichaHtml], {type:"text/html;charset=utf-8"});
-    const fichaUrl = URL.createObjectURL(fichaBlob);
-
-    // El QR apunta a la URL del blob (funciona en el mismo dispositivo que generó la etiqueta)
-    // Para uso en red local, la URL del blob no es accesible desde otro dispositivo,
-    // por eso incrustamos los datos compactos directamente en el QR como mini-HTML
-    // Usamos una versión ultra-compacta de la ficha en el QR
-    const mini = `data:text/html,<meta charset=utf-8><meta name=viewport content=width=device-width><title>${item.codigo}</title><style>body{font:14px Arial;background:%230d1117;color:%23f1f3f9;padding:16px;margin:0}.t{background:%23151b2a;border-radius:10px;padding:14px;text-align:center;margin-bottom:12px}.e{font-size:9px;color:%23a855f7;letter-spacing:2px;text-transform:uppercase}.c{font-size:28px;font-weight:900;letter-spacing:4px}.n{color:%239aa3b8;font-size:13px;margin-top:4px}.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.k{background:%23151b2a;border-radius:8px;padding:12px}.l{font-size:9px;color:%236b7a99;text-transform:uppercase;margin-bottom:4px}.v{font-size:22px;font-weight:900}</style><div class=t><div class=e>EUROPEA DE MAQUINARIA PMM SL</div><div class=c>${item.codigo}</div><div class=n>${item.nombre}</div></div><div class=g><div class=k><div class=l>Precio compra</div><div class=v style=color:%233b82f6>EUR ${(item.precioCompra||0).toFixed(2)}</div></div><div class=k><div class=l>Precio venta</div><div class=v style=color:%2310b981>EUR ${(item.precioVenta||0).toFixed(2)}</div></div><div class=k><div class=l>Stock</div><div class=v style=color:%23a855f7>${item.stock||0} ${item.unidad||"ud"}</div></div><div class=k><div class=l>Categoria</div><div class=v style=color:%239aa3b8;font-size:15px>${item.categoria||"—"}</div></div></div>`;
-
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(mini)}`;
+    // El QR apunta a una página real de la app (https://dominio/?articulo=CODIGO),
+    // así cualquier cámara de móvil puede abrirla directamente sin necesidad de iniciar sesión.
+    // Nota: el precio de compra es información interna y nunca se incluye en la
+    // etiqueta/ficha impresa ni en la página pública, ya que el QR puede ser escaneado por cualquiera.
+    const urlArticulo = `${window.location.origin}/?articulo=${encodeURIComponent(item.codigo)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(urlArticulo)}`;
 
     // Ventana de impresión: solo empresa + código + QR
     const w = window.open("","_blank","width=360,height=360");
@@ -3369,7 +3341,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <button onClick={()=>setVistaQR("elegir")} style={{background:"#1a2236",color:"#a855f7",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <span style={{fontSize:16}}>📷</span>Leer QR
           </button>
-          <button onClick={()=>{setForm({codigo:nextCodigo(),nombre:"",descripcion:"",categoria:"",unidad:"ud",stock:0,precioCompra:"",precioVenta:""});setModal(true);}} style={{background:"linear-gradient(135deg,#a855f7,#7c3aed)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+          <button onClick={()=>{setForm({codigo:nextCodigo(),nombre:"",descripcion:"",categoria:"",unidad:"ud",stock:0,precioCompra:"",precioVenta:"",foto:null});setModal(true);}} style={{background:"linear-gradient(135deg,#a855f7,#7c3aed)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Icon name="plus" size={14}/>Nuevo artículo
           </button>
         </div>
@@ -3380,7 +3352,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         {[
           ["Artículos",data.inventario.length,"#a855f7"],
           ["Stock bajo",bajos.length,"#ef4444"],
-          ["Valor compra","EUR"+totalCompra.toFixed(0),"#3b82f6"],
+          ...(puedeVerCompra ? [["Valor compra","EUR"+totalCompra.toFixed(0),"#3b82f6"]] : []),
           ["Valor venta","EUR"+totalVenta.toFixed(0),"#10b981"],
         ].map(([l,v,c])=>(
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
@@ -3414,41 +3386,83 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </div>
       </div>
 
-      {/* Tabla */}
-      <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
-        <div style={{display:"grid",gridTemplateColumns:"120px 1fr 90px 80px 80px 80px 120px",background:"#0a0f1a",padding:"9px 14px",gap:8}}>
-          {["Código","Artículo","Stock","P. Compra","P. Venta","Categoría",""].map(h=>(
-            <div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>
-          ))}
+      {/* Tabla / lista */}
+      {isMobile ? (
+        <div style={{display:"flex",flexDirection:"column",gap:9}}>
+          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin artículos</div>}
+          {filtrados.map(item=>{
+            const sinStock = !item.stock || item.stock <= 0;
+            return (
+              <div key={item.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"12px 14px"}}>
+                <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                  {item.foto && <img src={item.foto} alt={item.nombre} style={{width:48,height:48,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550",flexShrink:0}}/>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                      <div style={{color:"#a855f7",fontWeight:700,fontSize:11,fontFamily:"monospace"}}>{item.codigo}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                        <span style={{color:sinStock?"#ef4444":"#10b981",fontWeight:800,fontSize:14}}>{item.stock}</span>
+                        <span style={{color:"#6b7a99",fontSize:10}}>{item.unidad}</span>
+                        {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
+                      </div>
+                    </div>
+                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginTop:2}}>{item.nombre}</div>
+                    {item.descripcion && <div style={{color:"#6b7a99",fontSize:11,marginTop:1}}>{item.descripcion}</div>}
+                    <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
+                      {puedeVerCompra && <div style={{color:"#6b7a99",fontSize:11}}>Compra: EUR{(item.precioCompra||0).toFixed(2)}</div>}
+                      <div style={{color:"#10b981",fontWeight:700,fontSize:11}}>Venta: EUR{(item.precioVenta||0).toFixed(2)}</div>
+                      {item.categoria && <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end"}}>
+                  <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#10b981",fontSize:11,fontWeight:700}}>+/-</button>
+                  <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#a855f7",fontSize:11,fontWeight:700}}>🏷️</button>
+                  <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
+                  <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99"}}>Sin artículos</div>}
-        {filtrados.map((item,idx)=>{
-          const sinStock = !item.stock || item.stock <= 0;
-          return (
-            <div key={item.id} style={{display:"grid",gridTemplateColumns:"120px 1fr 90px 80px 80px 80px 120px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center"}}>
-              <div style={{color:"#a855f7",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{item.codigo}</div>
-              <div>
-                <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13}}>{item.nombre}</div>
-                {item.descripcion && <div style={{color:"#6b7a99",fontSize:11}}>{item.descripcion}</div>}
+      ) : (
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 120px":"120px 1fr 90px 80px 80px 120px",background:"#0a0f1a",padding:"9px 14px",gap:8}}>
+            {(puedeVerCompra?["Código","Artículo","Stock","P. Compra","P. Venta","Categoría",""]:["Código","Artículo","Stock","P. Venta","Categoría",""]).map(h=>(
+              <div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>
+            ))}
+          </div>
+          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99"}}>Sin artículos</div>}
+          {filtrados.map((item,idx)=>{
+            const sinStock = !item.stock || item.stock <= 0;
+            return (
+              <div key={item.id} style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 120px":"120px 1fr 90px 80px 80px 120px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center"}}>
+                <div style={{color:"#a855f7",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{item.codigo}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                  {item.foto && <img src={item.foto} alt={item.nombre} style={{width:32,height:32,objectFit:"cover",borderRadius:6,border:"1px solid #2a3550",flexShrink:0}}/>}
+                  <div style={{minWidth:0}}>
+                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13}}>{item.nombre}</div>
+                    {item.descripcion && <div style={{color:"#6b7a99",fontSize:11}}>{item.descripcion}</div>}
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{color:sinStock?"#ef4444":"#10b981",fontWeight:800,fontSize:14}}>{item.stock}</span>
+                  <span style={{color:"#6b7a99",fontSize:10}}>{item.unidad}</span>
+                  {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
+                </div>
+                {puedeVerCompra && <div style={{color:"#6b7a99",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>}
+                <div style={{color:"#10b981",fontWeight:700,fontSize:12}}>EUR{(item.precioVenta||0).toFixed(2)}</div>
+                <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
+                <div style={{display:"flex",gap:3}}>
+                  <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
+                  <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
+                  <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
+                  <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
+                </div>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:4}}>
-                <span style={{color:sinStock?"#ef4444":"#10b981",fontWeight:800,fontSize:14}}>{item.stock}</span>
-                <span style={{color:"#6b7a99",fontSize:10}}>{item.unidad}</span>
-                {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
-              </div>
-              <div style={{color:"#6b7a99",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>
-              <div style={{color:"#10b981",fontWeight:700,fontSize:12}}>EUR{(item.precioVenta||0).toFixed(2)}</div>
-              <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
-              <div style={{display:"flex",gap:3}}>
-                <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
-                <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
-                <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
-                <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Modal entrada/salida stock */}
       {modalMovimiento && (()=>{
@@ -3477,6 +3491,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             <span style={{color:"#a855f7",fontWeight:800,fontSize:14}}>{form.codigo}</span>
             <span style={{color:"#6b7a99",fontSize:12}}>— Código asignado automáticamente</span>
           </div>
+          <Field label="Foto del artículo">
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              {form.foto && <img src={form.foto} alt="preview" style={{width:64,height:64,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
+              <label style={{background:"#2a3550",color:"#9aa3b8",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
+                <Icon name="image" size={13}/>{form.foto?"Cambiar foto":"Subir foto"}
+                <input type="file" accept="image/*" onChange={handleFotoArt} style={{display:"none"}}/>
+              </label>
+              {form.foto && <button onClick={()=>setForm(p=>({...p,foto:null}))} style={{...btnSm("#3b1c1c","#dc2626"),fontSize:12}}>Quitar</button>}
+            </div>
+          </Field>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:11}}>
             <Field label="Nombre del artículo"><Input value={form.nombre||""} onChange={f("nombre")} placeholder="Ej: Rodamiento 6205 2RS"/></Field>
             <Field label="Categoría"><Input value={form.categoria||""} onChange={f("categoria")} placeholder="Ej: Rodamientos, Correas..."/></Field>
@@ -3486,7 +3510,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
             <Field label="Unidad"><Input value={form.unidad||"ud"} onChange={f("unidad")} placeholder="ud, m, L, kg..."/></Field>
             <Field label="Unidades"><Input type="number" value={form.stock||""} onChange={f("stock")} placeholder="0"/></Field>
-            <Field label="Precio compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>
+            {puedeVerCompra && <Field label="Precio compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
             <Field label="Precio venta EUR"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>
           </div>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
@@ -3561,12 +3585,13 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {/* Modal Ficha de producto (abierta desde QR) */}
       {fichaQR && (()=>{
         const item = data.inventario.find(i=>i.id===fichaQR.id) || fichaQR;
-        const qrData = encodeURIComponent(JSON.stringify({id:item.id,codigo:item.codigo,nombre:item.nombre,categoria:item.categoria||"",ubicacion:item.ubicacion||"",stock:item.stock,unidad:item.unidad||"ud",precioVenta:item.precioVenta||0,descripcion:item.descripcion||""}));
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${qrData}`;
+        const urlArticulo = `${window.location.origin}/?articulo=${encodeURIComponent(item.codigo)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(urlArticulo)}`;
         return (
           <Modal title={`Ficha: ${item.codigo} — ${item.nombre}`} onClose={()=>setFichaQR(null)} wide>
             <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:20,alignItems:"start"}}>
               <div>
+                {item.foto && <img src={item.foto} alt={item.nombre} style={{width:"100%",maxHeight:160,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550",marginBottom:10}}/>}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
                   {[
                     ["Código",item.codigo,"#a855f7"],
@@ -3576,7 +3601,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                     ["Unidad",item.unidad||"ud","#9aa3b8"],
                     ["Stock actual",`${item.stock} ${item.unidad||"ud"}`,item.stock<=0?"#ef4444":"#10b981"],
                     ["Precio venta",`EUR ${(item.precioVenta||0).toFixed(2)}`,"#10b981"],
-                    ["Precio compra",`EUR ${(item.precioCompra||0).toFixed(2)}`,"#6b7a99"],
+                    ...(puedeVerCompra ? [["Precio compra",`EUR ${(item.precioCompra||0).toFixed(2)}`,"#6b7a99"]] : []),
                   ].map(([lbl,val,col])=>(
                     <div key={lbl} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
                       <div style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
@@ -4799,6 +4824,125 @@ async function apiUploadFile(payload){
   return json;
 }
 
+const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
+  const [foto, setFoto] = useState(userActual.foto || null);
+  const [pass1, setPass1] = useState("");
+  const [pass2, setPass2] = useState("");
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+  const handleFoto = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => setFoto(ev.target.result);
+    r.readAsDataURL(f);
+  };
+  const guardar = () => {
+    if (pass1 && pass1.length < 4) { setErr("La contraseña debe tener al menos 4 caracteres."); return; }
+    if (pass1 && pass1 !== pass2) { setErr("Las contraseñas no coinciden."); return; }
+    setErr("");
+    const cambios = { foto };
+    if (pass1) cambios.password = pass1;
+    setData(d => ({ ...d, usuarios: d.usuarios.map(u => u.id === userActual.id ? { ...u, ...cambios } : u) }));
+    onUpdateUser(prev => ({ ...prev, ...cambios }));
+    setPass1(""); setPass2("");
+    setOk("Cambios guardados.");
+    setTimeout(() => setOk(""), 2500);
+  };
+  return (
+    <Modal title="Mi cuenta" onClose={onClose}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+        <Avatar u={{ ...userActual, foto }} size={64} fontSize={22} />
+        <div>
+          <div style={{ color: "#f1f3f9", fontWeight: 700, fontSize: 15 }}>{userActual.nombre}</div>
+          <div style={{ margin: "4px 0 8px" }}><RolBadge rol={userActual.rol} /></div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2a3550", color: "#9aa3b8", border: "1px solid #3a4560", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+              <Icon name="image" size={13} />{foto ? "Cambiar foto" : "Subir foto"}
+              <input type="file" accept="image/*" onChange={handleFoto} style={{ display: "none" }} />
+            </label>
+            {foto && <button onClick={() => setFoto(null)} style={{ ...btnSm("#3b1c1c", "#dc2626"), fontSize: 11 }}>Quitar foto</button>}
+          </div>
+        </div>
+      </div>
+      <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(220px,100%),1fr))", gap: 11 }}>
+          <Field label="Nueva contraseña"><Input type="password" value={pass1} onChange={e => setPass1(e.target.value)} placeholder="Dejar en blanco para no cambiar" /></Field>
+          <Field label="Confirmar contraseña"><Input type="password" value={pass2} onChange={e => setPass2(e.target.value)} /></Field>
+        </div>
+      </div>
+      {err && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 10 }}>{err}</div>}
+      {ok && <div style={{ color: "#10b981", fontSize: 12, marginTop: 10 }}>{ok}</div>}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>
+        <button onClick={onClose} style={btnOutline}>Cerrar</button>
+        <button onClick={guardar} style={btnPrimary}>Guardar</button>
+      </div>
+    </Modal>
+  );
+};
+
+// ── FICHA PÚBLICA DE ARTÍCULO (sin login, accesible escaneando el QR) ──────
+const FichaPublicaArticulo = ({ codigo, data, cargando }) => {
+  const item = data?.inventario?.find(i => i.codigo === codigo);
+  return (
+    <div style={{minHeight:"100vh",background:"#0d1117",color:"#f1f3f9",fontFamily:"Arial,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 30px"}}>
+      <div style={{width:"100%",background:"#151b2a",borderBottom:"2px solid #a855f733",padding:"20px 16px 16px",textAlign:"center"}}>
+        <div style={{fontSize:10,color:"#a855f7",letterSpacing:2,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Europea de Maquinaria PMM SL</div>
+        <div style={{fontSize:13,color:"#6b7a99"}}>Ficha de artículo</div>
+      </div>
+      <div style={{width:"100%",maxWidth:420,padding:"20px 16px"}}>
+        {!item ? (
+          <div style={{textAlign:"center",color:"#6b7a99",padding:"40px 10px"}}>
+            {cargando ? "Cargando artículo..." : (
+              <>
+                <div style={{fontSize:36,marginBottom:10}}>❓</div>
+                <div style={{fontWeight:700,color:"#f1f3f9",marginBottom:4}}>Artículo no encontrado</div>
+                <div style={{fontSize:13}}>No existe ningún artículo con el código "{codigo}".</div>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            {item.foto && <img src={item.foto} alt={item.nombre} style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:12,border:"1px solid #2a3550",marginBottom:14}}/>}
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:26,fontWeight:900,letterSpacing:3,color:"#a855f7"}}>{item.codigo}</div>
+              <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{item.nombre}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
+                <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio venta</div>
+                <div style={{fontSize:20,fontWeight:900,color:"#10b981"}}>EUR {(item.precioVenta||0).toFixed(2)}</div>
+              </div>
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
+                <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Stock actual</div>
+                <div style={{fontSize:20,fontWeight:900,color:item.stock>0?"#a855f7":"#ef4444"}}>{item.stock||0} {item.unidad||"ud"}</div>
+              </div>
+              {item.categoria && (
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Categoría</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{item.categoria}</div>
+                </div>
+              )}
+              {item.ubicacion && (
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Ubicación</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{item.ubicacion}</div>
+                </div>
+              )}
+            </div>
+            {item.descripcion && (
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#9aa3b8",lineHeight:1.6}}>
+                {item.descripcion}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div style={{color:"#3b4460",fontSize:10,marginTop:10}}>Europea de Maquinaria PMM SL</div>
+    </div>
+  );
+};
+
 export default function App() {
   const [data,setData]=useState(()=>{
     try {
@@ -4889,10 +5033,14 @@ export default function App() {
     return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); };
   },[]);
 
+  const [articuloPublico]=useState(()=>{
+    try { return new URLSearchParams(window.location.search).get("articulo"); } catch(e) { return null; }
+  });
   const [user,setUser]=useState(null);
   const [active,setActive]=useState("asistencia");
   const [notifOpen,setNotifOpen]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false); // sidebar móvil drawer
+  const [cuentaOpen,setCuentaOpen]=useState(false); // modal "Mi cuenta"
   const [docFiltro,setDocFiltro]=useState(null); // filtro pendiente al entrar en Documentación desde la ficha de una máquina
   const irADocMaquina=filtro=>{setDocFiltro(filtro);setActive("documentacion");};
   const notifRef=useRef(null);
@@ -4962,6 +5110,7 @@ export default function App() {
       alert("No se pudo enviar el email de prueba.\n\n"+e.message);
     }
   };
+  if(articuloPublico)return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
   if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");}}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
     const n=crearNotif(userId,tipo,titulo,mensaje);
@@ -5005,7 +5154,7 @@ export default function App() {
               </button>
               {notifOpen&&<NotifPanel notifs={misNotifs} onLeer={leerN} onLeerTodas={leerT} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
             </div>
-            <div style={{width:28,height:28,borderRadius:7,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{inic(user.nombre)}</div>
+            <Avatar u={user} size={28} fontSize={11} onClick={()=>setCuentaOpen(true)}/>
           </div>
         </>
       ):(
@@ -5056,8 +5205,8 @@ export default function App() {
           <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"#1a2236",border:"none",borderRadius:6,padding:"8px",color:"#6b7a99",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="logout" size={14}/></button>
         ):(
           <>
-            <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
-              <div style={{width:26,height:26,borderRadius:6,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:11}}>{inic(user.nombre)}</div>
+            <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,cursor:"pointer"}}>
+              <Avatar u={user} size={26} fontSize={11}/>
               <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
             </div>
             <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#6b7a99",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
@@ -5116,8 +5265,8 @@ export default function App() {
         </div>
         {/* Usuario info + logout en el drawer */}
         <div style={{borderTop:"1px solid #1a2236",paddingTop:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:32,height:32,borderRadius:8,background:ROLES_COLOR[user.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[user.rol],fontWeight:800,fontSize:13}}>{inic(user.nombre)}</div>
+          <div onClick={()=>{setCuentaOpen(true);setMenuOpen(false);}} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+            <Avatar u={user} size={32} fontSize={13}/>
             <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
           </div>
           <button onClick={()=>setUser(null)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:8,padding:"7px 12px",color:"#6b7a99",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:600}}><Icon name="logout" size={12}/>Salir</button>
@@ -5139,7 +5288,7 @@ export default function App() {
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData}/>}
-          {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData}/>}
+          {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
@@ -5150,6 +5299,7 @@ export default function App() {
       </div>
       {isMobile&&<BottomNav/>}
       {isMobile&&<MoreDrawer/>}
+      {cuentaOpen&&<MiCuenta userActual={user} setData={setData} onUpdateUser={setUser} onClose={()=>setCuentaOpen(false)}/>}
     </div>
   );
 }
