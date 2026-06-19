@@ -1850,7 +1850,7 @@ const Partes = ({ data, setData }) => {
     doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
     doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
     doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
-    doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com",mg+30,24);
+    doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
     // Título parte (derecha)
     doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
     doc.text("PARTE DE TRABAJO",W-mg,13,{align:"right"});
@@ -1974,7 +1974,7 @@ const Partes = ({ data, setData }) => {
         to: emailCliente,
         cc: ccUsada,
         subject: "Parte de trabajo "+(modalPDF.numeroParte||"")+" — Europea de Maquinaria",
-        html: "<p>Buenas,</p><p>Adjuntamos el parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+        html: "<p>Buenas,</p><p>Adjuntamos documento relativo a gestión de trabajo realizada, parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>La cuenta gestion@europeademaquinaria.com es para envío de información y no es una vía de contacto válida. Para información general, escriba a info@europeademaquinaria.com; para aspectos técnicos, a servicio@europeademaquinaria.com o al teléfono 961550707.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
         attachmentBase64: base64,
         attachmentName: "parte-"+(modalPDF.numeroParte||String(modalPDF.id).slice(-6))+".pdf",
         attachmentMime: "application/pdf",
