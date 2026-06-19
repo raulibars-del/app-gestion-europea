@@ -20,7 +20,7 @@ jobs:
           cache: 'npm'
 
       - name: Instalar dependencias
-        run: npm ci
+        run: npm install
 
       - name: Generar config.php con credenciales de BD
         env:
