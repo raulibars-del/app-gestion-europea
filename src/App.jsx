@@ -333,7 +333,7 @@ const Login = ({ usuarios, onLogin }) => {
     </div>
   );
 };
-const Clientes = ({ data, setData }) => {
+const Clientes = ({ data, setData, onIrADocMaquina }) => {
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   const [modalC,setModalC]=useState(null); const [modalM,setModalM]=useState(null); const [modalCo,setModalCo]=useState(null);
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
@@ -580,6 +580,7 @@ const Clientes = ({ data, setData }) => {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
                       <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{m.nombre}</div>
                       <div style={{display:"flex",gap:4}}>
+                        {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
                         <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
                         <button onClick={()=>{delM(m.id);setTabM(null);}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
                       </div>
@@ -3489,7 +3490,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
 };
 
 // ── DOCUMENTACION ─────────────────────────────────────────
-const Documentacion = ({ data, setData }) => {
+const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [archivos, setArchivos] = useState([]);
@@ -3500,6 +3501,26 @@ const Documentacion = ({ data, setData }) => {
   const [busqAnyo, setBusqAnyo] = useState("");
   const [archivosAbiertos, setArchivosAbiertos] = useState({});
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
+
+  // Llegada desde "Ver documentación" en la ficha de una máquina de un cliente:
+  // si existe el documento de esa máquina concreta, abrirlo directamente;
+  // si no (p.ej. máquina creada antes de existir este vínculo), al menos
+  // dejamos los filtros de búsqueda rellenos con sus datos.
+  useEffect(()=>{
+    if(!filtroInicial) return;
+    const {clienteId,maquinaId,marca,modelo,serie}=filtroInicial;
+    const doc=(data.documentacion||[]).find(d=>d.clienteId===clienteId && d._maquinaClienteId===maquinaId);
+    if(doc){
+      setVista(doc.id);
+    } else {
+      setVista(null);
+      setBusqMarca(marca||"");
+      setBusqModelo(modelo||"");
+      setBusqMatricula(serie||"");
+      setBusqAnyo("");
+    }
+    if(onFiltroConsumido) onFiltroConsumido();
+  },[filtroInicial]);
 
   const TIPOS_ARCHIVO = ["Manual de usuario","Manual de servicio","Despiece","Esquema electrico","Esquema hidraulico","Esquema neumatico","Lista de repuestos","Certificado","Otro"];
 
@@ -4680,6 +4701,8 @@ export default function App() {
   const [active,setActive]=useState("asistencia");
   const [notifOpen,setNotifOpen]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false); // sidebar móvil drawer
+  const [docFiltro,setDocFiltro]=useState(null); // filtro pendiente al entrar en Documentación desde la ficha de una máquina
+  const irADocMaquina=filtro=>{setDocFiltro(filtro);setActive("documentacion");};
   const notifRef=useRef(null);
   const [isMobile,setIsMobile]=useState(()=>window.innerWidth<768);
   const [isTablet,setIsTablet]=useState(()=>window.innerWidth>=768&&window.innerWidth<1024);
@@ -4918,14 +4941,14 @@ export default function App() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData}/>}
-          {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData}/>}
+          {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
