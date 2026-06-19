@@ -1969,15 +1969,17 @@ const Partes = ({ data, setData }) => {
     try{
       const dataUri = await generarYDescargarPDF(modalPDF,firmada,true);
       const base64 = dataUri.split(",")[1];
+      const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com";
       await apiSendMail({
         to: emailCliente,
-        cc: data.smtp?.ccPartes || "gestion@europeademaquinaria.com,servicio@europeademaquinaria.com",
+        cc: ccUsada,
         subject: "Parte de trabajo "+(modalPDF.numeroParte||"")+" — Europea de Maquinaria",
         html: "<p>Buenas,</p><p>Adjuntamos el parte de trabajo <strong>"+(modalPDF.numeroParte||"")+"</strong>.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
         attachmentBase64: base64,
         attachmentName: "parte-"+(modalPDF.numeroParte||String(modalPDF.id).slice(-6))+".pdf",
         attachmentMime: "application/pdf",
       });
+      setData(d=>({...d,partes:d.partes.map(pt=>pt.id===modalPDF.id?{...pt,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
       setEnviado(true);
     }catch(e){
       alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
@@ -2020,6 +2022,9 @@ const Partes = ({ data, setData }) => {
                     {p.estadoParte==="Continuado"?"🔄 Continuado":"✅ Finalizado"}
                   </div>
                 )}
+                <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#6b7a9920",color:p.emailEnviado?"#10b981":"#6b7a99",border:"1px solid "+(p.emailEnviado?"#10b98144":"#6b7a9944")}}>
+                  {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
+                </div>
                 <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                   <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                     <Icon name="parts" size={12} />PDF
@@ -2354,11 +2359,11 @@ const Partes = ({ data, setData }) => {
                     <div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>El cliente no tiene email — introducelo manualmente</div>
                   )}
                   <div style={{fontSize:11,color:"#6b7a99",marginTop:4}}>
-                    Copia a: <span style={{color:"#9aa3b8"}}>servicio@europeademaquinaria.com</span>
+                    Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}</span>
                   </div>
                 </div>
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"10px 14px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
-                  <Icon name="check" size={15} />PDF generado y descargado correctamente
+                  <Icon name="check" size={15} />PDF descargado y email enviado a {p.emailEnviadoA||emailCliente}, con copia a {p.emailEnviadoCC||data.smtp?.ccPartes||"gestion@europeademaquinaria.com, servicio@europeademaquinaria.com"}
                 </div>}
                 <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => setModalPDF(null)} style={btnOutline}>Cerrar</button>
@@ -2778,6 +2783,8 @@ const Albaran = ({ data, setData, userActual }) => {
           attachmentName: "albaran-"+alb.numero+".pdf",
           attachmentMime: "application/pdf",
         });
+        setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,emailEnviado:true,emailEnviadoA:destino,emailEnviadoCC:EMPRESA.email } : a) }));
+        alert("Email enviado a "+destino+", con copia a "+EMPRESA.email+".");
       }
       setEnviado(true);
       if (vista) setVista(alb.id);
@@ -2878,6 +2885,7 @@ const Albaran = ({ data, setData, userActual }) => {
                   <span style={{color:"#6b7a99",fontSize:11}}>👤 {emisor?.nombre||"—"}</span>
                   <span style={{color:"#6b7a99",fontSize:11}}>📦 {alb.lineas.length} artículo{alb.lineas.length!==1?"s":""}</span>
                   {alb.receptorEmail && <span style={{color:"#6b7a99",fontSize:11}}>✉️ {alb.receptorEmail}</span>}
+                  <span title={alb.emailEnviado?("Enviado a "+(alb.emailEnviadoA||"—")+" · Copia a "+(alb.emailEnviadoCC||"—")):"Aún no se ha enviado por email"} style={{color:alb.emailEnviado?"#10b981":"#6b7a99",fontSize:11,fontWeight:700}}>{alb.emailEnviado?"✅ Enviado a cliente y copia":"✉️ No enviado"}</span>
                 </div>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
@@ -2968,7 +2976,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 <div style={{fontSize:11,color:"#6b7a99",marginBottom:16}}>
                   Copia empresa: <span style={{color:"#9aa3b8"}}>{EMPRESA.email}</span>
                 </div>
-                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>Albarán generado y enviado correctamente</div>}
+                {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+EMPRESA.email):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
                 <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => setModalFirma(null)} style={btnOutline}>Cancelar</button>
                   <button onClick={() => generarPDF(alb, firmada, true)} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Solo descargar</button>
