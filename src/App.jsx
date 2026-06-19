@@ -39,6 +39,7 @@ const PCOLOR = { "Alta":"#ef4444", "Media":"#f59e0b", "Leve":"#16a34a" };
 const PRIORIDAD_ORDER = { "Alta":0, "Media":1, "Leve":2 };
 const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","Resuelto","Cancelado"];
 const TIPOS_AVISO = ["Reparación","Montaje","Problema","Consulta","Otro"];
+const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
 const inic = (n) => (n||"").trim().split(/\s+/).filter(Boolean).map(w=>w[0]||"").join("").toUpperCase().slice(0,3);
@@ -882,13 +883,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
     if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => a.titulo.toLowerCase().includes(q) || cN(a.clienteId).toLowerCase().includes(q)); }
     return l.sort((a, b) => { const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9; return pa !== pb ? pa - pb : diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso); });
   }, [data.avisos, fe, fp, ft, s, soloSinAsignar, soloAntiguos]);
-  const openNewAv = () => { const tecnicos=data.usuarios.filter(u=>u.activo).map(u=>u.nombre); setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignado:tecnicos[0]||"",fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
+  const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignado:"",fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
   const openEditAv = item => { setFormAv({ ...item }); setModalAv("form"); };
   const saveAv = () => {
     const item = { ...formAv,clienteId: parseInt(formAv.clienteId) };
     if (!item.id) {
       const num = generarNum("AV", item.fechaAviso||today(), data.avisos, "numeroAviso");
-      const n = { ...item,id: Date.now(), numeroAviso: num };
+      // Quien de nuestra empresa registra el aviso (quien atendio el contacto) queda guardado automaticamente
+      const n = { ...item,id: Date.now(), numeroAviso: num, creadoPorId: userActual.id, creadoPor: userActual.nombre };
       setData(d => ({ ...d,avisos: [...d.avisos, n] }));
       onNuevoAviso(n);
     }
@@ -1070,7 +1072,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
       {/* Modal detalle */}
       {detalle && <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9,marginBottom:11}}>
-          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===detalle.clienteId);return cl?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null;})()}</span>], ["Dado por", detalle.dadoPor], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", detalle.asignado || "Sin asignar"]].map(([l, v]) => (
+          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===detalle.clienteId);return cl?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null;})()}</span>], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", detalle.asignado || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
             <div key={l} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:"#6b7a99",textTransform:"uppercase",marginBottom:2}}>{l}</div>
               <div style={{color:"#f1f3f9",fontWeight:700}}>{v}</div>
@@ -1154,8 +1156,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso }) => {
 
         <Field label="Titulo *"><Input value={formAv.titulo} onChange={fa("titulo")}/></Field>
         <Field label="Descripcion"><Textarea value={formAv.descripcion} onChange={fa("descripcion")}/></Field>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
-          <Field label="Dado por"><Input value={formAv.dadoPor} onChange={fa("dadoPor")}/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(190px,100%),1fr))",gap:11}}>
+          <Field label="Dado por (persona del cliente)"><Input value={formAv.dadoPor} onChange={fa("dadoPor")} placeholder="Nombre de quien avisa"/></Field>
+          <Field label="Metodo de aviso"><Select value={formAv.metodoAviso||"Teléfono"} onChange={fa("metodoAviso")} options={METODOS_AVISO}/></Field>
           <Field label="Fecha"><Input type="date" value={formAv.fechaAviso} onChange={fa("fechaAviso")}/></Field>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
