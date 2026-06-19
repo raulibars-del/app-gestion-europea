@@ -1881,7 +1881,24 @@ const Tareas = ({ data, setData, userActual }) => {
   const [form, setForm] = useState({});
   const [verCompletadas, setVerCompletadas] = useState(false);
   const [verAsigCompletadas, setVerAsigCompletadas] = useState(false);
+  const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
+  const fileRefTarea = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const subirAdjuntoTarea = async (file) => {
+    if(!file) return;
+    if(file.size>8*1024*1024){alert(`El archivo "${file.name}" pesa demasiado (máx. 8 MB).`);return;}
+    setSubiendoAdjunto(true);
+    try{
+      const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+      const up = await apiUploadFile({base64,filename:file.name,mime:file.type});
+      setForm(p=>({...p,adjuntos:[...(p.adjuntos||[]),{url:up.url,nombre:up.nombre||file.name,mime:up.mime||file.type}]}));
+    }catch(e){
+      alert(`No se pudo subir "${file.name}".\n\n`+e.message);
+    }finally{
+      setSubiendoAdjunto(false);
+      if(fileRefTarea.current) fileRefTarea.current.value="";
+    }
+  };
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id);
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
@@ -1905,7 +1922,7 @@ const Tareas = ({ data, setData, userActual }) => {
     return d;
   };
   const abrirNueva = () => setForm({
-    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: ""
+    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: []
   });
   const save = () => {
     const item = { ...form,asignadoId: parseInt(form.asignadoId) };
@@ -2009,6 +2026,7 @@ const Tareas = ({ data, setData, userActual }) => {
                   <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
                   {t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#6b7a99",fontSize:11}}>Asignada por {uN(t.creadoPor)}</span>}
                   {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
+                  {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
               </div>
               <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
@@ -2050,6 +2068,7 @@ const Tareas = ({ data, setData, userActual }) => {
                       <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
                       <span style={{color:"#6b7a99",fontSize:11}}>Asignada a {uN(t.asignadoId)}</span>
                       {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
+                      {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
@@ -2085,6 +2104,27 @@ const Tareas = ({ data, setData, userActual }) => {
         </div>
         <Field label="Estado"><Select value={form.estado} onChange={f("estado")} options={["Pendiente", "En curso", "Completada"]} /></Field>
         <Field label="Notas"><Textarea value={form.notas} onChange={f("notas")} placeholder="Información adicional..." /></Field>
+        <Field label="Adjuntos (imágenes o archivos)">
+          {(form.adjuntos || []).length > 0 && (
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+              {form.adjuntos.map((a, i) => (
+                <div key={i} style={{position:"relative",display:"flex",alignItems:"center",gap:6,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"5px 9px"}}>
+                  {a.mime && a.mime.startsWith("image/")
+                    ? <img src={a.url} style={{width:26,height:26,borderRadius:5,objectFit:"cover"}} />
+                    : <Icon name="parts" size={13} />}
+                  <a href={a.url} target="_blank" rel="noreferrer" style={{color:"#0ea5e9",fontSize:11,fontWeight:600,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</a>
+                  <button type="button" onClick={() => setForm(p => ({ ...p, adjuntos: (p.adjuntos || []).filter((_, j) => j !== i) }))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}}>
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input ref={fileRefTarea} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style={{display:"none"}} onChange={e => { Array.from(e.target.files || []).forEach(subirAdjuntoTarea); }} />
+          <button type="button" onClick={() => fileRefTarea.current?.click()} disabled={subiendoAdjunto} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#8b5cf6",fontWeight:700,cursor:subiendoAdjunto ? "default" : "pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+            <Icon name="image" size={13} />{subiendoAdjunto ? "Subiendo..." : "Adjuntar imagen o archivo"}
+          </button>
+        </Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
           <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
           <button onClick={save} style={btnPrimary}>{form.id ? "Guardar" : "Crear tarea"}</button>
