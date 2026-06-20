@@ -4701,6 +4701,9 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   const [busqMatricula, setBusqMatricula] = useState("");
   const [busqAnyo, setBusqAnyo] = useState("");
   const [archivosAbiertos, setArchivosAbiertos] = useState({});
+  // Archivos recien seleccionados a los que aun falta confirmar el tipo de documento
+  // antes de quedar adjuntados de forma definitiva (ver modal de confirmacion mas abajo).
+  const [archivosPendientes, setArchivosPendientes] = useState(null); // { destino:"modal"|docId, items:[...] }
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
 
   // Llegada desde "Ver documentación" en la ficha de una máquina de un cliente:
@@ -4730,31 +4733,44 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     return q(d.marca, busqMarca) && q(d.modelo, busqModelo) && q(d.matricula, busqMatricula) && q(d.anyo, busqAnyo);
   });
 
-  const handleArchivos = e => {
-    Array.from(e.target.files).forEach(file => {
+  // Al seleccionar archivos no se adjuntan directamente: primero se piden los datos
+  // (que tipo de documento es cada uno) en un modal de confirmacion; una vez confirmado
+  // el tipo queda fijo y no se vuelve a poder cambiar con un desplegable suelto.
+  const leerArchivosPendientes = (files, destino) => {
+    const pendientes = [];
+    let restantes = files.length;
+    files.forEach(file => {
       const r = new FileReader();
-      r.onload = ev => setArchivos(p => [...p, {
-        id: Date.now()+Math.random(),
-        nombre: file.name,
-        tipo: detectarTipo(file.name),
-        tamanyo: file.size,
-        data: ev.target.result
-      }]);
+      r.onload = ev => {
+        pendientes.push({ nombre: file.name, tipo: detectarTipo(file.name), tamanyo: file.size, data: ev.target.result });
+        restantes--;
+        if (restantes === 0) setArchivosPendientes({ destino, items: pendientes });
+      };
       r.readAsDataURL(file);
     });
   };
 
+  const handleArchivos = e => {
+    leerArchivosPendientes(Array.from(e.target.files), "modal");
+    e.target.value = "";
+  };
+
   // Subida rapida de documentos directamente desde la vista detalle (sin abrir el modal de edicion)
   const handleArchivosRapido = (e, docId) => {
-    Array.from(e.target.files).forEach(file => {
-      const r = new FileReader();
-      r.onload = ev => {
-        const nuevo = { id: Date.now()+Math.random(), nombre: file.name, tipo: detectarTipo(file.name), tamanyo: file.size, data: ev.target.result };
-        setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:[...(x.archivos||[]), nuevo]} : x) }));
-      };
-      r.readAsDataURL(file);
-    });
+    leerArchivosPendientes(Array.from(e.target.files), docId);
     e.target.value = "";
+  };
+
+  const confirmarArchivosPendientes = () => {
+    if (!archivosPendientes) return;
+    const finales = archivosPendientes.items.map(it => ({...it, id: Date.now()+Math.random()}));
+    if (archivosPendientes.destino === "modal") {
+      setArchivos(p => [...p, ...finales]);
+    } else {
+      const docId = archivosPendientes.destino;
+      setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:[...(x.archivos||[]), ...finales]} : x) }));
+    }
+    setArchivosPendientes(null);
   };
 
   const detectarTipo = nombre => {
@@ -4790,6 +4806,31 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   };
 
   const formatBytes = b => b > 1048576 ? (b/1048576).toFixed(1)+" MB" : (b/1024).toFixed(0)+" KB";
+
+  // Modal que pregunta el tipo de cada documento recien seleccionado, antes de adjuntarlo
+  // de forma definitiva. Se muestra tanto desde el alta rapida (vista detalle) como desde
+  // el formulario de Nueva/Editar maquina.
+  const modalConfirmarTipos = archivosPendientes && (
+    <Modal title={`¿Qué tipo de documento ${archivosPendientes.items.length>1?"son":"es"}?`} onClose={()=>setArchivosPendientes(null)}>
+      <div style={{display:"grid",gap:8,marginBottom:12}}>
+        {archivosPendientes.items.map((it,i)=>(
+          <div key={i} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px",border:"1px solid #2a3550"}}>
+            <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.nombre}</div>
+            <select value={it.tipo} onChange={e=>{
+              const nuevoTipo = e.target.value;
+              setArchivosPendientes(p=>({...p, items:p.items.map((x,j)=>j===i?{...x,tipo:nuevoTipo}:x)}));
+            }} style={{...inputStyle,width:"100%"}}>
+              {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+        <button onClick={()=>setArchivosPendientes(null)} style={btnOutline}>Cancelar</button>
+        <button onClick={confirmarArchivosPendientes} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>Confirmar y adjuntar</button>
+      </div>
+    </Modal>
+  );
 
   const save = () => {
     if (!form.marca || !form.modelo) return alert("Marca y modelo son obligatorios");
@@ -4919,12 +4960,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
                     <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
-                      <select value={a.tipo||"Otro"} onChange={e=>{
-                        const nuevoTipo = e.target.value;
-                        setData(d=>({...d, documentacion:(d.documentacion||[]).map(x=>x.id===doc.id?{...x,archivos:(x.archivos||[]).map((arch,j)=>j===i?{...arch,tipo:nuevoTipo}:arch)}:x)}));
-                      }} style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 5px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
-                        {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
-                      </select>
+                      <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
                       <span style={{color:"#6b7a99",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
                     </div>
                   </div>
@@ -4953,6 +4989,8 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           })}
         </div>
         {doc.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13,lineHeight:1.6}}>{doc.notas}</div></div>}
+
+        {modalConfirmarTipos}
 
         {/* Modal editar maquina (también accesible desde la vista detalle) */}
         {modal && (
@@ -4989,11 +5027,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                         <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
                         <div style={{color:"#6b7a99",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
                       </div>
-                      {/* Selector de tipo */}
-                      <select value={a.tipo} onChange={e=>setArchivos(p=>p.map((x,j)=>j===i?{...x,tipo:e.target.value}:x))}
-                        style={{...inputStyle,width:"auto",fontSize:10,padding:"3px 6px"}}>
-                        {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
-                      </select>
+                      <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
                       <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
                     </div>
                   ))}
@@ -5131,11 +5165,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                       <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
                       <div style={{color:"#6b7a99",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
                     </div>
-                    {/* Selector de tipo */}
-                    <select value={a.tipo} onChange={e=>setArchivos(p=>p.map((x,j)=>j===i?{...x,tipo:e.target.value}:x))}
-                      style={{...inputStyle,width:"auto",fontSize:10,padding:"3px 6px"}}>
-                      {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
                     <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
                   </div>
                 ))}
@@ -5150,6 +5180,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           </div>
         </Modal>
       )}
+      {modalConfirmarTipos}
     </div>
   );
 };
