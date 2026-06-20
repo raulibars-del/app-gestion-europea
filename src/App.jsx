@@ -91,6 +91,13 @@ const backfillConsumiblesClave = (d) => {
 // y sin API key. El resultado se cachea en el propio cliente (campos lat/lng) para no
 // repetir la consulta — Nominatim limita el uso a ~1 petición/segundo.
 const direccionCliente = (c) => [c.dirFiscal, c.cpFiscal, c.localidad, c.provinciaFiscal].filter(Boolean).join(", ");
+// Para el mapa de máquinas siempre se prioriza la dirección de fábrica/instalación
+// sobre la fiscal cuando existan ambas y sean distintas (las máquinas suelen estar
+// en la nave/fábrica del cliente, no en su domicilio fiscal/administrativo).
+const direccionMapaCliente = (c) => {
+  const fab = [c.dirFabrica, c.cpFabrica, c.localidadFabrica, c.provinciaFabrica].filter(Boolean).join(", ");
+  return fab || direccionCliente(c);
+};
 const geocodificarDireccion = async (direccion) => {
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(direccion+", España")}`;
@@ -1033,18 +1040,18 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   // abre la vista de mapa — así no se gastan peticiones si nadie la usa.
   useEffect(()=>{
     if(modoVista!=="mapa") return;
-    const pendientes = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && (c.lat==null||c.lng==null) && c._geocodeError!==direccionCliente(c));
+    const pendientes = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && (c.lat==null||c.lng==null||c._geocodedFrom!==direccionMapaCliente(c)) && c._geocodeError!==direccionMapaCliente(c));
     if(!pendientes.length) return;
     let cancelado=false;
     setGeocodificando(true);
     (async()=>{
       for(const c of pendientes){
         if(cancelado) break;
-        const dir = direccionCliente(c);
+        const dir = direccionMapaCliente(c);
         if(!dir) continue;
         const r = await geocodificarDireccion(dir);
         if(cancelado) break;
-        setData(d=>({...d, clientes:d.clientes.map(x=>x.id===c.id?(r?{...x,lat:r.lat,lng:r.lng}:{...x,_geocodeError:dir}):x)}));
+        setData(d=>({...d, clientes:d.clientes.map(x=>x.id===c.id?(r?{...x,lat:r.lat,lng:r.lng,_geocodedFrom:dir,_geocodeError:undefined}:{...x,_geocodeError:dir}):x)}));
         await new Promise(res=>setTimeout(res,1100));
       }
       if(!cancelado) setGeocodificando(false);
@@ -1065,7 +1072,12 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const cliente = vista ? data.clientes.find(c=>c.id===vista.clienteId) : null;
   const maquina = cliente ? (cliente.maquinas||[]).find(m=>m.id===vista.maquinaId) : null;
 
+  const puedeEliminar = userActual?.rol==="manager";
   const openEdit = m => { setForm({...m}); setModal(true); };
+  const delMaquinaFicha = (clienteId, maquinaId) => {
+    setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==clienteId?c:{...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)})}));
+    setVista(null);
+  };
   const handleFoto = e => { const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,foto:ev.target.result})); r.readAsDataURL(file); };
   const imprimirQR = (m) => {
     // El QR apunta a una página real de la app (https://dominio/?maquina=CODIGO).
@@ -1126,6 +1138,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </div>
         {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
         <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+        {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina? Esta acción no se puede deshacer."))delMaquinaFicha(cliente.id,m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
@@ -1436,7 +1449,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
                   {av.numeroAviso&&<span style={{background:"#ef444420",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{av.numeroAviso}</span>}
-                  <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{av.titulo}</span>
+                  <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word"}}>{av.titulo}</span>
                   <Badge text={av.tipo}/><Badge text={av.prioridad}/>
                 </div>
                 <div style={{color:"#9aa3b8",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
@@ -1453,13 +1466,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:"auto"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:"auto",maxWidth:"38%"}}>
                 {av.prioridad==="Alta"&&diasDesde(av.fechaAviso)>=14&&av.estado!=="Resuelto"&&av.estado!=="Cancelado"&&(
                   <span style={{background:"#dc2626",color:"#fff",borderRadius:5,padding:"2px 6px",fontSize:9,fontWeight:900,marginRight:4,animation:"pulse 2s infinite"}}>🚨 +14d</span>
                 )}
                 <DiasBadge fecha={av.fechaAviso} estado={av.estado} />
                 <Badge text={av.estado} />
-                <div style={{display:"flex",gap:3}}>
+                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:90}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); resolverAv(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
                   )}
