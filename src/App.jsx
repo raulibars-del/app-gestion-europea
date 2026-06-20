@@ -509,6 +509,132 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
   const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase()));
+  const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre } — vista previa de la ficha de cliente en PDF
+  const cerrarPdfFicha=()=>{ if(pdfFicha) URL.revokeObjectURL(pdfFicha.url); setPdfFicha(null); };
+  // Genera un PDF con todos los datos del cliente (fiscales, direccion de fabrica,
+  // contactos y maquinas), con la misma estetica (header/footer/colores) que los
+  // PDF de Partes y Albaranes, y lo muestra en una vista previa solo lectura.
+  const generarPDFFichaCliente = (c) => {
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const W=210; const mg=18;
+    const dibujarHeader = () => {
+      doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+      doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+      try { doc.addImage(LOGO_CIRCULO, "JPEG", mg, 3, 26, 26); } catch(e) {}
+      doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+      doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+      doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+      doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
+      doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
+      doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
+      doc.text("FICHA DE CLIENTE",W-mg,13,{align:"right"});
+      doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+      const nombreCorto = doc.splitTextToSize(c.nombreEmpresa||"",70);
+      doc.text(nombreCorto[0]||"",W-mg,21,{align:"right"});
+      doc.text("Fecha: "+fmtFecha(today()),W-mg,27,{align:"right"});
+      doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+    };
+    dibujarHeader();
+    let y=42;
+    const box=(titulo,filas,yStart)=>{
+      doc.setFillColor(230,235,245); doc.roundedRect(mg,yStart,W-mg*2,7,1,1,"F");
+      doc.setDrawColor(180,190,210); doc.roundedRect(mg,yStart,W-mg*2,7,1,1,"S");
+      doc.setDrawColor(255,255,255);
+      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text(titulo.toUpperCase(),mg+4,yStart+5);
+      let fy=yStart+13;
+      filas.forEach(([l,v])=>{
+        if(!v&&v!==0) return;
+        doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+        doc.text(l+":",mg+4,fy);
+        doc.setTextColor(25,35,60); doc.setFontSize(9); doc.setFont("helvetica","bold");
+        const lines=doc.splitTextToSize(String(v),W-mg*2-52);
+        doc.text(lines,mg+52,fy);
+        fy+=Math.max(lines.length*5.5,6.5);
+      });
+      return fy+4;
+    };
+    const asegurarEspacio = (necesario) => {
+      if (y+necesario > 268) { doc.addPage(); dibujarHeader(); y=42; }
+    };
+    const tablaSeccion = (titulo, columnas, filas) => {
+      asegurarEspacio(20);
+      doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+      doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
+      doc.setDrawColor(255,255,255);
+      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text(titulo.toUpperCase(),mg+4,y+5); y+=11;
+      doc.setFillColor(40,60,110); doc.rect(mg,y,W-mg*2,6,"F");
+      let cx=mg;
+      doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+      columnas.forEach(col=>{ doc.text(col.label,cx+(col.align==="right"?col.w-3:3),y+4.5,{align:col.align==="right"?"right":"left"}); cx+=col.w; });
+      y+=7;
+      filas.forEach((fila,j)=>{
+        asegurarEspacio(8);
+        const bgClr = j%2===0 ? [248,250,255] : [255,255,255];
+        doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
+        doc.setTextColor(25,35,70); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+        let cx2=mg;
+        columnas.forEach((col,k)=>{
+          doc.text(String(fila[k]??"—"),cx2+(col.align==="right"?col.w-3:3),y+4,{align:col.align==="right"?"right":"left"});
+          cx2+=col.w;
+        });
+        y+=7;
+      });
+      y+=5;
+    };
+    const dirFiscal=[c.dirFiscal,c.cpFiscal,c.localidad,c.provinciaFiscal].filter(Boolean).join(", ");
+    const dirFabrica=[c.dirFabrica,c.cpFabrica,c.localidadFabrica,c.provinciaFabrica].filter(Boolean).join(", ");
+    y=box("Datos generales",[
+      ["Empresa",c.nombreEmpresa||"—"],
+      ["Nombre fiscal",c.nombreFiscal||"—"],
+      ["CIF / DNI",c.cif||"—"],
+      ["Tipo",c.esPropia?"Cuenta propia":(c.esCliente?"Cliente":"Prospecto / Contacto")],
+    ],y);
+    asegurarEspacio(20);
+    y=box("Dirección fiscal",[["Dirección",dirFiscal||"—"]],y);
+    if(dirFabrica && dirFabrica!==dirFiscal){
+      asegurarEspacio(20);
+      y=box("Dirección de fábrica / instalaciones",[["Dirección",dirFabrica]],y);
+    }
+    if(c.notas?.trim()){
+      asegurarEspacio(20);
+      y=box("Notas",[["Notas",c.notas]],y);
+    }
+    if(c.contactos?.length>0){
+      y+=2;
+      tablaSeccion("Personas de contacto ("+c.contactos.length+")",
+        [{label:"NOMBRE",w:46},{label:"PUESTO",w:36},{label:"TELÉFONO",w:34},{label:"EMAIL",w:58}],
+        c.contactos.map(ct=>[ct.nombre+(ct.principal?" ★":""),ct.puesto||"—",ct.tel||"—",ct.email||"—"])
+      );
+    }
+    if(c.maquinas?.length>0){
+      y+=2;
+      tablaSeccion("Máquinas ("+c.maquinas.length+")",
+        [{label:"CÓDIGO",w:26},{label:"MÁQUINA",w:34},{label:"MARCA / MODELO",w:48},{label:"Nº SERIE",w:34},{label:"AÑO",w:18,align:"right"}],
+        c.maquinas.map(m=>[m.codigo||"—",m.nombre||"—",[m.marca,m.modelo].filter(Boolean).join(" ")||"—",m.serie||"—",m.anyo||"—"])
+      );
+    }
+    const totalPaginas = doc.getNumberOfPages();
+    for(let pg=1; pg<=totalPaginas; pg++){
+      doc.setPage(pg);
+      doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+      doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+      doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+      doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
+      if(totalPaginas>1){ doc.setTextColor(190,200,220); doc.text("Página "+pg+"/"+totalPaginas,W-mg,291,{align:"right"}); }
+    }
+    try {
+      const dataUri = doc.output("datauristring");
+      const byteString = atob(dataUri.split(",")[1]);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      const blob = new Blob([bytes], {type:"application/pdf"});
+      if(pdfFicha) URL.revokeObjectURL(pdfFicha.url);
+      const url = URL.createObjectURL(blob);
+      setPdfFicha({ url, nombre: "Ficha "+(c.nombreEmpresa||"cliente") });
+    } catch(e) { alert("No se pudo generar el PDF de la ficha del cliente."); }
+  };
   const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
   const saveM=()=>{
     const maqId = formM.id || Date.now();
@@ -676,6 +802,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>generarPDFFichaCliente(c)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontSize:13,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir ficha</button>
           <button onClick={()=>{setFormC({...c});setModalC(true);}} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
           {puedeEliminar && (
             <button onClick={()=>{if(window.confirm(`¿Eliminar el cliente "${c.nombreEmpresa}"? Esta acción no se puede deshacer.`))delCliente(c.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>
@@ -904,6 +1031,22 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         </Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalCo(null)} style={btnOutline}>Cancelar</button><button onClick={saveCo} style={btnPrimary}>Guardar</button></div>
       </Modal>}
+      {pdfFicha && (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{pdfFicha.nombre} (vista previa)</span>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{ const ifr=document.getElementById("pdfFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="print" size={14}/>Imprimir
+              </button>
+              <button onClick={cerrarPdfFicha} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"8px 10px",color:"#f1f3f9",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                <Icon name="close" size={16}/>
+              </button>
+            </div>
+          </div>
+          <iframe id="pdfFichaFrame" src={pdfFicha.url} title="Vista previa de la ficha del cliente" style={{flex:1,border:"none",background:"#fff"}}/>
+        </div>
+      )}
     </div>
   );
 };
