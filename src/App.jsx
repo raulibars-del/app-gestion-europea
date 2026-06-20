@@ -1635,7 +1635,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
-              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",boxSizing:"border-box"}}>
+              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
