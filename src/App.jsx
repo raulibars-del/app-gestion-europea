@@ -1388,23 +1388,21 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       )}
       {/* Filtros */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
-        <div style={{display:"flex",gap:3}}>
-          {["Activos", "Resueltos", "Cancelados", "Todos"].map(e => (
-            <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#6b7a99",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{e}</button>
-          ))}
-        </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center",maxWidth:"100%"}}>
+        {["Activos", "Resueltos", "Cancelados", "Todos"].map(e => (
+          <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#6b7a99",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{e}</button>
+        ))}
         <div style={{width:1,height:20,background:"#2a3550"}} />
         {["Todos", ...PRIORIDADES].map(p => (
-          <button key={p} onClick={() => setFp(p)} style={{background:fp === p ? (PCOLOR[p] || "#3b82f6") + "22" :"transparent",color:fp === p ? (PCOLOR[p] || "#3b82f6") :"#6b7a99",border:"1px solid " + (fp === p ? (PCOLOR[p] || "#3b82f6") + "66" :"#2a3550"),borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{p}</button>
+          <button key={p} onClick={() => setFp(p)} style={{background:fp === p ? (PCOLOR[p] || "#3b82f6") + "22" :"transparent",color:fp === p ? (PCOLOR[p] || "#3b82f6") :"#6b7a99",border:"1px solid " + (fp === p ? (PCOLOR[p] || "#3b82f6") + "66" :"#2a3550"),borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{p}</button>
         ))}
         <div style={{width:1,height:20,background:"#2a3550"}} />
         {["Todos", ...TIPOS_AVISO].map(t => (
-          <button key={t} onClick={() => setFt(t)} style={{background:ft === t ? "#2a3550" :"transparent",color:ft === t ? "#f1f3f9" :"#6b7a99",border:"1px solid " + (ft === t ? "#3a4560" :"#2a3550"),borderRadius:7,padding:"4px 9px",fontSize:11,cursor:"pointer"}}>{t}</button>
+          <button key={t} onClick={() => setFt(t)} style={{background:ft === t ? "#2a3550" :"transparent",color:ft === t ? "#f1f3f9" :"#6b7a99",border:"1px solid " + (ft === t ? "#3a4560" :"#2a3550"),borderRadius:7,padding:"4px 9px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{t}</button>
         ))}
-        <div style={{position:"relative",marginLeft:"auto"}}>
+        <div style={{position:"relative",marginLeft:"auto",flex:"1 1 140px",maxWidth:220,minWidth:120}}>
           <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={12} /></span>
-          <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:150}} />
+          <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}} />
         </div>
       </div>
         <div style={{color:"#6b7a99",fontSize:11,marginBottom:7,display:"flex",alignItems:"center",gap:8}}>
@@ -1431,11 +1429,11 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
-              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11}}>
+              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",boxSizing:"border-box"}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
-              <div style={{flex:1,minWidth:0}}>
+              <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
                   {av.numeroAviso&&<span style={{background:"#ef444420",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{av.numeroAviso}</span>}
                   <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{av.titulo}</span>
@@ -1455,7 +1453,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:"auto"}}>
                 {av.prioridad==="Alta"&&diasDesde(av.fechaAviso)>=14&&av.estado!=="Resuelto"&&av.estado!=="Cancelado"&&(
                   <span style={{background:"#dc2626",color:"#fff",borderRadius:5,padding:"2px 6px",fontSize:9,fontWeight:900,marginRight:4,animation:"pulse 2s infinite"}}>🚨 +14d</span>
                 )}
