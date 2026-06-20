@@ -1005,7 +1005,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     </div>
   );
 };
-const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente, irAAviso }) => {
+const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente, irAAviso, irAParte }) => {
   const [vista,setVista]=useState(null); // {clienteId, maquinaId}
   const [busq,setBusq]=useState("");
   const [filtroCliente,setFiltroCliente]=useState("");
@@ -1038,6 +1038,11 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   // Geocodifica (una sola vez, y en cola respetando ~1 req/seg) las direcciones de
   // los clientes con máquinas que aún no tengan lat/lng guardadas, sólo cuando se
   // abre la vista de mapa — así no se gastan peticiones si nadie la usa.
+  // La "firma" de abajo cambia si se añade/quita un cliente con máquinas, si se edita
+  // su dirección de mapa, o si pasa de tener lat/lng a no tenerlas (o viceversa) —
+  // así el efecto se vuelve a disparar aunque el Nº total de clientes no cambie
+  // (p.ej. al corregir la dirección de fábrica de un cliente que ya existía).
+  const firmaGeo = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0).map(c=>`${c.id}:${direccionMapaCliente(c)}:${c.lat==null?0:1}:${c._geocodeError||""}`).join("|");
   useEffect(()=>{
     if(modoVista!=="mapa") return;
     const pendientes = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && (c.lat==null||c.lng==null||c._geocodedFrom!==direccionMapaCliente(c)) && c._geocodeError!==direccionMapaCliente(c));
@@ -1057,7 +1062,14 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
       if(!cancelado) setGeocodificando(false);
     })();
     return ()=>{ cancelado=true; };
-  },[modoVista, (data.clientes||[]).length]);
+  },[modoVista, firmaGeo]);
+  // Permite forzar un nuevo intento de geocodificación para los clientes cuya
+  // dirección falló antes (p.ej. error puntual de red o de Nominatim), sin tener
+  // que esperar a que cambie la dirección.
+  const reintentarGeocodificacion = () => {
+    setData(d=>({...d, clientes:d.clientes.map(c=>c._geocodeError?{...c,_geocodeError:undefined}:c)}));
+  };
+  const clientesConErrorGeo = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && c._geocodeError).length;
 
   const jitter = id => ((id%1000)/1000-0.5)*0.01;
   const puntosMapa = filtradas.map(m=>{
@@ -1153,17 +1165,21 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         {historial.length===0&&<div style={{padding:"24px",textAlign:"center",color:"#6b7a99",fontSize:13}}>Sin avisos ni partes registrados para esta máquina</div>}
         {historial.map((h,i)=>{
           const esAvisoClicable = h.tipo==="Aviso" && irAAviso;
+          const esParteClicable = h.tipo==="Parte" && irAParte;
+          const esClicable = esAvisoClicable || esParteClicable;
+          const onClickHist = esAvisoClicable?()=>irAAviso(h.id):esParteClicable?()=>irAParte(h.id):undefined;
           return (
-          <div key={i} onClick={esAvisoClicable?()=>irAAviso(h.id):undefined}
-            style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderTop:i?"1px solid #1a2236":"none",cursor:esAvisoClicable?"pointer":"default"}}
-            onMouseEnter={esAvisoClicable?(e=>e.currentTarget.style.background="#1a2236"):undefined}
-            onMouseLeave={esAvisoClicable?(e=>e.currentTarget.style.background="transparent"):undefined}>
+          <div key={i} onClick={onClickHist}
+            style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderTop:i?"1px solid #1a2236":"none",cursor:esClicable?"pointer":"default"}}
+            onMouseEnter={esClicable?(e=>e.currentTarget.style.background="#1a2236"):undefined}
+            onMouseLeave={esClicable?(e=>e.currentTarget.style.background="transparent"):undefined}>
             <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800}}>{h.tipo}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
               <div style={{color:"#6b7a99",fontSize:11}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
             </div>
-            {esAvisoClicable&&<span style={{color:"#6b7a99",fontSize:13}}>→</span>}
+            {esParteClicable&&<span style={{color:"#6b7a99",fontSize:11,display:"flex",alignItems:"center",gap:3}}><Icon name="parts" size={12}/>PDF</span>}
+            {esClicable&&<span style={{color:"#6b7a99",fontSize:13}}>→</span>}
           </div>
           );
         })}
@@ -1226,6 +1242,11 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     <div style={{height:540,borderRadius:14,overflow:"hidden",border:"1px solid #2a3550",position:"relative"}}>
       {geocodificando&&<div style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#0ea5e9",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7}}>Localizando direcciones...</div>}
       {puntosMapa.length===0&&!geocodificando&&<div style={{position:"absolute",top:8,left:8,zIndex:500,background:"#0d1117cc",color:"#6b7a99",fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:7}}>Sin máquinas localizables (revisa que el cliente tenga dirección)</div>}
+      {!geocodificando&&clientesConErrorGeo>0&&(
+        <button onClick={reintentarGeocodificacion} style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#f59e0b",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7,border:"1px solid #f59e0b44",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+          <Icon name="search" size={11}/>No se pudo localizar {clientesConErrorGeo} dirección{clientesConErrorGeo>1?"es":""} · Reintentar
+        </button>
+      )}
       <MapContainer center={centroMapa} zoom={puntosMapa.length?7:6} style={{height:"100%",width:"100%"}} scrollWheelZoom={true}>
         <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {puntosMapa.map(p=>(
@@ -2277,7 +2298,7 @@ const SignaturePad = ({ onSave, onClear, canvasRef }) => {
     </div>
   );
 };
-const Partes = ({ data, setData, userActual }) => {
+const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   // Técnicos activos, con el usuario que tiene la sesión abierta siempre primero en la lista
@@ -2424,7 +2445,7 @@ const Partes = ({ data, setData, userActual }) => {
     // Sin técnico preseleccionado: hay que elegirlo explícitamente (es obligatorio al guardar).
     // Así se evita que, al estar uno ya marcado por defecto, el siguiente clic "añada" a otro
     // técnico en vez de sustituirlo.
-    setForm({ tecnicos:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"no",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
+    setForm({ tecnicos:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"si",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
     setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
     setClienteSel(null); setBusqCliente(""); setMostrarDropCliente(false);
@@ -2469,7 +2490,7 @@ const Partes = ({ data, setData, userActual }) => {
       reparacionId:origen.reparacionId||"",
       avisoId:origen.avisoId||"",
       descripcion:"",
-      desplazamiento:"no",kmValor:"",materiales:"",
+      desplazamiento:"si",kmValor:"",materiales:"",
       clienteDirectoId:origen.clienteDirectoId||"",
       maquinaId:origen.maquinaId||"",
       marca:origen.marca||"",modelo:origen.modelo||"",matricula:origen.matricula||"",
@@ -2491,10 +2512,18 @@ const Partes = ({ data, setData, userActual }) => {
     const emailPre = cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
     setModalPDF(p); setModalPDFCadena(cadena && cadena.length>1 ? cadena : null);
     setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
-    setConforme(p.conforme??null); setNotasConformidad(p.notasConformidad||"");
+    setConforme(p.conforme??true); setNotasConformidad(p.notasConformidad||"");
     setForm(prev=>({...prev,firmaNombre:p.firmaNombre||""}));
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
+  // Permite que otras pantallas (p.ej. el historial de una Máquina) naveguen aquí y
+  // abran directamente el PDF de un parte concreto por su id.
+  useEffect(() => {
+    if (!abrirParteId) return;
+    const p = data.partes.find(x => x.id === abrirParteId);
+    if (p) { const cadena = obtenerCadenaPartes(data.partes, p); abrirPDF(cadena.length>1 ? cadena[cadena.length-1] : p, cadena); }
+    onAbrirParteId && onAbrirParteId();
+  }, [abrirParteId]);
   // Abre el PDF combinado de toda la cadena (todas las visitas del mismo trabajo, una
   // debajo de otra), usando como representante el ultimo parte (el que cierra el trabajo).
   const abrirPDFCadena = (grupo) => abrirPDF(grupo[grupo.length-1], grupo);
@@ -6277,6 +6306,8 @@ export default function App() {
   const irAAviso=id=>{setAvisoAAbrir(id);setActive("asistencia");};
   const [clienteAAbrir,setClienteAAbrir]=useState(null);
   const irACliente=id=>{setClienteAAbrir(id);setActive("clientes");};
+  const [parteAAbrir,setParteAAbrir]=useState(null);
+  const irAParte=id=>{setParteAAbrir(id);setActive("partes");};
   const onNuevoAviso=aviso=>{
     setData(d=>{
       const nn={...d.notificaciones};
@@ -6493,10 +6524,10 @@ export default function App() {
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
-          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso}/>}
+          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
-          {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user}/>}
+          {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
