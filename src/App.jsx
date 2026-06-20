@@ -62,6 +62,28 @@ const backfillCodigosMaquina = (d) => {
   });
   return changed ? {...d, stock, clientes} : d;
 };
+// Consumibles "clave" (colas muy recurrentes) que deben tener siempre su recuadro de
+// stock en Inventario. Si una instalación ya tenía datos en el servidor sin estos
+// artículos, los añadimos aquí (sin stock) en vez de obligar a crearlos a mano.
+const CONSUMIBLES_CLAVE_NOMBRES = ["Cola cartucho natural","Cola cartucho transparente","Cola cartucho blanca","Saco cola natural","Saco cola transparente","Saco de cola blanca"];
+const backfillConsumiblesClave = (d) => {
+  const inv = d.inventario || [];
+  const nums = inv.map(i=>parseInt((i.codigo||"").replace(/^INV-?/,""))||0);
+  let max = nums.length ? Math.max(...nums) : 0;
+  const sig = () => { max+=1; return "INV"+String(max).padStart(4,"0"); };
+  let changed = false;
+  let nuevoInv = inv.map(it => {
+    if (CONSUMIBLES_CLAVE_NOMBRES.includes(it.nombre) && !it.consumibleClave) { changed = true; return {...it, consumibleClave:true}; }
+    return it;
+  });
+  CONSUMIBLES_CLAVE_NOMBRES.forEach(nombre => {
+    if (!nuevoInv.some(i => i.nombre === nombre)) {
+      changed = true;
+      nuevoInv = [...nuevoInv, {id:Date.now()+Math.random(), codigo:sig(), nombre, descripcion:nombre, categoria:"Cola", unidad:"ud", stock:0, stockMin:5, precioCompra:0, precioVenta:0, consumibleClave:true}];
+    }
+  });
+  return changed ? {...d, inventario: nuevoInv} : d;
+};
 // Geocodificación de direcciones de cliente usando Nominatim (OpenStreetMap), gratuito
 // y sin API key. El resultado se cachea en el propio cliente (campos lat/lng) para no
 // repetir la consulta — Nominatim limita el uso a ~1 petición/segundo.
@@ -181,6 +203,12 @@ const initialData = {
     {id:1,codigo:"INV0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
     {id:2,codigo:"INV0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:3,codigo:"INV0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
+    {id:4,codigo:"INV0004",nombre:"Cola cartucho natural",descripcion:"Cartucho de cola natural",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:5,codigo:"INV0005",nombre:"Cola cartucho transparente",descripcion:"Cartucho de cola transparente",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:6,codigo:"INV0006",nombre:"Cola cartucho blanca",descripcion:"Cartucho de cola blanca",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:7,codigo:"INV0007",nombre:"Saco cola natural",descripcion:"Saco de cola natural",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:8,codigo:"INV0008",nombre:"Saco cola transparente",descripcion:"Saco de cola transparente",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:9,codigo:"INV0009",nombre:"Saco de cola blanca",descripcion:"Saco de cola blanca",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
 };
 const Icon = ({ name, size=18 }) => {
@@ -3491,7 +3519,7 @@ const Albaran = ({ data, setData, userActual }) => {
   const [vista,   setVista]   = useState(null);
   const [modal,   setModal]   = useState(false);
   const [form,    setForm]    = useState({});
-  const [lineas,  setLineas]  = useState([{ desc:"",cant:1,unidad:"ud" }]);
+  const [lineas,  setLineas]  = useState([{ desc:"",cant:1,unidad:"ud",inventarioId:null }]);
   const [modalFirma, setModalFirma] = useState(null);
   const [firmEmail,  setFirmEmail]  = useState("");
   const [firmaNombre,setFirmaNombre]= useState("");
@@ -3501,17 +3529,51 @@ const Albaran = ({ data, setData, userActual }) => {
   const canvasRef = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
+  // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
+  // inventario (se usa al editar un albarán —antes de reaplicar— y al eliminarlo).
+  const revertirInventarioAlbaran = (inventario, albaranId) => (inventario||[]).map(it => {
+    const previas = (it.historialEntregas||[]).filter(h => h.albaranId === albaranId);
+    if (previas.length === 0) return it;
+    const stockExtra = previas.reduce((s,h) => s + (parseFloat(h.cantidad)||0), 0);
+    return { ...it, stock: (parseFloat(it.stock)||0) + stockExtra, historialEntregas: (it.historialEntregas||[]).filter(h => h.albaranId !== albaranId) };
+  });
   const openNew = () => {
     setForm({ numero: nextNum(),fecha: today(),emisorId: userActual.id,receptorNombre:"",receptorEmail:"",receptorDireccion:"",notas:"",firmada:false,fechaFirma:"" });
-    setLineas([{ desc:"",cant:1,unidad:"ud" }]);
+    setLineas([{ desc:"",cant:1,unidad:"ud",inventarioId:null }]);
     setModal(true);
   };
   const saveAlbaran = () => {
     if (!form.receptorNombre.trim()) return alert("Indica el nombre del receptor.");
     if (lineas.every(l => !l.desc.trim())) return alert("Añade al menos un producto.");
-    const item = { ...form,lineas: lineas.filter(l => l.desc.trim()),emisorId: userActual.id };
-    if (!item.id) setData(d => ({ ...d,albaranes: [...d.albaranes, { ...item,id: Date.now() }] }));
-    else          setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === item.id ? item : a) }));
+    const albaranId = form.id || Date.now();
+    const lineasFinal = lineas.filter(l => l.desc.trim());
+    const item = { ...form,id: albaranId,lineas: lineasFinal,emisorId: userActual.id };
+    setData(d => {
+      let nuevo = {...d};
+      if (!form.id) nuevo.albaranes = [...nuevo.albaranes, item];
+      else          nuevo.albaranes = nuevo.albaranes.map(a => a.id === item.id ? item : a);
+      // Stock/historial de inventario: primero deshacemos lo que este mismo albarán
+      // hubiera aplicado antes (caso edición) y luego aplicamos las líneas actuales.
+      // El descuento siempre se hace contra el artículo concreto (inventarioId), nunca
+      // por nombre, para no mezclar artículos distintos con el mismo nombre.
+      let inv = revertirInventarioAlbaran(nuevo.inventario, albaranId);
+      const entregasInv = lineasFinal.filter(l => l.inventarioId);
+      if (entregasInv.length > 0) {
+        inv = inv.map(it => {
+          const propias = entregasInv.filter(l => l.inventarioId === it.id);
+          if (propias.length === 0) return it;
+          let stock = parseFloat(it.stock)||0;
+          const nuevasEntregas = propias.map(l => {
+            const cant = parseFloat(l.cant)||0;
+            stock -= cant;
+            return { id:Date.now()+Math.random(), fecha:item.fecha, clienteNombre:item.receptorNombre, albaranId, numeroAlbaran:item.numero, cantidad:cant };
+          });
+          return { ...it, stock: Math.max(0, stock), historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
+        });
+      }
+      nuevo.inventario = inv;
+      return nuevo;
+    });
     setModal(false);
   };
   const abrirFirma = alb => {
@@ -3767,7 +3829,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
                 <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
                 <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
-                <button onClick={() => setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
+                <button onClick={() => setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
             </div>
           );
@@ -3796,16 +3858,26 @@ const Albaran = ({ data, setData, userActual }) => {
         <div style={{marginTop:4}}>
           <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
           {lineas.map((l, i) => (
-            <div key={i} style={{display:"grid",gridTemplateColumns:"60px 70px 1fr 32px",gap:6,marginBottom:6}}>
-              <Field label={i===0?"Cant.":""}><input type="number" value={l.cant} min="1" onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,cant:e.target.value}:x))} style={{...inputStyle}}/></Field>
-              <Field label={i===0?"Unidad":""}><input value={l.unidad} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,unidad:e.target.value}:x))} style={{...inputStyle}}/></Field>
-              <Field label={i===0?"Descripción":""}><input value={l.desc} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,desc:e.target.value}:x))} placeholder="Producto, modelo, referencia..." style={{...inputStyle,width:"100%"}}/></Field>
-              <div style={{display:"flex",alignItems:i===0?"flex-end":"flex-start",paddingBottom:i===0?0:0}}>
-                <button onClick={() => setLineas(p => p.filter((_,j)=>j!==i))} disabled={lineas.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626",marginTop:i===0?20:0}}><Icon name="trash" size={12}/></button>
+            <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<lineas.length-1?"1px solid #1a2236":"none"}}>
+              <select value={l.inventarioId||""} onChange={e=>{
+                const id = e.target.value ? parseInt(e.target.value) : null;
+                const it = id ? data.inventario.find(x=>x.id===id) : null;
+                setLineas(p => p.map((x,j)=>j===i?{...x, inventarioId:id, desc: it?it.nombre:x.desc, unidad: it?(it.unidad||"ud"):x.unidad}:x));
+              }} style={{...inputStyle,fontSize:11,padding:"5px 9px",marginBottom:6,width:"100%"}}>
+                <option value="">— Producto manual (no descuenta stock) —</option>
+                {data.inventario.map(it=>(<option key={it.id} value={it.id}>{it.nombre} (stock: {it.stock||0} {it.unidad||"ud"})</option>))}
+              </select>
+              <div style={{display:"grid",gridTemplateColumns:"60px 70px 1fr 32px",gap:6}}>
+                <Field label={i===0?"Cant.":""}><input type="number" value={l.cant} min="1" onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,cant:e.target.value}:x))} style={{...inputStyle}}/></Field>
+                <Field label={i===0?"Unidad":""}><input value={l.unidad} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,unidad:e.target.value}:x))} style={{...inputStyle}}/></Field>
+                <Field label={i===0?"Descripción":""}><input value={l.desc} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,desc:e.target.value}:x))} placeholder="Producto, modelo, referencia..." style={{...inputStyle,width:"100%"}}/></Field>
+                <div style={{display:"flex",alignItems:i===0?"flex-end":"flex-start",paddingBottom:i===0?0:0}}>
+                  <button onClick={() => setLineas(p => p.filter((_,j)=>j!==i))} disabled={lineas.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626",marginTop:i===0?20:0}}><Icon name="trash" size={12}/></button>
+                </div>
               </div>
             </div>
           ))}
-          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud"}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#6b7a99",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
+          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#6b7a99",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
         </div>
         <Field label="Observaciones"><Textarea value={form.notas} onChange={f("notas")} placeholder="Instrucciones, condiciones de entrega..."/></Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
@@ -4228,6 +4300,30 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         ))}
       </div>
 
+      {/* Recuadros de stock de consumibles clave (colas muy recurrentes) */}
+      {data.inventario.some(i=>i.consumibleClave) && (
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Consumibles clave</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10}}>
+            {data.inventario.filter(i=>i.consumibleClave).map(item=>{
+              const sinStock = !item.stock || item.stock<=0;
+              const bajo = !sinStock && item.stockMin && item.stock<=item.stockMin;
+              const c = sinStock?"#ef4444":bajo?"#f59e0b":"#10b981";
+              return (
+                <div key={item.id} style={{background:"#151b2a",border:`1px solid ${c}44`,borderRadius:12,padding:"13px 15px"}}>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:6}}>{item.nombre}</div>
+                  <div style={{display:"flex",alignItems:"baseline",gap:5,marginBottom:10}}>
+                    <span style={{color:c,fontWeight:800,fontSize:24,lineHeight:1}}>{item.stock||0}</span>
+                    <span style={{color:"#6b7a99",fontSize:12}}>{item.unidad||"ud"}</span>
+                  </div>
+                  <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#10b981",fontSize:12,fontWeight:700,width:"100%"}}>+ Añadir unidades</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Alerta stock bajo */}
       {bajos.length > 0 && (
         <div style={{background:"#ef444412",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
@@ -4368,13 +4464,13 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             ) : (
               <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
                 <div style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"5px 10px",background:"#0a0f1a"}}>
-                  {["Fecha","Cliente","Parte","Cant."].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                  {["Fecha","Cliente","Doc.","Cant."].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
                 </div>
                 {historial.map(h=>(
                   <div key={h.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
                     <span style={{color:"#6b7a99",fontSize:11}}>{fmtFecha(h.fecha)}</span>
                     <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{h.clienteNombre}</span>
-                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.numeroParte||"—"}</span>
+                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.numeroParte||h.numeroAlbaran||"—"}</span>
                     <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{h.cantidad}</span>
                   </div>
                 ))}
@@ -5995,7 +6091,7 @@ export default function App() {
           // si backfillCodigosMaquina añade códigos nuevos, el efecto de autoguardado
           // detectará la diferencia y los subirá automáticamente.
           lastSyncedRef.current = JSON.stringify(res.data);
-          setData(backfillCodigosMaquina(res.data));
+          setData(backfillConsumiblesClave(backfillCodigosMaquina(res.data)));
         } else {
           try { await apiSaveData(dataRef.current); lastSyncedRef.current = JSON.stringify(dataRef.current); } catch(e){}
         }
