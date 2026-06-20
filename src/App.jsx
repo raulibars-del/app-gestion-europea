@@ -429,8 +429,13 @@ const Login = ({ usuarios, onLogin }) => {
     </div>
   );
 };
-const Clientes = ({ data, setData, onIrADocMaquina }) => {
+const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId }) => {
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
+  useEffect(()=>{
+    if(!abrirClienteId) return;
+    setVista(abrirClienteId); setTabM(null);
+    onAbrirClienteId && onAbrirClienteId();
+  },[abrirClienteId]);
   const [modalC,setModalC]=useState(null); const [modalM,setModalM]=useState(null); const [modalCo,setModalCo]=useState(null);
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
   const fc=k=>e=>setFormC(p=>({...p,[k]:e.target.value}));
@@ -955,7 +960,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     </div>
   );
 };
-const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo }) => {
+const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente }) => {
   const [vista,setVista]=useState(null); // {clienteId, maquinaId}
   const [busq,setBusq]=useState("");
   const [filtroCliente,setFiltroCliente]=useState("");
@@ -1166,11 +1171,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       <MapContainer center={centroMapa} zoom={puntosMapa.length?7:6} style={{height:"100%",width:"100%"}} scrollWheelZoom={true}>
         <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {puntosMapa.map(p=>(
-          <Marker key={p.clienteId+"-"+p.maquinaId} position={[p.lat,p.lng]} icon={maquinaMarkerIcon} eventHandlers={{click:()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})}}>
+          <Marker key={p.clienteId+"-"+p.maquinaId} position={[p.lat,p.lng]} icon={maquinaMarkerIcon}>
             <Popup>
-              <div style={{fontWeight:700}}>{p.nombre}</div>
-              <div style={{fontSize:12}}>{p.clienteNombre}</div>
-              {p.codigo&&<div style={{fontSize:11,color:"#0ea5e9"}}>{p.codigo}</div>}
+              <div style={{minWidth:150}}>
+                <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>
+                <div style={{fontSize:12,color:"#333",marginBottom:8}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})} style={{flex:1,background:"#0ea5e9",color:"#fff",border:"none",borderRadius:6,padding:"5px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Ver máquina</button>
+                  {irACliente&&<button onClick={()=>irACliente(p.clienteId)} style={{flex:1,background:"#2a3550",color:"#fff",border:"none",borderRadius:6,padding:"5px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Ver cliente</button>}
+                </div>
+              </div>
             </Popup>
           </Marker>
         ))}
@@ -6087,6 +6097,8 @@ export default function App() {
   },[user]);
   const [avisoAAbrir,setAvisoAAbrir]=useState(null);
   const irAAviso=id=>{setAvisoAAbrir(id);setActive("asistencia");};
+  const [clienteAAbrir,setClienteAAbrir]=useState(null);
+  const irACliente=id=>{setClienteAAbrir(id);setActive("clientes");};
   const onNuevoAviso=aviso=>{
     setData(d=>{
       const nn={...d.notificaciones};
@@ -6302,8 +6314,8 @@ export default function App() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina}/>}
-          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)}/>}
+          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user}/>}
