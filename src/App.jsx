@@ -960,7 +960,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     </div>
   );
 };
-const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente }) => {
+const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente, irAAviso }) => {
   const [vista,setVista]=useState(null); // {clienteId, maquinaId}
   const [busq,setBusq]=useState("");
   const [filtroCliente,setFiltroCliente]=useState("");
@@ -1073,8 +1073,8 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
     const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id);
     const historial = [
-      ...avisosM.map(a=>({tipo:"Aviso", fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
-      ...partesM.map(p=>({tipo:"Parte", fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
+      ...avisosM.map(a=>({tipo:"Aviso", id:a.id, fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
+      ...partesM.map(p=>({tipo:"Parte", id:p.id, fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
     ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
     return (<div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
@@ -1100,15 +1100,22 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial ({historial.length})</div>
       <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
         {historial.length===0&&<div style={{padding:"24px",textAlign:"center",color:"#6b7a99",fontSize:13}}>Sin avisos ni partes registrados para esta máquina</div>}
-        {historial.map((h,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderTop:i?"1px solid #1a2236":"none"}}>
+        {historial.map((h,i)=>{
+          const esAvisoClicable = h.tipo==="Aviso" && irAAviso;
+          return (
+          <div key={i} onClick={esAvisoClicable?()=>irAAviso(h.id):undefined}
+            style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderTop:i?"1px solid #1a2236":"none",cursor:esAvisoClicable?"pointer":"default"}}
+            onMouseEnter={esAvisoClicable?(e=>e.currentTarget.style.background="#1a2236"):undefined}
+            onMouseLeave={esAvisoClicable?(e=>e.currentTarget.style.background="transparent"):undefined}>
             <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800}}>{h.tipo}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
               <div style={{color:"#6b7a99",fontSize:11}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
             </div>
+            {esAvisoClicable&&<span style={{color:"#6b7a99",fontSize:13}}>→</span>}
           </div>
-        ))}
+          );
+        })}
       </div>
       {modal&&<Modal title="Editar máquina" onClose={()=>setModal(false)}>
         <Field label="Nombre"><Input value={form.nombre} onChange={f("nombre")}/></Field>
@@ -1173,13 +1180,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         {puntosMapa.map(p=>(
           <Marker key={p.clienteId+"-"+p.maquinaId} position={[p.lat,p.lng]} icon={maquinaMarkerIcon}>
             <Popup>
-              <div style={{minWidth:150}}>
+              <div onClick={()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})} style={{minWidth:140,cursor:"pointer"}}>
                 <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>
-                <div style={{fontSize:12,color:"#333",marginBottom:8}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})} style={{flex:1,background:"#0ea5e9",color:"#fff",border:"none",borderRadius:6,padding:"5px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Ver máquina</button>
-                  {irACliente&&<button onClick={()=>irACliente(p.clienteId)} style={{flex:1,background:"#2a3550",color:"#fff",border:"none",borderRadius:6,padding:"5px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Ver cliente</button>}
-                </div>
+                <div style={{fontSize:12,color:"#333"}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
+                <div style={{fontSize:10,color:"#0ea5e9",marginTop:4,fontWeight:700}}>Ver máquina →</div>
               </div>
             </Popup>
           </Marker>
@@ -6315,7 +6319,7 @@ export default function App() {
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)}/>}
-          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente}/>}
+          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user}/>}
