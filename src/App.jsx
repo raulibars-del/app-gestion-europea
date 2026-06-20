@@ -4918,8 +4918,13 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                   <div style={{width:38,height:38,borderRadius:9,background:colorTipo(a.tipo)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{iconoTipo(a.tipo)}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
-                    <div style={{display:"flex",gap:8,marginTop:2}}>
-                      <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
+                    <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
+                      <select value={a.tipo||"Otro"} onChange={e=>{
+                        const nuevoTipo = e.target.value;
+                        setData(d=>({...d, documentacion:(d.documentacion||[]).map(x=>x.id===doc.id?{...x,archivos:(x.archivos||[]).map((arch,j)=>j===i?{...arch,tipo:nuevoTipo}:arch)}:x)}));
+                      }} style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 5px",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                        {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
                       <span style={{color:"#6b7a99",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
                     </div>
                   </div>
