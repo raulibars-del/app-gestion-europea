@@ -460,7 +460,8 @@ const Login = ({ usuarios, onLogin }) => {
     </div>
   );
 };
-const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId }) => {
+const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId, userActual }) => {
+  const puedeEliminar = userActual?.rol==="manager";
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   useEffect(()=>{
     if(!abrirClienteId) return;
@@ -519,6 +520,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const saveCo=()=>{ setData(d=>({...d,clientes:d.clientes.map(c=>{ if(c.id!==vista)return c; if(!formCo.id)return{...c,contactos:[...c.contactos,{...formCo,id:Date.now()}]}; return{...c,contactos:c.contactos.map(x=>x.id===formCo.id?{...x,...formCo}:x)}; })})); setModalCo(null); };
   const delM=mid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,maquinas:c.maquinas.filter(m=>m.id!==mid)})}));
   const delCo=cid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,contactos:c.contactos.filter(x=>x.id!==cid)})}));
+  const delCliente=cid=>{ setData(d=>({...d,clientes:d.clientes.filter(c=>c.id!==cid)})); setVista(null); };
   const handleFoto=e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>setFormM(p=>({...p,foto:ev.target.result})); r.readAsDataURL(f); };
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
   if(vista===null) return (
@@ -640,7 +642,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             {(()=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; return pc?.tel?<><span style={{color:"#6b7a99",fontSize:12}}>·</span><span style={{color:"#9aa3b8",fontSize:12}}>📞 {pc.tel}</span></>:null;})()}
           </div>
         </div>
-        <button onClick={()=>{setFormC({...c});setModalC(true);}} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{setFormC({...c});setModalC(true);}} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+          {puedeEliminar && (
+            <button onClick={()=>{if(window.confirm(`¿Eliminar el cliente "${c.nombreEmpresa}"? Esta acción no se puede deshacer.`))delCliente(c.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontSize:13,cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>
+          )}
+        </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:14,alignItems:"start"}} className="ficha-grid">
         <div style={{display:"grid",gap:12}}>
@@ -714,7 +721,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                       <div style={{display:"flex",gap:4}}>
                         {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
                         <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
-                        <button onClick={()=>{delM(m.id);setTabM(null);}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
+                        {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
                       </div>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
@@ -3946,7 +3953,8 @@ const Albaran = ({ data, setData, userActual }) => {
     </div>
   );
 };
-const Stock=({data,setData})=>{
+const Stock=({data,setData,userActual})=>{
+const puedeEliminar=userActual?.rol==="manager";
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [filtro,setFiltro]=useState("Disponible");const [busq,setBusq]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
@@ -4023,7 +4031,7 @@ return(<div>
 {m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#6b7a99",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
 </div>}
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13}}>{m.notas}</div></div>}
-<button onClick={()=>{if(window.confirm("Eliminar esta maquina?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>
+{puedeEliminar && <button onClick={()=>{if(window.confirm("Eliminar esta maquina?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
 </div>);}
 const disponibles=data.stock.filter(m=>!m.vendida).length;
 const valorTarTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+vT(m),0);
@@ -4229,7 +4237,8 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
   const ajustarStock = (tipo) => {
     const cant = parseInt(cantMovimiento)||0;
     if (!cant) return;
-    setData(d => ({...d, inventario: d.inventario.map(i => i.id===modalMovimiento ? {...i, stock: tipo==="entrada" ? i.stock+cant : Math.max(0, i.stock-cant)} : i)}));
+    const registro = {id:Date.now()+Math.random(), fecha:today(), tipo, cantidad:cant, usuario:userActual?.nombre||""};
+    setData(d => ({...d, inventario: d.inventario.map(i => i.id===modalMovimiento ? {...i, stock: tipo==="entrada" ? i.stock+cant : Math.max(0, i.stock-cant), historialAjustes:[registro, ...(i.historialAjustes||[])]} : i)}));
     setModalMovimiento(null); setCantMovimiento("");
   };
 
@@ -4322,7 +4331,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                     <span style={{color:c,fontWeight:800,fontSize:24,lineHeight:1}}>{item.stock||0}</span>
                     <span style={{color:"#6b7a99",fontSize:12}}>{item.unidad||"ud"}</span>
                   </div>
-                  <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#10b981",fontSize:12,fontWeight:700,width:"100%"}}>+ Añadir unidades</button>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{flex:1,background:"#10b98120",border:"1px solid #10b98133",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#10b981",fontSize:12,fontWeight:700}}>+ Añadir unidades</button>
+                    <button onClick={()=>setModalHistorial(item.id)} title="Historial de movimientos" style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:7,padding:"6px 9px",cursor:"pointer",color:"#3b82f6",fontSize:12,fontWeight:700}}>📋</button>
+                  </div>
                 </div>
               );
             })}
@@ -4454,30 +4466,43 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         );
       })()}
 
-      {/* Modal historial de entregas (a qué cliente/parte se ha entregado este artículo) */}
+      {/* Modal historial de movimientos: entradas manuales + salidas a clientes (partes/albaranes) */}
       {modalHistorial && (()=>{
         const item = data.inventario.find(i=>i.id===modalHistorial);
         if (!item) return null;
-        const historial = [...(item.historialEntregas||[])].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+        // Unificamos dos fuentes en una sola línea de tiempo: las salidas a cliente
+        // (historialEntregas, generadas desde Partes/Albaranes) y los ajustes manuales
+        // de entrada/salida (historialAjustes, generados desde el botón "Añadir unidades").
+        const entregas = (item.historialEntregas||[]).map(h => ({
+          id: h.id, fecha: h.fecha, tipo: "salida",
+          detalle: h.clienteNombre, doc: h.numeroParte || h.numeroAlbaran || "—",
+          cantidad: parseFloat(h.cantidad)||0,
+        }));
+        const ajustes = (item.historialAjustes||[]).map(h => ({
+          id: h.id, fecha: h.fecha, tipo: h.tipo,
+          detalle: h.tipo==="entrada" ? "Entrada manual" : "Salida manual", doc: h.usuario || "—",
+          cantidad: parseFloat(h.cantidad)||0,
+        }));
+        const historial = [...entregas, ...ajustes].sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
         return (
-          <Modal title={`Historial de entregas — ${item.nombre}`} onClose={()=>setModalHistorial(null)}>
+          <Modal title={`Historial de movimientos — ${item.nombre}`} onClose={()=>setModalHistorial(null)}>
             <div style={{background:"#0d1117",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between"}}>
               <span style={{color:"#6b7a99",fontSize:12}}>Código interno</span>
               <span style={{color:"#a855f7",fontWeight:700,fontSize:13,fontFamily:"monospace"}}>{item.codigo}</span>
             </div>
             {historial.length===0 ? (
-              <div style={{color:"#6b7a99",fontSize:12,fontStyle:"italic",textAlign:"center",padding:"14px 0"}}>Este artículo aún no se ha entregado en ningún parte de trabajo.</div>
+              <div style={{color:"#6b7a99",fontSize:12,fontStyle:"italic",textAlign:"center",padding:"14px 0"}}>Este artículo aún no registra entradas ni salidas.</div>
             ) : (
               <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
                 <div style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"5px 10px",background:"#0a0f1a"}}>
-                  {["Fecha","Cliente","Doc.","Cant."].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                  {["Fecha","Detalle","Doc./User","Cant."].map(h=><div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
                 </div>
                 {historial.map(h=>(
                   <div key={h.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
                     <span style={{color:"#6b7a99",fontSize:11}}>{fmtFecha(h.fecha)}</span>
-                    <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{h.clienteNombre}</span>
-                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.numeroParte||h.numeroAlbaran||"—"}</span>
-                    <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{h.cantidad}</span>
+                    <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{h.detalle}</span>
+                    <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.doc}</span>
+                    <span style={{color:h.tipo==="entrada"?"#10b981":"#ef4444",fontWeight:700,fontSize:12,textAlign:"center"}}>{h.tipo==="entrada"?"+":"-"}{h.cantidad}</span>
                   </div>
                 ))}
               </div>
@@ -6420,13 +6445,13 @@ export default function App() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
-          {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData}/>}
+          {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso}/>}
