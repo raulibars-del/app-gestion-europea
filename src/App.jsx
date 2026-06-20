@@ -76,10 +76,13 @@ const backfillConsumiblesClave = (d) => {
     if (CONSUMIBLES_CLAVE_NOMBRES.includes(it.nombre) && !it.consumibleClave) { changed = true; return {...it, consumibleClave:true}; }
     return it;
   });
+  // IDs enteros consecutivos (nunca decimales: el resto de la app compara IDs con
+  // === y un id con decimales podría truncarse al pasar por inputs/selects HTML).
+  let nextId = Date.now();
   CONSUMIBLES_CLAVE_NOMBRES.forEach(nombre => {
     if (!nuevoInv.some(i => i.nombre === nombre)) {
       changed = true;
-      nuevoInv = [...nuevoInv, {id:Date.now()+Math.random(), codigo:sig(), nombre, descripcion:nombre, categoria:"Cola", unidad:"ud", stock:0, stockMin:5, precioCompra:0, precioVenta:0, consumibleClave:true}];
+      nuevoInv = [...nuevoInv, {id:nextId++, codigo:sig(), nombre, descripcion:nombre, categoria:"Cola", unidad:"ud", stock:0, stockMin:5, precioCompra:0, precioVenta:0, consumibleClave:true}];
     }
   });
   return changed ? {...d, inventario: nuevoInv} : d;
@@ -3859,13 +3862,16 @@ const Albaran = ({ data, setData, userActual }) => {
           <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
           {lineas.map((l, i) => (
             <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<lineas.length-1?"1px solid #1a2236":"none"}}>
-              <select value={l.inventarioId||""} onChange={e=>{
-                const id = e.target.value ? parseInt(e.target.value) : null;
-                const it = id ? data.inventario.find(x=>x.id===id) : null;
-                setLineas(p => p.map((x,j)=>j===i?{...x, inventarioId:id, desc: it?it.nombre:x.desc, unidad: it?(it.unidad||"ud"):x.unidad}:x));
+              {/* Solo los consumibles recurrentes (clave) aparecen en este desplegable: con el
+                  inventario completo (potencialmente cientos de artículos) un selector así sería
+                  inmanejable. El resto de líneas se escriben siempre a mano. */}
+              <select value={l.inventarioId!=null?String(l.inventarioId):""} onChange={e=>{
+                const raw = e.target.value;
+                const it = raw ? data.inventario.find(x=>String(x.id)===raw) : null;
+                setLineas(p => p.map((x,j)=>j===i?{...x, inventarioId: it?it.id:null, desc: it?it.nombre:x.desc, unidad: it?(it.unidad||"ud"):x.unidad}:x));
               }} style={{...inputStyle,fontSize:11,padding:"5px 9px",marginBottom:6,width:"100%"}}>
-                <option value="">— Producto manual (no descuenta stock) —</option>
-                {data.inventario.map(it=>(<option key={it.id} value={it.id}>{it.nombre} (stock: {it.stock||0} {it.unidad||"ud"})</option>))}
+                <option value="">— Producto manual (escribe la descripción abajo) —</option>
+                {data.inventario.filter(it=>it.consumibleClave).map(it=>(<option key={it.id} value={String(it.id)}>{it.nombre} (stock: {it.stock||0} {it.unidad||"ud"})</option>))}
               </select>
               <div style={{display:"grid",gridTemplateColumns:"60px 70px 1fr 32px",gap:6}}>
                 <Field label={i===0?"Cant.":""}><input type="number" value={l.cant} min="1" onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,cant:e.target.value}:x))} style={{...inputStyle}}/></Field>
