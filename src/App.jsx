@@ -2341,6 +2341,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [modalRetomar, setModalRetomar] = useState(false);
   const [modalPDF, setModalPDF] = useState(null);
   const [modalPDFCadena, setModalPDFCadena] = useState(null);
+  const [pdfLectura, setPdfLectura] = useState(null); // { url, nombre } — vista previa solo lectura
+  const cerrarPdfLectura = () => { if(pdfLectura) URL.revokeObjectURL(pdfLectura.url); setPdfLectura(null); };
   const [emailCliente, setEmailCliente] = useState("");
   const [firmada, setFirmada] = useState(false);
   const [conforme, setConforme] = useState(null); // true=Conforme, false=No conforme, null=sin marcar
@@ -2738,21 +2740,24 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     if(soloDescarga) doc.save("parte-"+numeroMostrar+".pdf");
     return doc.output("datauristring");
   };
-  // Abre en una pestaña nueva el PDF ya generado de un parte (con su firma/conformidad
-  // ya guardadas), exactamente igual que el documento que se envía por email, pero sin
-  // ningún control de edición ni de firma: solo para consultarlo. Se usa al navegar
-  // desde el historial de una Máquina.
+  // Muestra una vista previa solo lectura (en superposición, con X para cerrar y volver
+  // a donde se estaba, y botón de imprimir) del PDF ya generado de un parte, con su
+  // firma/conformidad ya guardadas — exactamente igual que el documento que se envía
+  // por email, pero sin ningún control de edición ni de firma. Se usa al navegar desde
+  // el historial de una Máquina.
   const abrirPDFLectura = async (p, cadena) => {
     const cadenaCompleta = cadena && cadena.length>1 ? cadena : null;
     const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
+    const numeroMostrar = cadenaCompleta ? cadenaBaseDe(cadenaCompleta[0]) : (p.numeroParte||("PT-"+String(p.id).slice(-6)));
     try {
       const dataUri = await generarYDescargarPDF(parteConDatos, false, false, cadenaCompleta);
       const byteString = atob(dataUri.split(",")[1]);
       const bytes = new Uint8Array(byteString.length);
       for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
       const blob = new Blob([bytes], {type:"application/pdf"});
+      if(pdfLectura) URL.revokeObjectURL(pdfLectura.url);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      setPdfLectura({ url, nombre: "Parte "+numeroMostrar });
     } catch(e) { alert("No se pudo generar el PDF de este parte."); }
   };
   const enviarEmail = async () => {
@@ -3351,6 +3356,22 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           </div>
         );
       })()}
+      {pdfLectura && (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{pdfLectura.nombre} (vista previa)</span>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{ const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="print" size={14}/>Imprimir
+              </button>
+              <button onClick={cerrarPdfLectura} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"8px 10px",color:"#f1f3f9",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                <Icon name="close" size={16}/>
+              </button>
+            </div>
+          </div>
+          <iframe id="pdfLecturaFrame" src={pdfLectura.url} title="Vista previa del parte" style={{flex:1,border:"none",background:"#fff"}}/>
+        </div>
+      )}
     </div>
   );
 };
