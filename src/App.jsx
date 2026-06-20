@@ -1283,6 +1283,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               <div onClick={()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})} style={{minWidth:140,cursor:"pointer"}}>
                 <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>
                 <div style={{fontSize:12,color:"#333"}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
+                {p.precision!=="exacta"&&<div style={{fontSize:10,color:"#b45309",marginTop:3,fontWeight:600}}>📍 Ubicación aproximada (por {p.precision==="cp"?"código postal":"provincia"}, no se encontró la dirección exacta)</div>}
                 <div style={{fontSize:10,color:"#0ea5e9",marginTop:4,fontWeight:700}}>Ver máquina →</div>
               </div>
             </Popup>
