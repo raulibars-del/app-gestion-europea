@@ -93,11 +93,15 @@ const backfillConsumiblesClave = (d) => {
 const direccionCliente = (c) => [c.dirFiscal, c.cpFiscal, c.localidad, c.provinciaFiscal].filter(Boolean).join(", ");
 // Para el mapa de máquinas siempre se prioriza la dirección de fábrica/instalación
 // sobre la fiscal cuando existan ambas y sean distintas (las máquinas suelen estar
-// en la nave/fábrica del cliente, no en su domicilio fiscal/administrativo).
-const direccionMapaCliente = (c) => {
+// en la nave/fábrica del cliente, no en su domicilio fiscal/administrativo). Además de
+// la dirección completa, guarda el código postal y la provincia correspondientes a esa
+// misma fuente (fábrica o fiscal) para poder usarlos como búsqueda de respaldo.
+const datosMapaCliente = (c) => {
   const fab = [c.dirFabrica, c.cpFabrica, c.localidadFabrica, c.provinciaFabrica].filter(Boolean).join(", ");
-  return fab || direccionCliente(c);
+  if (fab) return { dir: fab, cp: c.cpFabrica||"", provincia: c.provinciaFabrica||"" };
+  return { dir: direccionCliente(c), cp: c.cpFiscal||"", provincia: c.provinciaFiscal||"" };
 };
+const direccionMapaCliente = (c) => datosMapaCliente(c).dir;
 const geocodificarDireccion = async (direccion) => {
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(direccion+", España")}`;
@@ -105,6 +109,28 @@ const geocodificarDireccion = async (direccion) => {
     const arr = await res.json();
     if (arr && arr[0]) return { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
   } catch(e) {}
+  return null;
+};
+// Intenta localizar al cliente probando, en orden, la dirección completa, luego solo
+// el código postal y, si tampoco hay resultado, solo la provincia — así un cliente con
+// una dirección mal escrita o muy poco común al menos aparece (de forma aproximada)
+// en el mapa en vez de no aparecer nunca. Devuelve también el nivel de precisión
+// alcanzado para poder avisar en el mapa cuando la ubicación es solo aproximada.
+const geocodificarConFallback = async (c) => {
+  const { dir, cp, provincia } = datosMapaCliente(c);
+  if (!dir) return null;
+  let r = await geocodificarDireccion(dir);
+  if (r) return { ...r, precision: "exacta" };
+  if (cp) {
+    await new Promise(res=>setTimeout(res,1100));
+    r = await geocodificarDireccion(cp);
+    if (r) return { ...r, precision: "cp" };
+  }
+  if (provincia) {
+    await new Promise(res=>setTimeout(res,1100));
+    r = await geocodificarDireccion(provincia);
+    if (r) return { ...r, precision: "provincia" };
+  }
   return null;
 };
 // Icono de marcador del mapa de máquinas: mini "moneda" dorada con el lettermark "em",
@@ -1054,9 +1080,11 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
         if(cancelado) break;
         const dir = direccionMapaCliente(c);
         if(!dir) continue;
-        const r = await geocodificarDireccion(dir);
+        // Si la dirección completa no da resultado, geocodificarConFallback reintenta
+        // por código postal y, si tampoco, por provincia (en ese orden).
+        const r = await geocodificarConFallback(c);
         if(cancelado) break;
-        setData(d=>({...d, clientes:d.clientes.map(x=>x.id===c.id?(r?{...x,lat:r.lat,lng:r.lng,_geocodedFrom:dir,_geocodeError:undefined}:{...x,_geocodeError:dir}):x)}));
+        setData(d=>({...d, clientes:d.clientes.map(x=>x.id===c.id?(r?{...x,lat:r.lat,lng:r.lng,_geocodedFrom:dir,_geocodePrecision:r.precision,_geocodeError:undefined}:{...x,_geocodeError:dir,_geocodePrecision:undefined}):x)}));
         await new Promise(res=>setTimeout(res,1100));
       }
       if(!cancelado) setGeocodificando(false);
@@ -1075,7 +1103,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const puntosMapa = filtradas.map(m=>{
     const cli = data.clientes.find(c=>c.id===m._clienteId);
     if(!cli || cli.lat==null || cli.lng==null) return null;
-    return { clienteId:m._clienteId, maquinaId:m.id, lat:cli.lat+jitter(m.id), lng:cli.lng+jitter(m.id*7), nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`, clienteNombre:m._clienteNombre, codigo:m.codigo };
+    return { clienteId:m._clienteId, maquinaId:m.id, lat:cli.lat+jitter(m.id), lng:cli.lng+jitter(m.id*7), nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`, clienteNombre:m._clienteNombre, codigo:m.codigo, precision:cli._geocodePrecision||"exacta" };
   }).filter(Boolean);
   const centroMapa = puntosMapa.length
     ? [puntosMapa.reduce((s,p)=>s+p.lat,0)/puntosMapa.length, puntosMapa.reduce((s,p)=>s+p.lng,0)/puntosMapa.length]
@@ -2517,11 +2545,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
   // Permite que otras pantallas (p.ej. el historial de una Máquina) naveguen aquí y
-  // abran directamente el PDF de un parte concreto por su id.
+  // abran directamente el PDF ya generado de un parte concreto, en modo solo lectura
+  // (el mismo documento que se envía por email, sin opción de editar/firmar de nuevo).
   useEffect(() => {
     if (!abrirParteId) return;
     const p = data.partes.find(x => x.id === abrirParteId);
-    if (p) { const cadena = obtenerCadenaPartes(data.partes, p); abrirPDF(cadena.length>1 ? cadena[cadena.length-1] : p, cadena); }
+    if (p) { const cadena = obtenerCadenaPartes(data.partes, p); abrirPDFLectura(cadena.length>1 ? cadena[cadena.length-1] : p, cadena); }
     onAbrirParteId && onAbrirParteId();
   }, [abrirParteId]);
   // Abre el PDF combinado de toda la cadena (todas las visitas del mismo trabajo, una
@@ -2707,6 +2736,23 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     }
     if(soloDescarga) doc.save("parte-"+numeroMostrar+".pdf");
     return doc.output("datauristring");
+  };
+  // Abre en una pestaña nueva el PDF ya generado de un parte (con su firma/conformidad
+  // ya guardadas), exactamente igual que el documento que se envía por email, pero sin
+  // ningún control de edición ni de firma: solo para consultarlo. Se usa al navegar
+  // desde el historial de una Máquina.
+  const abrirPDFLectura = async (p, cadena) => {
+    const cadenaCompleta = cadena && cadena.length>1 ? cadena : null;
+    const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
+    try {
+      const dataUri = await generarYDescargarPDF(parteConDatos, false, false, cadenaCompleta);
+      const byteString = atob(dataUri.split(",")[1]);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      const blob = new Blob([bytes], {type:"application/pdf"});
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch(e) { alert("No se pudo generar el PDF de este parte."); }
   };
   const enviarEmail = async () => {
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
