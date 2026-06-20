@@ -2568,7 +2568,43 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     };
     setData(d => {
       let nuevo = {...d};
-      // Guardar parte
+      // Autocompletar ficha de cliente: si la matricula/maquina escrita en el parte no
+      // coincide con ninguna maquina ya guardada del cliente, se crea automaticamente y
+      // se vincula el parte a ella; igual con el contacto en el sitio (nombre/tel/email)
+      // si no coincide con un contacto ya existente.
+      if (item.clienteDirectoId) {
+        nuevo.clientes = nuevo.clientes.map(c => {
+          if (c.id !== item.clienteDirectoId) return c;
+          let cli = c;
+          if (!item.maquinaId && (item.matricula?.trim() || item.marca?.trim() || item.modelo?.trim())) {
+            const matr = item.matricula?.trim().toLowerCase();
+            const yaExiste = (cli.maquinas||[]).find(m =>
+              (matr && m.serie?.trim().toLowerCase()===matr) ||
+              (!matr && m.marca?.trim().toLowerCase()===(item.marca||"").trim().toLowerCase() && m.modelo?.trim().toLowerCase()===(item.modelo||"").trim().toLowerCase())
+            );
+            if (yaExiste) {
+              item.maquinaId = yaExiste.id; // ya existia: vincular el parte aunque no se eligiera del desplegable
+            } else {
+              const nuevaMaquina = { id: Date.now()+Math.random(), nombre: [item.marca,item.modelo].filter(Boolean).join(" ")||"Máquina sin nombre", marca: item.marca||"", modelo: item.modelo||"", serie: item.matricula||"", anyo:"", notas:"Añadida automáticamente desde el parte "+item.numeroParte, codigo: nextCodigoMaquina(nuevo) };
+              cli = { ...cli, maquinas: [...(cli.maquinas||[]), nuevaMaquina] };
+              item.maquinaId = nuevaMaquina.id;
+            }
+          }
+          const cn = item.contactoNombre?.trim(), ce = item.contactoEmail?.trim(), ctel = item.contactoTel?.trim();
+          if (cn || ce) {
+            const yaContacto = (cli.contactos||[]).some(x =>
+              (ce && x.email?.trim().toLowerCase()===ce.toLowerCase()) ||
+              (cn && x.nombre?.trim().toLowerCase()===cn.toLowerCase())
+            );
+            if (!yaContacto) {
+              const nuevoContacto = { id: Date.now()+Math.random(), nombre: cn||"(sin nombre)", puesto:"", tel: ctel||"", email: ce||"", principal: (cli.contactos||[]).length===0 };
+              cli = { ...cli, contactos: [...(cli.contactos||[]), nuevoContacto] };
+            }
+          }
+          return cli;
+        });
+      }
+      // Guardar parte (con maquinaId ya vinculado/creado si corresponde)
       if (esNuevo) nuevo.partes = [...nuevo.partes, item];
       else nuevo.partes = nuevo.partes.map(p => p.id===item.id ? item : p);
       // Al finalizar (no continuado) se cierra todo el trabajo: todos los partes de la
@@ -2619,7 +2655,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     // Sin técnico preseleccionado: hay que elegirlo explícitamente (es obligatorio al guardar).
     // Así se evita que, al estar uno ya marcado por defecto, el siguiente clic "añada" a otro
     // técnico en vez de sustituirlo.
-    setForm({ tecnicos:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"si",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"" });
+    setForm({ tecnicos:[],fecha:today(),horasT:"",reparacionId:"",avisoId:"",descripcion:"",desplazamiento:"si",kmValor:"",materiales:"",clienteDirectoId:"",maquinaId:"",marca:"",modelo:"",matricula:"",contactoNombre:"",contactoTel:"",contactoEmail:"" });
     setListaMateriales([]); setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
     setClienteSel(null); setBusqCliente(""); setMostrarDropCliente(false);
@@ -2668,6 +2704,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       clienteDirectoId:origen.clienteDirectoId||"",
       maquinaId:origen.maquinaId||"",
       marca:origen.marca||"",modelo:origen.modelo||"",matricula:origen.matricula||"",
+      contactoNombre:"",contactoTel:"",contactoEmail:"",
       cadenaBase:base,
       numContinuacion:nuevoNumCont,
       continuaDeId:origen.id,
@@ -3058,6 +3095,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           </Field>
         </div>
         {form.avisoId&&<div style={{color:"#f59e0b",fontSize:11,marginBottom:4}}>Maquina bloqueada — coincide con el aviso vinculado.</div>}
+
+        {/* Contacto en el sitio: si no esta en la ficha del cliente, se añade automaticamente al guardar */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11}}>
+          <Field label="Contacto en el sitio (opcional)"><Input value={form.contactoNombre||""} onChange={f("contactoNombre")} placeholder="Nombre de quien atendio"/></Field>
+          <Field label="Telefono contacto"><Input value={form.contactoTel||""} onChange={f("contactoTel")} placeholder="600..."/></Field>
+          <Field label="Email contacto"><Input value={form.contactoEmail||""} onChange={f("contactoEmail")} placeholder="email@..."/></Field>
+        </div>
+        {(form.contactoNombre?.trim()||form.contactoEmail?.trim())&&<div style={{color:"#6b7a99",fontSize:11,marginTop:-4,marginBottom:8}}>Si esta persona no esta en la ficha del cliente, se añadira automaticamente al guardar.</div>}
 
         {/* Vincular aviso — filtrado por máquina cuando hay cliente + máquina seleccionados */}
         {(()=>{
