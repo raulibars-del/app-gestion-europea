@@ -4618,11 +4618,11 @@ const filtradas=data.stock.filter(m=>filtro==="Todas"?true:filtro==="Disponible"
 const openNew=()=>{setForm({marca:"",modelo:"",matricula:"",anyo:new Date().getFullYear()+"",estado:"Nueva",precioVentaObj:"",vendida:false,notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[])]);setModal(true);};
 const save=()=>{const item={...form,precioVentaObj:parseFloat(form.precioVentaObj)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};if(!item.id)setData(d=>({...d,stock:[...d.stock,{...item,id:Date.now(),codigo:item.codigo||nextCodigoMaquina(d)}]}));else setData(d=>({...d,stock:d.stock.map(m=>m.id===item.id?(m.codigo?item:{...item,codigo:nextCodigoMaquina(d)}):m)}));setModal(false);if(vista)setVista(item.id||vista);};
-const toggleVendida=id=>setData(d=>({...d,stock:d.stock.map(m=>m.id===id?{...m,vendida:!m.vendida}:m)}));
 const venderMaquina=()=>{
   const m=data.stock.find(x=>x.id===modalVender);
   if(!m) return;
   if(!ventaClienteId){alert("Selecciona un cliente.");return;}
+  if(!ventaFechaInstalacion){alert("Indica la fecha de instalación: marca el inicio de la garantía de 1 año.");return;}
   const clienteId=parseInt(ventaClienteId);
   const maqId=Date.now();
   const maqFinal={
@@ -4672,21 +4672,23 @@ return(<div>
 <div style={{flex:1}}>
 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
 <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.marca} {m.modelo}</h2>
+{m.codigo&&<span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
 <span style={{background:m.estado==="Nueva"?"#10b98120":"#f59e0b20",color:m.estado==="Nueva"?"#10b981":"#f59e0b",border:"1px solid "+(m.estado==="Nueva"?"#10b98144":"#f59e0b44"),borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{m.estado}</span>
-{m.vendida&&<span style={{background:"#dc262620",color:"#dc2626",border:"1px solid #dc262644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>VENDIDA</span>}
 </div>
-<div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Matricula: {m.matricula} - Anyo: {m.anyo} {m.codigo&&<span style={{color:"#0ea5e9",fontWeight:700,fontFamily:"monospace"}}> - Cod. {m.codigo}</span>}</div>
+<div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Stock maquinaria nueva · pendiente de venta</div>
 </div>
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
-{!m.vendida&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vender a cliente</button>}
-<button onClick={()=>toggleVendida(m.id)} style={{background:m.vendida?"#10b98120":"#dc262618",border:"1px solid "+(m.vendida?"#10b98144":"#dc262644"),borderRadius:8,padding:"7px 13px",color:m.vendida?"#10b981":"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12}}>{m.vendida?"Disponible":"Vendida"}</button>
+{!m.vendida&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vendida</button>}
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
-<div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Valor tarifa</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:22}}>EUR{tar.toLocaleString()}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Codigos configurados</div><div style={{color:"#f1f3f9",fontWeight:900,fontSize:22}}>{(m.codigos||[]).length}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Estado</div><div style={{color:m.estado==="Nueva"?"#10b981":"#f59e0b",fontWeight:900,fontSize:18}}>{m.estado}</div><div style={{color:"#6b7a99",fontSize:12}}>{m.anyo}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.matricula||"—"}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio estimado</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>
 </div>
+<div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",background:"#0a0f1a",padding:"9px 16px",gap:12}}>
 {["Codigo","Descripcion","Valor EUR"].map(h=><div key={h} style={{color:"#6b7a99",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
@@ -4795,13 +4797,13 @@ return(<div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id?"Guardar":"Anadir al stock"}</button></div>
 </Modal>}
 {modalVender&&(()=>{const m=data.stock.find(x=>x.id===modalVender);if(!m) return null;return(
-<Modal title={`Vender ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
-<Field label="Cliente"><ClientePicker clientes={data.clientes} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
-<Field label="Fecha de instalación (si se conoce; puede fijarse más adelante)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+<Modal title={`Marcar como vendida: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Fecha de instalación (inicio de garantía) *"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
 <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
-🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. La garantía de 1 año empieza a contar desde la fecha de instalación.
+🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. La garantía de 1 año empieza a contar desde la fecha de instalación indicada.
 </div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Vender y asignar</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
 </Modal>
 );})()}
 </div>);
