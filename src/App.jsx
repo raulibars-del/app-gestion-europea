@@ -4669,6 +4669,37 @@ const tar=vT(m);
 [["VALOR TARIFA TOTAL","EUR "+tar.toLocaleString()]].forEach(([l,v])=>{doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,9,1,1,"F");doc.setTextColor(107,122,153);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(l,mg+4,y+6);doc.setTextColor(241,243,249);doc.setFontSize(11);doc.text(v,W-mg-4,y+6.5,{align:"right"});y+=12;});
 doc.setFillColor(16,185,129);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");doc.setTextColor(107,122,153);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583",W/2,291,{align:"center"});
 doc.save(`stock-${m.marca}-${m.modelo}.pdf`);};
+const imprimirQR=(m)=>{
+// Mismo esquema que el QR de Máquinas: apunta a la ficha real de la app
+// (https://dominio/?maquina=CODIGO), con login-gate. El código se conserva
+// cuando la máquina se vende y pasa a la ficha del cliente, así que la
+// etiqueta impresa aquí sigue siendo válida después de la venta.
+const urlMaquina = `${window.location.origin}/?maquina=${encodeURIComponent(m.codigo)}`;
+const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${encodeURIComponent(urlMaquina)}`;
+const w = window.open("","_blank","width=380,height=420");
+w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}
+.et{border:2px solid #000;padding:16px;width:250px;text-align:center}
+.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:8px;font-weight:700}
+.nom{font-size:12px;font-weight:700;color:#000;margin-bottom:6px;word-break:break-word}
+.cod{font-size:22px;font-weight:900;letter-spacing:3px;color:#000;margin-bottom:8px}
+img{display:block;margin:0 auto}
+@media print{body{min-height:0}}
+</style></head><body>
+<div class="et">
+  <div class="emp">EUROPEA DE MAQUINARIA PMM SL</div>
+  <div class="nom">${(`${m.marca||""} ${m.modelo||""}`).replace(/</g,"")}</div>
+  <div class="cod">${m.codigo}</div>
+  <img src="${qrUrl}" width="200" height="200" alt="QR"/>
+</div>
+<script>
+var img=document.querySelector("img");
+img.onload=function(){setTimeout(function(){window.print();},300);};
+img.onerror=function(){setTimeout(function(){window.print();},1500);};
+<\/script></body></html>`);
+w.document.close();
+};
 if(vista&&data.stock.find(x=>x.id===vista)){
 const m=data.stock.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;
 return(<div>
@@ -4682,6 +4713,7 @@ return(<div>
 </div>
 <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Stock maquinaria nueva · pendiente de venta</div>
 </div>
+{m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
 {!m.vendida&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vendida</button>}
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
@@ -6747,10 +6779,20 @@ const FichaPublicaArticulo = ({ codigo, data, cargando }) => {
 const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
   let found=null;
   (data?.clientes||[]).forEach(c=>(c.maquinas||[]).forEach(m=>{ if(m.codigo===codigo) found={m,cliente:c}; }));
-  const m=found?.m, cliente=found?.cliente;
-  const avisosM = m ? (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id) : [];
-  const partesM = m ? (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id) : [];
-  const historial = m ? [
+  if(!found){
+    // El código no apareció en ninguna ficha de cliente: puede ser una máquina
+    // de Stock maquinaria nueva, todavía pendiente de venta (mismo espacio de
+    // códigos MAQ-XXXX). El código se conserva al vender, así que la misma
+    // etiqueta impresa seguirá siendo válida cuando la máquina pase al cliente.
+    const stockItem = (data?.stock||[]).find(s=>s.codigo===codigo);
+    if(stockItem) found = {m:stockItem, cliente:null, esStock:true};
+  }
+  const m=found?.m, cliente=found?.cliente, esStock=!!found?.esStock;
+  const esPropia = !esStock && cliente?.id===0 && !m?.origenStock;
+  const fotoPrincipal = m ? (m.foto || (m.fotos&&m.fotos[0]&&m.fotos[0].data) || null) : null;
+  const avisosM = (m && cliente) ? (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id) : [];
+  const partesM = (m && cliente) ? (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id) : [];
+  const historial = (m && cliente) ? [
     ...avisosM.map(a=>({tipo:"Aviso", fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
     ...partesM.map(p=>({tipo:"Parte", fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
   ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)) : [];
@@ -6783,7 +6825,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
       doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
       doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
-      doc.text("FICHA DE MÁQUINA",W-mg,13,{align:"right"});
+      doc.text(esStock?"FICHA DE STOCK":"FICHA DE MÁQUINA",W-mg,13,{align:"right"});
       doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
       doc.text(m.codigo||"",W-mg,21,{align:"right"});
       doc.text("Fecha: "+fmtFecha(today()),W-mg,27,{align:"right"});
@@ -6838,38 +6880,71 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       });
       y+=5;
     };
-    if(m.foto){
+    if(fotoPrincipal){
       try {
         const fotoW=60, fotoH=45;
-        doc.addImage(m.foto,mg,y,fotoW,fotoH);
+        doc.addImage(fotoPrincipal,mg,y,fotoW,fotoH);
         doc.setDrawColor(200,205,220); doc.roundedRect(mg,y,fotoW,fotoH,1,1,"S");
         y+=fotoH+6;
       } catch(e) {}
     }
-    y=box("Datos de la máquina",[
-      ["Código",m.codigo||"—"],
-      ["Nombre",m.nombre||"—"],
-      ["Marca",m.marca||"—"],
-      ["Modelo",m.modelo||"—"],
-      ["Nº serie / matrícula",m.serie||"—"],
-      ["Año",m.anyo||"—"],
-    ],y);
-    asegurarEspacio(20);
-    y=box("Cliente",[
-      ["Empresa",cliente.nombreEmpresa||"—"],
-      ["CIF / DNI",cliente.cif||"—"],
-      ["Localidad",cliente.localidad||"—"],
-    ],y);
-    if(m.notas?.trim()){
+    if(esStock){
+      const tar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
+      const ven=parseFloat(m.precioVentaObj)||0;
+      y=box("Datos de la máquina",[
+        ["Código",m.codigo||"—"],
+        ["Marca",m.marca||"—"],
+        ["Modelo",m.modelo||"—"],
+        ["Matrícula / Nº serie",m.matricula||"—"],
+        ["Año",m.anyo||"—"],
+        ["Estado",m.estado||"—"],
+      ],y);
       asegurarEspacio(20);
-      y=box("Notas",[["Notas",m.notas]],y);
-    }
-    if(historial.length>0){
-      y+=2;
-      tablaSeccion("Historial de intervenciones ("+historial.length+")",
-        [{label:"FECHA",w:26},{label:"TIPO",w:24},{label:"DESCRIPCIÓN",w:94},{label:"ESTADO",w:30}],
-        historial.map(h=>[h.fecha?fmtFecha(h.fecha):"—",h.tipo,h.titulo||"—",h.estado||"—"])
-      );
+      y=box("Valoración",[
+        ["Precio de tarifa","€"+tar.toLocaleString()],
+        ["Precio estimado",ven>0?"€"+ven.toLocaleString():"—"],
+      ],y);
+      if(m.notas?.trim()){
+        asegurarEspacio(20);
+        y=box("Notas",[["Notas",m.notas]],y);
+      }
+      if((m.codigos||[]).length>0){
+        y+=2;
+        tablaSeccion("Códigos de configuración ("+m.codigos.length+")",
+          [{label:"CÓDIGO",w:40},{label:"DESCRIPCIÓN",w:124},{label:"VALOR",w:30,align:"right"}],
+          m.codigos.map(c=>[c.codigo||"—",c.descripcion||"—","€"+(parseFloat(c.valor)||0).toLocaleString()])
+        );
+      }
+    } else {
+      y=box("Datos de la máquina",[
+        ["Código",m.codigo||"—"],
+        ["Nombre",m.nombre||"—"],
+        ["Marca",m.marca||"—"],
+        ["Modelo",m.modelo||"—"],
+        ["Nº serie / matrícula",m.serie||"—"],
+        ["Año",m.anyo||"—"],
+      ],y);
+      asegurarEspacio(20);
+      y=box("Cliente",[
+        ["Empresa",cliente.nombreEmpresa||"—"],
+        ["CIF / DNI",cliente.cif||"—"],
+        ["Localidad",cliente.localidad||"—"],
+      ],y);
+      if(esPropia && m.precioVenta){
+        asegurarEspacio(20);
+        y=box("Valoración",[["Precio de venta","€"+parseFloat(m.precioVenta).toLocaleString()]],y);
+      }
+      if(m.notas?.trim()){
+        asegurarEspacio(20);
+        y=box("Notas",[["Notas",m.notas]],y);
+      }
+      if(historial.length>0){
+        y+=2;
+        tablaSeccion("Historial de intervenciones ("+historial.length+")",
+          [{label:"FECHA",w:26},{label:"TIPO",w:24},{label:"DESCRIPCIÓN",w:94},{label:"ESTADO",w:30}],
+          historial.map(h=>[h.fecha?fmtFecha(h.fecha):"—",h.tipo,h.titulo||"—",h.estado||"—"])
+        );
+      }
     }
     const totalPaginas = doc.getNumberOfPages();
     for(let pg=1; pg<=totalPaginas; pg++){
@@ -6917,16 +6992,20 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
           </div>
         ) : (
           <>
-            {m.foto && <img src={m.foto} alt={m.nombre} style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:12,border:"1px solid #2a3550",marginBottom:14}}/>}
+            {fotoPrincipal && <img src={fotoPrincipal} alt={m.nombre||m.modelo} style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:12,border:"1px solid #2a3550",marginBottom:14}}/>}
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:22,fontWeight:900,letterSpacing:2,color:"#0ea5e9",fontFamily:"monospace"}}>{m.codigo}</div>
               <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</div>
-              <div style={{fontSize:12,color:"#6b7a99",marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
+              {esStock ? (
+                <div style={{fontSize:12,color:"#6b7a99",marginTop:2}}>Stock maquinaria nueva · {m.vendida?"vendida":"pendiente de venta"}</div>
+              ) : (
+                <div style={{fontSize:12,color:"#6b7a99",marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
+              )}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
                 <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Matrícula / Serie</div>
-                <div style={{fontSize:16,fontWeight:800}}>{m.serie||"—"}</div>
+                <div style={{fontSize:16,fontWeight:800}}>{m.serie||m.matricula||"—"}</div>
               </div>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
                 <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Año</div>
@@ -6940,21 +7019,57 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
                 <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Modelo</div>
                 <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{m.modelo||"—"}</div>
               </div>
+              {esStock && (()=>{ const tar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0); const ven=parseFloat(m.precioVentaObj)||0; return (<>
+                <div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de tarifa</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#3b82f6"}}>€{tar.toLocaleString()}</div>
+                </div>
+                <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio estimado</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>{ven>0?"€"+ven.toLocaleString():"—"}</div>
+                </div>
+              </>); })()}
+              {esPropia && m.precioVenta && (
+                <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px",gridColumn:"1/-1"}}>
+                  <div style={{fontSize:10,color:"#6b7a99",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de venta</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>€{parseFloat(m.precioVenta).toLocaleString()}</div>
+                </div>
+              )}
             </div>
             {m.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#9aa3b8",lineHeight:1.6,marginBottom:12}}>{m.notas}</div>}
-            <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
-            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
-              {historial.length===0 && <div style={{padding:"18px",textAlign:"center",color:"#6b7a99",fontSize:12}}>Sin avisos ni partes registrados</div>}
-              {historial.map((h,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
-                  <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 7px",fontSize:9,fontWeight:800}}>{h.tipo}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
-                    <div style={{color:"#6b7a99",fontSize:10}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
-                  </div>
+            {esStock ? (
+              <>
+                <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
+                  {(m.codigos||[]).length===0 && <div style={{padding:"18px",textAlign:"center",color:"#6b7a99",fontSize:12}}>Sin códigos registrados</div>}
+                  {(m.codigos||[]).map((c,i)=>(
+                    <div key={c.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.codigo||"—"}</div>
+                        <div style={{color:"#6b7a99",fontSize:10}}>{c.descripcion||"—"}</div>
+                      </div>
+                      <div style={{color:"#3b82f6",fontWeight:800,fontSize:12}}>€{(parseFloat(c.valor)||0).toLocaleString()}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <>
+                <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
+                  {historial.length===0 && <div style={{padding:"18px",textAlign:"center",color:"#6b7a99",fontSize:12}}>Sin avisos ni partes registrados</div>}
+                  {historial.map((h,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
+                      <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 7px",fontSize:9,fontWeight:800}}>{h.tipo}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
+                        <div style={{color:"#6b7a99",fontSize:10}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
