@@ -877,7 +877,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               {c.maquinas.map(m=>(
                 <button key={m.id} onClick={()=>setTabM(m.id===tabM?null:m.id)}
                   style={{background:tabM===m.id?"#1e2a3a":"transparent",color:tabM===m.id?"#f59e0b":"#6b7a99",border:"none",borderBottom:tabM===m.id?"2px solid #f59e0b":"2px solid transparent",padding:"9px 15px",cursor:"pointer",fontSize:12,fontWeight:tabM===m.id?700:400,whiteSpace:"nowrap"}}>
-                  🔧 {m.nombre}
+                  {m.origenStock?"🆕":(c.id===0?"♻️":"🔧")} {m.nombre}
                 </button>
               ))}
             </div>
@@ -890,7 +890,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   </div>
                   <div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
-                      <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{m.nombre}</div>
+                      <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                        {m.nombre}
+                        {m.origenStock&&<span style={{background:"#10b98120",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>🆕 Nueva (ex-stock)</span>}
+                        {!m.origenStock&&c.id===0&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>♻️ Usada (parque propio)</span>}
+                      </div>
                       <div style={{display:"flex",gap:4}}>
                         {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
                         <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
@@ -901,6 +905,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                       {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
                     </div>
                     {m.notas&&<div style={{color:"#6b7a99",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
+                    {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
+                      <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
+                    );})():(
+                      <div style={{color:"#f59e0b",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: falta fecha de instalación</div>
+                    ))}
                   </div>
                 </div>
                 <div style={{borderTop:"1px solid #2a3550",paddingTop:13}}>
@@ -1208,8 +1217,28 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const [modoVista,setModoVista]=useState("lista"); // lista | mapa
   const [geocodificando,setGeocodificando]=useState(false);
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
+  const [modalNueva,setModalNueva]=useState(false);
+  const [formNueva,setFormNueva]=useState({});
+  const [archivosNueva,setArchivosNueva]=useState([]);
+  const fN=k=>e=>setFormNueva(p=>({...p,[k]:e.target.value}));
+  const [modalInstalacion,setModalInstalacion]=useState(false);
+  const [fechaInstalacionForm,setFechaInstalacionForm]=useState("");
 
   const todas = (data.clientes||[]).flatMap(c=>(c.maquinas||[]).map(m=>({...m, _clienteId:c.id, _clienteNombre:c.nombreEmpresa})));
+  // Distingue las máquinas del "parque propio" de Europea de Maquinaria: las que vienen
+  // de Stock maquinaria nueva (origenStock, vendidas a un cliente real) y las usadas que
+  // la empresa compra y asocia al cliente interno "Europea de Maquinaria" (id 0).
+  const origenInfo = (m, clienteId) => {
+    if(m.origenStock) return {emoji:"🆕",label:"Nueva (ex-stock)",color:"#10b981"};
+    if(clienteId===0) return {emoji:"♻️",label:"Usada (parque propio)",color:"#f59e0b"};
+    return null;
+  };
+  const garantiaInfo = m => {
+    if(!m.origenStock) return null;
+    if(!m.fechaInstalacion) return {estado:"pendiente"};
+    const restantes = 365 - diasDesde(m.fechaInstalacion);
+    return {estado: restantes>=0?"vigente":"vencida", restantes};
+  };
   const modelos = [...new Set(todas.map(m=>m.modelo).filter(Boolean))].sort();
   const filtradas = todas.filter(m=>{
     if(filtroCliente && String(m._clienteId)!==String(filtroCliente)) return false;
@@ -1323,6 +1352,37 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       return {...c, maquinas: (c.maquinas||[]).map(m=>m.id===form.id?{...m,...form}:m)};
     })}));
     setModal(false);
+  };
+  // Alta completa de máquina nueva desde esta pantalla: elige cliente, datos y documentación opcional.
+  const handleFotoNueva = e => { const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>setFormNueva(p=>({...p,foto:ev.target.result})); r.readAsDataURL(file); };
+  const handleArchivosNueva = e => Array.from(e.target.files).forEach(file=>{ const r=new FileReader(); r.onload=ev=>setArchivosNueva(p=>[...p,{id:Date.now()+Math.random(),nombre:file.name,tipo:"Otro",tamanyo:file.size,data:ev.target.result}]); r.readAsDataURL(file); });
+  const abrirNuevaMaquina = () => { setFormNueva({clienteId:"",nombre:"",marca:"",modelo:"",serie:"",anyo:"",notas:"",foto:null}); setArchivosNueva([]); setModalNueva(true); };
+  const saveNueva = () => {
+    if(!formNueva.clienteId){ alert("Selecciona un cliente."); return; }
+    const clienteId = parseInt(formNueva.clienteId);
+    const maqId = Date.now();
+    const datosBase = { nombre:formNueva.nombre||`${formNueva.marca||""} ${formNueva.modelo||""}`.trim(), marca:formNueva.marca||"", modelo:formNueva.modelo||"", serie:formNueva.serie||"", anyo:formNueva.anyo||"", notas:formNueva.notas||"", foto:formNueva.foto||null };
+    setData(d=>{
+      const codigo = nextCodigoMaquina(d);
+      const maqFinal = { id:maqId, ...datosBase, codigo };
+      const nuevosClientes = d.clientes.map(c=>c.id===clienteId?{...c,maquinas:[...(c.maquinas||[]),maqFinal]}:c);
+      const nuevaDoc = [...(d.documentacion||[]), {
+        id:Date.now()+1, clienteId, _maquinaClienteId:maqId,
+        marca:maqFinal.marca, modelo:maqFinal.modelo||maqFinal.nombre, matricula:maqFinal.serie, anyo:maqFinal.anyo,
+        descripcion:maqFinal.nombre, archivos:archivosNueva, notas:maqFinal.notas, fechaAlta:today(), _sincronizada:true,
+      }];
+      return {...d, clientes:nuevosClientes, documentacion:nuevaDoc};
+    });
+    setModalNueva(false);
+    setVista({clienteId, maquinaId:maqId});
+  };
+  // Permite a cualquier miembro de la empresa fijar (o corregir) la fecha de instalación
+  // de una máquina ex-stock cuando no se indicó al venderla; desde esa fecha empieza a
+  // contar el año de garantía.
+  const guardarFechaInstalacion = () => {
+    if(!fechaInstalacionForm){ alert("Indica una fecha."); return; }
+    setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==vista.clienteId?c:{...c,maquinas:(c.maquinas||[]).map(x=>x.id===vista.maquinaId?{...x,fechaInstalacion:fechaInstalacionForm}:x)})}));
+    setModalInstalacion(false);
   };
 
   const [pdfMaquinaFicha,setPdfMaquinaFicha]=useState(null); // { url, nombre, blob } — vista previa del PDF de la máquina
@@ -1485,6 +1545,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</h2>
             {m.codigo&&<span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
+            {origenInfo(m,cliente.id)&&<span style={{background:origenInfo(m,cliente.id).color+"20",color:origenInfo(m,cliente.id).color,border:"1px solid "+origenInfo(m,cliente.id).color+"44",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{origenInfo(m,cliente.id).emoji} {origenInfo(m,cliente.id).label}</span>}
           </div>
           <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
         </div>
@@ -1498,6 +1559,22 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
+        {garantiaInfo(m)&&(()=>{const g=garantiaInfo(m);
+          if(g.estado==="pendiente") return (
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
+              <div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
+              <div style={{color:"#f59e0b",fontWeight:800,fontSize:13,marginBottom:6}}>Falta fecha de instalación</div>
+              <button onClick={()=>{setFechaInstalacionForm(today());setModalInstalacion(true);}} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:7,padding:"4px 9px",color:"#f59e0b",fontWeight:700,cursor:"pointer",fontSize:11}}>Establecer fecha</button>
+            </div>
+          );
+          return (
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
+              <div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
+              <div style={{color:g.estado==="vigente"?"#10b981":"#dc2626",fontWeight:800,fontSize:16}}>{g.estado==="vigente"?`${g.restantes} días restantes`:`Vencida hace ${Math.abs(g.restantes)} días`}</div>
+              <div style={{color:"#6b7a99",fontSize:10,marginTop:2}}>Instalada: {fmtFecha(m.fechaInstalacion)}</div>
+            </div>
+          );
+        })()}
       </div>
       {m.foto&&<div style={{marginBottom:16}}><img src={m.foto} alt="" style={{maxWidth:220,borderRadius:10,border:"1px solid #2a3550"}}/></div>}
       {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13}}>{m.notas}</div></div>}
@@ -1543,6 +1620,14 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <button onClick={save} style={btnPrimary}>Guardar</button>
         </div>
       </Modal>}
+      {modalInstalacion&&<Modal title="Fecha de instalación" onClose={()=>setModalInstalacion(false)}>
+        <Field label="Fecha de instalación"><Input type="date" value={fechaInstalacionForm} onChange={e=>setFechaInstalacionForm(e.target.value)}/></Field>
+        <div style={{background:"#f59e0b12",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#f59e0b",fontSize:12}}>Desde esta fecha empieza a contar el año de garantía de la máquina.</div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
+          <button onClick={()=>setModalInstalacion(false)} style={btnOutline}>Cancelar</button>
+          <button onClick={guardarFechaInstalacion} style={btnPrimary}>Guardar</button>
+        </div>
+      </Modal>}
       {pdfMaquinaFicha && (()=>{ const esMobil = window.innerWidth<=820; return (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
@@ -1576,9 +1661,12 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
   return (<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
       <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Máquinas</h2><p style={{color:"#6b7a99",fontSize:13,margin:"3px 0 0"}}>Ficha de cada máquina de cliente: datos, código interno e historial completo</p></div>
-      <div style={{display:"flex",gap:3,background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:3}}>
-        <button onClick={()=>setModoVista("lista")} style={{background:modoVista==="lista"?"#0ea5e9":"transparent",color:modoVista==="lista"?"#fff":"#6b7a99",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="maquina" size={13}/>Lista</button>
-        <button onClick={()=>setModoVista("mapa")} style={{background:modoVista==="mapa"?"#0ea5e9":"transparent",color:modoVista==="mapa"?"#fff":"#6b7a99",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="pin" size={13}/>Mapa</button>
+      <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+        <button onClick={abrirNuevaMaquina} style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva máquina</button>
+        <div style={{display:"flex",gap:3,background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:3}}>
+          <button onClick={()=>setModoVista("lista")} style={{background:modoVista==="lista"?"#0ea5e9":"transparent",color:modoVista==="lista"?"#fff":"#6b7a99",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="maquina" size={13}/>Lista</button>
+          <button onClick={()=>setModoVista("mapa")} style={{background:modoVista==="mapa"?"#0ea5e9":"transparent",color:modoVista==="mapa"?"#fff":"#6b7a99",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="pin" size={13}/>Mapa</button>
+        </div>
       </div>
     </div>
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
@@ -1598,7 +1686,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {filtradas.map(m=>(
         <div key={m._clienteId+"-"+m.id} onClick={()=>setVista({clienteId:m._clienteId,maquinaId:m.id})} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"14px 16px",cursor:"pointer"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,gap:6}}>
-            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:14}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</div>
+            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:14,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+              {m.nombre||`${m.marca||""} ${m.modelo||""}`}
+              {origenInfo(m,m._clienteId)&&<span title={origenInfo(m,m._clienteId).label} style={{background:origenInfo(m,m._clienteId).color+"20",color:origenInfo(m,m._clienteId).color,border:"1px solid "+origenInfo(m,m._clienteId).color+"44",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>{origenInfo(m,m._clienteId).emoji}</span>}
+            </div>
             {m.codigo&&<span style={{color:"#0ea5e9",fontSize:10,fontWeight:700,fontFamily:"monospace",whiteSpace:"nowrap"}}>{m.codigo}</span>}
           </div>
           <div style={{color:"#6b7a99",fontSize:12,marginBottom:4}}>🏢 {m._clienteNombre}</div>
@@ -1648,6 +1739,28 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
         <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
         <button onClick={save} style={btnPrimary}>Guardar</button>
+      </div>
+    </Modal>}
+    {modalNueva&&<Modal title="Nueva máquina" onClose={()=>setModalNueva(false)} wide>
+      <Field label="Cliente"><ClientePicker clientes={data.clientes} value={formNueva.clienteId} onChange={v=>setFormNueva(p=>({...p,clienteId:v}))}/></Field>
+      <Field label="Nombre / descripción"><Input value={formNueva.nombre||""} onChange={fN("nombre")} placeholder="Ej. Escuadradora SC2"/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Field label="Marca"><Input value={formNueva.marca||""} onChange={fN("marca")}/></Field>
+        <Field label="Modelo"><Input value={formNueva.modelo||""} onChange={fN("modelo")}/></Field>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Field label="Nº de serie / matrícula"><Input value={formNueva.serie||""} onChange={fN("serie")}/></Field>
+        <Field label="Año"><Input value={formNueva.anyo||""} onChange={fN("anyo")}/></Field>
+      </div>
+      <Field label="Foto"><input type="file" accept="image/*" onChange={handleFotoNueva}/></Field>
+      <Field label="Documentación (opcional)">
+        <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#6b7a99",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
+        {archivosNueva.length>0&&<div style={{marginTop:6}}>{archivosNueva.map((a,i)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#9aa3b8",fontSize:12}}>📎 {a.nombre}</span><button onClick={()=>setArchivosNueva(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
+      </Field>
+      <Field label="Notas"><textarea value={formNueva.notas||""} onChange={fN("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
+        <button onClick={()=>setModalNueva(false)} style={btnOutline}>Cancelar</button>
+        <button onClick={saveNueva} style={btnPrimary}>Crear máquina</button>
       </div>
     </Modal>}
   </div>);
@@ -2399,7 +2512,8 @@ const Tareas = ({ data, setData, userActual }) => {
       if(fileRefTarea.current) fileRefTarea.current.value="";
     }
   };
-  const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id);
+  // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
+  const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const mostrar = verCompletadas ? misTareas : pendientes;
@@ -2411,7 +2525,8 @@ const Tareas = ({ data, setData, userActual }) => {
   const sorted = ordenar(mostrar);
   // Tareas que yo he asignado a otra persona: quedan en "común" — sigo viéndolas
   // como pendientes en mi pantalla hasta que la persona asignada las marque como Completada.
-  const asignadasPorMi = data.tareas.filter(t => t.creadoPor === userActual.id && t.asignadoId !== userActual.id);
+  // Las de empresa no entran aquí: ya aparecen en "misTareas" para todo el mundo.
+  const asignadasPorMi = data.tareas.filter(t => t.creadoPor === userActual.id && t.asignadoId !== userActual.id && !t.esEmpresa);
   const asigPendientes = asignadasPorMi.filter(t => t.estado !== "Completada");
   const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
   const asigMostrar = verAsigCompletadas ? asignadasPorMi : asigPendientes;
@@ -2422,15 +2537,24 @@ const Tareas = ({ data, setData, userActual }) => {
     return d;
   };
   const abrirNueva = () => setForm({
-    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: []
+    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false
   });
   const save = () => {
-    const item = { ...form,asignadoId: parseInt(form.asignadoId) };
+    const esEmpresa = !!form.esEmpresa;
+    const item = { ...form,esEmpresa,asignadoId: esEmpresa ? null : parseInt(form.asignadoId) };
     if (!item.id) {
       const nueva = { ...item,id: Date.now() };
       setData(d => {
         const nd = { ...d,tareas: [...d.tareas, nueva] };
-        if (nueva.asignadoId !== userActual.id) {
+        if (esEmpresa) {
+          // Tarea de empresa: se notifica a todos los miembros activos (salvo a quien la crea).
+          const notifs = { ...nd.notificaciones };
+          data.usuarios.filter(u => u.activo && u.id !== userActual.id).forEach(u => {
+            const n = crearNotif(u.id, "tarea", `🏢 Nueva tarea de empresa`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
+            notifs[u.id] = [n, ...(notifs[u.id] || [])];
+          });
+          nd.notificaciones = notifs;
+        } else if (nueva.asignadoId !== userActual.id) {
           const n = crearNotif(nueva.asignadoId, "tarea", `📋 Nueva tarea asignada`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
           nd.notificaciones = { ...nd.notificaciones, [nueva.asignadoId]: [n, ...(nd.notificaciones[nueva.asignadoId] || [])] };
         }
@@ -2442,9 +2566,10 @@ const Tareas = ({ data, setData, userActual }) => {
     setModal(false);
   };
   const toggle = t => {
-    if (t.asignadoId !== userActual.id) return;
+    // Las tareas de empresa puede completarlas cualquier miembro; las individuales solo el asignado.
+    if (!t.esEmpresa && t.asignadoId !== userActual.id) return;
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
-    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado } : x) }));
+    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null } : x) }));
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
@@ -2512,19 +2637,27 @@ const Tareas = ({ data, setData, userActual }) => {
         )}
         {sorted.map(t => {
           const vc = venceColor(t.vence);
-          const esMia = t.asignadoId === userActual.id;
+          const esMia = t.asignadoId === userActual.id || t.esEmpresa;
           const creadoPorMi = t.creadoPor === userActual.id;
           return (
-            <div key={t.id} style={{background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
-              {/* Checkbox — solo yo puedo completar mis tareas */}
+            <div key={t.id} style={{background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
+              {/* Checkbox — solo yo (o cualquiera si es tarea de empresa) puedo completar */}
               <button onClick={() => toggle(t)} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
                 {t.estado === "Completada" && "✓"}
               </button>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
+                  {t.esEmpresa && <span title="Tarea de empresa" style={{fontSize:13}}>🏢</span>}
+                  {t.titulo}
+                </div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
-                  {t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#6b7a99",fontSize:11}}>Asignada por {uN(t.creadoPor)}</span>}
+                  {t.esEmpresa ? (
+                    <span style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>Tarea de empresa{t.creadoPor && t.creadoPor !== userActual.id ? ` · de ${uN(t.creadoPor)}` : ""}</span>
+                  ) : (
+                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#6b7a99",fontSize:11}}>Asignada por {uN(t.creadoPor)}</span>
+                  )}
+                  {t.estado === "Completada" && t.esEmpresa && t.completadoPor && <span style={{color:"#10b981",fontSize:11}}>Completada por {uN(t.completadoPor)}</span>}
                   {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
                   {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
@@ -2586,16 +2719,29 @@ const Tareas = ({ data, setData, userActual }) => {
       {/* Modal nueva/editar tarea */}
       {modal && <Modal title={form.id ? "Editar tarea" : "Nueva tarea"} onClose={() => setModal(false)}>
         <Field label="Título de la tarea"><Input value={form.titulo} onChange={f("titulo")} placeholder="Describe la tarea..." /></Field>
-        <Field label="Asignar a">
-          <select value={form.asignadoId} onChange={f("asignadoId")} style={{...inputStyle}}>
-            {data.usuarios.filter(u => u.activo).map(u => (
-              <option key={u.id} value={u.id}>{u.nombre}{u.id === userActual.id ? " (yo)" : ""} — {ROLES_LABEL[u.rol]}</option>
-            ))}
-          </select>
+        <Field label="Tipo de tarea">
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"2px 0"}}>
+            <input type="checkbox" checked={!!form.esEmpresa} onChange={e => setForm(p => ({ ...p,esEmpresa: e.target.checked }))} style={{width:16,height:16,accentColor:"#f59e0b"}} />
+            <span style={{color:"#9aa3b8",fontSize:13}}>🏢 Tarea de empresa (visible para todos, cualquiera puede completarla)</span>
+          </label>
         </Field>
-        {parseInt(form.asignadoId) !== userActual.id && (
+        {!form.esEmpresa && (
+          <Field label="Asignar a">
+            <select value={form.asignadoId} onChange={f("asignadoId")} style={{...inputStyle}}>
+              {data.usuarios.filter(u => u.activo).map(u => (
+                <option key={u.id} value={u.id}>{u.nombre}{u.id === userActual.id ? " (yo)" : ""} — {ROLES_LABEL[u.rol]}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+        {!form.esEmpresa && parseInt(form.asignadoId) !== userActual.id && (
           <div style={{background:"#8b5cf618",border:"1px solid #8b5cf644",borderRadius:8,padding:"8px 12px",marginBottom:4,color:"#8b5cf6",fontSize:12,display:"flex",alignItems:"center",gap:6}}>
             <Icon name="bell" size={12} />Se notificará a {uN(form.asignadoId)} cuando guardes
+          </div>
+        )}
+        {form.esEmpresa && (
+          <div style={{background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:8,padding:"8px 12px",marginBottom:4,color:"#f59e0b",fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+            <Icon name="bell" size={12} />Se notificará a todos los miembros activos cuando guardes
           </div>
         )}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
@@ -3866,11 +4012,12 @@ const Dashboard = ({ data, setActive, userActual }) => {
   const criticos = activos.filter(a => a.prioridad === "Alta");
   const faltaMaterial = activos.filter(a => a.estado === "A falta de material");
   const presupuestoEspera = activos.filter(a => a.estado === "Enviado presupuesto a espera aceptacion");
-  const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id && t.estado !== "Completada");
+  const misTareas = data.tareas.filter(t => (t.asignadoId === userActual.id || t.esEmpresa) && t.estado !== "Completada");
   const misTareasHoy = misTareas.filter(t => {
     const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
     return d <= 0;
   });
+  const misTareasEmpresa = misTareas.filter(t => t.esEmpresa);
   return (
     <div>
       <div style={{marginBottom:18}}>
@@ -3926,12 +4073,17 @@ const Dashboard = ({ data, setActive, userActual }) => {
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#8b5cf6"; e.currentTarget.style.transform = "translateY(-1px)"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = misTareasHoy.length > 0 ? "#8b5cf644" : "#2a3550"; e.currentTarget.style.transform = "none"; }}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-            <div style={{width:34,height:34,borderRadius:9,background:"#8b5cf620",display:"flex",alignItems:"center",justifyContent:"center",color:"#8b5cf6"}}><Icon name="tasks" size={16} /></div>
+            <div style={{position:"relative",width:34,height:34,borderRadius:9,background:"#8b5cf620",display:"flex",alignItems:"center",justifyContent:"center",color:"#8b5cf6"}}>
+              <Icon name="tasks" size={16} />
+              {/* Símbolo especial: marca que hay tareas de empresa (visibles para todos) entre las pendientes */}
+              {misTareasEmpresa.length > 0 && <span title="Incluye tareas de empresa" style={{position:"absolute",top:-6,right:-6,fontSize:13,background:"#0a0f1a",borderRadius:"50%",lineHeight:1,padding:1}}>🏢</span>}
+            </div>
             <span style={{color:"#6b7a99",fontSize:11}}>→</span>
           </div>
           <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{misTareas.length}</div>
           <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Mis tareas</div>
           {misTareasHoy.length > 0 && <div style={{marginTop:5,color:"#f59e0b",fontSize:11,fontWeight:700}}>⚠️ {misTareasHoy.length} vencida{misTareasHoy.length > 1 ? "s" : ""}</div>}
+          {misTareasEmpresa.length > 0 && <div style={{marginTop:3,color:"#f59e0b",fontSize:11,fontWeight:700}}>🏢 {misTareasEmpresa.length} de empresa</div>}
         </div>
         {/* Clientes → va a clientes */}
         {puedeVer(userActual.rol, "clientes") && (
@@ -4013,7 +4165,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
                 onMouseEnter={e => e.currentTarget.style.background = "#1a2236"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.titulo}</div>
+                  <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.esEmpresa && "🏢 "}{t.titulo}</div>
                   <div style={{color:vc,fontSize:11}}>{d < 0 ? `Vencida hace ${Math.abs(d)}d` : d === 0 ? "Vence hoy" : `Vence en ${d}d`}</div>
                 </div>
                 <Badge text={t.prioridad} />
@@ -4459,6 +4611,7 @@ const Albaran = ({ data, setData, userActual }) => {
 const Stock=({data,setData,userActual})=>{
 const puedeEliminar=userActual?.rol==="manager";
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [filtro,setFiltro]=useState("Disponible");const [busq,setBusq]=useState("");
+const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const filtradas=data.stock.filter(m=>filtro==="Todas"?true:filtro==="Disponible"?!m.vendida:m.vendida).filter(m=>!busq||`${m.marca} ${m.modelo} ${m.matricula}`.toLowerCase().includes(busq.toLowerCase()));
@@ -4466,6 +4619,31 @@ const openNew=()=>{setForm({marca:"",modelo:"",matricula:"",anyo:new Date().getF
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[])]);setModal(true);};
 const save=()=>{const item={...form,precioVentaObj:parseFloat(form.precioVentaObj)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};if(!item.id)setData(d=>({...d,stock:[...d.stock,{...item,id:Date.now(),codigo:item.codigo||nextCodigoMaquina(d)}]}));else setData(d=>({...d,stock:d.stock.map(m=>m.id===item.id?(m.codigo?item:{...item,codigo:nextCodigoMaquina(d)}):m)}));setModal(false);if(vista)setVista(item.id||vista);};
 const toggleVendida=id=>setData(d=>({...d,stock:d.stock.map(m=>m.id===id?{...m,vendida:!m.vendida}:m)}));
+const venderMaquina=()=>{
+  const m=data.stock.find(x=>x.id===modalVender);
+  if(!m) return;
+  if(!ventaClienteId){alert("Selecciona un cliente.");return;}
+  const clienteId=parseInt(ventaClienteId);
+  const maqId=Date.now();
+  const maqFinal={
+    id:maqId,nombre:`${m.marca} ${m.modelo}`,marca:m.marca,modelo:m.modelo,serie:m.matricula,anyo:m.anyo,
+    notas:m.notas||"",foto:(m.fotos&&m.fotos[0])?m.fotos[0].data:null,
+    codigo:m.codigo||nextCodigoMaquina(data),origenStock:true,fechaVenta:today(),
+    fechaInstalacion:ventaFechaInstalacion||null,
+  };
+  setData(d=>{
+    const nuevosClientes=d.clientes.map(c=>c.id===clienteId?{...c,maquinas:[...(c.maquinas||[]),maqFinal]}:c);
+    const nuevaDoc=[...(d.documentacion||[]),{
+      id:Date.now()+1,clienteId,_maquinaClienteId:maqId,
+      marca:maqFinal.marca,modelo:maqFinal.modelo,matricula:maqFinal.serie,anyo:maqFinal.anyo,
+      descripcion:maqFinal.nombre,
+      archivos:(m.pdfs||[]).map((p,i)=>({id:Date.now()+i+2,nombre:p.nombre,tipo:"Ficha técnica",tamanyo:0,data:p.data})),
+      notas:maqFinal.notas,fechaAlta:today(),_sincronizada:true,
+    }];
+    return {...d,clientes:nuevosClientes,documentacion:nuevaDoc,stock:d.stock.filter(x=>x.id!==m.id)};
+  });
+  setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
+};
 const delMaquina=id=>{setData(d=>({...d,stock:d.stock.filter(m=>m.id!==id)}));setVista(null);};
 const handleFotos=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
@@ -4500,6 +4678,7 @@ return(<div>
 <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Matricula: {m.matricula} - Anyo: {m.anyo} {m.codigo&&<span style={{color:"#0ea5e9",fontWeight:700,fontFamily:"monospace"}}> - Cod. {m.codigo}</span>}</div>
 </div>
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
+{!m.vendida&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vender a cliente</button>}
 <button onClick={()=>toggleVendida(m.id)} style={{background:m.vendida?"#10b98120":"#dc262618",border:"1px solid "+(m.vendida?"#10b98144":"#dc262644"),borderRadius:8,padding:"7px 13px",color:m.vendida?"#10b981":"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12}}>{m.vendida?"Disponible":"Vendida"}</button>
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
 </div>
@@ -4615,6 +4794,16 @@ return(<div>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id?"Guardar":"Anadir al stock"}</button></div>
 </Modal>}
+{modalVender&&(()=>{const m=data.stock.find(x=>x.id===modalVender);if(!m) return null;return(
+<Modal title={`Vender ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
+<Field label="Cliente"><ClientePicker clientes={data.clientes} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Fecha de instalación (si se conoce; puede fijarse más adelante)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
+🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. La garantía de 1 año empieza a contar desde la fecha de instalación.
+</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Vender y asignar</button></div>
+</Modal>
+);})()}
 </div>);
 };
 // ── INVENTARIO ──────────────────────────────────────────────
@@ -6364,7 +6553,7 @@ const NAV_ITEMS = [
   {id:"tareas",label:"Tareas",icon:"tasks",color:"#8b5cf6"},
   {id:"partes",label:"Partes",icon:"parts",color:"#0ea5e9"},
   {id:"albaran",label:"Albaranes",icon:"albaran",color:"#f97316"},
-  {id:"stock",label:"Stock",icon:"stock",color:"#10b981"},
+  {id:"stock",label:"Stock maquinaria nueva",icon:"stock",color:"#10b981"},
   {id:"inventario",label:"Inventario",icon:"inventario",color:"#a855f7"},{id:"documentacion",label:"Documentacion",icon:"documentacion",color:"#e2b714"},
   {id:"calendario",label:"Calendario",icon:"calendario",color:"#f97316"},
   {id:"chat",label:"Chat",icon:"chat",color:"#06b6d4"},
@@ -6997,7 +7186,7 @@ export default function App() {
   const asistenciaActiva=avisosActivos;
   const leerN=id=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>n.id===id?{...n,leida:true}:n)}}));
   const leerT=()=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>({...n,leida:true}))}}));
-  const misTareasPend=data.tareas.filter(t=>t.asignadoId===user.id&&t.estado!=="Completada").length;
+  const misTareasPend=data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").length;
   const navV=NAV_ITEMS.filter(n=>puedeVer(user.rol,n.id));
   const bottomNav = navV.slice(0,4);
   const moreNav   = navV.slice(4);
