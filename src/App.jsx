@@ -1060,9 +1060,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               </button>
             </div>
           </div>
-          <div style={{flex:1,overflow:"auto",background:"#fff"}}>
-            <iframe id="pdfFichaFrame" src={pdfFicha.url+"#view=FitH"} title="Vista previa de la ficha del cliente" style={{width:"794px",height:"5000px",border:"none",display:"block",zoom:Math.min(1,(typeof window!=="undefined"?window.innerWidth:794)/794)}}/>
-          </div>
+          <iframe id="pdfFichaFrame" src={pdfFicha.url+"#view=FitH"} title="Vista previa de la ficha del cliente" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
         </div>
       )}
     </div>
@@ -3591,9 +3589,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               </button>
             </div>
           </div>
-          <div style={{flex:1,overflow:"auto",background:"#fff"}}>
-            <iframe id="pdfLecturaFrame" src={pdfLectura.url+"#view=FitH"} title="Vista previa del parte" style={{width:"794px",height:"5000px",border:"none",display:"block",zoom:Math.min(1,(typeof window!=="undefined"?window.innerWidth:794)/794)}}/>
-          </div>
+          <iframe id="pdfLecturaFrame" src={pdfLectura.url+"#view=FitH"} title="Vista previa del parte" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
         </div>
       )}
     </div>
@@ -6608,9 +6604,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               </button>
             </div>
           </div>
-          <div style={{flex:1,overflow:"auto",background:"#fff"}}>
-            <iframe id="pdfMaquinaFrame" src={pdfMaquina.url+"#view=FitH"} title="Vista previa de la ficha de la máquina" style={{width:"794px",height:"5000px",border:"none",display:"block",zoom:Math.min(1,(typeof window!=="undefined"?window.innerWidth:794)/794)}}/>
-          </div>
+          <iframe id="pdfMaquinaFrame" src={pdfMaquina.url+"#view=FitH"} title="Vista previa de la ficha de la máquina" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
         </div>
       )}
     </div>
