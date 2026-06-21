@@ -4622,7 +4622,6 @@ const venderMaquina=()=>{
   const m=data.stock.find(x=>x.id===modalVender);
   if(!m) return;
   if(!ventaClienteId){alert("Selecciona un cliente.");return;}
-  if(!ventaFechaInstalacion){alert("Indica la fecha de instalación: marca el inicio de la garantía de 1 año.");return;}
   const clienteId=parseInt(ventaClienteId);
   const maqId=Date.now();
   const maqFinal={
@@ -4799,9 +4798,9 @@ return(<div>
 {modalVender&&(()=>{const m=data.stock.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Marcar como vendida: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
-<Field label="Fecha de instalación (inicio de garantía) *"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+<Field label="Fecha de instalación (si ya se conoce)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
 <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
-🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. La garantía de 1 año empieza a contar desde la fecha de instalación indicada.
+🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. Si todavía no se sabe la fecha de instalación, déjala en blanco: cualquier miembro de la empresa podrá fijarla más adelante desde la ficha de la máquina, y ahí empezará a contar el año de garantía.
 </div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
 </Modal>
