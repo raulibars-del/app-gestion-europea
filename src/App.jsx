@@ -3871,7 +3871,6 @@ const Dashboard = ({ data, setActive, userActual }) => {
     const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
     return d <= 0;
   });
-  const asistenciaActiva = data.reparaciones.filter(r => r.estado !== "Completada" && r.estado !== "Cancelada").length;
   return (
     <div>
       <div style={{marginBottom:18}}>
@@ -3945,19 +3944,6 @@ const Dashboard = ({ data, setActive, userActual }) => {
             </div>
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{data.clientes.length}</div>
             <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Clientes</div>
-          </div>
-        )}
-        {/* Asistencia activa → va a asistencia */}
-        {puedeVer(userActual.rol, "asistencia") && (
-          <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a3550"; e.currentTarget.style.transform = "none"; }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div style={{width:34,height:34,borderRadius:9,background:"#f59e0b20",display:"flex",alignItems:"center",justifyContent:"center",color:"#f59e0b"}}><Icon name="repair" size={16} /></div>
-              <span style={{color:"#6b7a99",fontSize:11}}>→</span>
-            </div>
-            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{asistenciaActiva}</div>
-            <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Asistencia activa</div>
           </div>
         )}
         {/* Ventas pipeline */}
