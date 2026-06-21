@@ -252,6 +252,7 @@ const Icon = ({ name, size=18 }) => {
     dashboard:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",clients:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8",sales:"M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z",repair:"M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",tasks:"M9 11l3 3L22 4 M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11",parts:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8",bell:"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 1-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",gear:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",plus:"M12 5v14 M5 12h14",edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",trash:"M3 6h18 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2",close:"M18 6L6 18 M6 6l12 12",search:"M11 17.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z M21 21l-4.35-4.35",clock:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",check:"M20 6L9 17l-5-5",logout:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",fire:"M12 2c0 0-5 5-5 10a5 5 0 0 0 10 0C17 7 12 2 12 2z",mail:"M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6",chat:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",send:"M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",image:"M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z M8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z",phone:"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z",back:"M19 12H5 M12 19l-7-7 7-7",albaran:"M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2 M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2 M12 12h4 M12 16h4 M8 12h.01 M8 16h.01",stock:"M2 20h20 M4 20V10l8-6 8 6v10 M9 20v-5h6v5 M12 10v2 M10 13h4",inventario:"M20 12V22H4V12 M22 7H2v5h20V7z M12 22V7 M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z",documentacion:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01",calendario:"M8 2v4 M16 2v4 M3 10h18 M21 8H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z M8 14h.01 M12 14h.01 M16 14h.01 M8 18h.01 M12 18h.01 M16 18h.01",print:"M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6z",
     maquina:"M2 22V10l5-3v3l5-3v3l5-3v15z M2 22h20 M6 14h2 M6 18h2 M11 14h2 M11 18h2 M16 14h2 M16 18h2",
     pin:"M12 22s7-7.58 7-12A7 7 0 0 0 5 10c0 4.42 7 12 7 12z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+    share:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6 12 2 8 6 M12 2v13",
   };
   const d = P[name]||"";
   return (
@@ -509,8 +510,21 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
   const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase()));
-  const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre } — vista previa de la ficha de cliente en PDF
+  const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
   const cerrarPdfFicha=()=>{ if(pdfFicha) URL.revokeObjectURL(pdfFicha.url); setPdfFicha(null); };
+  const compartirPdfFicha=async()=>{
+    if(!pdfFicha) return;
+    try{
+      const archivo=new File([pdfFicha.blob],pdfFicha.nombre.replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g,"")+".pdf",{type:"application/pdf"});
+      if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+        await navigator.share({files:[archivo],title:pdfFicha.nombre});
+      }else if(navigator.share){
+        await navigator.share({title:pdfFicha.nombre,url:pdfFicha.url});
+      }else{
+        alert("Tu navegador no permite compartir directamente. Usa el botón Imprimir o descarga el PDF.");
+      }
+    }catch(e){ /* el usuario cerró el panel de compartir */ }
+  };
   // Genera un PDF con todos los datos del cliente (fiscales, direccion de fabrica,
   // contactos y maquinas), con la misma estetica (header/footer/colores) que los
   // PDF de Partes y Albaranes, y lo muestra en una vista previa solo lectura.
@@ -632,7 +646,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       const blob = new Blob([bytes], {type:"application/pdf"});
       if(pdfFicha) URL.revokeObjectURL(pdfFicha.url);
       const url = URL.createObjectURL(blob);
-      setPdfFicha({ url, nombre: "Ficha "+(c.nombreEmpresa||"cliente") });
+      setPdfFicha({ url, nombre: "Ficha "+(c.nombreEmpresa||"cliente"), blob });
     } catch(e) { alert("No se pudo generar el PDF de la ficha del cliente."); }
   };
   const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
@@ -1033,18 +1047,21 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       </Modal>}
       {pdfFicha && (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0}}>
-            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{pdfFicha.nombre} (vista previa)</span>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{ const ifr=document.getElementById("pdfFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfFicha.nombre} (vista previa)</span>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              <button onClick={()=>{ const ifr=document.getElementById("pdfFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
+              </button>
+              <button onClick={compartirPdfFicha} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="share" size={14}/>Compartir
               </button>
               <button onClick={cerrarPdfFicha} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"8px 10px",color:"#f1f3f9",cursor:"pointer",display:"flex",alignItems:"center"}}>
                 <Icon name="close" size={16}/>
               </button>
             </div>
           </div>
-          <iframe id="pdfFichaFrame" src={pdfFicha.url} title="Vista previa de la ficha del cliente" style={{flex:1,border:"none",background:"#fff"}}/>
+          <iframe id="pdfFichaFrame" src={pdfFicha.url+"#view=FitH"} title="Vista previa de la ficha del cliente" style={{flex:1,border:"none",background:"#fff"}}/>
         </div>
       )}
     </div>
@@ -2484,8 +2501,21 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [modalRetomar, setModalRetomar] = useState(false);
   const [modalPDF, setModalPDF] = useState(null);
   const [modalPDFCadena, setModalPDFCadena] = useState(null);
-  const [pdfLectura, setPdfLectura] = useState(null); // { url, nombre } — vista previa solo lectura
+  const [pdfLectura, setPdfLectura] = useState(null); // { url, nombre, blob } — vista previa solo lectura
   const cerrarPdfLectura = () => { if(pdfLectura) URL.revokeObjectURL(pdfLectura.url); setPdfLectura(null); };
+  const compartirPdfLectura = async () => {
+    if(!pdfLectura) return;
+    try{
+      const archivo=new File([pdfLectura.blob],pdfLectura.nombre.replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g,"")+".pdf",{type:"application/pdf"});
+      if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+        await navigator.share({files:[archivo],title:pdfLectura.nombre});
+      }else if(navigator.share){
+        await navigator.share({title:pdfLectura.nombre,url:pdfLectura.url});
+      }else{
+        alert("Tu navegador no permite compartir directamente. Usa el botón Imprimir o descarga el PDF.");
+      }
+    }catch(e){ /* el usuario cerró el panel de compartir */ }
+  };
   const [emailCliente, setEmailCliente] = useState("");
   const [firmada, setFirmada] = useState(false);
   const [conforme, setConforme] = useState(null); // true=Conforme, false=No conforme, null=sin marcar
@@ -2937,7 +2967,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       const blob = new Blob([bytes], {type:"application/pdf"});
       if(pdfLectura) URL.revokeObjectURL(pdfLectura.url);
       const url = URL.createObjectURL(blob);
-      setPdfLectura({ url, nombre: "Parte "+numeroMostrar });
+      setPdfLectura({ url, nombre: "Parte "+numeroMostrar, blob });
     } catch(e) { alert("No se pudo generar el PDF de este parte."); }
   };
   const enviarEmail = async () => {
@@ -3546,18 +3576,21 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       })()}
       {pdfLectura && (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0}}>
-            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{pdfLectura.nombre} (vista previa)</span>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>{ const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfLectura.nombre} (vista previa)</span>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              <button onClick={()=>{ const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
+              </button>
+              <button onClick={compartirPdfLectura} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="share" size={14}/>Compartir
               </button>
               <button onClick={cerrarPdfLectura} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"8px 10px",color:"#f1f3f9",cursor:"pointer",display:"flex",alignItems:"center"}}>
                 <Icon name="close" size={16}/>
               </button>
             </div>
           </div>
-          <iframe id="pdfLecturaFrame" src={pdfLectura.url} title="Vista previa del parte" style={{flex:1,border:"none",background:"#fff"}}/>
+          <iframe id="pdfLecturaFrame" src={pdfLectura.url+"#view=FitH"} title="Vista previa del parte" style={{flex:1,border:"none",background:"#fff"}}/>
         </div>
       )}
     </div>
