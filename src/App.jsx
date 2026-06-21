@@ -904,6 +904,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
                       {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
                     </div>
+                    {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseFloat(m.precioVenta).toLocaleString()}</div>}
                     {m.notas&&<div style={{color:"#6b7a99",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
                     {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
                       <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
@@ -1025,6 +1026,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <Field label="Número de serie"><Input value={formM.serie} onChange={fm("serie")}/></Field>
           <Field label="Año fabricación"><Input type="number" value={formM.anyo} onChange={fm("anyo")}/></Field>
         </div>
+        {c.id===0&&!formM.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={formM.precioVenta||""} onChange={fm("precioVenta")}/></Field>}
         <Field label="Notas"><Textarea value={formM.notas} onChange={fm("notas")}/></Field>
         <Field label="Foto de la máquina">
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
@@ -1361,7 +1363,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     if(!formNueva.clienteId){ alert("Selecciona un cliente."); return; }
     const clienteId = parseInt(formNueva.clienteId);
     const maqId = Date.now();
-    const datosBase = { nombre:formNueva.nombre||`${formNueva.marca||""} ${formNueva.modelo||""}`.trim(), marca:formNueva.marca||"", modelo:formNueva.modelo||"", serie:formNueva.serie||"", anyo:formNueva.anyo||"", notas:formNueva.notas||"", foto:formNueva.foto||null };
+    const datosBase = { nombre:formNueva.nombre||`${formNueva.marca||""} ${formNueva.modelo||""}`.trim(), marca:formNueva.marca||"", modelo:formNueva.modelo||"", serie:formNueva.serie||"", anyo:formNueva.anyo||"", notas:formNueva.notas||"", foto:formNueva.foto||null, precioVenta:clienteId===0?(formNueva.precioVenta||""):"" };
     setData(d=>{
       const codigo = nextCodigoMaquina(d);
       const maqFinal = { id:maqId, ...datosBase, codigo };
@@ -1558,6 +1560,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
+        {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseFloat(m.precioVenta).toLocaleString():"—"}</div></div>}
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
         {garantiaInfo(m)&&(()=>{const g=garantiaInfo(m);
           if(g.estado==="pendiente") return (
@@ -1613,6 +1616,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <Field label="Año"><Input value={form.anyo} onChange={f("anyo")}/></Field>
         </div>
         <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
+        {cliente.id===0&&!form.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>}
         <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
         <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
@@ -1734,6 +1738,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Field label="Año"><Input value={form.anyo} onChange={f("anyo")}/></Field>
       </div>
       <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
+      {cliente?.id===0&&!form.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>}
       <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
       <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
@@ -1752,6 +1757,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Field label="Nº de serie / matrícula"><Input value={formNueva.serie||""} onChange={fN("serie")}/></Field>
         <Field label="Año"><Input value={formNueva.anyo||""} onChange={fN("anyo")}/></Field>
       </div>
+      {parseInt(formNueva.clienteId)===0&&<Field label="Precio de venta (EUR)"><Input type="number" value={formNueva.precioVenta||""} onChange={fN("precioVenta")}/></Field>}
       <Field label="Foto"><input type="file" accept="image/*" onChange={handleFotoNueva}/></Field>
       <Field label="Documentación (opcional)">
         <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#6b7a99",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
