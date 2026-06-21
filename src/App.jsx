@@ -1044,12 +1044,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         </Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalCo(null)} style={btnOutline}>Cancelar</button><button onClick={saveCo} style={btnPrimary}>Guardar</button></div>
       </Modal>}
-      {pdfFicha && (
+      {pdfFicha && (()=>{ const esMobil = window.innerWidth<=820; return (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
             <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfFicha.nombre} (vista previa)</span>
             <div style={{display:"flex",gap:8,flexShrink:0}}>
-              <button onClick={()=>{ const ifr=document.getElementById("pdfFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+              <button onClick={()=>{ if(esMobil){ window.open(pdfFicha.url,"_blank"); return; } const ifr=document.getElementById("pdfFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
               </button>
               <button onClick={compartirPdfFicha} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
@@ -1060,9 +1060,17 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               </button>
             </div>
           </div>
-          <iframe id="pdfFichaFrame" src={pdfFicha.url+"#view=FitH"} title="Vista previa de la ficha del cliente" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          {esMobil ? (
+            <div style={{flex:1,width:"100%",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
+              <div style={{fontSize:40}}>📄</div>
+              <div style={{color:"#333",fontSize:14,maxWidth:280}}>La vista previa no se ajusta bien en móvil. Ábrelo a pantalla completa:</div>
+              <button onClick={()=>window.open(pdfFicha.url,"_blank")} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Abrir PDF</button>
+            </div>
+          ) : (
+            <iframe id="pdfFichaFrame" src={pdfFicha.url+"#view=FitH"} title="Vista previa de la ficha del cliente" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          )}
         </div>
-      )}
+      );})()}
     </div>
   );
 };
@@ -1317,6 +1325,151 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     setModal(false);
   };
 
+  const [pdfMaquinaFicha,setPdfMaquinaFicha]=useState(null); // { url, nombre, blob } — vista previa del PDF de la máquina
+  const cerrarPdfMaquinaFicha=()=>{ if(pdfMaquinaFicha) URL.revokeObjectURL(pdfMaquinaFicha.url); setPdfMaquinaFicha(null); };
+  const compartirPdfMaquinaFicha=async()=>{
+    if(!pdfMaquinaFicha) return;
+    try{
+      const archivo=new File([pdfMaquinaFicha.blob],pdfMaquinaFicha.nombre.replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g,"")+".pdf",{type:"application/pdf"});
+      if(navigator.canShare&&navigator.canShare({files:[archivo]})){
+        await navigator.share({files:[archivo],title:pdfMaquinaFicha.nombre});
+      }else if(navigator.share){
+        await navigator.share({title:pdfMaquinaFicha.nombre,url:pdfMaquinaFicha.url});
+      }else{
+        alert("Tu navegador no permite compartir directamente. Usa el botón Imprimir o descarga el PDF.");
+      }
+    }catch(e){ /* el usuario cerró el panel de compartir */ }
+  };
+  const generarPDFMaquinaFicha = () => {
+    if(!maquina || !cliente) return;
+    const m = maquina;
+    const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
+    const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id);
+    const historial = [
+      ...avisosM.map(a=>({tipo:"Aviso", fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
+      ...partesM.map(p=>({tipo:"Parte", fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
+    ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const W=210; const mg=18;
+    const dibujarHeader = () => {
+      doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+      doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+      try { doc.addImage(LOGO_CIRCULO, "JPEG", mg, 3, 26, 26); } catch(e) {}
+      doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+      doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+      doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+      doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
+      doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
+      doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
+      doc.text("FICHA DE MÁQUINA",W-mg,13,{align:"right"});
+      doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+      doc.text(m.codigo||"",W-mg,21,{align:"right"});
+      doc.text("Fecha: "+fmtFecha(today()),W-mg,27,{align:"right"});
+      doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+    };
+    dibujarHeader();
+    let y=42;
+    const box=(titulo,filas,yStart)=>{
+      doc.setFillColor(230,235,245); doc.roundedRect(mg,yStart,W-mg*2,7,1,1,"F");
+      doc.setDrawColor(180,190,210); doc.roundedRect(mg,yStart,W-mg*2,7,1,1,"S");
+      doc.setDrawColor(255,255,255);
+      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text(titulo.toUpperCase(),mg+4,yStart+5);
+      let fy=yStart+13;
+      filas.forEach(([l,v])=>{
+        if(!v&&v!==0) return;
+        doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+        doc.text(l+":",mg+4,fy);
+        doc.setTextColor(25,35,60); doc.setFontSize(9); doc.setFont("helvetica","bold");
+        const lines=doc.splitTextToSize(String(v),W-mg*2-52);
+        doc.text(lines,mg+52,fy);
+        fy+=Math.max(lines.length*5.5,6.5);
+      });
+      return fy+4;
+    };
+    const asegurarEspacio = (necesario) => {
+      if (y+necesario > 268) { doc.addPage(); dibujarHeader(); y=42; }
+    };
+    const tablaSeccion = (titulo, columnas, filas) => {
+      asegurarEspacio(20);
+      doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+      doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
+      doc.setDrawColor(255,255,255);
+      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text(titulo.toUpperCase(),mg+4,y+5); y+=11;
+      doc.setFillColor(40,60,110); doc.rect(mg,y,W-mg*2,6,"F");
+      let cx=mg;
+      doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+      columnas.forEach(col=>{ doc.text(col.label,cx+(col.align==="right"?col.w-3:3),y+4.5,{align:col.align==="right"?"right":"left"}); cx+=col.w; });
+      y+=7;
+      filas.forEach((fila,j)=>{
+        asegurarEspacio(8);
+        const bgClr = j%2===0 ? [248,250,255] : [255,255,255];
+        doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
+        doc.setTextColor(25,35,70); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+        let cx2=mg;
+        columnas.forEach((col,k)=>{
+          doc.text(String(fila[k]??"—"),cx2+(col.align==="right"?col.w-3:3),y+4,{align:col.align==="right"?"right":"left"});
+          cx2+=col.w;
+        });
+        y+=7;
+      });
+      y+=5;
+    };
+    if(m.foto){
+      try {
+        const fotoW=60, fotoH=45;
+        doc.addImage(m.foto,mg,y,fotoW,fotoH);
+        doc.setDrawColor(200,205,220); doc.roundedRect(mg,y,fotoW,fotoH,1,1,"S");
+        y+=fotoH+6;
+      } catch(e) {}
+    }
+    y=box("Datos de la máquina",[
+      ["Código",m.codigo||"—"],
+      ["Nombre",m.nombre||"—"],
+      ["Marca",m.marca||"—"],
+      ["Modelo",m.modelo||"—"],
+      ["Nº serie / matrícula",m.serie||"—"],
+      ["Año",m.anyo||"—"],
+    ],y);
+    asegurarEspacio(20);
+    y=box("Cliente",[
+      ["Empresa",cliente.nombreEmpresa||"—"],
+      ["CIF / DNI",cliente.cif||"—"],
+      ["Localidad",cliente.localidad||"—"],
+    ],y);
+    if(m.notas?.trim()){
+      asegurarEspacio(20);
+      y=box("Notas",[["Notas",m.notas]],y);
+    }
+    if(historial.length>0){
+      y+=2;
+      tablaSeccion("Historial de intervenciones ("+historial.length+")",
+        [{label:"FECHA",w:26},{label:"TIPO",w:24},{label:"DESCRIPCIÓN",w:94},{label:"ESTADO",w:30}],
+        historial.map(h=>[h.fecha?fmtFecha(h.fecha):"—",h.tipo,h.titulo||"—",h.estado||"—"])
+      );
+    }
+    const totalPaginas = doc.getNumberOfPages();
+    for(let pg=1; pg<=totalPaginas; pg++){
+      doc.setPage(pg);
+      doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+      doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+      doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+      doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
+      if(totalPaginas>1){ doc.setTextColor(190,200,220); doc.text("Página "+pg+"/"+totalPaginas,W-mg,291,{align:"right"}); }
+    }
+    try {
+      const dataUri = doc.output("datauristring");
+      const byteString = atob(dataUri.split(",")[1]);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      const blob = new Blob([bytes], {type:"application/pdf"});
+      if(pdfMaquinaFicha) URL.revokeObjectURL(pdfMaquinaFicha.url);
+      const url = URL.createObjectURL(blob);
+      setPdfMaquinaFicha({ url, nombre: "Máquina "+(m.codigo||""), blob });
+    } catch(e) { alert("No se pudo generar el PDF de la máquina."); }
+  };
+
   if(vista && cliente && maquina){
     const m=maquina;
     const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
@@ -1336,6 +1489,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <div style={{color:"#6b7a99",fontSize:12,marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
         </div>
         {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
+        <button onClick={generarPDFMaquinaFicha} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>PDF</button>
         <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
         {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina? Esta acción no se puede deshacer."))delMaquinaFicha(cliente.id,m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
       </div>
@@ -1389,6 +1543,33 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <button onClick={save} style={btnPrimary}>Guardar</button>
         </div>
       </Modal>}
+      {pdfMaquinaFicha && (()=>{ const esMobil = window.innerWidth<=820; return (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfMaquinaFicha.nombre} (vista previa)</span>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              <button onClick={()=>{ if(esMobil){ window.open(pdfMaquinaFicha.url,"_blank"); return; } const ifr=document.getElementById("pdfMaquinaFichaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="print" size={14}/>Imprimir
+              </button>
+              <button onClick={compartirPdfMaquinaFicha} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="share" size={14}/>Compartir
+              </button>
+              <button onClick={cerrarPdfMaquinaFicha} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"8px 10px",color:"#f1f3f9",cursor:"pointer",display:"flex",alignItems:"center"}}>
+                <Icon name="close" size={16}/>
+              </button>
+            </div>
+          </div>
+          {esMobil ? (
+            <div style={{flex:1,width:"100%",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
+              <div style={{fontSize:40}}>📄</div>
+              <div style={{color:"#333",fontSize:14,maxWidth:280}}>La vista previa no se ajusta bien en móvil. Ábrelo a pantalla completa:</div>
+              <button onClick={()=>window.open(pdfMaquinaFicha.url,"_blank")} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Abrir PDF</button>
+            </div>
+          ) : (
+            <iframe id="pdfMaquinaFichaFrame" src={pdfMaquinaFicha.url+"#view=FitH"} title="Vista previa de la ficha de la máquina" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          )}
+        </div>
+      );})()}
     </div>);
   }
 
@@ -3573,12 +3754,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           </div>
         );
       })()}
-      {pdfLectura && (
+      {pdfLectura && (()=>{ const esMobil = window.innerWidth<=820; return (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
             <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfLectura.nombre} (vista previa)</span>
             <div style={{display:"flex",gap:8,flexShrink:0}}>
-              <button onClick={()=>{ const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+              <button onClick={()=>{ if(esMobil){ window.open(pdfLectura.url,"_blank"); return; } const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
               </button>
               <button onClick={compartirPdfLectura} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
@@ -3589,9 +3770,17 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               </button>
             </div>
           </div>
-          <iframe id="pdfLecturaFrame" src={pdfLectura.url+"#view=FitH"} title="Vista previa del parte" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          {esMobil ? (
+            <div style={{flex:1,width:"100%",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
+              <div style={{fontSize:40}}>📄</div>
+              <div style={{color:"#333",fontSize:14,maxWidth:280}}>La vista previa no se ajusta bien en móvil. Ábrelo a pantalla completa:</div>
+              <button onClick={()=>window.open(pdfLectura.url,"_blank")} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Abrir PDF</button>
+            </div>
+          ) : (
+            <iframe id="pdfLecturaFrame" src={pdfLectura.url+"#view=FitH"} title="Vista previa del parte" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          )}
         </div>
-      )}
+      );})()}
     </div>
   );
 };
@@ -6588,12 +6777,12 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
         )}
       </div>
       <div style={{color:"#3b4460",fontSize:10,marginTop:10}}>Europea de Maquinaria PMM SL</div>
-      {pdfMaquina && (
+      {pdfMaquina && (()=>{ const esMobil = window.innerWidth<=820; return (
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:1200,display:"flex",flexDirection:"column"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
             <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 120px"}}>{pdfMaquina.nombre} (vista previa)</span>
             <div style={{display:"flex",gap:8,flexShrink:0}}>
-              <button onClick={()=>{ const ifr=document.getElementById("pdfMaquinaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+              <button onClick={()=>{ if(esMobil){ window.open(pdfMaquina.url,"_blank"); return; } const ifr=document.getElementById("pdfMaquinaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
               </button>
               <button onClick={compartirPdfMaquina} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
@@ -6604,9 +6793,17 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               </button>
             </div>
           </div>
-          <iframe id="pdfMaquinaFrame" src={pdfMaquina.url+"#view=FitH"} title="Vista previa de la ficha de la máquina" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          {esMobil ? (
+            <div style={{flex:1,width:"100%",background:"#fff",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
+              <div style={{fontSize:40}}>📄</div>
+              <div style={{color:"#333",fontSize:14,maxWidth:280}}>La vista previa no se ajusta bien en móvil. Ábrelo a pantalla completa:</div>
+              <button onClick={()=>window.open(pdfMaquina.url,"_blank")} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Abrir PDF</button>
+            </div>
+          ) : (
+            <iframe id="pdfMaquinaFrame" src={pdfMaquina.url+"#view=FitH"} title="Vista previa de la ficha de la máquina" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          )}
         </div>
-      )}
+      );})()}
     </div>
   );
 };
