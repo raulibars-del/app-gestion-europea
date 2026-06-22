@@ -4877,6 +4877,8 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
   const [fichaQR, setFichaQR] = useState(null); // producto abierto desde QR
   const [vistaQR, setVistaQR] = useState(false); // false | "elegir" | "manual" | "camara"
   const [qrInput, setQrInput] = useState("");
+  const [vistaBarras, setVistaBarras] = useState(false); // lector de código de barras (pistola USB/Bluetooth)
+  const [codigoBarrasInput, setCodigoBarrasInput] = useState("");
   const [camError, setCamError] = useState("");
   const videoRef = useRef(null);
   const canvasScanRef = useRef(null);
@@ -4933,6 +4935,24 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     const prod = data.inventario.find(i => i.codigo === t);
     if (prod) { setFichaQR(prod); cerrarLectorQR(); }
     else alert("No se ha encontrado ningún artículo con ese código o QR.");
+  };
+
+  const cerrarLectorBarras = () => { setVistaBarras(false); setCodigoBarrasInput(""); };
+
+  // Pistola de código de barras: busca por el código de fabricante/proveedor
+  // (ej. 0000740104G en un rodamiento), no solo por el código interno INVxxxx,
+  // ya que el código impreso en la pieza casi siempre es el del fabricante.
+  const buscarPorCodigoBarras = (texto) => {
+    const t = (texto||"").trim();
+    if (!t) return;
+    const tl = t.toLowerCase();
+    const prod = data.inventario.find(i =>
+      (i.codigo||"").toLowerCase() === tl ||
+      (i.codigoExterno1||"").toLowerCase() === tl ||
+      (i.codigoExterno2||"").toLowerCase() === tl
+    );
+    if (prod) { setFichaQR(prod); cerrarLectorBarras(); }
+    else alert("No se ha encontrado ningún artículo con ese código de barras.");
   };
 
   useEffect(() => {
@@ -5044,6 +5064,9 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>setVistaQR("elegir")} style={{background:"#1a2236",color:"#a855f7",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <span style={{fontSize:16}}>📷</span>Leer QR
+          </button>
+          <button onClick={()=>{setVistaBarras(true);setCodigoBarrasInput("");}} style={{background:"#1a2236",color:"#3b82f6",border:"1px solid #3b82f655",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
+            <span style={{fontSize:16}}>🔫</span>Lector de barras
           </button>
           <button onClick={()=>{setForm({codigo:nextCodigo(),nombre:"",descripcion:"",categoria:"",unidad:"ud",stock:0,precioCompra:"",precioVenta:"",foto:null});setModal(true);}} style={{background:"linear-gradient(135deg,#a855f7,#7c3aed)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Icon name="plus" size={14}/>Nuevo artículo
@@ -5366,6 +5389,29 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={()=>setVistaQR("elegir")} style={btnOutline}>Atrás</button>
             <button onClick={()=>{if(qrInput.trim())abrirFichaDesdeQR(qrInput.trim());}} style={{...btnPrimary,background:"#a855f7"}}>Abrir ficha</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Lector de código de barras (pistola USB/Bluetooth) — busca por código de fabricante/proveedor */}
+      {vistaBarras && (
+        <Modal title="Lector de código de barras" onClose={cerrarLectorBarras}>
+          <div style={{background:"#0d1117",borderRadius:10,padding:"14px",marginBottom:14,textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:8}}>🔫</div>
+            <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>Escanea con la pistola de código de barras o escribe el código del fabricante/proveedor (ej: 0000740104G)</div>
+            <input
+              autoFocus
+              value={codigoBarrasInput}
+              onChange={e=>setCodigoBarrasInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();buscarPorCodigoBarras(codigoBarrasInput);}}}
+              placeholder="El lector escribirá aquí automáticamente..."
+              style={{width:"100%",background:"#151b2a",border:"1px solid #3b82f655",borderRadius:8,padding:"10px 12px",color:"#f1f3f9",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",fontFamily:"monospace"}}
+            />
+            <div style={{color:"#6b7a99",fontSize:11,marginTop:6}}>Busca el código en código interno, código externo 1 y código externo 2</div>
+          </div>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={cerrarLectorBarras} style={btnOutline}>Cancelar</button>
+            <button onClick={()=>buscarPorCodigoBarras(codigoBarrasInput)} style={{...btnPrimary,background:"#3b82f6"}}>Buscar</button>
           </div>
         </Modal>
       )}
