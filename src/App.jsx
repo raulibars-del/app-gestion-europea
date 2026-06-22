@@ -5432,6 +5432,8 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   const [busqMatricula, setBusqMatricula] = useState("");
   const [busqAnyo, setBusqAnyo] = useState("");
   const [archivosAbiertos, setArchivosAbiertos] = useState({});
+  // Edicion del tipo de un documento ya subido y persistido: {docId, idx, tipo, tipoLibre}
+  const [editandoArchivo, setEditandoArchivo] = useState(null);
   // Archivos recien seleccionados a los que aun falta confirmar el tipo de documento
   // antes de quedar adjuntados de forma definitiva (ver modal de confirmacion mas abajo).
   const [archivosPendientes, setArchivosPendientes] = useState(null); // { destino:"modal"|docId, items:[...] }
@@ -5494,7 +5496,11 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
   const confirmarArchivosPendientes = () => {
     if (!archivosPendientes) return;
-    const finales = archivosPendientes.items.map(it => ({...it, id: Date.now()+Math.random()}));
+    const finales = archivosPendientes.items.map(it => {
+      const tipoFinal = (it.tipo==="Otro" && it.tipoLibre?.trim()) ? it.tipoLibre.trim() : it.tipo;
+      const {tipoLibre, ...resto} = it;
+      return {...resto, tipo: tipoFinal, id: Date.now()+Math.random()};
+    });
     if (archivosPendientes.destino === "modal") {
       setArchivos(p => [...p, ...finales]);
     } else {
@@ -5538,6 +5544,19 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
   const formatBytes = b => b > 1048576 ? (b/1048576).toFixed(1)+" MB" : (b/1024).toFixed(0)+" KB";
 
+  // Eliminar un documento ya subido y persistido de la ficha
+  const eliminarArchivo = (docId, idx) => {
+    setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:(x.archivos||[]).filter((_,j)=>j!==idx)} : x) }));
+  };
+  // Guardar el nuevo tipo de un documento ya subido (tras editarlo inline)
+  const guardarTipoArchivo = () => {
+    if (!editandoArchivo) return;
+    const {docId, idx, tipo, tipoLibre} = editandoArchivo;
+    const tipoFinal = (tipo==="Otro" && tipoLibre?.trim()) ? tipoLibre.trim() : tipo;
+    setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:(x.archivos||[]).map((a,j)=>j===idx?{...a,tipo:tipoFinal}:a)} : x) }));
+    setEditandoArchivo(null);
+  };
+
   // Modal que pregunta el tipo de cada documento recien seleccionado, antes de adjuntarlo
   // de forma definitiva. Se muestra tanto desde el alta rapida (vista detalle) como desde
   // el formulario de Nueva/Editar maquina.
@@ -5553,6 +5572,12 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
             }} style={{...inputStyle,width:"100%"}}>
               {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
             </select>
+            {it.tipo==="Otro" && (
+              <Input value={it.tipoLibre||""} onChange={e=>{
+                const v=e.target.value;
+                setArchivosPendientes(p=>({...p, items:p.items.map((x,j)=>j===i?{...x,tipoLibre:v}:x)}));
+              }} placeholder="Especifica el tipo de documento" style={{marginTop:6}}/>
+            )}
           </div>
         ))}
       </div>
@@ -5684,16 +5709,31 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
             const esPDF = a.data?.startsWith("data:application/pdf");
             const esImagen = a.data?.startsWith("data:image");
             const abierto = archivosAbiertos[doc.id+"-"+i];
+            const editando = editandoArchivo && editandoArchivo.docId===doc.id && editandoArchivo.idx===i;
             return (
               <div key={i} style={{borderBottom:"1px solid #1a2236"}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px"}}>
                   <div style={{width:38,height:38,borderRadius:9,background:colorTipo(a.tipo)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{iconoTipo(a.tipo)}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
-                    <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
-                      <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
-                      <span style={{color:"#6b7a99",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
-                    </div>
+                    {editando ? (
+                      <div style={{display:"flex",gap:6,marginTop:5,alignItems:"center",flexWrap:"wrap"}}>
+                        <select value={editandoArchivo.tipo} onChange={e=>setEditandoArchivo(p=>({...p,tipo:e.target.value}))} style={{...inputStyle,padding:"3px 7px",fontSize:11,width:"auto"}}>
+                          {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                        {editandoArchivo.tipo==="Otro" && (
+                          <Input value={editandoArchivo.tipoLibre||""} onChange={e=>setEditandoArchivo(p=>({...p,tipoLibre:e.target.value}))} placeholder="Especifica el tipo" style={{padding:"3px 7px",fontSize:11,width:160}}/>
+                        )}
+                        <button onClick={guardarTipoArchivo} style={{background:"#10b981",border:"none",borderRadius:5,padding:"3px 9px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+                        <button onClick={()=>setEditandoArchivo(null)} style={{background:"#2a3550",border:"none",borderRadius:5,padding:"3px 9px",color:"#8892a4",fontSize:11,cursor:"pointer"}}>Cancelar</button>
+                      </div>
+                    ) : (
+                      <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
+                        <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
+                        <span style={{color:"#6b7a99",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
+                        <button onClick={()=>setEditandoArchivo({docId:doc.id,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#6b7a99",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>
+                      </div>
+                    )}
                   </div>
                   <div style={{display:"flex",gap:6,flexShrink:0}}>
                     <a href={a.data} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#8892a4",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
@@ -5703,6 +5743,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                         {abierto?"Cerrar":"👁 Ver"}
                       </button>
                     )}
+                    <button onClick={()=>eliminarArchivo(doc.id,i)} style={{background:"#3b1c1c",border:"none",borderRadius:7,padding:"6px 9px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}} title="Eliminar documento"><Icon name="trash" size={13}/></button>
                   </div>
                 </div>
                 {abierto && esPDF && (
@@ -5744,7 +5785,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 <span style={{fontSize:20}}>📎</span>
                 <div>
                   <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                  <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — sin limite</div>
+                  <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — recomendado menos de 5 MB por archivo</div>
                 </div>
                 <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
               </label>
@@ -5882,7 +5923,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
               <span style={{fontSize:20}}>📎</span>
               <div>
                 <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — sin limite</div>
+                <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — recomendado menos de 5 MB por archivo</div>
               </div>
               <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
             </label>
