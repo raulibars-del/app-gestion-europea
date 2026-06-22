@@ -884,62 +884,66 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             <button onClick={()=>{setFormM({nombre:"",marca:"",modelo:"",serie:"",anyo:"",notas:"",foto:null});setModalM(true);}} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:7,padding:"5px 11px",cursor:"pointer",color:"#f59e0b",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:700}}><Icon name="plus" size={12}/>Añadir máquina</button>
           </div>
           {c.maquinas.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#6b7a99",fontSize:13}}>Sin máquinas registradas</div>}
-          {c.maquinas.length>0&&<>
-            <div style={{display:"flex",borderBottom:"1px solid #2a3550",overflowX:"auto"}}>
+          {c.maquinas.length>0&&
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:10,padding:"14px 17px"}}>
               {c.maquinas.map(m=>(
-                <button key={m.id} onClick={()=>setTabM(m.id===tabM?null:m.id)}
-                  style={{background:tabM===m.id?"#1e2a3a":"transparent",color:tabM===m.id?"#f59e0b":"#6b7a99",border:"none",borderBottom:tabM===m.id?"2px solid #f59e0b":"2px solid transparent",padding:"9px 15px",cursor:"pointer",fontSize:12,fontWeight:tabM===m.id?700:400,whiteSpace:"nowrap"}}>
-                  {m.origenStock?"🆕":(c.id===0?"♻️":"🔧")} {m.nombre}
+                <button key={m.id} onClick={()=>setTabM(m.id)}
+                  style={{aspectRatio:"1",background:"#0d1117",border:"1px solid #2a3550",borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,padding:8,cursor:"pointer",textAlign:"center"}}>
+                  <span style={{fontSize:22}}>{m.origenStock?"🆕":(c.id===0?"♻️":"🔧")}</span>
+                  <span style={{color:"#f1f3f9",fontSize:11,fontWeight:700,lineHeight:1.25,wordBreak:"break-word"}}>{m.nombre}</span>
                 </button>
               ))}
             </div>
-            {tabM&&maquina?(()=>{
-              const m=maquina; const ords=ordenes(c.id,m.id);
-              return (<div style={{padding:"16px 18px"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:14,alignItems:"start",marginBottom:16}}>
-                  <div style={{width:130,height:100,borderRadius:9,background:"#0d1117",border:"1px solid #2a3550",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    {m.foto?<img src={m.foto} alt={m.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{color:"#2a3550",textAlign:"center"}}><Icon name="image" size={26}/><div style={{fontSize:10,marginTop:3}}>Sin foto</div></div>}
-                  </div>
-                  <div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
-                      <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-                        {m.nombre}
-                        {m.origenStock&&<span style={{background:"#10b98120",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>🆕 Nueva (ex-stock)</span>}
-                        {!m.origenStock&&c.id===0&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>♻️ Usada (parque propio)</span>}
-                      </div>
-                      <div style={{display:"flex",gap:4}}>
-                        {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
-                        <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
-                        {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
-                      {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
-                    </div>
-                    {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseFloat(m.precioVenta).toLocaleString()}</div>}
-                    {m.notas&&<div style={{color:"#6b7a99",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
-                    {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
-                      <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
-                    );})():(
-                      <div style={{color:"#f59e0b",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: falta fecha de instalación</div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{borderTop:"1px solid #2a3550",paddingTop:13}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9}}>Historial de órdenes de trabajo ({ords.length})</div>
-                  {ords.length===0&&<div style={{color:"#6b7a99",fontSize:12}}>Sin órdenes registradas.</div>}
-                  {ords.map(r=>(
-                    <div key={r.id} style={{background:"#0d1117",borderRadius:9,padding:"11px 13px",marginBottom:7,display:"flex",justifyContent:"space-between"}}>
-                      <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#6b7a99",fontSize:11}}>{r.fecha}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#6b7a99",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
-                      <div style={{color:"#10b981",fontWeight:700,fontSize:14,flexShrink:0,marginLeft:10}}>€{r.presupuesto}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>);
-            })():<div style={{padding:"14px 18px",color:"#6b7a99",fontSize:13}}>Selecciona una máquina para ver su ficha y historial.</div>}
-          </>}
+          }
         </div>
       </div>
+      {/* Vista previa de la máquina: se abre al pulsar su botón cuadrado en la lista */}
+      {tabM&&maquina&&(()=>{
+        const m=maquina; const ords=ordenes(c.id,m.id);
+        return (
+          <Modal title={m.nombre} onClose={()=>setTabM(null)} wide>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:14,alignItems:"start",marginBottom:16}}>
+              <div style={{width:130,height:100,borderRadius:9,background:"#0d1117",border:"1px solid #2a3550",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {m.foto?<img src={m.foto} alt={m.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{color:"#2a3550",textAlign:"center"}}><Icon name="image" size={26}/><div style={{fontSize:10,marginTop:3}}>Sin foto</div></div>}
+              </div>
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+                  <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                    {m.nombre}
+                    {m.origenStock&&<span style={{background:"#10b98120",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>🆕 Nueva (ex-stock)</span>}
+                    {!m.origenStock&&c.id===0&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>♻️ Usada (parque propio)</span>}
+                  </div>
+                  <div style={{display:"flex",gap:4}}>
+                    {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
+                    <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
+                    {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
+                  {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#6b7a99",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
+                </div>
+                {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseFloat(m.precioVenta).toLocaleString()}</div>}
+                {m.notas&&<div style={{color:"#6b7a99",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
+                {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
+                  <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
+                );})():(
+                  <div style={{color:"#f59e0b",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: falta fecha de instalación</div>
+                ))}
+              </div>
+            </div>
+            <div style={{borderTop:"1px solid #2a3550",paddingTop:13}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9}}>Historial de órdenes de trabajo ({ords.length})</div>
+              {ords.length===0&&<div style={{color:"#6b7a99",fontSize:12}}>Sin órdenes registradas.</div>}
+              {ords.map(r=>(
+                <div key={r.id} style={{background:"#0d1117",borderRadius:9,padding:"11px 13px",marginBottom:7,display:"flex",justifyContent:"space-between"}}>
+                  <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#6b7a99",fontSize:11}}>{r.fecha}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#6b7a99",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
+                  <div style={{color:"#10b981",fontWeight:700,fontSize:14,flexShrink:0,marginLeft:10}}>€{r.presupuesto}</div>
+                </div>
+              ))}
+            </div>
+          </Modal>
+        );
+      })()}
       {/* Partes de trabajo de este cliente */}
       {(()=>{
         const partesCliente=(data.partes||[]).filter(p=>p.clienteDirectoId===c.id);
