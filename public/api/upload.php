@@ -45,8 +45,20 @@ $permitidos = [
     'application/vnd.ms-excel' => 'xls',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
     'text/plain' => 'txt',
+    'image/svg+xml' => 'svg',
 ];
-if (!isset($permitidos[$mime])) {
+// Extensiones permitidas por sufijo del nombre original, para archivos cuyo
+// MIME el navegador no informa de forma fiable (p.ej. .dwg).
+$extsPorNombre = ['dwg' => 'dwg', 'dxf' => 'dxf'];
+
+$ext = $permitidos[$mime] ?? null;
+if ($ext === null) {
+    $nombreOriginal = strtolower($input['filename']);
+    $puntoPos = strrpos($nombreOriginal, '.');
+    $extNombre = $puntoPos !== false ? substr($nombreOriginal, $puntoPos + 1) : '';
+    $ext = $extsPorNombre[$extNombre] ?? null;
+}
+if ($ext === null) {
     http_response_code(400);
     echo json_encode(['error' => 'tipo_no_permitido']);
     exit;
@@ -59,7 +71,7 @@ if ($data === false) {
     exit;
 }
 
-$maxBytes = 8 * 1024 * 1024; // 8 MB
+$maxBytes = 25 * 1024 * 1024; // 25 MB
 if (strlen($data) > $maxBytes) {
     http_response_code(413);
     echo json_encode(['error' => 'archivo_demasiado_grande']);
@@ -77,7 +89,6 @@ if (!file_exists($htaccess)) {
     file_put_contents($htaccess, "<FilesMatch \"\\.(php|phtml|php\\d)$\">\nRequire all denied\n</FilesMatch>\n");
 }
 
-$ext = $permitidos[$mime];
 $nombre = date('Ymd_His') . '_' . bin2hex(random_bytes(5)) . '.' . $ext;
 $ruta = $dir . '/' . $nombre;
 

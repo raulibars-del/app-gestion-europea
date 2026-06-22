@@ -1114,7 +1114,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   };
   const enviarArchivo=async file=>{
     if(!file)return;
-    if(file.size>8*1024*1024){alert("El archivo pesa demasiado (máx. 8 MB).");return;}
+    if(file.size>25*1024*1024){alert("El archivo pesa demasiado (máx. 25 MB).");return;}
     setSubiendo(true);
     try{
       const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
@@ -2505,7 +2505,7 @@ const Tareas = ({ data, setData, userActual }) => {
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const subirAdjuntoTarea = async (file) => {
     if(!file) return;
-    if(file.size>8*1024*1024){alert(`El archivo "${file.name}" pesa demasiado (máx. 8 MB).`);return;}
+    if(file.size>25*1024*1024){alert(`El archivo "${file.name}" pesa demasiado (máx. 25 MB).`);return;}
     setSubiendoAdjunto(true);
     try{
       const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
@@ -5437,6 +5437,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   // Archivos recien seleccionados a los que aun falta confirmar el tipo de documento
   // antes de quedar adjuntados de forma definitiva (ver modal de confirmacion mas abajo).
   const [archivosPendientes, setArchivosPendientes] = useState(null); // { destino:"modal"|docId, items:[...] }
+  const [subiendoArchivos, setSubiendoArchivos] = useState(false);
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
 
   // Llegada desde "Ver documentación" en la ficha de una máquina de un cliente:
@@ -5470,17 +5471,11 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   // (que tipo de documento es cada uno) en un modal de confirmacion; una vez confirmado
   // el tipo queda fijo y no se vuelve a poder cambiar con un desplegable suelto.
   const leerArchivosPendientes = (files, destino) => {
-    const pendientes = [];
-    let restantes = files.length;
-    files.forEach(file => {
-      const r = new FileReader();
-      r.onload = ev => {
-        pendientes.push({ nombre: file.name, tipo: detectarTipo(file.name), tamanyo: file.size, data: ev.target.result });
-        restantes--;
-        if (restantes === 0) setArchivosPendientes({ destino, items: pendientes });
-      };
-      r.readAsDataURL(file);
-    });
+    // Aqui solo se guarda la referencia al File: la lectura/subida real ocurre
+    // al confirmar el tipo, asi evitamos cargar en memoria archivos grandes
+    // que el usuario podria cancelar.
+    const items = files.map(file => ({ nombre: file.name, tipo: detectarTipo(file.name), tamanyo: file.size, mime: file.type, file }));
+    setArchivosPendientes({ destino, items });
   };
 
   const handleArchivos = e => {
@@ -5494,20 +5489,34 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     e.target.value = "";
   };
 
-  const confirmarArchivosPendientes = () => {
-    if (!archivosPendientes) return;
-    const finales = archivosPendientes.items.map(it => {
+  // Sube cada archivo a disco (vía upload.php) en vez de embeber el base64 en
+  // el JSON compartido; asi no hay limite practico de tamaño en Documentacion.
+  const confirmarArchivosPendientes = async () => {
+    if (!archivosPendientes || subiendoArchivos) return;
+    setSubiendoArchivos(true);
+    const finales = [];
+    const errores = [];
+    for (const it of archivosPendientes.items) {
       const tipoFinal = (it.tipo==="Otro" && it.tipoLibre?.trim()) ? it.tipoLibre.trim() : it.tipo;
-      const {tipoLibre, ...resto} = it;
-      return {...resto, tipo: tipoFinal, id: Date.now()+Math.random()};
-    });
-    if (archivosPendientes.destino === "modal") {
-      setArchivos(p => [...p, ...finales]);
-    } else {
-      const docId = archivosPendientes.destino;
-      setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:[...(x.archivos||[]), ...finales]} : x) }));
+      try {
+        const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(it.file);});
+        const up = await apiUploadFile({base64, filename: it.nombre, mime: it.mime});
+        finales.push({ id: Date.now()+Math.random(), nombre: up.nombre||it.nombre, tipo: tipoFinal, tamanyo: it.tamanyo, mime: up.mime||it.mime, url: up.url });
+      } catch (e) {
+        errores.push(`${it.nombre}: ${e.message}`);
+      }
     }
+    if (finales.length) {
+      if (archivosPendientes.destino === "modal") {
+        setArchivos(p => [...p, ...finales]);
+      } else {
+        const docId = archivosPendientes.destino;
+        setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:[...(x.archivos||[]), ...finales]} : x) }));
+      }
+    }
+    setSubiendoArchivos(false);
     setArchivosPendientes(null);
+    if (errores.length) alert("No se pudieron subir estos archivos:\n\n" + errores.join("\n"));
   };
 
   const detectarTipo = nombre => {
@@ -5582,8 +5591,8 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         ))}
       </div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-        <button onClick={()=>setArchivosPendientes(null)} style={btnOutline}>Cancelar</button>
-        <button onClick={confirmarArchivosPendientes} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>Confirmar y adjuntar</button>
+        <button onClick={()=>setArchivosPendientes(null)} disabled={subiendoArchivos} style={btnOutline}>Cancelar</button>
+        <button onClick={confirmarArchivosPendientes} disabled={subiendoArchivos} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800,opacity:subiendoArchivos?.6:1}}>{subiendoArchivos?"Subiendo...":"Confirmar y adjuntar"}</button>
       </div>
     </Modal>
   );
@@ -5706,8 +5715,12 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           </div>
           {(doc.archivos||[]).length === 0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99"}}>Sin archivos adjuntos</div>}
           {(doc.archivos||[]).map((a,i) => {
-            const esPDF = a.data?.startsWith("data:application/pdf");
-            const esImagen = a.data?.startsWith("data:image");
+            // Compatible con archivos nuevos (guardados en disco, con url+mime) y con
+            // archivos antiguos ya persistidos como base64 inline (campo data).
+            const urlArchivo = a.url || a.data;
+            const mimeArchivo = a.mime || a.data?.match(/^data:([^;]+);/)?.[1] || "";
+            const esPDF = mimeArchivo === "application/pdf" || /\.pdf$/i.test(a.nombre||"");
+            const esImagen = mimeArchivo.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(a.nombre||"");
             const abierto = archivosAbiertos[doc.id+"-"+i];
             const editando = editandoArchivo && editandoArchivo.docId===doc.id && editandoArchivo.idx===i;
             return (
@@ -5736,7 +5749,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                     )}
                   </div>
                   <div style={{display:"flex",gap:6,flexShrink:0}}>
-                    <a href={a.data} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#8892a4",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
+                    <a href={urlArchivo} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#8892a4",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
                     {(esPDF||esImagen)&&(
                       <button onClick={()=>setArchivosAbiertos(p=>({...p,[doc.id+"-"+i]:!p[doc.id+"-"+i]}))}
                         style={{background:abierto?"#e2b714":"#e2b71420",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 11px",color:abierto?"#000":"#e2b714",fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -5748,12 +5761,12 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 </div>
                 {abierto && esPDF && (
                   <div style={{padding:"0 16px 14px"}}>
-                    <iframe src={a.data} style={{width:"100%",height:520,border:"1px solid #2a3550",borderRadius:8,background:"#fff"}} title={a.nombre}/>
+                    <iframe src={urlArchivo} style={{width:"100%",height:520,border:"1px solid #2a3550",borderRadius:8,background:"#fff"}} title={a.nombre}/>
                   </div>
                 )}
                 {abierto && esImagen && (
                   <div style={{padding:"0 16px 14px",textAlign:"center",background:"#0d1117"}}>
-                    <img src={a.data} alt={a.nombre} style={{maxWidth:"100%",maxHeight:480,borderRadius:8,border:"1px solid #2a3550"}}/>
+                    <img src={urlArchivo} alt={a.nombre} style={{maxWidth:"100%",maxHeight:480,borderRadius:8,border:"1px solid #2a3550"}}/>
                   </div>
                 )}
               </div>
@@ -5785,7 +5798,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 <span style={{fontSize:20}}>📎</span>
                 <div>
                   <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                  <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — recomendado menos de 5 MB por archivo</div>
+                  <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
                 </div>
                 <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
               </label>
@@ -5923,7 +5936,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
               <span style={{fontSize:20}}>📎</span>
               <div>
                 <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel — recomendado menos de 5 MB por archivo</div>
+                <div style={{color:"#6b7a99",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
               </div>
               <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
             </label>
@@ -6693,7 +6706,7 @@ async function apiUploadFile(payload){
   });
   const json = await res.json().catch(()=>({}));
   if(!res.ok || json.error){
-    const msgs = { tipo_no_permitido:"Tipo de archivo no permitido.", archivo_demasiado_grande:"El archivo pesa demasiado (máx. 8 MB)." };
+    const msgs = { tipo_no_permitido:"Tipo de archivo no permitido.", archivo_demasiado_grande:"El archivo pesa demasiado (máx. 25 MB)." };
     throw new Error(msgs[json.error] || json.error || ("HTTP "+res.status));
   }
   return json;
