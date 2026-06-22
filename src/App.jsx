@@ -35,6 +35,15 @@ const obtenerCadenaPartes = (partes, p) => (partes||[]).filter(x => cadenaBaseDe
 
 const diasDesde = (f) => { const d = Math.floor((new Date() - new Date(f)) / 86400000); return d < 0 ? 0 : d; };
 const uid = () => Date.now() + Math.random();
+// Búsqueda multi-palabra: cada palabra escrita debe aparecer en alguno de los
+// campos indicados (en cualquier orden), así "bosch rodamiento" encuentra un
+// artículo aunque "bosch" esté en el proveedor y "rodamiento" en el nombre.
+const coincideTexto = (item, query, campos) => {
+  const palabras = (query||"").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (palabras.length === 0) return true;
+  const texto = campos.map(c => String(item?.[c] ?? "")).join(" ").toLowerCase();
+  return palabras.every(p => texto.includes(p));
+};
 // Código interno único de máquina, compartido entre Stock (máquinas en venta) y
 // las máquinas de cada cliente — para que nunca se repita un código entre ambos.
 const nextCodigoMaquina = (data) => {
@@ -2870,10 +2879,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const rCliente = id => { const r = data.reparaciones.find(r => r.id === parseInt(id)); if (!r) return null; return data.clientes.find(c => c.id === r.clienteId); };
   const listaMaterialesManual = listaMateriales.filter(m => !m.esInventario);
   const listaMaterialesInv = listaMateriales.filter(m => m.esInventario);
-  const articulosFiltrados = buscarArt.trim().length < 1 ? [] : (data.inventario||[]).filter(it => {
-    const q = buscarArt.toLowerCase();
-    return it.nombre?.toLowerCase().includes(q) || it.codigo?.toLowerCase().includes(q);
-  }).slice(0, 8);
+  const articulosFiltrados = buscarArt.trim().length < 1 ? [] : (data.inventario||[])
+    .filter(it => coincideTexto(it, buscarArt, ["codigo","nombre","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"]))
+    .slice(0, 8);
   const clientesFiltrados = busqCliente.trim().length < 1 ? data.clientes.slice(0, 8) :
     data.clientes.filter(c => {
       const q = busqCliente.toLowerCase();
@@ -4848,6 +4856,14 @@ return(<div>
 // ── INVENTARIO ──────────────────────────────────────────────
 const Inventario = ({ data, setData, userActual, isMobile }) => {
   const puedeVerCompra = userActual?.rol==="manager"||userActual?.rol==="admin";
+  const esManager = userActual?.rol==="manager";
+  // Los consumibles clave (los recuadros de stock recurrente de arriba) solo los
+  // puede borrar el manager, para que nadie los elimine por error sin querer.
+  const eliminarArticulo = (item) => {
+    if (item.consumibleClave && !esManager) { alert("Solo el manager puede eliminar un consumible clave."); return; }
+    if (!window.confirm(`¿Seguro que quieres eliminar el artículo "${item.nombre}"? Esta acción no se puede deshacer.`)) return;
+    setData(d => ({...d, inventario: d.inventario.filter(i=>i.id!==item.id)}));
+  };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [busq, setBusq] = useState("");
@@ -4952,9 +4968,10 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     return `INV${String(max+1).padStart(4,"0")}`;
   };
 
+  const CAMPOS_BUSQUEDA_INV = ["codigo","nombre","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"];
   const filtrados = data.inventario
     .filter(i => filtroCategoria === "Todas" || i.categoria === filtroCategoria)
-    .filter(i => !busq || i.codigo?.toLowerCase().includes(busq.toLowerCase()) || i.nombre?.toLowerCase().includes(busq.toLowerCase()));
+    .filter(i => coincideTexto(i, busq, CAMPOS_BUSQUEDA_INV));
 
   const save = () => {
     const item = {...form, precioCompra: parseFloat(form.precioCompra)||0, precioVenta: parseFloat(form.precioVenta)||0, stock: parseInt(form.stock)||0,
@@ -5093,7 +5110,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </div>
         <div style={{position:"relative",marginLeft:"auto"}}>
           <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={12}/></span>
-          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Código o nombre..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:170}}/>
+          <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Código, nombre, proveedor..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:190}}/>
         </div>
       </div>
 
@@ -5125,12 +5142,12 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                     </div>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end"}}>
+                <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#10b981",fontSize:11,fontWeight:700}}>+/-</button>
                   <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#3b82f6",fontSize:11,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#a855f7",fontSize:11,fontWeight:700}}>🏷️</button>
-                  <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
-                  <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
+                  <button onClick={()=>{setForm({...item});setModal(true);}} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#3b82f6",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:4}}><Icon name="edit" size={12}/>Editar</button>
+                  <button onClick={()=>eliminarArticulo(item)} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#dc2626",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:4}}><Icon name="trash" size={12}/>Eliminar</button>
                 </div>
               </div>
             );
@@ -5138,7 +5155,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </div>
       ) : (
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
-          <div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 120px":"120px 1fr 90px 80px 80px 120px",background:"#0a0f1a",padding:"9px 14px",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 210px":"120px 1fr 90px 80px 80px 210px",background:"#0a0f1a",padding:"9px 14px",gap:8}}>
             {(puedeVerCompra?["Código","Artículo","Stock","P. Compra","P. Venta","Categoría",""]:["Código","Artículo","Stock","P. Venta","Categoría",""]).map(h=>(
               <div key={h} style={{color:"#6b7a99",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>
             ))}
@@ -5147,7 +5164,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           {filtrados.map((item,idx)=>{
             const sinStock = !item.stock || item.stock <= 0;
             return (
-              <div key={item.id} style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 120px":"120px 1fr 90px 80px 80px 120px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center"}}>
+              <div key={item.id} style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 210px":"120px 1fr 90px 80px 80px 210px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center"}}>
                 <div style={{color:"#a855f7",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{item.codigo}</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                   {item.foto && <img src={item.foto} alt={item.nombre} style={{width:32,height:32,objectFit:"cover",borderRadius:6,border:"1px solid #2a3550",flexShrink:0}}/>}
@@ -5164,12 +5181,12 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                 {puedeVerCompra && <div style={{color:"#6b7a99",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>}
                 <div style={{color:"#10b981",fontWeight:700,fontSize:12}}>EUR{(item.precioVenta||0).toFixed(2)}</div>
                 <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
-                <div style={{display:"flex",gap:3}}>
+                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
                   <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#3b82f6",fontSize:10,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
-                  <button onClick={()=>{setForm({...item});setModal(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
-                  <button onClick={()=>setData(d=>({...d,inventario:d.inventario.filter(i=>i.id!==item.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
+                  <button onClick={()=>{setForm({...item});setModal(true);}} style={{background:"#2a3550",border:"1px solid #3b4566",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#8892a4",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="edit" size={11}/>Editar</button>
+                  <button onClick={()=>eliminarArticulo(item)} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#dc2626",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="trash" size={11}/>Eliminar</button>
                 </div>
               </div>
             );
@@ -5263,7 +5280,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             </div>
           </Field>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:11}}>
-            <Field label="Nombre del artículo"><Input value={form.nombre||""} onChange={f("nombre")} placeholder="Ej: Rodamiento 6205 2RS"/></Field>
+            <Field label="Artículo/Código"><Input value={form.nombre||""} onChange={f("nombre")} placeholder="Ej: Rodamiento 6205 2RS"/></Field>
             <Field label="Categoría"><Input value={form.categoria||""} onChange={f("categoria")} placeholder="Ej: Rodamientos, Correas..."/></Field>
             <Field label="Ubicación"><Input value={form.ubicacion||""} onChange={f("ubicacion")} placeholder="Ej: Taller, Sala de recambios, Despacho, Oficina Jose..."/></Field>
           </div>
