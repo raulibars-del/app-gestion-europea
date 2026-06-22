@@ -3450,7 +3450,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       ✍️ Firmar
                     </button>
                     <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
-                    <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                    <button onClick={() => {if(window.confirm("¿Eliminar este parte? Esta acción no se puede deshacer.")) setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }));}} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                   </div>
                 </div>
               </div>
