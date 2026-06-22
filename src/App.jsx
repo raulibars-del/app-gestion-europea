@@ -3723,7 +3723,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 70px 32px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
                     <span style={{color:"#f1f3f9",fontSize:12}}>{m.material}</span>
                     <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{m.codigo}</span>
-                    <span style={{color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center"}}>{m.cantidad}</span>
+                    <input type="number" min="0" step="any" value={m.cantidad}
+                      onChange={e=>setListaMateriales(p=>p.map(x=>x.id===m.id?{...x,cantidad:e.target.value}:x))}
+                      style={{background:"#0a0f1a",border:"1px solid #2a3550",borderRadius:5,color:"#10b981",fontWeight:700,fontSize:12,textAlign:"center",width:"100%",padding:"3px 2px"}}/>
                     <button onClick={()=>setListaMateriales(p=>p.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,lineHeight:1}}>x</button>
                   </div>
                 ))}
