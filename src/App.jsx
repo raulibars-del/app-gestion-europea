@@ -2883,7 +2883,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const listaMaterialesManual = listaMateriales.filter(m => !m.esInventario);
   const listaMaterialesInv = listaMateriales.filter(m => m.esInventario);
   const articulosFiltrados = buscarArt.trim().length < 1 ? [] : (data.inventario||[])
-    .filter(it => coincideTexto(it, buscarArt, ["codigo","nombre","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"]))
+    .filter(it => coincideTexto(it, buscarArt, ["codigo","nombre","descripcion","categoria","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"]))
     .slice(0, 8);
   const clientesFiltrados = busqCliente.trim().length < 1 ? data.clientes.slice(0, 8) :
     data.clientes.filter(c => {
@@ -4971,7 +4971,7 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     return `INV${String(max+1).padStart(4,"0")}`;
   };
 
-  const CAMPOS_BUSQUEDA_INV = ["codigo","nombre","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"];
+  const CAMPOS_BUSQUEDA_INV = ["codigo","nombre","descripcion","categoria","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"];
   const filtrados = data.inventario
     .filter(i => filtroCategoria === "Todas" || i.categoria === filtroCategoria)
     .filter(i => coincideTexto(i, busq, CAMPOS_BUSQUEDA_INV));
