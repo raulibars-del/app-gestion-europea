@@ -35,13 +35,16 @@ const obtenerCadenaPartes = (partes, p) => (partes||[]).filter(x => cadenaBaseDe
 
 const diasDesde = (f) => { const d = Math.floor((new Date() - new Date(f)) / 86400000); return d < 0 ? 0 : d; };
 const uid = () => Date.now() + Math.random();
+// Quita tildes/diacríticos para que "vias" encuentre "VÍAS", "compresor" encuentre
+// "COMPRESÓR", etc. — la búsqueda no debe depender de que el usuario escriba acentos.
+const sinAcentos = (s) => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"");
 // Búsqueda multi-palabra: cada palabra escrita debe aparecer en alguno de los
 // campos indicados (en cualquier orden), así "bosch rodamiento" encuentra un
 // artículo aunque "bosch" esté en el proveedor y "rodamiento" en el nombre.
 const coincideTexto = (item, query, campos) => {
-  const palabras = (query||"").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const palabras = sinAcentos(query).toLowerCase().trim().split(/\s+/).filter(Boolean);
   if (palabras.length === 0) return true;
-  const texto = campos.map(c => String(item?.[c] ?? "")).join(" ").toLowerCase();
+  const texto = sinAcentos(campos.map(c => String(item?.[c] ?? "")).join(" ")).toLowerCase();
   return palabras.every(p => texto.includes(p));
 };
 // Código interno único de máquina, compartido entre Stock (máquinas en venta) y
@@ -5121,7 +5124,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           {filtrados.map(item=>{
             const sinStock = !item.stock || item.stock <= 0;
             return (
-              <div key={item.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"12px 14px"}}>
+              <div key={item.id} onClick={()=>setFichaQR(item)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"12px 14px",cursor:"pointer"}}>
                 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                   {item.foto && <img src={item.foto} alt={item.nombre} style={{width:48,height:48,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550",flexShrink:0}}/>}
                   <div style={{flex:1,minWidth:0}}>
@@ -5142,7 +5145,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                     </div>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,marginTop:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#10b981",fontSize:11,fontWeight:700}}>+/-</button>
                   <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#3b82f6",fontSize:11,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"5px 9px",cursor:"pointer",color:"#a855f7",fontSize:11,fontWeight:700}}>🏷️</button>
@@ -5164,7 +5167,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           {filtrados.map((item,idx)=>{
             const sinStock = !item.stock || item.stock <= 0;
             return (
-              <div key={item.id} style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 210px":"120px 1fr 90px 80px 80px 210px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center"}}>
+              <div key={item.id} onClick={()=>setFichaQR(item)} style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 210px":"120px 1fr 90px 80px 80px 210px",padding:"10px 14px",gap:8,borderTop:"1px solid #1a2236",background:idx%2===0?"transparent":"#0d111720",alignItems:"center",cursor:"pointer"}}>
                 <div style={{color:"#a855f7",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{item.codigo}</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                   {item.foto && <img src={item.foto} alt={item.nombre} style={{width:32,height:32,objectFit:"cover",borderRadius:6,border:"1px solid #2a3550",flexShrink:0}}/>}
@@ -5181,7 +5184,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                 {puedeVerCompra && <div style={{color:"#6b7a99",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>}
                 <div style={{color:"#10b981",fontWeight:700,fontSize:12}}>EUR{(item.precioVenta||0).toFixed(2)}</div>
                 <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
-                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
                   <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#3b82f6",fontSize:10,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
