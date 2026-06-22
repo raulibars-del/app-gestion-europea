@@ -889,8 +889,8 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               {c.maquinas.map(m=>(
                 <button key={m.id} onClick={()=>setTabM(m.id)}
                   style={{aspectRatio:"1",background:"#0d1117",border:"1px solid #2a3550",borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,padding:8,cursor:"pointer",textAlign:"center"}}>
-                  <span style={{fontSize:22}}>{m.origenStock?"🆕":(c.id===0?"♻️":"🔧")}</span>
-                  <span style={{color:"#f1f3f9",fontSize:11,fontWeight:700,lineHeight:1.25,wordBreak:"break-word"}}>{m.nombre}</span>
+                  {(m.origenStock||c.id===0)&&<span style={{fontSize:22}}>{m.origenStock?"🆕":"♻️"}</span>}
+                  <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700,lineHeight:1.25,wordBreak:"break-word"}}>{m.nombre}</span>
                 </button>
               ))}
             </div>
@@ -907,16 +907,16 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                 {m.foto?<img src={m.foto} alt={m.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{color:"#2a3550",textAlign:"center"}}><Icon name="image" size={26}/><div style={{fontSize:10,marginTop:3}}>Sin foto</div></div>}
               </div>
               <div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7,flexWrap:"wrap",gap:10}}>
                   <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
                     {m.nombre}
                     {m.origenStock&&<span style={{background:"#10b98120",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>🆕 Nueva (ex-stock)</span>}
                     {!m.origenStock&&c.id===0&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>♻️ Usada (parque propio)</span>}
                   </div>
-                  <div style={{display:"flex",gap:4}}>
-                    {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} title="Ver documentación de esta máquina" style={btnSm("#1e3a5f","#3b82f6")}><Icon name="documentacion" size={12}/></button>}
-                    <button onClick={()=>{setFormM({...m});setModalM(true);}} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
-                    {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
+                  <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                    {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} style={{background:"#1e3a5f",border:"1px solid #3b82f644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#3b82f6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="documentacion" size={14}/>Ver documentación</button>}
+                    <button onClick={()=>{setFormM({...m});setModalM(true);}} style={{background:"#2a3550",border:"1px solid #3a4570",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#8892a4",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="edit" size={14}/>Editar</button>
+                    {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="trash" size={14}/>Eliminar</button>}
                   </div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
