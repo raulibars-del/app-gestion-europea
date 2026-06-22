@@ -2842,6 +2842,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     return [...activos.filter(u => u.id === userActual.id), ...activos.filter(u => u.id !== userActual.id)];
   }, [data.usuarios, userActual]);
   const [parteContinuado, setParteContinuado] = useState(false);
+  // Si al guardar el contacto en el sitio no coincide con ninguno ya existente del cliente,
+  // se pide el puesto/cargo antes de crearlo (continuado guarda el estado pendiente del guardado).
+  const [pedirPuesto, setPedirPuesto] = useState(null);
   const [modalRetomar, setModalRetomar] = useState(false);
   const [modalPDF, setModalPDF] = useState(null);
   const [modalPDFCadena, setModalPDFCadena] = useState(null);
@@ -2929,7 +2932,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const stockExtra = previas.reduce((s,h) => s + (parseFloat(h.cantidad)||0), 0);
     return { ...it, stock: (parseFloat(it.stock)||0) + stockExtra, historialEntregas: (it.historialEntregas||[]).filter(h => h.parteId !== parteId) };
   });
-  const save = (continuado) => {
+  const save = (continuado, puestoNuevoContacto) => {
     if (!form.tecnicos || form.tecnicos.length === 0) { alert("Selecciona al menos un técnico antes de guardar el parte."); return; }
     const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
     const esNuevo = !form.id;
@@ -2985,7 +2988,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               (cn && x.nombre?.trim().toLowerCase()===cn.toLowerCase())
             );
             if (!yaContacto) {
-              const nuevoContacto = { id: Date.now()+Math.random(), nombre: cn||"(sin nombre)", puesto:"", tel: ctel||"", email: ce||"", principal: (cli.contactos||[]).length===0 };
+              const nuevoContacto = { id: Date.now()+Math.random(), nombre: cn||"(sin nombre)", puesto: puestoNuevoContacto?.trim()||"", tel: ctel||"", email: ce||"", principal: (cli.contactos||[]).length===0 };
               cli = { ...cli, contactos: [...(cli.contactos||[]), nuevoContacto] };
             }
           }
@@ -3522,13 +3525,35 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         </div>
         {form.avisoId&&<div style={{color:"#f59e0b",fontSize:11,marginBottom:4}}>Maquina bloqueada — coincide con el aviso vinculado.</div>}
 
-        {/* Contacto en el sitio: si no esta en la ficha del cliente, se añade automaticamente al guardar */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11}}>
-          <Field label="Contacto en el sitio (opcional)"><Input value={form.contactoNombre||""} onChange={f("contactoNombre")} placeholder="Nombre de quien atendio"/></Field>
-          <Field label="Telefono contacto"><Input value={form.contactoTel||""} onChange={f("contactoTel")} placeholder="600..."/></Field>
-          <Field label="Email contacto"><Input value={form.contactoEmail||""} onChange={f("contactoEmail")} placeholder="email@..."/></Field>
-        </div>
-        {(form.contactoNombre?.trim()||form.contactoEmail?.trim())&&<div style={{color:"#6b7a99",fontSize:11,marginTop:-4,marginBottom:8}}>Si esta persona no esta en la ficha del cliente, se añadira automaticamente al guardar.</div>}
+        {/* Contacto en el sitio: si coincide con un contacto ya existente del cliente se
+            autocompleta tel/email; si es una persona nueva, al guardar se pedira su puesto
+            y se añadira automaticamente a la ficha del cliente. */}
+        {(() => {
+          const cliContacto = form.clienteDirectoId ? data.clientes.find(c => c.id === form.clienteDirectoId) : null;
+          const contactosCliente = cliContacto?.contactos || [];
+          const cn = form.contactoNombre?.trim(), ce = form.contactoEmail?.trim();
+          const yaExiste = contactosCliente.some(x => (ce && x.email?.trim().toLowerCase()===ce.toLowerCase()) || (cn && x.nombre?.trim().toLowerCase()===cn.toLowerCase()));
+          const onChangeContactoNombre = e => {
+            const val = e.target.value;
+            const match = contactosCliente.find(x => x.nombre?.trim().toLowerCase() === val.trim().toLowerCase());
+            setForm(p => ({ ...p, contactoNombre: val, ...(match ? { contactoTel: match.tel||"", contactoEmail: match.email||"" } : {}) }));
+          };
+          return (
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11}}>
+                <Field label="Contacto en el sitio (opcional)">
+                  <input list="contactosClienteParte" value={form.contactoNombre||""} onChange={onChangeContactoNombre} placeholder="Nombre de quien atendio" style={inputStyle}/>
+                  <datalist id="contactosClienteParte">{contactosCliente.map(ct => <option key={ct.id} value={ct.nombre}/>)}</datalist>
+                </Field>
+                <Field label="Telefono contacto"><Input value={form.contactoTel||""} onChange={f("contactoTel")} placeholder="600..."/></Field>
+                <Field label="Email contacto"><Input value={form.contactoEmail||""} onChange={f("contactoEmail")} placeholder="email@..."/></Field>
+              </div>
+              {(cn||ce) && <div style={{color:"#6b7a99",fontSize:11,marginTop:-4,marginBottom:8}}>
+                {yaExiste ? "Contacto existente de la ficha del cliente." : "Persona nueva — al guardar se pedira su puesto y se añadira a la ficha del cliente."}
+              </div>}
+            </>
+          );
+        })()}
 
         {/* Vincular aviso — filtrado por máquina cuando hay cliente + máquina seleccionados */}
         {(()=>{
@@ -3741,11 +3766,37 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               alert("La matricula / numero de serie es obligatorio.\nEl tecnico debe verificarla en la maquina.");
               return;
             }
+            // Si el contacto en el sitio es una persona nueva (no esta en la ficha del
+            // cliente), se pide su puesto antes de guardar y crearla.
+            const cliContacto = form.clienteDirectoId ? data.clientes.find(c => c.id === form.clienteDirectoId) : null;
+            const cn = form.contactoNombre?.trim(), ce = form.contactoEmail?.trim();
+            const esContactoNuevo = (cn||ce) && cliContacto && !(cliContacto.contactos||[]).some(x => (ce && x.email?.trim().toLowerCase()===ce.toLowerCase()) || (cn && x.nombre?.trim().toLowerCase()===cn.toLowerCase()));
+            if(esContactoNuevo){
+              setPedirPuesto({continuado:parteContinuado, nombre:cn||"(sin nombre)", puesto:""});
+              return;
+            }
             save(parteContinuado);
             setParteContinuado(false);
           }} style={{...btnPrimary,background:parteContinuado?"#f59e0b":"#0ea5e9"}}>
             {parteContinuado ? "💾 Guardar — continuado" : "✅ Guardar — finalizado"}
           </button>
+        </div>
+      </Modal>}
+      {/* Modal: pedir puesto/cargo al detectar un contacto nuevo en el sitio */}
+      {pedirPuesto && <Modal title="Puesto del nuevo contacto" onClose={()=>setPedirPuesto(null)}>
+        <div style={{background:"#0ea5e912",border:"1px solid #0ea5e933",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#0ea5e9",fontSize:12}}>
+          "{pedirPuesto.nombre}" no esta en la ficha de este cliente — se añadira como nuevo contacto con sus datos (nombre, telefono y email).
+        </div>
+        <Field label="Puesto / cargo (opcional)">
+          <Input value={pedirPuesto.puesto} onChange={e=>setPedirPuesto(p=>({...p,puesto:e.target.value}))} placeholder="Gerente, Encargado de taller..."/>
+        </Field>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:10}}>
+          <button onClick={()=>setPedirPuesto(null)} style={btnOutline}>Cancelar</button>
+          <button onClick={()=>{
+            save(pedirPuesto.continuado, pedirPuesto.puesto);
+            setParteContinuado(false);
+            setPedirPuesto(null);
+          }} style={btnPrimary}>Guardar parte</button>
         </div>
       </Modal>}
       {/* Modal crear nuevo cliente rápido */}
