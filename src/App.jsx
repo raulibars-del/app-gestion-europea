@@ -2875,6 +2875,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [nuevoMat, setNuevoMat] = useState({material:"",cantidad:"1"});
   const [modoMaterial, setModoMaterial] = useState("manual"); // "manual" | "inventario"
   const [buscarArt, setBuscarArt] = useState("");
+  const [buscarParte, setBuscarParte] = useState(""); // buscador del listado: por nº de parte, cliente o fecha
   const canvasRef = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
@@ -3062,6 +3063,19 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       .map(g => g.slice().sort((a,b)=>(a.numContinuacion||0)-(b.numContinuacion||0)))
       .sort((a,b) => Math.max(...b.map(p=>p.id)) - Math.max(...a.map(p=>p.id)));
   }, [data.partes]);
+  // Buscador del listado: cualquier palabra escrita debe aparecer en el nº de parte,
+  // el cliente o la fecha de alguna de las visitas del grupo (asi se ve la cadena
+  // completa aunque la coincidencia este solo en una de sus visitas).
+  const gruposPartesFiltrados = useMemo(() => {
+    const palabras = sinAcentos(buscarParte).toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (palabras.length === 0) return gruposPartes;
+    return gruposPartes.filter(grupo => grupo.some(p => {
+      const cl = p.clienteDirectoId ? data.clientes.find(c => c.id === p.clienteDirectoId) : rCliente(p.reparacionId);
+      const numero = p.numeroParte || ("PT-"+String(p.id).slice(-6));
+      const texto = sinAcentos([numero, cadenaBaseDe(p), cl?.nombreEmpresa, cl?.nombreFiscal, fmtFecha(p.fecha), p.fecha, p.descripcion, p.marca, p.modelo, p.matricula].filter(Boolean).join(" ")).toLowerCase();
+      return palabras.every(pal => texto.includes(pal));
+    }));
+  }, [gruposPartes, buscarParte, data.clientes]);
   const retomarParte = (origen) => {
     const base = cadenaBaseDe(origen);
     const cadena = obtenerCadenaPartes(data.partes, origen);
@@ -3356,8 +3370,15 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           <button onClick={abrirNuevo} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14} />Nuevo</button>
         </div>
       </div>
+      <div style={{position:"relative",marginBottom:14}}>
+        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={14}/></span>
+        <input value={buscarParte} onChange={e=>setBuscarParte(e.target.value)} placeholder="Buscar por nº de parte, cliente o fecha..." style={{...inputStyle,paddingLeft:34}} />
+      </div>
+      {buscarParte.trim()&&gruposPartesFiltrados.length===0&&(
+        <div style={{color:"#6b7a99",fontSize:13,padding:"14px 4px"}}>No se han encontrado partes para "{buscarParte}".</div>
+      )}
       <div style={{display:"grid",gap:12}}>
-        {gruposPartes.map(grupo => {
+        {gruposPartesFiltrados.map(grupo => {
           const esCadena = grupo.length>1;
           const renderCard = (p, dentroDeCadena) => {
             const cl = p.clienteDirectoId
@@ -3366,6 +3387,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             return (
               <div key={p.id} onClick={()=>verPreviaParte(p)} style={{background:"#151b2a",border:"1px solid "+(dentroDeCadena?"#f59e0b33":"#2a3550"),borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}}>
                 <div style={{flex:1}}>
+                  <div style={{color:"#6b7a99",fontWeight:700,fontSize:11,marginBottom:3,fontFamily:"monospace",letterSpacing:".3px"}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</div>
                   <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>
                     {dentroDeCadena&&<span style={{color:"#f59e0b",marginRight:6}}>{p.numContinuacion>0?("CONT"+p.numContinuacion):"Inicio"}</span>}
                     {fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#6b7a99",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span>
