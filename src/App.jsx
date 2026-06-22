@@ -454,26 +454,28 @@ const StatCard = ({ label, value, icon, accent, sub }) => (
   </div>
 );
 const crearNotif = (userId,tipo,titulo,mensaje) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false});
-const NotifPanel = ({ notifs, onLeer, onLeerTodas, onClose, onIrAlChat }) => {
-  const noL=notifs.filter(n=>!n.leida);
+const NotifPanel = ({ notifs, onClose, onIrAlChat }) => {
+  // La campanita ya no gestiona "no leídas": todo se informa mediante pop-ups al conectar
+  // (que el usuario lee y cierra uno a uno), así que aquí solo se muestra el historial
+  // de todo lo que ya se le ha mostrado, en modo lista.
   return (
     <div style={{position:"absolute",top:52,right:0,width:370,background:"#151b2a",border:"1px solid #2a3550",borderRadius:16,boxShadow:"0 20px 60px rgba(0,0,0,.6)",zIndex:500}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #2a3550"}}>
-        <span style={{fontWeight:800,fontSize:14,color:"#f1f3f9"}}>Notificaciones {noL.length>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,marginLeft:6}}>{noL.length}</span>}</span>
-        <div style={{display:"flex",gap:8}}>{noL.length>0&&<button onClick={onLeerTodas} style={{fontSize:11,color:"#3b82f6",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Leer todas</button>}<button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#6b7a99"}}><Icon name="close" size={15}/></button></div>
+        <span style={{fontWeight:800,fontSize:14,color:"#f1f3f9"}}>Historial de avisos</span>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#6b7a99"}}><Icon name="close" size={15}/></button>
       </div>
       <div style={{maxHeight:380,overflow:"auto"}}>
         {notifs.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#6b7a99",fontSize:13}}>Sin notificaciones</div>}
         {notifs.map(n=>{
           const esChat = n.tipo==="chat";
           return(
-          <div key={n.id} onClick={()=>{onLeer(n.id);if(esChat&&onIrAlChat){onIrAlChat();onClose();}}}
-            style={{padding:"12px 18px",borderBottom:"1px solid #1a2236",cursor:"pointer",background:n.leida?"transparent":"#1e2a3a",display:"flex",gap:10}}
-            onMouseEnter={e=>e.currentTarget.style.background=n.leida?"#151b2a":"#243040"}
-            onMouseLeave={e=>e.currentTarget.style.background=n.leida?"transparent":"#1e2a3a"}>
-            <div style={{width:7,height:7,borderRadius:4,background:n.leida?"transparent":esChat?"#06b6d4":"#ef4444",marginTop:5,flexShrink:0}}/>
+          <div key={n.id} onClick={()=>{if(esChat&&onIrAlChat){onIrAlChat();onClose();}}}
+            style={{padding:"12px 18px",borderBottom:"1px solid #1a2236",cursor:esChat?"pointer":"default",background:"transparent",display:"flex",gap:10}}
+            onMouseEnter={e=>{if(esChat)e.currentTarget.style.background="#1e2a3a";}}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            <div style={{width:7,height:7,borderRadius:4,background:esChat?"#06b6d4":"#6b7a9966",marginTop:5,flexShrink:0}}/>
             <div style={{flex:1}}>
-              <div style={{color:n.leida?"#8892a4":"#f1f3f9",fontWeight:n.leida?400:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+              <div style={{color:"#8892a4",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>
                 {n.titulo}
                 {esChat&&<span style={{background:"#06b6d420",color:"#06b6d4",border:"1px solid #06b6d433",borderRadius:4,padding:"0 5px",fontSize:9,fontWeight:700}}>IR AL CHAT →</span>}
               </div>
@@ -7478,17 +7480,65 @@ export default function App() {
     document.head.appendChild(style);
     return () => { const el = document.getElementById(id); if(el) el.remove(); };
   }, []);
+  const [popupQueue,setPopupQueue]=useState([]);
+  // Al conectar (una vez por sesión de navegador), se construye una cola de pop-ups que el
+  // usuario tiene que ir leyendo y cerrando uno a uno: 1) tareas nuevas/completadas sin leer,
+  // 2) una por cada tarea pendiente, 3) avisos nuevos agrupados (solo la primera vez que se ven),
+  // 4) mensajes de chat nuevos + resumen de todos los avisos pendientes, juntos.
+  // La campanita deja de llevar contador de "no leídas": cada pop-up cerrado queda registrado
+  // y marcado como leído, así que la campanita pasa a ser solo el historial en modo lista.
   useEffect(()=>{
     if(!user)return;
-    const key=`rd_${user.id}_${today()}`;
+    const key=`conn_${user.id}`;
     if(sessionStorage.getItem(key))return;
     sessionStorage.setItem(key,"1");
-    const act=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
-    if(act.length===0)return;
-    const resumen=act.slice(0,5).map(a=>`· ${a.titulo} (${diasDesde(a.fechaAviso)} días)`).join("\n");
-    const n=crearNotif(user.id,"diario","📋 Resumen diario — "+today(),`${act.length} avisos activos:\n${resumen}`);
-    setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:[n,...(d.notificaciones[user.id]||[])]}}));
+    const misNotifsIniciales=data.notificaciones[user.id]||[];
+    const cola=[];
+    misNotifsIniciales.filter(n=>!n.leida&&(n.tipo==="tarea"||n.tipo==="tarea_ok")).forEach(n=>{
+      cola.push({id:"n_"+n.id,notifId:n.id,titulo:n.titulo,mensaje:n.mensaje,color:"#3b82f6"});
+    });
+    data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
+      cola.push({id:"tp_"+t.id,titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — vence ${t.vence||"sin fecha"}`,color:"#f59e0b",sintetico:true,logTipo:"tarea_pendiente"});
+    });
+    const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
+    if(avisosNuevos.length>0){
+      cola.push({
+        id:"av_grupo",notifIds:avisosNuevos.map(n=>n.id),color:"#ef4444",
+        titulo:`🔔 ${avisosNuevos.length} aviso${avisosNuevos.length>1?"s":""} nuevo${avisosNuevos.length>1?"s":""}`,
+        mensaje:avisosNuevos.map(n=>"· "+n.titulo.replace("🔔 Nuevo aviso: ","")).join("\n")
+      });
+    }
+    const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
+    const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
+    if(chatsNuevos.length>0||avisosPend.length>0){
+      const partes=[];
+      if(chatsNuevos.length>0)partes.push(`💬 ${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}:\n`+chatsNuevos.map(n=>"· "+n.mensaje).join("\n"));
+      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+avisosPend.slice(0,8).map(a=>"· "+a.titulo).join("\n"));
+      cola.push({
+        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",
+        titulo:"📨 Resumen de tu conexión",mensaje:partes.join("\n\n"),
+        sintetico:avisosPend.length>0,logTipo:"avisos_pendientes_resumen"
+      });
+    }
+    if(cola.length>0)setPopupQueue(cola);
   },[user]);
+  const cerrarPopup=()=>{
+    const actual=popupQueue[0];
+    if(actual){
+      setData(d=>{
+        const propios=d.notificaciones[user.id]||[];
+        const idsAleer=new Set([actual.notifId,...(actual.notifIds||[])].filter(Boolean));
+        let actualizados=idsAleer.size>0?propios.map(n=>idsAleer.has(n.id)?{...n,leida:true}:n):propios;
+        if(actual.sintetico){
+          const registro=crearNotif(user.id,actual.logTipo||"popup",actual.titulo,actual.mensaje);
+          registro.leida=true;
+          actualizados=[registro,...actualizados];
+        }
+        return {...d,notificaciones:{...d.notificaciones,[user.id]:actualizados}};
+      });
+    }
+    setPopupQueue(q=>q.slice(1));
+  };
   const [avisoAAbrir,setAvisoAAbrir]=useState(null);
   const irAAviso=id=>{setAvisoAAbrir(id);setActive("asistencia");};
   const [clienteAAbrir,setClienteAAbrir]=useState(null);
@@ -7541,15 +7591,15 @@ export default function App() {
     const n=crearNotif(userId,tipo,titulo,mensaje);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[userId]:[n,...(d.notificaciones[userId]||[])]}}));
   };
+  // La campanita ya no lleva contador de "no leídas": todo lo relevante se informa mediante
+  // los pop-ups secuenciales al conectar (ver popupQueue/cerrarPopup más arriba), que se marcan
+  // como leídos al cerrarlos. La campanita es ahora solo el historial en modo lista.
   const misNotifs=data.notificaciones[user.id]||[];
-  const noLeidas=misNotifs.filter(n=>!n.leida).length;
   const avisosActivos=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
   // El badge de "Avisos" en la nav debe reflejar solo los avisos activos: antes se le sumaba
   // también el recuento de "reparaciones" (un dato antiguo que no se gestiona desde ninguna
   // pantalla), lo que hacía que con p.ej. 2 avisos activos el número mostrado fuera 4.
   const asistenciaActiva=avisosActivos;
-  const leerN=id=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>n.id===id?{...n,leida:true}:n)}}));
-  const leerT=()=>setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>({...n,leida:true}))}}));
   const misTareasPend=data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").length;
   const navV=NAV_ITEMS.filter(n=>puedeVer(user.rol,n.id));
   const bottomNav = navV.slice(0,4);
@@ -7577,10 +7627,10 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
             <div ref={notifRef} style={{position:"relative"}}>
-              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:noLeidas>0?"#ef4444":"#6b7a99",display:"flex",alignItems:"center",gap:3}}>
-                <Icon name="bell" size={16}/>{noLeidas>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:8,padding:"1px 5px",fontSize:10,fontWeight:800}}>{noLeidas}</span>}
+              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:"#6b7a99",display:"flex",alignItems:"center",gap:3}}>
+                <Icon name="bell" size={16}/>
               </button>
-              {notifOpen&&<NotifPanel notifs={misNotifs} onLeer={leerN} onLeerTodas={leerT} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
+              {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
             </div>
             <Avatar u={user} size={28} fontSize={11} onClick={()=>setCuentaOpen(true)}/>
           </div>
@@ -7593,10 +7643,10 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
           <div ref={notifRef} style={{position:"relative"}}>
-            <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:noLeidas>0?"#ef4444":"#6b7a99",display:"flex",alignItems:"center",gap:4}}>
-              <Icon name="bell" size={16}/>{noLeidas>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:8,padding:"1px 5px",fontSize:10,fontWeight:800}}>{noLeidas}</span>}
+            <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:"#6b7a99",display:"flex",alignItems:"center",gap:4}}>
+              <Icon name="bell" size={16}/>
             </button>
-            {notifOpen&&<NotifPanel notifs={misNotifs} onLeer={leerN} onLeerTodas={leerT} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
+            {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
           </div>
           </div>
         </>
@@ -7729,6 +7779,21 @@ export default function App() {
       {isMobile&&<BottomNav/>}
       {isMobile&&<MoreDrawer/>}
       {cuentaOpen&&<MiCuenta userActual={user} setData={setData} onUpdateUser={setUser} onClose={()=>setCuentaOpen(false)}/>}
+      {popupQueue.length>0&&(()=>{const p=popupQueue[0];return(
+        <div style={{position:"fixed",inset:0,background:"rgba(5,8,15,.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:20}}>
+          <div style={{width:"min(440px,100%)",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+              <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,fontSize:20,flexShrink:0}}>🔔</div>
+              <div style={{color:"#f1f3f9",fontWeight:900,fontSize:16,lineHeight:1.3}}>{p.titulo}</div>
+            </div>
+            <div style={{color:"#c7d0e0",fontSize:13,whiteSpace:"pre-line",lineHeight:1.55,marginBottom:22}}>{p.mensaje}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+              <span style={{color:"#6b7a99",fontSize:11,fontWeight:700}}>{popupQueue.length>1?`+${popupQueue.length-1} más`:""}</span>
+              <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>Entendido, cerrar</button>
+            </div>
+          </div>
+        </div>
+      );})()}
     </div>
   );
 }
