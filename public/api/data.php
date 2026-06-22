@@ -48,6 +48,15 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Copias de seguridad periódicas (red de seguridad ante sobrescrituras
+// accidentales, p.ej. por condiciones de carrera entre varios dispositivos).
+// Como mucho una copia cada 30 minutos, y se conservan 14 días.
+$pdo->exec("CREATE TABLE IF NOT EXISTS app_data_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    data LONGTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->query("SELECT data, updated_at FROM app_data WHERE id = 1");
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -76,6 +85,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          ON DUPLICATE KEY UPDATE data = :data2"
     );
     $stmt->execute(['data' => $raw, 'data2' => $raw]);
+
+    // Copia de seguridad: solo si la última copia tiene más de 30 minutos,
+    // para no acumular una fila por cada guardado (que puede ser cada pocos
+    // segundos mientras alguien está trabajando).
+    try {
+        $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 1800);
+        if ($debeCopiar) {
+            $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
+            $insHist->execute(['data' => $raw]);
+            $pdo->exec("DELETE FROM app_data_history WHERE created_at < (NOW() - INTERVAL 14 DAY)");
+        }
+    } catch (Exception $e) {
+        // La copia de seguridad nunca debe impedir que el guardado principal funcione.
+    }
 
     $stmt2 = $pdo->query("SELECT updated_at FROM app_data WHERE id = 1");
     $updated = $stmt2->fetch(PDO::FETCH_ASSOC);

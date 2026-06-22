@@ -7214,8 +7214,18 @@ export default function App() {
     try { localStorage.setItem("em_data", JSON.stringify(data)); } catch(e){}
   },[data]);
 
-  // Guardar en el servidor cuando cambian los datos (con pequeño debounce)
+  // Guardar en el servidor cuando cambian los datos (con pequeño debounce).
+  // IMPORTANTE: mientras la carga inicial (efecto anterior) no haya terminado
+  // (syncStatus==="cargando"), NO guardamos nada. Sin esta comprobación, al
+  // abrir la app este efecto se dispara en el primer render con los datos
+  // obsoletos de localStorage (posiblemente de horas antes) y, si la respuesta
+  // del servidor tarda más de los 1200ms de debounce, ese guardado obsoleto
+  // se ejecuta primero y sobrescribe todo lo que otros usuarios guardaron
+  // mientras tanto. Esta condición de carrera es la causa más probable de
+  // la pérdida de datos: con varios usuarios a la vez la respuesta del
+  // servidor puede tardar más de 1.2s perfectamente.
   useEffect(()=>{
+    if(syncStatus==="cargando") return;
     const json = JSON.stringify(data);
     if(json === lastSyncedRef.current) return;
     setSyncStatus("guardando");
@@ -7226,7 +7236,7 @@ export default function App() {
         .catch(()=>setSyncStatus("error"));
     }, 1200);
     return ()=>clearTimeout(saveTimerRef.current);
-  },[data]);
+  },[data, syncStatus]);
 
   // Pull periódico para ver cambios hechos por otros usuarios (solo si no tenemos
   // cambios locales propios pendientes de guardar, para no pisarlos)
