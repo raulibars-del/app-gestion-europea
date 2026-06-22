@@ -2877,6 +2877,20 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [buscarArt, setBuscarArt] = useState("");
   const [buscarParte, setBuscarParte] = useState(""); // buscador del listado: por nº de parte, cliente o fecha
   const canvasRef = useRef(null);
+  // Captura la firma dibujada en el canvas como imagen para persistirla en el parte
+  // (asi la vista previa de "ya firmado" puede mostrar la firma real, no solo un recuadro vacio).
+  // Solo devuelve algo si se ha dibujado en esta sesion (firmada=true); si no, null (se conserva la anterior).
+  const capturarFirmaImagen = () => {
+    if (!firmada || !canvasRef.current) return null;
+    try {
+      const tmp = document.createElement("canvas");
+      tmp.width = canvasRef.current.width; tmp.height = canvasRef.current.height;
+      const tctx = tmp.getContext("2d");
+      tctx.fillStyle = "#ffffff"; tctx.fillRect(0, 0, tmp.width, tmp.height);
+      tctx.drawImage(canvasRef.current, 0, 0);
+      return tmp.toDataURL("image/jpeg", 0.85);
+    } catch (e) { return null; }
+  };
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
   const rL = id => { const r = data.reparaciones.find(r => r.id === parseInt(id)); return r ? `#${r.id} · ${r.maquina}` : "—"; };
@@ -3296,10 +3310,15 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28);
         y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
+    } else if(parte.firmaImagen){
+      // Sin canvas en vivo (vista previa de solo lectura): usar la firma ya guardada del parte
+      try { doc.addImage(parte.firmaImagen,"JPEG",mg,y,80,28); y+=32; }
+      catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
     } else { doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
     doc.setTextColor(107,122,153); doc.setFontSize(8);
     doc.text("Firma y sello del cliente",mg,y); y+=8;
-    doc.text("Fecha de firma: "+today(),mg,y);
+    if(parte.firmaNombre?.trim()){ doc.text("Firmado por: "+parte.firmaNombre,mg,y); y+=6; }
+    doc.text("Fecha de firma: "+(parte.fechaFirma||today()),mg,y);
     // Pie de página — en todas las paginas del documento
     const totalPaginas = doc.getNumberOfPages();
     for(let pg=1; pg<=totalPaginas; pg++){
@@ -3420,9 +3439,15 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       {p.conforme?"✅ Conforme":"❌ No conforme"}
                     </div>
                   )}
+                  <div title={p.firmaNombre?("Firmado por "+p.firmaNombre):"Aún no firmado por el cliente"} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.firmaNombre?"#16a34a20":"#f59e0b20",color:p.firmaNombre?"#16a34a":"#f59e0b",border:"1px solid "+(p.firmaNombre?"#16a34a44":"#f59e0b44")}}>
+                    {p.firmaNombre?"✍️ Firmado":"⏳ Sin firmar"}
+                  </div>
                   <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                    <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
+                    <button onClick={() => verPreviaParte(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       <Icon name="parts" size={12} />PDF
+                    </button>
+                    <button onClick={() => abrirPDF(p)} title={p.firmaNombre?"Volver a firmar / corregir firma":"Firmar parte"} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
+                      ✍️ Firmar
                     </button>
                     <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
                     <button onClick={() => setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }))} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
@@ -3926,7 +3951,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
                     // Guardar firmaNombre y conformidad en el parte (y en toda la cadena si aplica)
                     const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
-                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
+                    const nuevaFirmaImg = capturarFirmaImagen();
+                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
                     generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true,modalPDFCadena);
                   }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
                     <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
@@ -3934,7 +3960,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
                     const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
-                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad}:pt)}));
+                    const nuevaFirmaImg = capturarFirmaImagen();
+                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
                     enviarEmail();
                   }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
                     {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
