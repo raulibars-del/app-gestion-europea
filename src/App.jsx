@@ -3112,6 +3112,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   // Abre el PDF combinado de toda la cadena (todas las visitas del mismo trabajo, una
   // debajo de otra), usando como representante el ultimo parte (el que cierra el trabajo).
   const abrirPDFCadena = (grupo) => abrirPDF(grupo[grupo.length-1], grupo);
+  // Al pulsar una fila de la lista de Partes: vista previa solo lectura con toda la
+  // info (mismo documento que se envia por email), igual que al navegar desde Maquina.
+  const verPreviaParte = (p) => {
+    const cadena = obtenerCadenaPartes(data.partes, p);
+    abrirPDFLectura(cadena.length>1 ? cadena[cadena.length-1] : p, cadena);
+  };
   const generarYDescargarPDF = async (parte, conFirma, soloDescarga, cadenaCompleta) => {
     // jsPDF importado estáticamente
     const cl = parte.clienteDirectoId ? data.clientes.find(c=>c.id===parte.clienteDirectoId) : rCliente(parte.reparacionId);
@@ -3358,7 +3364,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               ? data.clientes.find(c => c.id === p.clienteDirectoId)
               : rCliente(p.reparacionId);
             return (
-              <div key={p.id} style={{background:"#151b2a",border:"1px solid "+(dentroDeCadena?"#f59e0b33":"#2a3550"),borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div key={p.id} onClick={()=>verPreviaParte(p)} style={{background:"#151b2a",border:"1px solid "+(dentroDeCadena?"#f59e0b33":"#2a3550"),borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}}>
                 <div style={{flex:1}}>
                   <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>
                     {dentroDeCadena&&<span style={{color:"#f59e0b",marginRight:6}}>{p.numContinuacion>0?("CONT"+p.numContinuacion):"Inicio"}</span>}
@@ -3392,7 +3398,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       {p.conforme?"✅ Conforme":"❌ No conforme"}
                     </div>
                   )}
-                  <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                  <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                     <button onClick={() => abrirPDF(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       <Icon name="parts" size={12} />PDF
                     </button>
