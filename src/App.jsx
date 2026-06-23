@@ -7512,7 +7512,7 @@ export default function App() {
     const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     if(chatsNuevos.length>0||avisosPend.length>0){
       const partes=[];
-      if(chatsNuevos.length>0)partes.push(`💬 ${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+": "+n.mensaje).join("\n"));
+      if(chatsNuevos.length>0)partes.push(`💬 Últimos mensajes de chat recibidos (${chatsNuevos.length}) — quién escribe y en qué canal:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+" → \""+n.mensaje+"\"").join("\n"));
       if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+avisosPend.slice(0,8).map(a=>"· "+a.titulo+" — "+(data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente")).join("\n"));
       cola.push({
         id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",
