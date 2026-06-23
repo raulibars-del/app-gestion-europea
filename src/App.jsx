@@ -2050,6 +2050,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <div style={{color:"#9aa3b8",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                   <span style={{color:"#6b7a99",fontSize:11}}>🏢 {cN(av.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return cl?.esCliente?<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>CLIENTE</span>:null;})()}</span>
+                  {(av.marca||av.modelo||av.matricula) && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>}
                   <span style={{color:"#6b7a99",fontSize:11}}>👤 {av.dadoPor}</span>
                   <span style={{color:"#6b7a99",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
                   {av.fechaUltimaIntervencion && (
