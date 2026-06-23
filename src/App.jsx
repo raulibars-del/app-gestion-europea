@@ -74,28 +74,58 @@ const backfillCodigosMaquina = (d) => {
   });
   return changed ? {...d, stock, clientes} : d;
 };
-// Consumibles "clave" (colas muy recurrentes) que deben tener siempre su recuadro de
-// stock en Inventario. Si una instalación ya tenía datos en el servidor sin estos
-// artículos, los añadimos aquí (sin stock) en vez de obligar a crearlos a mano.
-const CONSUMIBLES_CLAVE_NOMBRES = ["Cola cartucho natural","Cola cartucho transparente","Cola cartucho blanca","Saco cola natural","Saco cola transparente","Saco de cola blanca"];
+// Consumibles "clave" que deben tener siempre su recuadro de stock en Inventario,
+// código fijo INV0001..INV0009 (en este orden) y una estrella que los distinga en el
+// listado. Si una instalación ya tenía datos en el servidor sin estos artículos (o con
+// la lista anterior de 6 colas), se migran aquí automáticamente en vez de obligar a
+// tocarlos a mano: se eliminan los que ya no están en esta lista, se crean/actualizan
+// los 9 con su código fijo, y el resto de artículos existentes se renumera de forma
+// secuencial a partir de INV0010 (conservando su id interno, así no se rompen las
+// referencias por id desde partes/albaranes/historial).
+const CONSUMIBLES_CLAVE_NOMBRES = [
+  "Caja cola natural 15 kg HKP21",
+  "Caja transparente 15 kg HKP20",
+  "Caja blanca 15 kg HKP21 White",
+  "Saco cola natural 25 kg KS220/1",
+  "Saco cola transparente 25 kg KS351",
+  "Saco cola blanco 25 kg KS351 White",
+  "Saco cola baja temperatura KS224/2",
+  "Líquido antiadherente LC2/10",
+  "Líquido limpiador máquina LC2/30",
+];
 const backfillConsumiblesClave = (d) => {
   const inv = d.inventario || [];
-  const nums = inv.map(i=>parseInt((i.codigo||"").replace(/^INV-?/,""))||0);
-  let max = nums.length ? Math.max(...nums) : 0;
-  const sig = () => { max+=1; return "INV"+String(max).padStart(4,"0"); };
   let changed = false;
-  let nuevoInv = inv.map(it => {
-    if (CONSUMIBLES_CLAVE_NOMBRES.includes(it.nombre) && !it.consumibleClave) { changed = true; return {...it, consumibleClave:true}; }
-    return it;
+  // 1) Quitar los consumibles clave antiguos que ya no están en la lista vigente
+  //    (p.ej. la anterior tanda de "cola cartucho/saco" sustituida por esta).
+  let nuevoInv = inv.filter(it => {
+    if (it.consumibleClave && !CONSUMIBLES_CLAVE_NOMBRES.includes(it.nombre)) { changed = true; return false; }
+    return true;
   });
-  // IDs enteros consecutivos (nunca decimales: el resto de la app compara IDs con
-  // === y un id con decimales podría truncarse al pasar por inputs/selects HTML).
+  // 2) Asegurar que existen los 9 vigentes, marcados como consumibleClave, con su
+  //    código fijo INV0001..INV0009 según su posición en la lista.
   let nextId = Date.now();
-  CONSUMIBLES_CLAVE_NOMBRES.forEach(nombre => {
-    if (!nuevoInv.some(i => i.nombre === nombre)) {
+  CONSUMIBLES_CLAVE_NOMBRES.forEach((nombre, i) => {
+    const codigoFijo = "INV" + String(i + 1).padStart(4, "0");
+    const existente = nuevoInv.find(it => it.nombre === nombre);
+    if (!existente) {
       changed = true;
-      nuevoInv = [...nuevoInv, {id:nextId++, codigo:sig(), nombre, descripcion:nombre, categoria:"Cola", unidad:"ud", stock:0, stockMin:5, precioCompra:0, precioVenta:0, consumibleClave:true}];
+      nuevoInv = [...nuevoInv, {id:nextId++, codigo:codigoFijo, nombre, descripcion:nombre, categoria:"Cola", unidad:"ud", stock:0, stockMin:5, precioCompra:0, precioVenta:0, consumibleClave:true}];
+    } else if (existente.codigo !== codigoFijo || !existente.consumibleClave) {
+      changed = true;
+      nuevoInv = nuevoInv.map(it => it===existente ? {...it, codigo:codigoFijo, consumibleClave:true} : it);
     }
+  });
+  // 3) Renumerar el resto de artículos (no consumibles clave) secuencialmente desde
+  //    INV0010, en su orden actual, sin tocar su id.
+  let n = 10;
+  nuevoInv = nuevoInv.map(it => {
+    if (it.consumibleClave) return it;
+    const codigoFijo = "INV" + String(n).padStart(4, "0");
+    n += 1;
+    if (it.codigo === codigoFijo) return it;
+    changed = true;
+    return {...it, codigo: codigoFijo};
   });
   return changed ? {...d, inventario: nuevoInv} : d;
 };
@@ -248,15 +278,18 @@ const initialData = {
       ],comerciales:[],
     },privados:{},
   },fichajes:[],notificaciones:{},documentacion:[],calendario:[],inventario:[
-    {id:1,codigo:"INV0001",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
-    {id:2,codigo:"INV0002",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
-    {id:3,codigo:"INV0003",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
-    {id:4,codigo:"INV0004",nombre:"Cola cartucho natural",descripcion:"Cartucho de cola natural",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
-    {id:5,codigo:"INV0005",nombre:"Cola cartucho transparente",descripcion:"Cartucho de cola transparente",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
-    {id:6,codigo:"INV0006",nombre:"Cola cartucho blanca",descripcion:"Cartucho de cola blanca",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
-    {id:7,codigo:"INV0007",nombre:"Saco cola natural",descripcion:"Saco de cola natural",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
-    {id:8,codigo:"INV0008",nombre:"Saco cola transparente",descripcion:"Saco de cola transparente",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
-    {id:9,codigo:"INV0009",nombre:"Saco de cola blanca",descripcion:"Saco de cola blanca",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:1,codigo:"INV0001",nombre:"Caja cola natural 15 kg HKP21",descripcion:"Caja de cola natural 15 kg HKP21",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:2,codigo:"INV0002",nombre:"Caja transparente 15 kg HKP20",descripcion:"Caja de cola transparente 15 kg HKP20",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:3,codigo:"INV0003",nombre:"Caja blanca 15 kg HKP21 White",descripcion:"Caja de cola blanca 15 kg HKP21 White",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:4,codigo:"INV0004",nombre:"Saco cola natural 25 kg KS220/1",descripcion:"Saco de cola natural 25 kg KS220/1",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:5,codigo:"INV0005",nombre:"Saco cola transparente 25 kg KS351",descripcion:"Saco de cola transparente 25 kg KS351",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:6,codigo:"INV0006",nombre:"Saco cola blanco 25 kg KS351 White",descripcion:"Saco de cola blanca 25 kg KS351 White",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:7,codigo:"INV0007",nombre:"Saco cola baja temperatura KS224/2",descripcion:"Saco de cola baja temperatura KS224/2",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:8,codigo:"INV0008",nombre:"Líquido antiadherente LC2/10",descripcion:"Líquido antiadherente LC2/10",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:9,codigo:"INV0009",nombre:"Líquido limpiador máquina LC2/30",descripcion:"Líquido limpiador de máquina LC2/30",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
+    {id:10,codigo:"INV0010",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
+    {id:11,codigo:"INV0011",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
+    {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
 };
 const Icon = ({ name, size=18 }) => {
@@ -454,6 +487,23 @@ const StatCard = ({ label, value, icon, accent, sub }) => (
   </div>
 );
 const crearNotif = (userId,tipo,titulo,mensaje,extra) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false,...(extra||{})});
+// Notifica a todos los usuarios activos cuando varía el stock de un consumible clave:
+// si sube (diff>0) se informa la cantidad añadida; si baja (diff<0) se indica qué
+// cliente lo retiró (o "ajuste manual" si no hay cliente, p.ej. al ajustar stock a mano).
+const notifsStockConsumible = (notifsObj, usuarios, item, diff, clienteNombre) => {
+  if (!diff) return notifsObj;
+  const unidad = item.unidad || "ud";
+  const titulo = diff > 0 ? `⭐ +${diff} ${item.nombre}` : `⭐ -${Math.abs(diff)} ${item.nombre}`;
+  const mensaje = diff > 0
+    ? `Se han añadido ${diff} ${unidad} de "${item.nombre}". Stock actual: ${item.stock} ${unidad}.`
+    : `Se han retirado ${Math.abs(diff)} ${unidad} de "${item.nombre}" — ${clienteNombre ? `Cliente: ${clienteNombre}` : "ajuste manual"}. Stock actual: ${item.stock} ${unidad}.`;
+  const nn = {...notifsObj};
+  (usuarios||[]).filter(u=>u.activo).forEach(u=>{
+    const n = crearNotif(u.id, "stock_consumible", titulo, mensaje, {inventarioId:item.id});
+    nn[u.id] = [n, ...(nn[u.id]||[])];
+  });
+  return nn;
+};
 const NotifPanel = ({ notifs, onClose, onIrAlChat }) => {
   // La campanita ya no gestiona "no leídas": todo se informa mediante pop-ups al conectar
   // (que el usuario lee y cierra uno a uno), así que aquí solo se muestra el historial
@@ -503,7 +553,7 @@ const Login = ({ usuarios, onLogin }) => {
         <Field label="Contraseña"><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()}/></Field>
         {err&&<div style={{background:"#dc262618",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",color:"#dc2626",fontSize:13,marginBottom:12}}>{err}</div>}
         <button onClick={handle} style={{...btnPrimary,width:"100%",justifyContent:"center",padding:"12px",fontSize:15,marginTop:4}}>Iniciar sesión</button>
-        <div style={{marginTop:20,textAlign:"center",color:"#6b7a99",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software creado por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v1.0</div>
+        <div style={{marginTop:20,textAlign:"center",color:"#6b7a99",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
       </div>
     </div>
   );
@@ -2593,13 +2643,17 @@ const Tareas = ({ data, setData, userActual }) => {
     // Las tareas de empresa puede completarlas cualquier miembro; las individuales solo el asignado.
     if (!t.esEmpresa && t.asignadoId !== userActual.id) return;
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
+    if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
     setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null } : x) }));
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
     }
   };
-  const del = id => setData(d => ({ ...d,tareas: d.tareas.filter(t => t.id !== id) }));
+  const del = (id, titulo) => {
+    if (!window.confirm(`¿Seguro que desea eliminar la tarea "${titulo || ""}"? Esta acción no se puede deshacer.`)) return;
+    setData(d => ({ ...d,tareas: d.tareas.filter(t => t.id !== id) }));
+  };
   const venceColor = vence => {
     const d = diasVence(vence);
     if (d < 0) return "#dc2626";
@@ -2692,7 +2746,7 @@ const Tareas = ({ data, setData, userActual }) => {
                 {/* Solo editar/borrar si la creé yo o soy manager/admin */}
                 {(creadoPorMi || userActual.rol === "manager" || userActual.rol === "admin") && <>
                   <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
-                  <button onClick={() => del(t.id)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                  <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                 </>}
               </div>
             </div>
@@ -2732,7 +2786,7 @@ const Tareas = ({ data, setData, userActual }) => {
                     <Badge text={t.prioridad} />
                     <Badge text={t.estado} />
                     <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
-                    <button onClick={() => del(t.id)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                    <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                   </div>
                 </div>
               );
@@ -3028,6 +3082,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       // interno), nunca por nombre, para no mezclar artículos distintos con el mismo nombre.
       let inv = revertirInventarioParte(nuevo.inventario, item.id);
       const entregasInv = listaMateriales.filter(m => m.esInventario && m.inventarioId);
+      let notifsInv = nuevo.notificaciones;
       if (entregasInv.length > 0) {
         inv = inv.map(it => {
           const propias = entregasInv.filter(m => m.inventarioId === it.id);
@@ -3038,10 +3093,16 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             stock -= cant;
             return { id:Date.now()+Math.random(), fecha:item.fecha, clienteNombre, parteId:item.id, numeroParte:item.numeroParte, cantidad:cant };
           });
-          return { ...it, stock: Math.max(0, stock), historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
+          stock = Math.max(0, stock);
+          if (it.consumibleClave) {
+            const totalRetirado = propias.reduce((s,m)=>s+(parseFloat(m.cantidad)||0),0);
+            notifsInv = notifsStockConsumible(notifsInv, nuevo.usuarios, {...it, stock}, -totalRetirado, clienteNombre);
+          }
+          return { ...it, stock, historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
         });
       }
       nuevo.inventario = inv;
+      nuevo.notificaciones = notifsInv;
       return nuevo;
     });
     setModal(null);
@@ -4354,6 +4415,7 @@ const Albaran = ({ data, setData, userActual }) => {
       // por nombre, para no mezclar artículos distintos con el mismo nombre.
       let inv = revertirInventarioAlbaran(nuevo.inventario, albaranId);
       const entregasInv = lineasFinal.filter(l => l.inventarioId);
+      let notifsInv = nuevo.notificaciones;
       if (entregasInv.length > 0) {
         inv = inv.map(it => {
           const propias = entregasInv.filter(l => l.inventarioId === it.id);
@@ -4364,10 +4426,16 @@ const Albaran = ({ data, setData, userActual }) => {
             stock -= cant;
             return { id:Date.now()+Math.random(), fecha:item.fecha, clienteNombre:item.receptorNombre, albaranId, numeroAlbaran:item.numero, cantidad:cant };
           });
-          return { ...it, stock: Math.max(0, stock), historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
+          stock = Math.max(0, stock);
+          if (it.consumibleClave) {
+            const totalRetirado = propias.reduce((s,l)=>s+(parseFloat(l.cant)||0),0);
+            notifsInv = notifsStockConsumible(notifsInv, nuevo.usuarios, {...it, stock}, -totalRetirado, item.receptorNombre);
+          }
+          return { ...it, stock, historialEntregas: [...nuevasEntregas, ...(it.historialEntregas||[])] };
         });
       }
       nuevo.inventario = inv;
+      nuevo.notificaciones = notifsInv;
       return nuevo;
     });
     setModal(false);
@@ -5123,7 +5191,19 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     const cant = parseInt(cantMovimiento)||0;
     if (!cant) return;
     const registro = {id:Date.now()+Math.random(), fecha:today(), tipo, cantidad:cant, usuario:userActual?.nombre||""};
-    setData(d => ({...d, inventario: d.inventario.map(i => i.id===modalMovimiento ? {...i, stock: tipo==="entrada" ? i.stock+cant : Math.max(0, i.stock-cant), historialAjustes:[registro, ...(i.historialAjustes||[])]} : i)}));
+    setData(d => {
+      let notifsInv = d.notificaciones;
+      const inv = d.inventario.map(i => {
+        if (i.id !== modalMovimiento) return i;
+        const stock = tipo==="entrada" ? i.stock+cant : Math.max(0, i.stock-cant);
+        const actualizado = {...i, stock, historialAjustes:[registro, ...(i.historialAjustes||[])]};
+        // El ajuste manual no tiene cliente asociado (a diferencia del consumo en
+        // partes/albaranes): si baja stock así, se informa como "ajuste manual".
+        if (i.consumibleClave) notifsInv = notifsStockConsumible(notifsInv, d.usuarios, actualizado, tipo==="entrada"?cant:-cant, null);
+        return actualizado;
+      });
+      return {...d, inventario: inv, notificaciones: notifsInv};
+    });
     setModalMovimiento(null); setCantMovimiento("");
   };
 
@@ -5273,7 +5353,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                         {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
                       </div>
                     </div>
-                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginTop:2}}>{item.nombre}</div>
+                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginTop:2}}>{item.consumibleClave && <span title="Consumible clave" style={{color:"#f59e0b"}}>★ </span>}{item.nombre}</div>
                     {item.descripcion && <div style={{color:"#6b7a99",fontSize:11,marginTop:1}}>{item.descripcion}</div>}
                     <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
                       {puedeVerCompra && <div style={{color:"#6b7a99",fontSize:11}}>Compra: EUR{(item.precioCompra||0).toFixed(2)}</div>}
@@ -5309,7 +5389,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                 <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                   {item.foto && <img src={item.foto} alt={item.nombre} style={{width:32,height:32,objectFit:"cover",borderRadius:6,border:"1px solid #2a3550",flexShrink:0}}/>}
                   <div style={{minWidth:0}}>
-                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13}}>{item.nombre}</div>
+                    <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13}}>{item.consumibleClave && <span title="Consumible clave" style={{color:"#f59e0b"}}>★ </span>}{item.nombre}</div>
                     {item.descripcion && <div style={{color:"#6b7a99",fontSize:11}}>{item.descripcion}</div>}
                   </div>
                 </div>
@@ -7519,6 +7599,14 @@ export default function App() {
         mensaje:avisosNuevos.map(n=>"· "+(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+clienteDeNotifAviso(n)).join("\n")
       });
     }
+    const stockNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="stock_consumible");
+    if(stockNuevos.length>0){
+      cola.push({
+        id:"stock_grupo",notifIds:stockNuevos.map(n=>n.id),color:"#f59e0b",
+        titulo:`⭐ ${stockNuevos.length} movimiento${stockNuevos.length>1?"s":""} de consumibles clave`,
+        mensaje:stockNuevos.map(n=>"· "+n.mensaje).join("\n")
+      });
+    }
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
     const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     if(chatsNuevos.length>0||avisosPend.length>0){
@@ -7700,7 +7788,7 @@ export default function App() {
               <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
             </div>
             <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#6b7a99",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
-            <div style={{marginTop:8,textAlign:"center",color:"#6b7a99",fontSize:10,lineHeight:1.5,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v1.0</div>
+            <div style={{marginTop:8,textAlign:"center",color:"#6b7a99",fontSize:10,lineHeight:1.5,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
           </>
         )}
       </div>
