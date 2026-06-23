@@ -787,36 +787,36 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
       <div style={{display:"grid",gap:9}}>
         {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; return(
-          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":"#151b2a",border:`1px solid ${esPropia?"#10b98155":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s"}}
+          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":"#151b2a",border:`1px solid ${esPropia?"#10b98155":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
             onMouseEnter={e=>e.currentTarget.style.borderColor=esPropia?"#10b981":"#3b82f6"}
             onMouseLeave={e=>e.currentTarget.style.borderColor=esPropia?"#10b98155":esCliente?"#3b82f644":"#2a3550"}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                  <div style={{color: esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:15}}>{c.nombreEmpresa}</div>
-                  {esPropia && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px"}}>🏠 PROPIA</span>}
-                  {esCliente && !esPropia && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px"}}>CLIENTE</span>}
-                  <span style={{color:"#6b7a99",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px"}}>📍 {c.localidad}</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
+              <div style={{flex:"1 1 200px",minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+                  <div style={{color: esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
+                  {esPropia && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
+                  {esCliente && !esPropia && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>CLIENTE</span>}
+                  <span style={{color:"#6b7a99",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px",flexShrink:0}}>📍 {c.localidad}</span>
                 </div>
-                <div style={{color:"#6b7a99",fontSize:11,marginBottom:8}}>🏢 {c.nombreFiscal}</div>
+                <div style={{color:"#6b7a99",fontSize:11,marginBottom:8,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {c.nombreFiscal}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  {pc&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:6}}>
+                  {pc&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:6,maxWidth:"100%",minWidth:0}}>
                     <div style={{width:22,height:22,borderRadius:5,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6",fontWeight:800,fontSize:10,flexShrink:0}}>{pc.nombre.charAt(0)}</div>
-                    <div>
-                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{pc.nombre} <span style={{color:"#6b7a99",fontWeight:400}}>· {pc.puesto}</span></div>
-                      <div style={{display:"flex",gap:8}}>
+                    <div style={{minWidth:0,overflow:"hidden"}}>
+                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflowWrap:"anywhere",wordBreak:"break-word"}}>{pc.nombre} <span style={{color:"#6b7a99",fontWeight:400}}>· {pc.puesto}</span></div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                         {pc.tel&&<a href={"tel:"+pc.tel.replace(/\s+/g,"")} onClick={e=>e.stopPropagation()} style={{color:"#9aa3b8",fontSize:11,textDecoration:"none"}}>📞 {pc.tel}</a>}
-                        {pc.email&&<a href={"mailto:"+pc.email} onClick={e=>e.stopPropagation()} style={{color:"#3b82f6",fontSize:11,textDecoration:"none"}}>{pc.email}</a>}
+                        {pc.email&&<a href={"mailto:"+pc.email} onClick={e=>e.stopPropagation()} style={{color:"#3b82f6",fontSize:11,textDecoration:"none",overflowWrap:"anywhere",wordBreak:"break-word"}}>{pc.email}</a>}
                       </div>
                     </div>
-                    {pc.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 5px",fontSize:9,fontWeight:700,marginLeft:2}}>★</span>}
+                    {pc.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 5px",fontSize:9,fontWeight:700,marginLeft:2,flexShrink:0}}>★</span>}
                   </div>}
                   {c.contactos.length>1&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",color:"#6b7a99",fontSize:11,display:"flex",alignItems:"center"}}>+{c.contactos.length-1} contacto{c.contactos.length>2?"s":""} más</div>}
                 </div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:16}}>
-                <div style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:700}}>🔧 {c.maquinas.length} máq.</div>
-                <span style={{color:"#3b82f6",fontSize:11,fontWeight:600}}>Ver ficha →</span>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
+                <div style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>🔧 {c.maquinas.length} máq.</div>
+                <span style={{color:"#3b82f6",fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>Ver ficha →</span>
               </div>
             </div>
           </div>
