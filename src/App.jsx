@@ -586,7 +586,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
-  const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase()));
+  const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'}));
   const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
   const cerrarPdfFicha=()=>{ if(pdfFicha) URL.revokeObjectURL(pdfFicha.url); setPdfFicha(null); };
   const compartirPdfFicha=async()=>{
@@ -5189,7 +5189,8 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
   const CAMPOS_BUSQUEDA_INV = ["codigo","nombre","descripcion","categoria","codigoExterno1","codigoExterno2","proveedorExterno1","proveedorExterno2"];
   const filtrados = data.inventario
     .filter(i => filtroCategoria === "Todas" || i.categoria === filtroCategoria)
-    .filter(i => coincideTexto(i, busq, CAMPOS_BUSQUEDA_INV));
+    .filter(i => coincideTexto(i, busq, CAMPOS_BUSQUEDA_INV))
+    .slice().sort((a,b) => (a.codigo||"").localeCompare(b.codigo||"", undefined, {numeric:true}));
 
   const save = () => {
     const item = {...form, precioCompra: parseFloat(form.precioCompra)||0, precioVenta: parseFloat(form.precioVenta)||0, stock: parseInt(form.stock)||0,
