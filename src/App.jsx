@@ -586,7 +586,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
-  const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'}));
+  const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
+  // "Europea de Maquinaria" (cliente interno, id 0) siempre va primero; el resto, alfabético.
+  if(a.id===0) return -1;
+  if(b.id===0) return 1;
+  return (a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'});
+});
   const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
   const cerrarPdfFicha=()=>{ if(pdfFicha) URL.revokeObjectURL(pdfFicha.url); setPdfFicha(null); };
   const compartirPdfFicha=async()=>{
@@ -4820,8 +4825,35 @@ const Albaran = ({ data, setData, userActual }) => {
     </div>
   );
 };
+// Carrusel de fotos para la ficha de Stock: muestra la foto principal primero,
+// con flechas para navegar y una franja de miniaturas clicables.
+const FotosCarousel = ({fotos}) => {
+  const [idx,setIdx] = useState(0);
+  if(!fotos || fotos.length===0) return null;
+  const ordenadas = [...fotos].sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
+  const i2 = Math.min(idx, ordenadas.length-1);
+  const foto = ordenadas[i2];
+  return (
+    <div>
+      <div style={{position:"relative",borderRadius:10,overflow:"hidden",background:"#000",height:260,display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <img src={foto.data} alt="" style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+        {foto.principal && <span style={{position:"absolute",top:8,left:8,background:"#f59e0b",color:"#fff",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800}}>★ Principal</span>}
+        {ordenadas.length>1 && <>
+          <button type="button" onClick={()=>setIdx(p=>(p-1+ordenadas.length)%ordenadas.length)} style={{position:"absolute",left:6,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.55)",border:"none",borderRadius:"50%",width:30,height:30,color:"#fff",cursor:"pointer",fontSize:16}}>‹</button>
+          <button type="button" onClick={()=>setIdx(p=>(p+1)%ordenadas.length)} style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,.55)",border:"none",borderRadius:"50%",width:30,height:30,color:"#fff",cursor:"pointer",fontSize:16}}>›</button>
+        </>}
+      </div>
+      {ordenadas.length>1 && <div style={{display:"flex",gap:6,marginTop:8,overflowX:"auto"}}>
+        {ordenadas.map((fo,i)=>(
+          <img key={i} src={fo.data} alt="" onClick={()=>setIdx(i)} style={{width:54,height:54,objectFit:"cover",borderRadius:6,cursor:"pointer",border:"2px solid "+(i===i2?"#10b981":"transparent"),opacity:i===i2?1:0.7,flexShrink:0}}/>
+        ))}
+      </div>}
+    </div>
+  );
+};
 const Stock=({data,setData,userActual})=>{
 const puedeEliminar=userActual?.rol==="manager";
+const puedeVerCompra=userActual?.rol==="manager"||userActual?.rol==="admin";
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [filtro,setFiltro]=useState("Disponible");const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
@@ -4829,7 +4861,7 @@ const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const filtradas=data.stock.filter(m=>filtro==="Todas"?true:filtro==="Disponible"?!m.vendida:m.vendida).filter(m=>!busq||`${m.marca} ${m.modelo} ${m.matricula}`.toLowerCase().includes(busq.toLowerCase()));
 const openNew=()=>{setForm({marca:"",modelo:"",matricula:"",anyo:new Date().getFullYear()+"",estado:"Nueva",precioVentaObj:"",vendida:false,notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[])]);setModal(true);};
-const save=()=>{const item={...form,precioVentaObj:parseFloat(form.precioVentaObj)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};if(!item.id)setData(d=>({...d,stock:[...d.stock,{...item,id:Date.now(),codigo:item.codigo||nextCodigoMaquina(d)}]}));else setData(d=>({...d,stock:d.stock.map(m=>m.id===item.id?(m.codigo?item:{...item,codigo:nextCodigoMaquina(d)}):m)}));setModal(false);if(vista)setVista(item.id||vista);};
+const save=()=>{const item={...form,estado:"Nueva",precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};if(!item.id)setData(d=>({...d,stock:[...d.stock,{...item,id:Date.now(),codigo:item.codigo||nextCodigoMaquina(d)}]}));else setData(d=>({...d,stock:d.stock.map(m=>m.id===item.id?(m.codigo?item:{...item,codigo:nextCodigoMaquina(d)}):m)}));setModal(false);if(vista)setVista(item.id||vista);};
 const venderMaquina=()=>{
   const m=data.stock.find(x=>x.id===modalVender);
   if(!m) return;
@@ -4838,7 +4870,7 @@ const venderMaquina=()=>{
   const maqId=Date.now();
   const maqFinal={
     id:maqId,nombre:`${m.marca} ${m.modelo}`,marca:m.marca,modelo:m.modelo,serie:m.matricula,anyo:m.anyo,
-    notas:m.notas||"",foto:(m.fotos&&m.fotos[0])?m.fotos[0].data:null,
+    notas:m.notas||"",foto:(()=>{const fp=(m.fotos||[]).find(x=>x.principal)||(m.fotos&&m.fotos[0]);return fp?fp.data:null;})(),
     codigo:m.codigo||nextCodigoMaquina(data),origenStock:true,fechaVenta:today(),
     fechaInstalacion:ventaFechaInstalacion||null,
   };
@@ -4856,7 +4888,7 @@ const venderMaquina=()=>{
   setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
 };
 const delMaquina=id=>{setData(d=>({...d,stock:d.stock.filter(m=>m.id!==id)}));setVista(null);};
-const handleFotos=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
+const handleFotos=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:ev.target.result,principal:!(p.fotos&&p.fotos.length>0)}]}));r.readAsDataURL(file);});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
@@ -4907,7 +4939,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
 w.document.close();
 };
 if(vista&&data.stock.find(x=>x.id===vista)){
-const m=data.stock.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;
+const m=data.stock.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;
 return(<div>
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
 <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#8892a4",display:"flex"}}><Icon name="back" size={15}/></button>
@@ -4929,7 +4961,8 @@ return(<div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.matricula||"—"}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio estimado</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>
+{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
+{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
 </div>
 <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
@@ -4950,9 +4983,8 @@ return(<div>
 </div>
 {(m.fotos||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
 <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:6}}>
-{m.fotos.map((foto,i)=><div key={i} style={{borderRadius:8,overflow:"hidden",aspectRatio:"1"}}><img src={foto.data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>)}
-</div></div>}
+<FotosCarousel fotos={m.fotos}/>
+</div>}
 {(m.pdfs||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
 <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",marginBottom:10}}>Documentos</div>
 {m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#6b7a99",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
@@ -4963,13 +4995,14 @@ return(<div>
 const disponibles=data.stock.filter(m=>!m.vendida).length;
 const valorTarTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+vT(m),0);
 const valorVentaTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFloat(m.precioVentaObj)||0),0);
+const valorCompraTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFloat(m.precioCompra)||0),0);
 return(<div>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
 <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria</h2><p style={{color:"#6b7a99",fontSize:13,margin:"3px 0 0"}}>Codigos de configuracion - Valor tarifa - Precio de venta</p></div>
 <button onClick={openNew} style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Anadir maquina</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:9,marginBottom:16}}>
-{[["Disponibles",disponibles,"#10b981"],["Vendidas",data.stock.filter(m=>m.vendida).length,"#6b7a99"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]].map(([l,v,c])=>(
+{[["Disponibles",disponibles,"#10b981"],["Vendidas",data.stock.filter(m=>m.vendida).length,"#6b7a99"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeVerCompra?[["Precio compra total","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
 <div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}>
 <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
 <div style={{color:"#6b7a99",fontSize:11,marginTop:3}}>{l}</div>
@@ -4984,7 +5017,7 @@ return(<div>
 {filtradas.map(m=>{const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;return(
 <div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid "+(m.vendida?"#2a3550":"#10b98133"),borderRadius:14,overflow:"hidden",cursor:"pointer",opacity:m.vendida?0.65:1}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
 <div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
-{(m.fotos||[]).length>0?<img src={m.fotos[0].data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
+{(m.fotos||[]).length>0?<img src={(m.fotos.find(x=>x.principal)||m.fotos[0]).data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
 <div style={{position:"absolute",top:8,left:8,display:"flex",gap:4}}>
 <span style={{background:m.estado==="Nueva"?"#10b981":"#f59e0b",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>{m.estado}</span>
 {m.vendida&&<span style={{background:"#dc2626",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>VENDIDA</span>}
@@ -4993,9 +5026,9 @@ return(<div>
 <div style={{padding:"13px 15px"}}>
 <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,marginBottom:1}}>{m.marca} <span style={{fontWeight:400}}>{m.modelo}</span></div>
 <div style={{color:"#6b7a99",fontSize:11,marginBottom:10}}>Matr. {m.matricula} - {m.anyo} - {(m.codigos||[]).length} codigos</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+<div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
 <div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#6b7a99",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
-<div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#6b7a99",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>
+{puedeVerCompra && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#6b7a99",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
 </div>
 </div>
 </div>);})}
@@ -5007,7 +5040,6 @@ return(<div>
 <Field label="Matricula/Serie"><Input value={form.matricula||""} onChange={f("matricula")}/></Field>
 <Field label="Anyo"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
 </div>
-<Field label="Estado"><div style={{display:"flex",gap:8}}>{["Nueva","Usada"].map(e=><button key={e} type="button" onClick={()=>setForm(p=>({...p,estado:e}))} style={{flex:1,padding:"9px",borderRadius:8,border:"2px solid "+(form.estado===e?(e==="Nueva"?"#10b981":"#f59e0b"):"#2a3550"),background:form.estado===e?(e==="Nueva"?"#10b98115":"#f59e0b15"):"#0d1117",color:form.estado===e?(e==="Nueva"?"#10b981":"#f59e0b"):"#6b7a99",fontWeight:800,cursor:"pointer"}}>{e==="Nueva"?"Nueva":"Usada"}</button>)}</div></Field>
 <div style={{marginBottom:4}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
 <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase"}}>Codigos de configuracion</div>
@@ -5024,14 +5056,16 @@ return(<div>
 <button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
 </div>))}
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#6b7a99",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Anadir codigo</button>
-<div style={{marginTop:10,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8}}>
 <div style={{background:"#0d1117",border:"1px solid #3b82f633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#6b7a99",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#6b7a99",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>
+{puedeVerCompra && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#6b7a99",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
 </div>
 </div>
-<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>
+{puedeVerCompra && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeVerCompra && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 <Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#6b7a99",fontSize:12}}>Anadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
-{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6}}/><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
+{(form.fotos||[]).length>0&&<div style={{color:"#6b7a99",fontSize:11,marginTop:6}}>Pulsa ★ en una foto para marcarla como principal (se usa como portada).</div>}
+{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f59e0b":"2px solid transparent"}}/><button type="button" title="Marcar como foto principal" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f59e0b":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
 <Field label="PDF (fichas tecnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#6b7a99",fontSize:12}}>Anadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
 {(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#9aa3b8",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
