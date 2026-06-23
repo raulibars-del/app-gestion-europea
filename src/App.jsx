@@ -7481,31 +7481,42 @@ export default function App() {
     return () => { const el = document.getElementById(id); if(el) el.remove(); };
   }, []);
   const [popupQueue,setPopupQueue]=useState([]);
-  // Al conectar (una vez por sesión de navegador), se construye una cola de pop-ups que el
-  // usuario tiene que ir leyendo y cerrando uno a uno: 1) tareas nuevas/completadas sin leer,
-  // 2) una por cada tarea pendiente, 3) avisos nuevos agrupados (solo la primera vez que se ven),
-  // 4) mensajes de chat nuevos + resumen de todos los avisos pendientes, juntos.
+  // Cada vez que el usuario inicia sesión (login real: user pasa de null a un usuario) se
+  // construye una cola de pop-ups que tiene que ir leyendo y cerrando uno a uno: 1) una por
+  // cada tarea pendiente (las completadas nunca se notifican), 2) avisos nuevos agrupados
+  // (solo se avisan la primera vez: una vez leídos quedan marcados y no vuelven a salir),
+  // 3) mensajes de chat nuevos + resumen de todos los avisos pendientes, juntos.
+  // Las tareas pendientes y el resumen de avisos son consultas en vivo, así que se repiten
+  // en cada login (no solo la primera vez por sesión de navegador).
   // La campanita deja de llevar contador de "no leídas": cada pop-up cerrado queda registrado
   // y marcado como leído, así que la campanita pasa a ser solo el historial en modo lista.
   useEffect(()=>{
     if(!user)return;
-    const key=`conn_${user.id}`;
-    if(sessionStorage.getItem(key))return;
-    sessionStorage.setItem(key,"1");
     const misNotifsIniciales=data.notificaciones[user.id]||[];
     const cola=[];
-    misNotifsIniciales.filter(n=>!n.leida&&(n.tipo==="tarea"||n.tipo==="tarea_ok")).forEach(n=>{
-      cola.push({id:"n_"+n.id,notifId:n.id,titulo:n.titulo,mensaje:n.mensaje,color:"#3b82f6"});
-    });
+    // Una tarea pendiente (de empresa o propia) se notifica como "pendiente" en cada conexión
+    // mientras no se complete; si ya se notificó como "nueva tarea" antes, no se repite aparte
+    // — solo existe esta entrada por tarea, evitando el doble aviso en la misma conexión.
     data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
       cola.push({id:"tp_"+t.id,titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — vence ${t.vence||"sin fecha"}`,color:"#f59e0b",sintetico:true,logTipo:"tarea_pendiente"});
     });
     const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
+    // El nombre del cliente puede venir guardado en el propio aviso (n.clienteNombre, en los
+    // avisos creados tras este cambio), o si no, se busca: 1) por el aviso original (n.avisoId)
+    // y su clienteId, 2) extrayéndolo del texto del mensaje ("Cliente: X · ..."), que es como
+    // se guardaban los avisos antiguos antes de añadir el campo clienteNombre.
+    const clienteDeNotifAviso=n=>{
+      if(n.clienteNombre)return n.clienteNombre;
+      const aviso=n.avisoId&&data.avisos.find(a=>a.id===n.avisoId);
+      if(aviso)return data.clientes.find(c=>c.id===aviso.clienteId)?.nombreEmpresa||"sin cliente";
+      const m=n.mensaje&&n.mensaje.match(/Cliente:\s*([^·]+)/);
+      return m?m[1].trim():"sin cliente";
+    };
     if(avisosNuevos.length>0){
       cola.push({
         id:"av_grupo",notifIds:avisosNuevos.map(n=>n.id),color:"#ef4444",
         titulo:`🔔 ${avisosNuevos.length} aviso${avisosNuevos.length>1?"s":""} nuevo${avisosNuevos.length>1?"s":""}`,
-        mensaje:avisosNuevos.map(n=>"· "+(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+(n.clienteNombre||"sin cliente")).join("\n")
+        mensaje:avisosNuevos.map(n=>"· "+(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+clienteDeNotifAviso(n)).join("\n")
       });
     }
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
