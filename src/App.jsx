@@ -453,7 +453,7 @@ const StatCard = ({ label, value, icon, accent, sub }) => (
     <div><div style={{fontSize:22,fontWeight:800,color:"#f1f3f9",lineHeight:1}}>{value}</div><div style={{fontSize:12,color:"#6b7a99",marginTop:2}}>{label}</div>{sub&&<div style={{fontSize:11,color:accent,marginTop:2,fontWeight:600}}>{sub}</div>}</div>
   </div>
 );
-const crearNotif = (userId,tipo,titulo,mensaje) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false});
+const crearNotif = (userId,tipo,titulo,mensaje,extra) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false,...(extra||{})});
 const NotifPanel = ({ notifs, onClose, onIrAlChat }) => {
   // La campanita ya no gestiona "no leídas": todo se informa mediante pop-ups al conectar
   // (que el usuario lee y cierra uno a uno), así que aquí solo se muestra el historial
@@ -7505,15 +7505,15 @@ export default function App() {
       cola.push({
         id:"av_grupo",notifIds:avisosNuevos.map(n=>n.id),color:"#ef4444",
         titulo:`🔔 ${avisosNuevos.length} aviso${avisosNuevos.length>1?"s":""} nuevo${avisosNuevos.length>1?"s":""}`,
-        mensaje:avisosNuevos.map(n=>"· "+n.titulo.replace("🔔 Nuevo aviso: ","")).join("\n")
+        mensaje:avisosNuevos.map(n=>"· "+(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+(n.clienteNombre||"sin cliente")).join("\n")
       });
     }
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
     const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     if(chatsNuevos.length>0||avisosPend.length>0){
       const partes=[];
-      if(chatsNuevos.length>0)partes.push(`💬 ${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}:\n`+chatsNuevos.map(n=>"· "+n.mensaje).join("\n"));
-      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+avisosPend.slice(0,8).map(a=>"· "+a.titulo).join("\n"));
+      if(chatsNuevos.length>0)partes.push(`💬 ${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+": "+n.mensaje).join("\n"));
+      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+avisosPend.slice(0,8).map(a=>"· "+a.titulo+" — "+(data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente")).join("\n"));
       cola.push({
         id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",
         titulo:"📨 Resumen de tu conexión",mensaje:partes.join("\n\n"),
@@ -7552,7 +7552,8 @@ export default function App() {
       d.usuarios.filter(u=>u.activo).forEach(u=>{
         const n=crearNotif(u.id,"nuevo_aviso",
           `🔔 Nuevo aviso: ${aviso.titulo}`,
-          `Cliente: ${clienteNombre} · Prioridad: ${aviso.prioridad} · Asignado: ${listaNombres(aviso,"asignados","asignado").join(" y ")||"Sin asignar"}`
+          `Cliente: ${clienteNombre} · Prioridad: ${aviso.prioridad} · Asignado: ${listaNombres(aviso,"asignados","asignado").join(" y ")||"Sin asignar"}`,
+          {avisoId:aviso.id,clienteNombre,avisoTitulo:aviso.titulo}
         );
         nn[u.id]=[n,...(nn[u.id]||[])];
       });
