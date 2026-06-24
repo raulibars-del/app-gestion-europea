@@ -9,6 +9,10 @@
 
 require __DIR__ . '/config.php';
 
+// Los datos pueden incluir fotos en base64 y pesar varios MB; subimos el
+// límite de memoria si el hosting lo permite (si no, no pasa nada).
+@ini_set('memory_limit', '256M');
+
 header('Content-Type: application/json; charset=utf-8');
 
 // CORS básico (la app se sirve desde el mismo dominio, pero por si acaso)
@@ -60,57 +64,60 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_data_history (
 $accion = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'history') {
-    // Lista de copias de seguridad disponibles, con un resumen rápido (nº de
-    // clientes/máquinas) para poder identificar a simple vista cuál restaurar.
-    $stmt = $pdo->query("SELECT id, created_at, LENGTH(data) AS tam, data FROM app_data_history ORDER BY id DESC LIMIT 60");
-    $items = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $resumen = null;
-        $d = json_decode($row['data']);
-        if ($d) {
-            $resumen = [
-                'clientes' => isset($d->clientes) ? count($d->clientes) : null,
-                'avisos' => isset($d->avisos) ? count($d->avisos) : null,
-                'partes' => isset($d->partes) ? count($d->partes) : null,
+    try {
+        // Lista de copias de seguridad disponibles. NO seleccionamos la columna
+        // `data` aquí (puede pesar varios MB por las fotos en base64): traerla
+        // y decodificarla 60 veces en una sola petición puede agotar la memoria
+        // de PHP en hosting compartido. Con el tamaño en bytes basta para
+        // distinguir a simple vista una copia "vacía"/incompleta de una normal.
+        $stmt = $pdo->query("SELECT id, created_at, LENGTH(data) AS tam FROM app_data_history ORDER BY id DESC LIMIT 60");
+        $items = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $items[] = [
+                'id' => (int)$row['id'],
+                'created_at' => $row['created_at'],
+                'tam' => (int)$row['tam'],
             ];
         }
-        $items[] = [
-            'id' => (int)$row['id'],
-            'created_at' => $row['created_at'],
-            'tam' => (int)$row['tam'],
-            'resumen' => $resumen,
-        ];
+        echo json_encode(['items' => $items]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'server_error', 'detail' => $e->getMessage()]);
     }
-    echo json_encode(['items' => $items]);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
-    $body = json_decode(file_get_contents('php://input'), true);
-    $historyId = isset($body['historyId']) ? (int)$body['historyId'] : 0;
-    if (!$historyId) {
-        http_response_code(400);
-        echo json_encode(['error' => 'historyId_requerido']);
-        exit;
+    try {
+        $body = json_decode(file_get_contents('php://input'), true);
+        $historyId = isset($body['historyId']) ? (int)$body['historyId'] : 0;
+        if (!$historyId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'historyId_requerido']);
+            exit;
+        }
+        $stmt = $pdo->prepare("SELECT data FROM app_data_history WHERE id = :id");
+        $stmt->execute(['id' => $historyId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            http_response_code(404);
+            echo json_encode(['error' => 'copia_no_encontrada']);
+            exit;
+        }
+        // Guardamos primero una copia del estado actual (antes de restaurar) por
+        // si la restauración fuese un error, sin importar el límite de 30 min.
+        $actual = $pdo->query("SELECT data FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+        if ($actual) {
+            $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
+            $insHist->execute(['data' => $actual['data']]);
+        }
+        $upd = $pdo->prepare("INSERT INTO app_data (id, data) VALUES (1, :data) ON DUPLICATE KEY UPDATE data = :data2");
+        $upd->execute(['data' => $row['data'], 'data2' => $row['data']]);
+        echo json_encode(['ok' => true]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'server_error', 'detail' => $e->getMessage()]);
     }
-    $stmt = $pdo->prepare("SELECT data FROM app_data_history WHERE id = :id");
-    $stmt->execute(['id' => $historyId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        http_response_code(404);
-        echo json_encode(['error' => 'copia_no_encontrada']);
-        exit;
-    }
-    // Guardamos primero una copia del estado actual (antes de restaurar) por
-    // si la restauración fuese un error, sin importar el límite de 30 min.
-    $actual = $pdo->query("SELECT data FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
-    if ($actual) {
-        $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
-        $insHist->execute(['data' => $actual['data']]);
-    }
-    $upd = $pdo->prepare("INSERT INTO app_data (id, data) VALUES (1, :data) ON DUPLICATE KEY UPDATE data = :data2");
-    $upd->execute(['data' => $row['data'], 'data2' => $row['data']]);
-    echo json_encode(['ok' => true]);
     exit;
 }
 

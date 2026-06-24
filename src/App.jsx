@@ -4246,7 +4246,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
             <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",borderRadius:8,padding:"8px 12px",flexWrap:"wrap",gap:8}}>
               <div style={{minWidth:0}}>
                 <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{new Date(item.created_at).toLocaleString('es-ES')}</div>
-                {item.resumen && <div style={{color:"#6b7a99",fontSize:11}}>{item.resumen.clientes??"?"} clientes · {item.resumen.avisos??"?"} avisos · {item.resumen.partes??"?"} partes</div>}
+                <div style={{color:"#6b7a99",fontSize:11}}>{item.tam?(item.tam/1024/1024).toFixed(2)+" MB":"tamaño desconocido"}</div>
               </div>
               <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
                 {restaurandoId===item.id?"Restaurando...":"Restaurar"}
@@ -7032,8 +7032,9 @@ async function apiSaveData(payload){
 }
 async function apiListHistory(){
   const res = await fetch(API_URL+"?action=history", { headers: { "X-Api-Key": API_KEY } });
-  if(!res.ok) throw new Error("GET "+res.status);
-  return res.json(); // { items: [{id, created_at, tam, resumen}] }
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
+  return json; // { items: [{id, created_at, tam, resumen}] }
 }
 async function apiRestoreHistory(historyId){
   const res = await fetch(API_URL+"?action=restore", {
@@ -7042,7 +7043,7 @@ async function apiRestoreHistory(historyId){
     body: JSON.stringify({ historyId }),
   });
   const json = await res.json().catch(()=>({}));
-  if(!res.ok || json.error) throw new Error(json.error || ("HTTP "+res.status));
+  if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
   return json;
 }
 const MAIL_API_URL = "/api/send-mail.php";
