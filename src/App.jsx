@@ -7697,6 +7697,7 @@ export default function App() {
     return () => { const el = document.getElementById(id); if(el) el.remove(); };
   }, []);
   const [popupQueue,setPopupQueue]=useState([]);
+  const [totalPopups,setTotalPopups]=useState(0);
   // Cada vez que el usuario inicia sesión (login real: user pasa de null a un usuario) se
   // construye una cola de pop-ups que tiene que ir leyendo y cerrando uno a uno: 1) una por
   // cada tarea pendiente (las completadas nunca se notifican), 2) avisos nuevos agrupados
@@ -7710,13 +7711,6 @@ export default function App() {
     if(!user)return;
     const misNotifsIniciales=data.notificaciones[user.id]||[];
     const cola=[];
-    // Una tarea pendiente (de empresa o propia) se notifica como "pendiente" en cada conexión
-    // mientras no se complete; si ya se notificó como "nueva tarea" antes, no se repite aparte
-    // — solo existe esta entrada por tarea, evitando el doble aviso en la misma conexión.
-    data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
-      cola.push({id:"tp_"+t.id,titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — ${fmtVenceCompleto(t.vence)}`,color:"#f59e0b",sintetico:true,logTipo:"tarea_pendiente"});
-    });
-    const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
     // El nombre del cliente puede venir guardado en el propio aviso (n.clienteNombre, en los
     // avisos creados tras este cambio), o si no, se busca: 1) por el aviso original (n.avisoId)
     // y su clienteId, 2) extrayéndolo del texto del mensaje ("Cliente: X · ..."), que es como
@@ -7728,34 +7722,52 @@ export default function App() {
       const m=n.mensaje&&n.mensaje.match(/Cliente:\s*([^·]+)/);
       return m?m[1].trim():"sin cliente";
     };
-    if(avisosNuevos.length>0){
+    // 1) AVISOS NUEVOS: uno por uno. Solo se muestran la primera vez — al cerrar el pop-up
+    // (ver cerrarPopup) quedan marcados como leídos y nunca vuelven a aparecer.
+    const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
+    avisosNuevos.forEach(n=>{
       cola.push({
-        id:"av_grupo",notifIds:avisosNuevos.map(n=>n.id),color:"#ef4444",
-        titulo:`🔔 ${avisosNuevos.length} aviso${avisosNuevos.length>1?"s":""} nuevo${avisosNuevos.length>1?"s":""}`,
-        mensaje:avisosNuevos.map(n=>"· "+(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+clienteDeNotifAviso(n)).join("\n")
+        id:"avn_"+n.id,notifId:n.id,color:"#ef4444",categoria:"AVISOS NUEVOS",
+        linea:(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+clienteDeNotifAviso(n),
+        titulo:n.titulo,mensaje:n.mensaje
       });
-    }
+    });
+    // Movimientos de consumibles clave: mismo trato que un aviso nuevo (una sola vez).
     const stockNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="stock_consumible");
-    if(stockNuevos.length>0){
+    stockNuevos.forEach(n=>{
       cola.push({
-        id:"stock_grupo",notifIds:stockNuevos.map(n=>n.id),color:"#f59e0b",
-        titulo:`⭐ ${stockNuevos.length} movimiento${stockNuevos.length>1?"s":""} de consumibles clave`,
-        mensaje:stockNuevos.map(n=>"· "+n.mensaje).join("\n")
+        id:"stn_"+n.id,notifId:n.id,color:"#f59e0b",categoria:"STOCK",
+        linea:n.mensaje,titulo:n.titulo,mensaje:n.mensaje
       });
-    }
+    });
+    // 2) TAREAS: una por cada tarea pendiente (de empresa o propia) que no esté completada.
+    // Se repite en cada conexión mientras siga pendiente (es una consulta en vivo, no "nueva").
+    data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
+      cola.push({
+        id:"tp_"+t.id,color:"#f59e0b",categoria:"TAREAS",
+        linea:`"${t.titulo}"`,vence:t.vence?fmtVenceCompleto(t.vence):null,
+        titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — ${fmtVenceCompleto(t.vence)}`,
+        sintetico:true,logTipo:"tarea_pendiente"
+      });
+    });
+    // 3) Por último, resumen conjunto de todos los avisos pendientes (+ mensajes de chat
+    // nuevos si los hay). Es siempre el cierre de la conexión, también una consulta en vivo.
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
     const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     if(chatsNuevos.length>0||avisosPend.length>0){
+      const lista=avisosPend.slice(0,8).map(a=>a.titulo+" — "+(data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente"));
       const partes=[];
       if(chatsNuevos.length>0)partes.push(`💬 Últimos mensajes de chat recibidos (${chatsNuevos.length}) — quién escribe y en qué canal:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+" → \""+n.mensaje+"\"").join("\n"));
-      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+avisosPend.slice(0,8).map(a=>"· "+a.titulo+" — "+(data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente")).join("\n"));
+      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+lista.map(l=>"· "+l).join("\n"));
       cola.push({
-        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",
+        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",categoria:"AVISOS",
+        linea:chatsNuevos.length>0?`${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}`:null,
+        lista:avisosPend.length>0?lista:null,
         titulo:"📨 Resumen de tu conexión",mensaje:partes.join("\n\n"),
         sintetico:avisosPend.length>0,logTipo:"avisos_pendientes_resumen"
       });
     }
-    if(cola.length>0)setPopupQueue(cola);
+    if(cola.length>0){setPopupQueue(cola);setTotalPopups(cola.length);}
   },[user]);
   const cerrarPopup=()=>{
     const actual=popupQueue[0];
@@ -8015,17 +8027,22 @@ export default function App() {
       {isMobile&&<BottomNav/>}
       {isMobile&&<MoreDrawer/>}
       {cuentaOpen&&<MiCuenta userActual={user} setData={setData} onUpdateUser={setUser} onClose={()=>setCuentaOpen(false)}/>}
-      {popupQueue.length>0&&(()=>{const p=popupQueue[0];return(
+      {popupQueue.length>0&&(()=>{
+        const p=popupQueue[0];
+        const pos=totalPopups-popupQueue.length+1;
+        return(
         <div style={{position:"fixed",inset:0,background:"rgba(5,8,15,.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:20}}>
           <div style={{width:"min(440px,100%)",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,fontSize:20,flexShrink:0}}>🔔</div>
-              <div style={{color:"#f1f3f9",fontWeight:900,fontSize:16,lineHeight:1.3}}>{p.titulo}</div>
+              <div style={{width:42,height:42,borderRadius:11,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444",flexShrink:0}}><Icon name="mail" size={20}/></div>
+              <div style={{color:"#f1f3f9",fontWeight:900,fontSize:16,letterSpacing:".5px"}}>{p.categoria}</div>
             </div>
-            <div style={{color:"#c7d0e0",fontSize:13,whiteSpace:"pre-line",lineHeight:1.55,marginBottom:22}}>{p.mensaje}</div>
+            {p.linea&&<div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>{p.linea}</div>}
+            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#6b7a99",fontSize:12,fontWeight:700,marginBottom:18}}>{p.vence.charAt(0).toUpperCase()+p.vence.slice(1)}</div>}
+            {p.lista&&<div style={{color:"#c7d0e0",fontSize:13,whiteSpace:"pre-line",lineHeight:1.6,marginBottom:18}}>{p.lista.map(l=>"· "+l).join("\n")}</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-              <span style={{color:"#6b7a99",fontSize:11,fontWeight:700}}>{popupQueue.length>1?`+${popupQueue.length-1} más`:""}</span>
-              <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>Entendido, cerrar</button>
+              <span style={{color:"#6b7a99",fontSize:12,fontWeight:800}}>{pos}/{totalPopups}</span>
+              <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>CERRAR</button>
             </div>
           </div>
         </div>
