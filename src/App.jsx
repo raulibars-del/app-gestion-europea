@@ -4171,7 +4171,7 @@ const Usuarios = ({ data, setData, userActual }) => {
     </Modal>}
   </div>);
 };
-const Ajustes = ({ data, setData, onPrueba }) => {
+const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [smtp,setSmtp]=useState({...data.smtp}); const [ok,setOk]=useState(false);
   const s=k=>e=>setSmtp(p=>({...p,[k]:e.target.value}));
   const guardar=()=>{setData(d=>({...d,smtp}));setOk(true);setTimeout(()=>setOk(false),2200);};
@@ -4180,6 +4180,30 @@ const Ajustes = ({ data, setData, onPrueba }) => {
       localStorage.removeItem("em_data");
       window.location.reload();
     }
+  };
+  const esManager = userActual?.rol==="manager";
+  const [historial,setHistorial]=useState(null); // null=no cargado, []=cargado vacío
+  const [cargandoHist,setCargandoHist]=useState(false);
+  const [errorHist,setErrorHist]=useState("");
+  const [restaurandoId,setRestaurandoId]=useState(null);
+  const cargarHistorial=async()=>{
+    setCargandoHist(true); setErrorHist("");
+    try{ const res=await apiListHistory(); setHistorial(res.items||[]); }
+    catch(e){ setErrorHist("No se pudo cargar el historial: "+e.message); }
+    setCargandoHist(false);
+  };
+  const restaurar=async(item)=>{
+    const fecha=new Date(item.created_at).toLocaleString('es-ES');
+    if(!window.confirm(`¿Restaurar la copia de seguridad del ${fecha}?\n\nEsto sustituirá TODOS los datos actuales del servidor por los de esa copia (se guarda antes una copia del estado actual, por seguridad). Esta acción afecta a todos los usuarios.`)) return;
+    setRestaurandoId(item.id);
+    try{
+      await apiRestoreHistory(item.id);
+      window.alert("Copia restaurada correctamente. La página se recargará para todos los dispositivos en su próxima sincronización.");
+      window.location.reload();
+    }catch(e){
+      window.alert("Error al restaurar: "+e.message);
+    }
+    setRestaurandoId(null);
   };
   return (<div>
     <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,marginBottom:3}}>Ajustes</h2>
@@ -4209,6 +4233,29 @@ const Ajustes = ({ data, setData, onPrueba }) => {
         {ok&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
       </div>
     </div>
+    {esManager && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6,display:"flex",alignItems:"center",gap:6}}><Icon name="settings" size={15}/>Copias de seguridad</div>
+      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>El servidor guarda automáticamente una copia de todos los datos cada 30 minutos como máximo (se conservan 14 días). Si se pierden o se sobrescriben datos por error, puedes restaurar aquí una copia anterior.</p>
+      <button onClick={cargarHistorial} disabled={cargandoHist} style={{...btnOutline,marginBottom:11}}>{cargandoHist?"Cargando...":"Ver copias disponibles"}</button>
+      {errorHist && <div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{errorHist}</div>}
+      {historial && (historial.length===0 ? (
+        <div style={{color:"#6b7a99",fontSize:12}}>Todavía no hay ninguna copia de seguridad guardada.</div>
+      ) : (
+        <div style={{display:"grid",gap:7,maxHeight:320,overflowY:"auto"}}>
+          {historial.map(item=>(
+            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",borderRadius:8,padding:"8px 12px",flexWrap:"wrap",gap:8}}>
+              <div style={{minWidth:0}}>
+                <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{new Date(item.created_at).toLocaleString('es-ES')}</div>
+                {item.resumen && <div style={{color:"#6b7a99",fontSize:11}}>{item.resumen.clientes??"?"} clientes · {item.resumen.avisos??"?"} avisos · {item.resumen.partes??"?"} partes</div>}
+              </div>
+              <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                {restaurandoId===item.id?"Restaurando...":"Restaurar"}
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>}
     <div style={{background:"#151b2a",border:"1px solid #dc262633",borderRadius:12,padding:"16px 20px"}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6}}>Datos de la aplicación</div>
       <p style={{color:"#6b7a99",fontSize:12,marginBottom:12}}>Los datos se guardan automáticamente en este navegador. Si algo falla o quieres empezar de cero puedes resetear.</p>
@@ -6983,6 +7030,21 @@ async function apiSaveData(payload){
   if(!res.ok) throw new Error("POST "+res.status);
   return res.json();
 }
+async function apiListHistory(){
+  const res = await fetch(API_URL+"?action=history", { headers: { "X-Api-Key": API_KEY } });
+  if(!res.ok) throw new Error("GET "+res.status);
+  return res.json(); // { items: [{id, created_at, tam, resumen}] }
+}
+async function apiRestoreHistory(historyId){
+  const res = await fetch(API_URL+"?action=restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify({ historyId }),
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error) throw new Error(json.error || ("HTTP "+res.status));
+  return json;
+}
 const MAIL_API_URL = "/api/send-mail.php";
 async function apiSendMail(payload){
   // Nunca se envía copia a servicio@: solo cliente + gestion@europeademaquinaria.com.
@@ -7540,9 +7602,31 @@ export default function App() {
     setSyncStatus("guardando");
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(()=>{
-      apiSaveData(data)
-        .then(()=>{ lastSyncedRef.current = json; setSyncStatus("ok"); })
-        .catch(()=>setSyncStatus("error"));
+      (async()=>{
+        try{
+          // Comprobación de seguridad antes de guardar: si una pestaña/dispositivo
+          // ha estado mucho tiempo en segundo plano (móvil bloqueado, portátil
+          // suspendido...), su copia local puede estar basada en datos de horas
+          // antes. Antes de sobrescribir el servidor comprobamos que lo que hay
+          // ahí sigue siendo lo que creíamos (lastSyncedRef); si alguien más ha
+          // guardado cambios mientras tanto, NO los pisamos: nos quedamos con
+          // los suyos y avisamos, en vez de borrar su trabajo.
+          const remoto = await apiGetData();
+          const remotoJson = remoto.data ? JSON.stringify(remoto.data) : null;
+          if(remotoJson !== null && remotoJson !== lastSyncedRef.current){
+            lastSyncedRef.current = remotoJson;
+            setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
+            setSyncStatus("ok");
+            window.alert("Otro dispositivo ha guardado cambios más recientes mientras editabas. Se han cargado esos cambios para no perderlos; si tu última edición no aparece, repítela.");
+            return;
+          }
+          await apiSaveData(data);
+          lastSyncedRef.current = json;
+          setSyncStatus("ok");
+        }catch(e){
+          setSyncStatus("error");
+        }
+      })();
     }, 1200);
     return ()=>clearTimeout(saveTimerRef.current);
   },[data, syncStatus]);
@@ -7566,9 +7650,11 @@ export default function App() {
         setSyncStatus("offline");
       }
     };
+    const onVisible = ()=>{ if(document.visibilityState==="visible") pull(); };
     const interval = setInterval(pull, 20000);
     window.addEventListener("focus", pull);
-    return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); };
+    document.addEventListener("visibilitychange", onVisible);
+    return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", onVisible); };
   },[]);
 
   const [articuloPublico]=useState(()=>{
@@ -7922,7 +8008,7 @@ export default function App() {
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
-          {active==="ajustes"&&puedeVer(user.rol,"ajustes")&&<Ajustes data={data} setData={setData} onPrueba={onPrueba}/>}
+          {active==="ajustes"&&puedeVer(user.rol,"ajustes")&&<Ajustes data={data} setData={setData} onPrueba={onPrueba} userActual={user}/>}
         </main>
       </div>
       {isMobile&&<BottomNav/>}
