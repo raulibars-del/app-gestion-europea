@@ -54,7 +54,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
 
 // Copias de seguridad periódicas (red de seguridad ante sobrescrituras
 // accidentales, p.ej. por condiciones de carrera entre varios dispositivos).
-// Como mucho una copia cada 30 minutos, y se conservan 14 días.
+// Como mucho una copia al día, y se conservan 14 días.
 $pdo->exec("CREATE TABLE IF NOT EXISTS app_data_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
     data LONGTEXT NOT NULL,
@@ -150,12 +150,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
     $stmt->execute(['data' => $raw, 'data2' => $raw]);
 
-    // Copia de seguridad: solo si la última copia tiene más de 30 minutos,
-    // para no acumular una fila por cada guardado (que puede ser cada pocos
-    // segundos mientras alguien está trabajando).
+    // Copia de seguridad: como máximo una vez al día, para no acumular una
+    // fila por cada guardado (que puede ser cada pocos segundos mientras
+    // alguien está trabajando).
     try {
         $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 1800);
+        $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 86400);
         if ($debeCopiar) {
             $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
             $insHist->execute(['data' => $raw]);

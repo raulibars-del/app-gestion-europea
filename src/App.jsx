@@ -4235,7 +4235,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     </div>
     {esManager && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6,display:"flex",alignItems:"center",gap:6}}><Icon name="settings" size={15}/>Copias de seguridad</div>
-      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>El servidor guarda automáticamente una copia de todos los datos cada 30 minutos como máximo (se conservan 14 días). Si se pierden o se sobrescriben datos por error, puedes restaurar aquí una copia anterior.</p>
+      <p style={{color:"#6b7a99",fontSize:12,marginBottom:11}}>El servidor guarda automáticamente una copia de todos los datos una vez al día como máximo (se conservan 14 días). Si se pierden o se sobrescriben datos por error, puedes restaurar aquí una copia anterior.</p>
       <button onClick={cargarHistorial} disabled={cargandoHist} style={{...btnOutline,marginBottom:11}}>{cargandoHist?"Cargando...":"Ver copias disponibles"}</button>
       {errorHist && <div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{errorHist}</div>}
       {historial && (historial.length===0 ? (
