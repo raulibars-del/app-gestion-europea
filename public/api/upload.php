@@ -39,7 +39,8 @@ if (!$input || empty($input['base64']) || empty($input['filename'])) {
 $mime = $input['mime'] ?? 'application/octet-stream';
 $permitidos = [
     'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
-    'image/gif' => 'gif', 'application/pdf' => 'pdf',
+    'image/gif' => 'gif', 'image/heic' => 'heic', 'image/heif' => 'heif',
+    'application/pdf' => 'pdf',
     'application/msword' => 'doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
     'application/vnd.ms-excel' => 'xls',

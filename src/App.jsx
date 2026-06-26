@@ -2599,6 +2599,8 @@ const Tareas = ({ data, setData, userActual }) => {
   const [verCompletadas, setVerCompletadas] = useState(false);
   const [verAsigCompletadas, setVerAsigCompletadas] = useState(false);
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
+  const [vistaPrevia, setVistaPrevia] = useState(null);
+  const [compartiendo, setCompartiendo] = useState(false);
   const fileRefTarea = useRef(null);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const subirAdjuntoTarea = async (file) => {
@@ -2606,15 +2608,190 @@ const Tareas = ({ data, setData, userActual }) => {
     if(file.size>25*1024*1024){alert(`El archivo "${file.name}" pesa demasiado (máx. 25 MB).`);return;}
     setSubiendoAdjunto(true);
     try{
-      const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-      const up = await apiUploadFile({base64,filename:file.name,mime:file.type});
-      setForm(p=>({...p,adjuntos:[...(p.adjuntos||[]),{url:up.url,nombre:up.nombre||file.name,mime:up.mime||file.type}]}));
+      // Las fotos de móvil pueden pesar varios MB o venir en HEIC: se redimensionan
+      // y convierten a JPEG ligero antes de subir, para evitar errores de subida.
+      const fileFinal = await comprimirImagen(file);
+      const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(fileFinal);});
+      const up = await apiUploadFile({base64,filename:fileFinal.name,mime:fileFinal.type});
+      setForm(p=>({...p,adjuntos:[...(p.adjuntos||[]),{url:up.url,nombre:up.nombre||fileFinal.name,mime:up.mime||fileFinal.type}]}));
     }catch(e){
       alert(`No se pudo subir "${file.name}".\n\n`+e.message);
     }finally{
       setSubiendoAdjunto(false);
       if(fileRefTarea.current) fileRefTarea.current.value="";
     }
+  };
+  // Descarga una imagen ya subida (URL relativa /api/uploads/...) y la convierte en
+  // dataURL, para poder incrustarla en el PDF con jsPDF (que no acepta URLs directamente).
+  const urlATareaDataURL = async (url) => {
+    const abs = /^https?:\/\//i.test(url) ? url : (window.location.origin + url);
+    const res = await fetch(abs);
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  };
+  // Genera el PDF de una tarea con el mismo estilo de cabecera/pie que el resto de
+  // documentos de la app (Partes, Albaranes...), incluyendo miniaturas de las imágenes
+  // adjuntas. Se usa tanto para el botón "Compartir" como para el email automático.
+  const generarPDFTarea = async (t) => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W = 210, mg = 18;
+    const dibujarHeader = () => {
+      doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 34, "F");
+      doc.setFillColor(245, 158, 11); doc.rect(0, 32, W, 2.5, "F");
+      try { doc.addImage(LOGO_CIRCULO, "JPEG", mg, 3, 26, 26); } catch (e) {}
+      doc.setTextColor(255, 255, 255); doc.setFontSize(13); doc.setFont("helvetica", "bold");
+      doc.text("EUROPEA DE MAQUINARIA PMM SL", mg + 30, 12);
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(190, 200, 220);
+      doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583", mg + 30, 18);
+      doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707", mg + 30, 24);
+      doc.setTextColor(245, 158, 11); doc.setFontSize(14); doc.setFont("helvetica", "bold");
+      doc.text("TAREA", W - mg, 13, { align: "right" });
+      doc.setTextColor(200, 210, 230); doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
+      doc.text("Vence: " + fmtFecha(t.vence), W - mg, 21, { align: "right" });
+      doc.text("Estado: " + t.estado, W - mg, 27, { align: "right" });
+      doc.setFillColor(255, 255, 255); doc.rect(0, 34, W, 264, "F");
+    };
+    dibujarHeader();
+    let y = 42;
+    const box = (titulo, filas, yStart) => {
+      doc.setFillColor(230, 235, 245); doc.roundedRect(mg, yStart, W - mg * 2, 7, 1, 1, "F");
+      doc.setDrawColor(180, 190, 210); doc.roundedRect(mg, yStart, W - mg * 2, 7, 1, 1, "S");
+      doc.setDrawColor(255, 255, 255);
+      doc.setTextColor(40, 60, 110); doc.setFontSize(8); doc.setFont("helvetica", "bold");
+      doc.text(titulo.toUpperCase(), mg + 4, yStart + 5);
+      let fy = yStart + 13;
+      filas.forEach(([l, v]) => {
+        if (!v && v !== 0) return;
+        doc.setTextColor(100, 115, 145); doc.setFontSize(7.5); doc.setFont("helvetica", "normal");
+        doc.text(l + ":", mg + 4, fy);
+        doc.setTextColor(25, 35, 60); doc.setFontSize(9); doc.setFont("helvetica", "bold");
+        const lines = doc.splitTextToSize(String(v), W - mg * 2 - 52);
+        doc.text(lines, mg + 52, fy);
+        fy += Math.max(lines.length * 5.5, 6.5);
+      });
+      return fy + 4;
+    };
+    const asegurarEspacio = (necesario) => { if (y + necesario > 268) { doc.addPage(); dibujarHeader(); y = 42; } };
+    y = box("Datos de la tarea", [
+      ["Título", t.titulo],
+      ["Tipo", t.esEmpresa ? "Tarea de empresa (todos los miembros)" : "Tarea individual"],
+      ["Asignada a", t.esEmpresa ? "Todos los miembros activos" : uN(t.asignadoId)],
+      ["Creada por", uN(t.creadoPor)],
+      ["Prioridad", t.prioridad],
+      ["Vencimiento", fmtFecha(t.vence)],
+      ["Estado", t.estado],
+      ...(t.estado === "Completada" && t.completadoPor ? [["Completada por", uN(t.completadoPor)]] : []),
+    ], y);
+    if (t.notas?.trim()) { y += 2; y = box("Notas", [["Notas", t.notas]], y); }
+    const adjuntos = t.adjuntos || [];
+    const imagenes = adjuntos.filter(a => a.mime?.startsWith("image/"));
+    const otros = adjuntos.filter(a => !a.mime?.startsWith("image/"));
+    if (otros.length) { y += 2; y = box("Archivos adjuntos", otros.map(a => ["Archivo", a.nombre]), y); }
+    if (imagenes.length) {
+      asegurarEspacio(20);
+      y += 2;
+      doc.setFillColor(230, 235, 245); doc.roundedRect(mg, y, W - mg * 2, 7, 1, 1, "F");
+      doc.setDrawColor(180, 190, 210); doc.roundedRect(mg, y, W - mg * 2, 7, 1, 1, "S");
+      doc.setDrawColor(255, 255, 255);
+      doc.setTextColor(40, 60, 110); doc.setFontSize(8); doc.setFont("helvetica", "bold");
+      doc.text("IMÁGENES ADJUNTAS", mg + 4, y + 5); y += 13;
+      const cols = 3, gap = 4, cw = (W - mg * 2 - gap * (cols - 1)) / cols, ch = cw * 0.75;
+      let cx = mg, col = 0;
+      for (const img of imagenes) {
+        if (y + ch > 268) { doc.addPage(); dibujarHeader(); y = 42; cx = mg; col = 0; }
+        try {
+          const dataUrl = await urlATareaDataURL(img.url);
+          doc.addImage(dataUrl, "JPEG", cx, y, cw, ch);
+        } catch (e) {
+          doc.setDrawColor(180, 190, 210); doc.rect(cx, y, cw, ch);
+        }
+        col++; cx += cw + gap;
+        if (col >= cols) { col = 0; cx = mg; y += ch + gap; }
+      }
+      if (col > 0) y += ch + gap;
+    }
+    const totalPaginas = doc.getNumberOfPages();
+    for (let pg = 1; pg <= totalPaginas; pg++) {
+      doc.setPage(pg);
+      doc.setFillColor(245, 158, 11); doc.rect(0, 281, W, 1.5, "F");
+      doc.setFillColor(15, 23, 42); doc.rect(0, 282.5, W, 14.5, "F");
+      doc.setTextColor(190, 200, 220); doc.setFontSize(7); doc.setFont("helvetica", "normal");
+      doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com", W / 2, 291, { align: "center" });
+      if (totalPaginas > 1) { doc.setTextColor(190, 200, 220); doc.text("Página " + pg + "/" + totalPaginas, W - mg, 291, { align: "right" }); }
+    }
+    return doc.output("datauristring");
+  };
+  // Convierte el dataURI del PDF en Blob, para compartir/adjuntar sin re-generarlo.
+  const dataUriAPdfBlob = (dataUri) => {
+    const byteString = atob(dataUri.split(",")[1]);
+    const bytes = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+    return new Blob([bytes], { type: "application/pdf" });
+  };
+  // Botón "Compartir" de la vista previa: genera el PDF de la tarea al vuelo y abre
+  // el panel nativo de compartir del dispositivo (incluye Mail, WhatsApp, etc.).
+  const compartirTarea = async (t) => {
+    setCompartiendo(true);
+    try {
+      const dataUri = await generarPDFTarea(t);
+      const blob = dataUriAPdfBlob(dataUri);
+      const nombreArchivo = (t.titulo || "tarea").replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g, "") + ".pdf";
+      const archivo = new File([blob], nombreArchivo, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+        await navigator.share({ files: [archivo], title: t.titulo });
+      } else if (navigator.share) {
+        await navigator.share({ title: t.titulo, url: URL.createObjectURL(blob) });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = nombreArchivo; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }
+    } catch (e) {
+      if (e.name !== "AbortError") alert("No se pudo generar o compartir el PDF de la tarea.\n\n" + e.message);
+    } finally {
+      setCompartiendo(false);
+    }
+  };
+  // Al crear una tarea, si el/los destinatarios tienen email configurado en su usuario,
+  // se les envía automáticamente un correo de texto con los datos de la tarea (sin PDF
+  // adjunto, para que se lea de un vistazo y se pueda reenviar fácilmente). Es un envío
+  // "best-effort": si falla, la tarea ya se ha guardado igualmente, no se interrumpe el flujo.
+  const enviarEmailTareaCreada = async (nueva, esEmpresaFlag) => {
+    try {
+      const destinatarios = esEmpresaFlag
+        ? data.usuarios.filter(u => u.activo && u.id !== userActual.id && u.email?.trim())
+        : (nueva.asignadoId !== userActual.id ? data.usuarios.filter(u => u.id === nueva.asignadoId && u.email?.trim()) : []);
+      if (!destinatarios.length) return;
+      const nombreCreador = uN(nueva.creadoPor);
+      const lineas = [
+        ["Título", nueva.titulo],
+        ["Tipo", esEmpresaFlag ? "Tarea de empresa (todos los miembros)" : "Tarea individual"],
+        ...(esEmpresaFlag ? [] : [["Asignada a", uN(nueva.asignadoId)]]),
+        ["Creada por", nombreCreador],
+        ["Prioridad", nueva.prioridad],
+        ["Vencimiento", fmtFecha(nueva.vence)],
+        ["Estado", nueva.estado],
+        ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
+      ];
+      const html = "<p>Hola,</p><p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
+        + lineas.map(([l, v]) => "<p>" + l + ": " + v + "</p>").join("")
+        + "<p>Un saludo,<br/>Europea de Maquinaria</p>";
+      for (const u of destinatarios) {
+        try {
+          await apiSendMail({
+            to: u.email.trim(),
+            toName: u.nombre,
+            subject: "Nueva tarea asignada por " + nombreCreador,
+            html,
+          });
+        } catch (e) { /* fallo de email a un destinatario concreto no debe afectar a los demás */ }
+      }
+    } catch (e) { /* email fallido: la tarea ya quedó guardada */ }
   };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
@@ -2664,6 +2841,7 @@ const Tareas = ({ data, setData, userActual }) => {
         }
         return nd;
       });
+      enviarEmailTareaCreada(nueva, esEmpresa);
     } else {
       setData(d => ({ ...d,tareas: d.tareas.map(t => t.id === item.id ? item : t) }));
     }
@@ -2748,9 +2926,9 @@ const Tareas = ({ data, setData, userActual }) => {
           const esMia = t.asignadoId === userActual.id || t.esEmpresa;
           const creadoPorMi = t.creadoPor === userActual.id;
           return (
-            <div key={t.id} style={{background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
+            <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
               {/* Checkbox — solo yo (o cualquiera si es tarea de empresa) puedo completar */}
-              <button onClick={() => toggle(t)} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
+              <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
                 {t.estado === "Completada" && "✓"}
               </button>
               <div style={{flex:1,minWidth:0}}>
@@ -2761,16 +2939,16 @@ const Tareas = ({ data, setData, userActual }) => {
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
                   {t.esEmpresa ? (
-                    <span style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>Tarea de empresa{t.creadoPor && t.creadoPor !== userActual.id ? ` · de ${uN(t.creadoPor)}` : ""}</span>
+                    <span style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>Tarea de empresa{t.creadoPor && t.creadoPor !== userActual.id && <> · de <b style={{color:"#fff"}}>{uN(t.creadoPor)}</b></>}</span>
                   ) : (
-                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#6b7a99",fontSize:11}}>Asignada por {uN(t.creadoPor)}</span>
+                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#6b7a99",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
                   )}
-                  {t.estado === "Completada" && t.esEmpresa && t.completadoPor && <span style={{color:"#10b981",fontSize:11}}>Completada por {uN(t.completadoPor)}</span>}
+                  {t.estado === "Completada" && t.esEmpresa && t.completadoPor && <span style={{color:"#10b981",fontSize:11}}>Completada por <b style={{color:"#fff"}}>{uN(t.completadoPor)}</b></span>}
                   {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
                   {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
               </div>
-              <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+              <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
                 <Badge text={t.prioridad} />
                 <Badge text={t.estado} />
                 {/* Solo editar/borrar si la creé yo o soy manager/admin */}
@@ -2799,7 +2977,7 @@ const Tareas = ({ data, setData, userActual }) => {
             {asigSorted.map(t => {
               const vc = venceColor(t.vence);
               return (
-                <div key={t.id} style={{background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
+                <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
                   <div style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>
                     {t.estado === "Completada" && "✓"}
                   </div>
@@ -2807,12 +2985,12 @@ const Tareas = ({ data, setData, userActual }) => {
                     <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                       <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
-                      <span style={{color:"#6b7a99",fontSize:11}}>Asignada a {uN(t.asignadoId)}</span>
+                      <span style={{color:"#6b7a99",fontSize:11}}>Asignada a <b style={{color:"#f1f3f9"}}>{uN(t.asignadoId)}</b></span>
                       {t.notas && <span style={{color:"#6b7a99",fontSize:11}}>📝 {t.notas}</span>}
                       {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                     </div>
                   </div>
-                  <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+                  <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
                     <Badge text={t.prioridad} />
                     <Badge text={t.estado} />
                     <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#8892a4")}><Icon name="edit" size={11} /></button>
@@ -2824,6 +3002,51 @@ const Tareas = ({ data, setData, userActual }) => {
           </div>
         </>
       )}
+      {/* Modal vista previa de tarea (clic en la lista) */}
+      {vistaPrevia && (() => {
+        const t = vistaPrevia;
+        const adjuntos = t.adjuntos || [];
+        const imagenes = adjuntos.filter(a => a.mime?.startsWith("image/")).map(a => ({ data: a.url }));
+        const otros = adjuntos.filter(a => !a.mime?.startsWith("image/"));
+        const vc = venceColor(t.vence);
+        return (
+          <Modal title="Vista previa de la tarea" onClose={() => setVistaPrevia(null)}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              {t.esEmpresa && <span title="Tarea de empresa" style={{fontSize:17}}>🏢</span>}
+              <h3 style={{color:"#f1f3f9",fontWeight:800,fontSize:17,margin:0,flex:1,minWidth:0}}>{t.titulo}</h3>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+              <Badge text={t.prioridad} /><Badge text={t.estado} />
+            </div>
+            {imagenes.length > 0 && <div style={{marginBottom:14}}><FotosCarousel fotos={imagenes} /></div>}
+            <div style={{display:"grid",gap:9,marginBottom:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#6b7a99",fontSize:12}}>Vencimiento</span><b style={{color:vc,fontSize:12}}>{venceLabel(t.vence)} ({fmtFecha(t.vence)})</b></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#6b7a99",fontSize:12}}>{t.esEmpresa ? "Tipo" : "Asignada a"}</span><b style={{color:"#f1f3f9",fontSize:12}}>{t.esEmpresa ? "Tarea de empresa (todos)" : uN(t.asignadoId)}</b></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#6b7a99",fontSize:12}}>Creada por</span><b style={{color:"#f1f3f9",fontSize:12}}>{uN(t.creadoPor)}</b></div>
+              {t.estado === "Completada" && t.completadoPor && <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#6b7a99",fontSize:12}}>Completada por</span><b style={{color:"#10b981",fontSize:12}}>{uN(t.completadoPor)}</b></div>}
+              {t.notas && <div><span style={{color:"#6b7a99",fontSize:12,display:"block",marginBottom:3}}>Notas</span><span style={{color:"#f1f3f9",fontSize:13}}>{t.notas}</span></div>}
+            </div>
+            {otros.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <div style={{color:"#6b7a99",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Archivos adjuntos</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {otros.map((a, i) => (
+                    <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:6,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"6px 10px",color:"#0ea5e9",fontSize:12,fontWeight:600,textDecoration:"none"}}>
+                      <Icon name="parts" size={13} />{a.nombre}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
+              <button onClick={() => setVistaPrevia(null)} style={btnOutline}>Cerrar</button>
+              <button onClick={() => compartirTarea(t)} disabled={compartiendo} style={{background:compartiendo ? "#1a2236" : "#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 18px",fontWeight:700,cursor:compartiendo ? "default" : "pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="share" size={14} />{compartiendo ? "Generando PDF..." : "Compartir PDF"}
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
       {/* Modal nueva/editar tarea */}
       {modal && <Modal title={form.id ? "Editar tarea" : "Nueva tarea"} onClose={() => setModal(false)}>
         <Field label="Título de la tarea"><Input value={form.titulo} onChange={f("titulo")} placeholder="Describe la tarea..." /></Field>
@@ -4157,7 +4380,7 @@ const Usuarios = ({ data, setData, userActual }) => {
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const save=()=>{if(!form.id)setData(d=>({...d,usuarios:[...d.usuarios,{...form,id:Date.now(),avatar:form.nombre[0]?.toUpperCase()||"U"}]}));else setData(d=>({...d,usuarios:d.usuarios.map(u=>u.id===form.id?form:u)}));setModal(null);};
   return (<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,marginBottom:12,padding:"14px 16px"}}>
       <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Permisos por rol</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:9}}>
@@ -4177,6 +4400,7 @@ const Usuarios = ({ data, setData, userActual }) => {
     </div>
     {modal&&<Modal title={form.id?"Editar Usuario":"Nuevo Usuario"} onClose={()=>setModal(null)}>
       <Field label="Nombre de usuario"><Input value={form.nombre} onChange={f("nombre")}/></Field>
+      <Field label="Email (opcional)"><Input type="email" value={form.email||""} onChange={f("email")} placeholder="usuario@europeademaquinaria.com"/></Field>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}><Field label="Contraseña"><Input type="password" value={form.password} onChange={f("password")}/></Field><Field label="Rol"><select value={form.rol} onChange={f("rol")} style={{...inputStyle}}>{ROLES.map(r=><option key={r} value={r}>{ROLES_LABEL[r]}</option>)}</select></Field></div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={save} style={btnPrimary}>Guardar</button></div>
     </Modal>}
@@ -7091,6 +7315,41 @@ async function apiSendMail(payload){
   return json;
 }
 const UPLOAD_API_URL = "/api/upload.php";
+// Redimensiona y comprime una imagen en el navegador antes de subirla: las
+// fotos hechas con el móvil pueden pesar varios MB (o venir en HEIC, que el
+// servidor no admite). Si el navegador puede decodificarla, la reescalamos a
+// un máximo de 1600px y la convertimos a JPEG ligero; si no puede (algunos
+// navegadores no decodifican HEIC), devolvemos el archivo original tal cual
+// y será el servidor quien decida si lo admite.
+async function comprimirImagen(file, maxDim = 1600, calidad = 0.82) {
+  if (!file || !file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+  let url;
+  try {
+    url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => {
+      const el = new Image();
+      el.onload = () => res(el);
+      el.onerror = rej;
+      el.src = url;
+    });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (w > maxDim || h > maxDim) {
+      const ratio = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * ratio); h = Math.round(h * ratio);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", calidad));
+    if (!blob) return file;
+    const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], nombre, { type: "image/jpeg" });
+  } catch (e) {
+    return file;
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
 async function apiUploadFile(payload){
   const res = await fetch(UPLOAD_API_URL, {
     method: "POST",
