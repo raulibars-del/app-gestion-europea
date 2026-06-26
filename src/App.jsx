@@ -2878,9 +2878,16 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     // omite el párrafo de intro (no hace falta, ya queda dicho en el saludo).
     const saludoHtml = "<p>" + (opts.saludo || "Hola,") + "</p>";
     const introHtml = (!opts.saludo && intro) ? "<p>" + intro + ":</p>" : "";
-    // firmaNombre: en el reenvío a un externo se añade el nombre de quien la
-    // reenvía encima de la razón social, a modo de firma personal.
-    const firmaNombreHtml = opts.firmaNombre ? "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>" : "";
+    // firmaNombre: nombre de quien envía (el creador de la tarea, tanto si se
+    // reenvía a un externo como si es el aviso normal de asignación/autoenvío),
+    // con un cierre "Un saludo," y, si están rellenos en su usuario, el teléfono
+    // y el email de contacto justo debajo, antes de la razón social.
+    const firmaNombreHtml = opts.firmaNombre
+      ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
+        + "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>"
+        + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
+        + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
+      : "";
     return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
       + saludoHtml
       + introHtml
@@ -2910,6 +2917,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ? data.usuarios.filter(u => u.activo && u.id !== userActual.id && u.email?.trim())
         : data.usuarios.filter(u => u.id === nueva.asignadoId && u.email?.trim());
       if (!destinatarios.length) return;
+      const creador = data.usuarios.find(u => u.id === parseInt(nueva.creadoPor));
       const nombreCreador = uN(nueva.creadoPor);
       const lineas = [
         ["Título", nueva.titulo],
@@ -2921,7 +2929,11 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ["Estado", nueva.estado],
         ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
       ];
-      const html = htmlEmailTarea(lineas, nueva, esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea", true);
+      const html = htmlEmailTarea(lineas, nueva, esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea", true, {
+        firmaNombre: nombreCreador,
+        firmaTelefono: creador?.telefono?.trim(),
+        firmaEmail: creador?.email?.trim(),
+      });
       // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
       // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
       const enviados = [];
@@ -2933,6 +2945,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             toName: u.nombre,
             subject: "Tarea nueva enviada por " + nombreCreador,
             html,
+            fromName: nombreCreador + " - Europea de Maquinaria",
           });
           enviados.push(u.email.trim());
         } catch (e) {
@@ -2952,6 +2965,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (!destino?.email?.trim()) return;
     try {
       const nombreCreador = uN(nueva.creadoPor);
+      const creador = data.usuarios.find(u => u.id === parseInt(nueva.creadoPor));
       // Solo título, prioridad y notas: el vencimiento es un dato interno de
       // gestión de la tarea que no tiene sentido mandarle a un externo.
       const lineas = [
@@ -2960,8 +2974,13 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
       ];
       const saludo = "Hola" + (destino.nombre?.trim() ? ", " + destino.nombre.trim() : "") + ", te reenvío la siguiente tarea desde Europea de Maquinaria.";
-      const html = htmlEmailTarea(lineas, nueva, null, false, { saludo, firmaNombre: nombreCreador });
-      const emailCreador = data.usuarios.find(u => u.id === nueva.creadoPor)?.email?.trim();
+      const html = htmlEmailTarea(lineas, nueva, null, false, {
+        saludo,
+        firmaNombre: nombreCreador,
+        firmaTelefono: creador?.telefono?.trim(),
+        firmaEmail: creador?.email?.trim(),
+      });
+      const emailCreador = creador?.email?.trim();
       await apiSendMail({
         to: destino.email.trim(),
         toName: destino.nombre || "",
@@ -4592,7 +4611,7 @@ const Usuarios = ({ data, setData, userActual }) => {
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const save=()=>{if(!form.id)setData(d=>({...d,usuarios:[...d.usuarios,{...form,id:Date.now(),avatar:form.nombre[0]?.toUpperCase()||"U"}]}));else setData(d=>({...d,usuarios:d.usuarios.map(u=>u.id===form.id?form:u)}));setModal(null);};
   return (<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:"",telefono:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,marginBottom:12,padding:"14px 16px"}}>
       <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Permisos por rol</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:9}}>
@@ -4613,6 +4632,7 @@ const Usuarios = ({ data, setData, userActual }) => {
     {modal&&<Modal title={form.id?"Editar Usuario":"Nuevo Usuario"} onClose={()=>setModal(null)}>
       <Field label="Nombre de usuario"><Input value={form.nombre} onChange={f("nombre")}/></Field>
       <Field label="Email (opcional)"><Input type="email" value={form.email||""} onChange={f("email")} placeholder="usuario@europeademaquinaria.com"/></Field>
+      <Field label="Teléfono (opcional)"><Input type="tel" value={form.telefono||""} onChange={f("telefono")} placeholder="600 000 000"/></Field>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}><Field label="Contraseña"><Input type="password" value={form.password} onChange={f("password")}/></Field><Field label="Rol"><select value={form.rol} onChange={f("rol")} style={{...inputStyle}}>{ROLES.map(r=><option key={r} value={r}>{ROLES_LABEL[r]}</option>)}</select></Field></div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={save} style={btnPrimary}>Guardar</button></div>
     </Modal>}
@@ -7583,6 +7603,7 @@ async function apiUploadFile(payload){
 const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   const [foto, setFoto] = useState(userActual.foto || null);
   const [email, setEmail] = useState(userActual.email || "");
+  const [telefono, setTelefono] = useState(userActual.telefono || "");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
   const [err, setErr] = useState("");
@@ -7597,7 +7618,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
     if (pass1 && pass1.length < 4) { setErr("La contraseña debe tener al menos 4 caracteres."); return; }
     if (pass1 && pass1 !== pass2) { setErr("Las contraseñas no coinciden."); return; }
     setErr("");
-    const cambios = { foto, email: email.trim() };
+    const cambios = { foto, email: email.trim(), telefono: telefono.trim() };
     if (pass1) cambios.password = pass1;
     setData(d => ({ ...d, usuarios: d.usuarios.map(u => u.id === userActual.id ? { ...u, ...cambios } : u) }));
     onUpdateUser(prev => ({ ...prev, ...cambios }));
@@ -7624,7 +7645,9 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14, marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Contacto</div>
         <Field label="Email (para recibir avisos de tareas)"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@europeademaquinaria.com" /></Field>
-        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
+        <Field label="Teléfono (opcional)"><Input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="600 000 000" /></Field>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5 }}>Aparecerá en la firma de los emails de tareas que envíes o reenvíes.</div>
       </div>
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
