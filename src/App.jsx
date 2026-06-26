@@ -2660,9 +2660,8 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const [compartiendo, setCompartiendo] = useState(false);
   // "Tarea reenviada": al crear la tarea, además del aviso interno normal (a quien
   // se le asigna), se puede mandar una copia a un proveedor/cliente externo sin
-  // cuenta en la app, rellenando aquí su nombre y email.
-  const [modalReenviar, setModalReenviar] = useState(false);
-  const [formReenviar, setFormReenviar] = useState({nombre:"",email:""});
+  // cuenta en la app. El nombre y el email se rellenan directamente en la misma
+  // pantalla de creación (form.reenviarA), sin abrir un modal aparte.
   const fileRefTarea = useRef(null);
   // Permite que un enlace externo (el botón "Ver tarea en la app" del email
   // automático) abra directamente la vista previa de una tarea concreta al
@@ -2838,7 +2837,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   // enlace, porque no tiene cuenta en la aplicación). Todo con estilos inline y
   // tablas (no flexbox/clases), que es lo único que se renderiza de forma fiable
   // en clientes de correo como Outlook o Gmail.
-  const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp) => {
+  const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
     const filaHtml = ([l, v]) =>
       "<tr>"
       + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
@@ -2858,9 +2857,17 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     const botonHtml = incluirBotonApp
       ? "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
       : "";
+    // saludo: por defecto "Hola," + intro en párrafo aparte; en el reenvío a un
+    // externo se sustituye por una única frase personalizada (opts.saludo) y se
+    // omite el párrafo de intro (no hace falta, ya queda dicho en el saludo).
+    const saludoHtml = "<p>" + (opts.saludo || "Hola,") + "</p>";
+    const introHtml = (!opts.saludo && intro) ? "<p>" + intro + ":</p>" : "";
+    // firmaNombre: en el reenvío a un externo se añade el nombre de quien la
+    // reenvía encima de la razón social, a modo de firma personal.
+    const firmaNombreHtml = opts.firmaNombre ? "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>" : "";
     return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
-      + "<p>Hola,</p>"
-      + "<p>" + intro + ":</p>"
+      + saludoHtml
+      + introHtml
       + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
       + lineas.map(filaHtml).join("")
       + "</table>"
@@ -2871,6 +2878,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
       + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
       + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+      + firmaNombreHtml
       + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
       + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
       + "</td>"
@@ -2928,19 +2936,22 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (!destino?.email?.trim()) return;
     try {
       const nombreCreador = uN(nueva.creadoPor);
+      // Solo título, prioridad y notas: el vencimiento es un dato interno de
+      // gestión de la tarea que no tiene sentido mandarle a un externo.
       const lineas = [
         ["Título", nueva.titulo],
         ["Prioridad", nueva.prioridad],
-        ["Vencimiento", fmtFecha(nueva.vence)],
         ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
       ];
-      const html = htmlEmailTarea(lineas, nueva, "Te reenviamos la siguiente tarea desde Europea de Maquinaria", false);
+      const saludo = "Hola" + (destino.nombre?.trim() ? ", " + destino.nombre.trim() : "") + ", te reenvío la siguiente tarea desde Europea de Maquinaria.";
+      const html = htmlEmailTarea(lineas, nueva, null, false, { saludo, firmaNombre: nombreCreador });
       const emailCreador = data.usuarios.find(u => u.id === nueva.creadoPor)?.email?.trim();
       await apiSendMail({
         to: destino.email.trim(),
         toName: destino.nombre || "",
         subject: "Tarea reenviada por " + nombreCreador,
         html,
+        fromName: nombreCreador + " - Europea de Maquinaria",
         ...(emailCreador ? { replyTo: emailCreador } : {}),
       });
       alert("Tarea reenviada a " + (destino.nombre ? destino.nombre + " (" + destino.email.trim() + ")" : destino.email.trim()) + ".");
@@ -3264,20 +3275,24 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         </Field>
         {/* Tarea reenviada: además del aviso interno de arriba, se puede mandar una
             copia a un proveedor/cliente sin cuenta en la app. Solo al crear (no en
-            edición), igual que el resto del envío automático. */}
+            edición), igual que el resto del envío automático. El nombre y el email
+            se escriben aquí mismo, sin abrir un modal aparte. */}
         {!form.id && (
           <Field label="Reenviar a un proveedor o cliente (opcional)">
-            {form.reenviarA?.email ? (
-              <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",flexWrap:"wrap"}}>
-                <Icon name="mail" size={13} style={{color:"#0ea5e9",flexShrink:0}} />
-                <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600,flex:1,minWidth:0}}>{form.reenviarA.nombre || "(sin nombre)"} — {form.reenviarA.email}</span>
-                <button type="button" onClick={() => { setFormReenviar({nombre:form.reenviarA.nombre||"",email:form.reenviarA.email||""}); setModalReenviar(true); }} style={{background:"none",border:"none",color:"#8b5cf6",cursor:"pointer",fontSize:11,fontWeight:700}}>Editar</button>
-                <button type="button" onClick={() => setForm(p => ({...p, reenviarA:null}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}}>
-                  <Icon name="close" size={12} />
-                </button>
+            {form.reenviarA ? (
+              <div style={{display:"flex",flexDirection:"column",gap:8,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:11}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <Icon name="send" size={13} style={{color:"#0ea5e9",flexShrink:0}} />
+                  <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600,flex:1}}>Se enviará también por email al crear la tarea</span>
+                  <button type="button" onClick={() => setForm(p => ({...p, reenviarA:null}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}}>
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+                <Input value={form.reenviarA.nombre} onChange={e => setForm(p => ({...p, reenviarA:{...p.reenviarA, nombre:e.target.value}}))} placeholder="Nombre del destinatario (ej: Carlos)" />
+                <Input type="email" value={form.reenviarA.email} onChange={e => setForm(p => ({...p, reenviarA:{...p.reenviarA, email:e.target.value}}))} placeholder="Email del destinatario (ej: carlos@nivel10.com)" />
               </div>
             ) : (
-              <button type="button" onClick={() => { setFormReenviar({nombre:"",email:""}); setModalReenviar(true); }} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+              <button type="button" onClick={() => setForm(p => ({...p, reenviarA:{nombre:"",email:""}}))} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
                 <Icon name="send" size={13} />Tarea reenviada
               </button>
             )}
@@ -3288,21 +3303,6 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <button onClick={save} disabled={subiendoAdjunto} style={subiendoAdjunto ? {...btnPrimary,opacity:.55,cursor:"default"} : btnPrimary}>{subiendoAdjunto ? "Subiendo adjunto..." : (form.id ? "Guardar" : "Crear tarea")}</button>
         </div>
       </Modal>}
-      {/* Sub-modal: nombre y email del destinatario externo para "Tarea reenviada" */}
-      {modalReenviar && (
-        <Modal title="Reenviar tarea a..." onClose={() => setModalReenviar(false)}>
-          <Field label="Nombre"><Input value={formReenviar.nombre} onChange={e => setFormReenviar(p => ({...p, nombre: e.target.value}))} placeholder="Ej: Carlos" /></Field>
-          <Field label="Email"><Input type="email" value={formReenviar.email} onChange={e => setFormReenviar(p => ({...p, email: e.target.value}))} placeholder="ej: carlos@nivel10.com" /></Field>
-          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-            <button onClick={() => setModalReenviar(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={() => {
-              if (!formReenviar.email?.trim()) { alert("Indica el email del destinatario."); return; }
-              setForm(p => ({...p, reenviarA: {nombre: formReenviar.nombre?.trim() || "", email: formReenviar.email.trim()}}));
-              setModalReenviar(false);
-            }} style={btnPrimary}>Guardar</button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 };

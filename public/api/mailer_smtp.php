@@ -3,7 +3,7 @@
 // hosting compartido de IONOS). Soporta STARTTLS (puerto 587), SSL implícito
 // (puerto 465) y AUTH LOGIN. Suficiente para enviar emails con un PDF adjunto.
 
-function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null, $cc = null, $replyTo = null) {
+function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null, $cc = null, $replyTo = null, $fromName = null) {
     $host = $cfg['host'];
     $port = (int)($cfg['port'] ?: 587);
     $timeout = 15;
@@ -83,7 +83,12 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
 
     $boundary = "em_" . md5(uniqid('', true));
     $headers = [];
-    $headers[] = "From: Europea de Maquinaria <$from>";
+    // Nombre visible del remitente: por defecto "Europea de Maquinaria", pero al
+    // reenviar una tarea se manda el nombre de quien la reenvía (ej. "Raúl Ibars -
+    // Europea de Maquinaria"), aunque el correo siga saliendo técnicamente de la
+    // cuenta $from (gestion@...). mb_encode_mimeheader por si lleva tildes/ñ.
+    $fromDisplay = $fromName ?: 'Europea de Maquinaria';
+    $headers[] = "From: " . mb_encode_mimeheader($fromDisplay, 'UTF-8', 'B') . " <$from>";
     $headers[] = "To: " . ($toName ? "$toName <$to>" : $to);
     // Permite que, aunque el correo se autentique y salga de $from (la cuenta
     // gestion@...), las respuestas del destinatario lleguen directamente al email

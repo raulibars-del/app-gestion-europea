@@ -72,7 +72,8 @@ try {
         $input['html'] ?? '',
         $attachment,
         $input['cc'] ?? null,
-        $input['replyTo'] ?? null
+        $input['replyTo'] ?? null,
+        $input['fromName'] ?? null
     );
 
     echo json_encode(['ok' => true]);
