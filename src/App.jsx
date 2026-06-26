@@ -2856,6 +2856,7 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   const firmaNombreHtml = opts.firmaNombre
     ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
       + "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>"
+      + (opts.firmaPuesto ? "<div style=\"font-size:12px;\">" + opts.firmaPuesto + "</div>" : "")
       + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
       + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
     : "";
@@ -3085,6 +3086,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       ];
       const html = htmlEmailTarea(lineas, nueva, esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea", true, {
         firmaNombre: nombreCreador,
+        firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
       });
@@ -3131,6 +3133,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       const html = htmlEmailTarea(lineas, nueva, null, false, {
         saludo,
         firmaNombre: nombreCreador,
+        firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
       });
@@ -4765,7 +4768,7 @@ const Usuarios = ({ data, setData, userActual }) => {
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const save=()=>{if(!form.id)setData(d=>({...d,usuarios:[...d.usuarios,{...form,id:Date.now(),avatar:form.nombre[0]?.toUpperCase()||"U"}]}));else setData(d=>({...d,usuarios:d.usuarios.map(u=>u.id===form.id?form:u)}));setModal(null);};
   return (<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:"",telefono:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:"",telefono:"",puesto:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,marginBottom:12,padding:"14px 16px"}}>
       <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Permisos por rol</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:9}}>
@@ -4787,6 +4790,7 @@ const Usuarios = ({ data, setData, userActual }) => {
       <Field label="Nombre de usuario"><Input value={form.nombre} onChange={f("nombre")}/></Field>
       <Field label="Email (opcional)"><Input type="email" value={form.email||""} onChange={f("email")} placeholder="usuario@europeademaquinaria.com"/></Field>
       <Field label="Teléfono (opcional)"><Input type="tel" value={form.telefono||""} onChange={f("telefono")} placeholder="600 000 000"/></Field>
+      <Field label="Puesto (opcional)"><Input value={form.puesto||""} onChange={f("puesto")} placeholder="Ej: Director comercial"/></Field>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}><Field label="Contraseña"><Input type="password" value={form.password} onChange={f("password")}/></Field><Field label="Rol"><select value={form.rol} onChange={f("rol")} style={{...inputStyle}}>{ROLES.map(r=><option key={r} value={r}>{ROLES_LABEL[r]}</option>)}</select></Field></div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={save} style={btnPrimary}>Guardar</button></div>
     </Modal>}
@@ -7041,6 +7045,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       ];
       const html = htmlEmailTarea(lineas, evento, "Se ha creado un nuevo evento en el calendario", false, {
         firmaNombre: nombreCreador,
+        firmaPuesto: userActual.puesto?.trim(),
         firmaTelefono: userActual.telefono?.trim(),
         firmaEmail: userActual.email?.trim(),
       });
@@ -7882,6 +7887,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   const [foto, setFoto] = useState(userActual.foto || null);
   const [email, setEmail] = useState(userActual.email || "");
   const [telefono, setTelefono] = useState(userActual.telefono || "");
+  const [puesto, setPuesto] = useState(userActual.puesto || "");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
   const [err, setErr] = useState("");
@@ -7896,7 +7902,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
     if (pass1 && pass1.length < 4) { setErr("La contraseña debe tener al menos 4 caracteres."); return; }
     if (pass1 && pass1 !== pass2) { setErr("Las contraseñas no coinciden."); return; }
     setErr("");
-    const cambios = { foto, email: email.trim(), telefono: telefono.trim() };
+    const cambios = { foto, email: email.trim(), telefono: telefono.trim(), puesto: puesto.trim() };
     if (pass1) cambios.password = pass1;
     setData(d => ({ ...d, usuarios: d.usuarios.map(u => u.id === userActual.id ? { ...u, ...cambios } : u) }));
     onUpdateUser(prev => ({ ...prev, ...cambios }));
@@ -7925,7 +7931,9 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
         <Field label="Email (para recibir avisos de tareas)"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@europeademaquinaria.com" /></Field>
         <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
         <Field label="Teléfono (opcional)"><Input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="600 000 000" /></Field>
-        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5 }}>Aparecerá en la firma de los emails de tareas que envíes o reenvíes.</div>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Aparecerá en la firma de los emails de tareas que envíes o reenvíes.</div>
+        <Field label="Puesto (opcional)"><Input value={puesto} onChange={e => setPuesto(e.target.value)} placeholder="Ej: Director comercial" /></Field>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5 }}>También aparecerá en la firma de tus emails, debajo de tu nombre.</div>
       </div>
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
