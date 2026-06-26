@@ -2593,7 +2593,7 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onCerra
     </div>
   );
 };
-const Tareas = ({ data, setData, userActual }) => {
+const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [verCompletadas, setVerCompletadas] = useState(false);
@@ -2602,6 +2602,15 @@ const Tareas = ({ data, setData, userActual }) => {
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
   const fileRefTarea = useRef(null);
+  // Permite que un enlace externo (el botón "Ver tarea en la app" del email
+  // automático) abra directamente la vista previa de una tarea concreta al
+  // entrar en esta pantalla.
+  useEffect(() => {
+    if (!abrirTareaId) return;
+    const t = data.tareas.find(x => x.id === abrirTareaId);
+    if (t) setVistaPrevia(t);
+    onAbrirTareaId && onAbrirTareaId();
+  }, [abrirTareaId]);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const subirAdjuntoTarea = async (file) => {
     if(!file) return;
@@ -2789,17 +2798,33 @@ const Tareas = ({ data, setData, userActual }) => {
         + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
         + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
         + "</tr>";
+      const SITE_URL = "https://gestion.europeademaquinaria.com";
+      const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
+      const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
+      const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
+      const fotosHtml = fotos.length
+        ? "<p style=\"font-weight:700;color:#0f9b6e;margin:14px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">Imágenes adjuntas:</p>"
+          + fotos.map(a => "<div style=\"margin:0 0 8px;\"><img src=\"" + urlAbs(a.url) + "\" style=\"display:block;max-width:260px;width:100%;border-radius:6px;border:1px solid #e2e2e2;\" alt=\"" + (a.nombre || "foto") + "\"/></div>").join("")
+        : "";
+      const otrosHtml = otrosAdj.length
+        ? "<p style=\"margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + otrosAdj.map(a => "📎 <a href=\"" + urlAbs(a.url) + "\" style=\"color:#0f9b6e;\">" + (a.nombre || "adjunto") + "</a>").join("<br/>") + "</p>"
+        : "";
       const html = "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
         + "<p>Hola,</p>"
         + "<p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
         + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
         + lineas.map(filaHtml).join("")
         + "</table>"
-        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:26px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
+        + fotosHtml + otrosHtml
+        + "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
+        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
         + "<tr><td style=\"padding:14px 18px;\">"
         + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-        + "<td style=\"padding-right:12px;\"><img src=\"https://gestion.europeademaquinaria.com/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
-        + "<td style=\"color:#ffffff;font-weight:700;font-size:14px;font-family:Arial,Helvetica,sans-serif;\">Europea de Maquinaria</td>"
+        + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
+        + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+        + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
+        + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
+        + "</td>"
         + "</tr></table>"
         + "</td></tr></table>"
         + "</div>";
@@ -8105,6 +8130,12 @@ export default function App() {
   const [maquinaPublica]=useState(()=>{
     try { return new URLSearchParams(window.location.search).get("maquina"); } catch(e) { return null; }
   });
+  // Id de tarea recibido por enlace externo (botón "Ver tarea en la app" del
+  // email automático). A diferencia de articulo/maquina, requiere sesión
+  // iniciada: se consume justo después de loguearse (ver efecto más abajo).
+  const [tareaUrlInicial]=useState(()=>{
+    try { return new URLSearchParams(window.location.search).get("tarea"); } catch(e) { return null; }
+  });
   const [user,setUser]=useState(null);
   // "user" se fija una vez al iniciar sesión (con la foto de data.usuarios de ese
   // momento) y nunca se volvía a tocar salvo edición manual en "Mi cuenta". Si en
@@ -8264,6 +8295,14 @@ export default function App() {
   const irACliente=id=>{setClienteAAbrir(id);setActive("clientes");};
   const [parteAAbrir,setParteAAbrir]=useState(null);
   const irAParte=id=>{setParteAAbrir(id);setActive("partes");};
+  const [tareaAAbrir,setTareaAAbrir]=useState(null);
+  const irATarea=id=>{setTareaAAbrir(id);setActive("tareas");};
+  // Si se ha llegado con ?tarea=ID en la URL (enlace del email automático), en
+  // cuanto haya sesión abierta navegamos directamente a esa tarea.
+  useEffect(()=>{
+    if(!user||!tareaUrlInicial)return;
+    irATarea(parseInt(tareaUrlInicial));
+  },[user]);
   const onNuevoAviso=aviso=>{
     setData(d=>{
       const nn={...d.notificaciones};
@@ -8489,7 +8528,7 @@ export default function App() {
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
-          {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user}/>}
+          {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user} abrirTareaId={tareaAAbrir} onAbrirTareaId={()=>setTareaAAbrir(null)}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
