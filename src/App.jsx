@@ -31,6 +31,14 @@ const fmtFrase = (s) => {
   const f = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
   return /[.!?…]$/.test(f) ? f : f + ".";
 };
+// Igual que fmtFrase pero sin punto final (para nombres propios cortos, como el
+// municipio de un cliente bajo su nombre en los pop-ups de avisos).
+const capitalizaNombre = (s) => {
+  if (!s) return s;
+  const t = s.trim();
+  if (!t) return t;
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+};
 // Variante para los pop-ups de Tareas y Avisos: el texto principal (título de
 // la tarea o del aviso) va TODO EN MAYÚSCULAS con un punto final; el cliente
 // se sigue mostrando aparte, en mayúsculas y en negrita (ver render del pop-up).
@@ -8544,6 +8552,14 @@ export default function App() {
       const m=n.mensaje&&n.mensaje.match(/Cliente:\s*([^·]+)/);
       return m?m[1].trim():"sin cliente";
     };
+    // Municipio del cliente asociado al aviso de una notificación (para mostrarlo
+    // bajo el nombre del cliente en el pop-up). Solo se puede resolver cuando se
+    // conoce el aviso (y por tanto el clienteId); si no, no se muestra nada.
+    const municipioDeNotifAviso=n=>{
+      const aviso=n.avisoId&&data.avisos.find(a=>a.id===n.avisoId);
+      if(!aviso)return null;
+      return data.clientes.find(c=>c.id===aviso.clienteId)?.localidad||null;
+    };
     // 1) AVISOS NUEVOS: uno por uno. Solo se muestran la primera vez — al cerrar el pop-up
     // (ver cerrarPopup) quedan marcados como leídos y nunca vuelven a aparecer.
     // Color por tipo de pop-up: rojo para tareas (lo más urgente, hay que hacer
@@ -8556,6 +8572,7 @@ export default function App() {
       cola.push({
         id:"avn_"+n.id,notifId:n.id,color:COLOR_AVISO,categoria:"AVISOS NUEVOS",
         linea:n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""),cliente:clienteDeNotifAviso(n),
+        municipio:municipioDeNotifAviso(n),
         titulo:n.titulo,mensaje:n.mensaje
       });
     });
@@ -8585,7 +8602,10 @@ export default function App() {
       // Versión estructurada (texto + cliente por separado) para poder pintar el
       // pop-up con el nombre del cliente en negrita; versión en texto plano (unida
       // con guion) para el mensaje que se guarda en el historial de notificaciones.
-      const listaEstructurada=avisosPend.slice(0,8).map(a=>({texto:a.titulo,cliente:data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente"}));
+      const listaEstructurada=avisosPend.slice(0,8).map(a=>{
+        const c=data.clientes.find(c=>c.id===a.clienteId);
+        return{texto:a.titulo,cliente:c?.nombreEmpresa||"sin cliente",municipio:c?.localidad||null};
+      });
       const listaPlana=listaEstructurada.map(l=>l.texto+" — "+l.cliente);
       const partes=[];
       if(chatsNuevos.length>0)partes.push(`💬 Últimos mensajes de chat recibidos (${chatsNuevos.length}) — quién escribe y en qué canal:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+" → \""+n.mensaje+"\"").join("\n"));
@@ -8887,6 +8907,7 @@ export default function App() {
                 <div style={{marginBottom:(p.vence||p.lista)?6:18}}>
                   <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4}}>{fraseMayus(p.linea)}</div>
                   <div style={{color:"#fff",fontSize:14,fontWeight:700,lineHeight:1.4}}>{p.cliente.toUpperCase()}</div>
+                  {p.municipio&&<div style={{color:"#8b96ad",fontSize:12,fontWeight:600,lineHeight:1.4}}>{capitalizaNombre(p.municipio)}</div>}
                 </div>
               ) : (
                 <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
@@ -8903,6 +8924,7 @@ export default function App() {
                     <div>
                       <div>{fraseMayus(l.texto)}</div>
                       <div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>
+                      {l.municipio&&<div style={{color:"#8b96ad",fontSize:12,fontWeight:600}}>{capitalizaNombre(l.municipio)}</div>}
                     </div>
                   </div>
                 ))}
