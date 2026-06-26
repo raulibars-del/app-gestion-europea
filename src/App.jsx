@@ -152,6 +152,63 @@ const backfillConsumiblesClave = (d) => {
   });
   return changed ? {...d, inventario: nuevoInv} : d;
 };
+// Fusión inteligente de los datos al detectar que otro dispositivo guardó mientras
+// nosotros teníamos una edición local pendiente. Como "data" es un único bloque
+// compartido por toda la app, antes simplemente se descartaba TODA nuestra edición
+// y se avisaba con un mensaje, aunque el cambio remoto fuera en una sección totalmente
+// distinta (p.ej. alguien tocó Inventario mientras nosotros editábamos una Tarea).
+// Esta función compara, sección por sección y registro por registro (por id), lo que
+// teníamos antes (base = lastSynced), lo que tenemos ahora (local) y lo que hay ya en
+// el servidor (remoto): lo que no hemos tocado se toma del remoto sin avisar; lo que
+// hemos tocado y nadie más ha tocado se mantiene nuestro sin avisar; solo si AMBOS
+// lados cambiaron exactamente el mismo dato se considera un conflicto real (se prioriza
+// nuestra edición, pero se devuelve en "conflictos" para poder avisar solo en ese caso).
+const mismoJSON = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
+  if (mismoJSON(local, base)) return remoto; // no lo tocamos -> manda el remoto
+  if (mismoJSON(local, remoto)) return remoto; // el remoto ya tiene lo mismo que nosotros
+  if (Array.isArray(local) && Array.isArray(remoto)) {
+    const conIds = local.every(x => x && typeof x === "object" && "id" in x) && remoto.every(x => x && typeof x === "object" && "id" in x);
+    if (conIds) {
+      const baseArr = Array.isArray(base) ? base : [];
+      const baseById = new Map(baseArr.map(x => [x.id, x]));
+      const localById = new Map(local.map(x => [x.id, x]));
+      const resultado = [];
+      const vistos = new Set();
+      for (const itemR of remoto) {
+        vistos.add(itemR.id);
+        const itemB = baseById.get(itemR.id);
+        const itemL = localById.get(itemR.id);
+        if (!itemL) {
+          if (itemB && mismoJSON(itemB, itemR)) continue; // lo borramos nosotros -> respetamos el borrado
+          resultado.push(itemR); // nuevo o cambiado en remoto después de que lo borráramos -> lo mantenemos
+          continue;
+        }
+        if (itemB && mismoJSON(itemL, itemB)) { resultado.push(itemR); continue; } // no tocamos este registro
+        resultado.push(combinarDatosRemotos(itemB, itemL, itemR, ruta + "." + itemR.id, conflictos));
+      }
+      for (const itemL of local) {
+        if (!vistos.has(itemL.id) && !baseById.has(itemL.id)) resultado.push(itemL); // creado por nosotros
+      }
+      return resultado;
+    }
+    // Array sin id identificable: no podemos fusionar con seguridad elemento a elemento.
+    if (!mismoJSON(base, remoto)) conflictos.push(ruta);
+    return local;
+  }
+  if (local && remoto && typeof local === "object" && typeof remoto === "object" && !Array.isArray(local) && !Array.isArray(remoto)) {
+    const resultado = { ...remoto };
+    const claves = new Set([...Object.keys(local), ...Object.keys(remoto)]);
+    for (const k of claves) {
+      resultado[k] = combinarDatosRemotos(base ? base[k] : undefined, local[k], remoto[k], ruta + "." + k, conflictos);
+    }
+    return resultado;
+  }
+  // Valor simple: si el remoto también cambió desde la base, es un conflicto real
+  // (ambos lados cambiaron el mismo dato a la vez); priorizamos nuestra edición.
+  if (!mismoJSON(base, remoto)) conflictos.push(ruta);
+  return local;
+};
 // Geocodificación de direcciones de cliente usando Nominatim (OpenStreetMap), gratuito
 // y sin API key. El resultado se cachea en el propio cliente (campos lat/lng) para no
 // repetir la consulta — Nominatim limita el uso a ~1 petición/segundo.
@@ -8040,40 +8097,64 @@ export default function App() {
     saveTimerRef.current = setTimeout(()=>{
       (async()=>{
         try{
+          let aGuardar = data; // lo que finalmente intentaremos guardar (puede combinarse con lo remoto)
           // Comprobación previa (rápida, no atómica) antes de guardar: si una
           // pestaña/dispositivo ha estado mucho tiempo en segundo plano (móvil
           // bloqueado, portátil suspendido...), su copia local puede estar
           // basada en datos de horas antes. Si vemos que el servidor ya tiene
-          // algo distinto de lo que creíamos, no lo pisamos: cargamos lo suyo
-          // y avisamos. Esto es solo una primera red de seguridad: la garantía
-          // real (atómica, sin huecos de tiempo entre comprobar y guardar) la
-          // da el guardado condicionado por versión de más abajo.
+          // algo distinto de lo que creíamos, NO descartamos sin más nuestra
+          // edición: la combinamos con lo remoto (combinarDatosRemotos) y solo
+          // avisamos si hay un conflicto real (alguien editó exactamente lo
+          // mismo que nosotros). Esto es solo una primera red de seguridad: la
+          // garantía real (atómica, sin huecos de tiempo) la da el guardado
+          // condicionado por versión de más abajo.
           const remoto = await apiGetData();
           const remotoJson = remoto.data ? JSON.stringify(remoto.data) : null;
           if(remotoJson !== null && remotoJson !== lastSyncedRef.current){
+            const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
+            const conflictos = [];
+            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base, data, remoto.data, "raiz", conflictos)));
             lastSyncedRef.current = remotoJson;
             lastVersionRef.current = remoto.version;
-            setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
-            setSyncStatus("ok");
-            window.alert("Otro dispositivo ha guardado cambios más recientes mientras editabas. Se han cargado esos cambios para no perderlos; si tu última edición no aparece, repítela.");
-            return;
+            setData(combinado);
+            aGuardar = combinado;
+            if(conflictos.length){
+              setSyncStatus("ok");
+              window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
+              return;
+            }
+            // Sin conflicto real: seguimos abajo para guardar la combinación.
           }
           // Guardado real: el servidor solo lo aplica si la versión que mandamos
           // sigue siendo la vigente en la base de datos (comprobación atómica,
           // sin el hueco de tiempo del paso anterior). Si otro dispositivo
           // guardó justo en medio, responde "conflict" en vez de sobrescribir.
-          const resp = await apiSaveData(data, lastVersionRef.current);
+          const resp = await apiSaveData(aGuardar, lastVersionRef.current);
           if(resp && resp.conflict){
             const fresco = await apiGetData();
-            lastSyncedRef.current = fresco.data ? JSON.stringify(fresco.data) : lastSyncedRef.current;
-            lastVersionRef.current = fresco.version;
-            if(fresco.data) setData(backfillConsumiblesClave(backfillCodigosMaquina(fresco.data)));
-            setSyncStatus("ok");
-            window.alert("Otro dispositivo ha guardado cambios más recientes mientras editabas. Se han cargado esos cambios para no perderlos; si tu última edición no aparece, repítela.");
+            if(fresco.data){
+              const base2 = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
+              const conflictos2 = [];
+              const combinado2 = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base2, aGuardar, fresco.data, "raiz", conflictos2)));
+              lastSyncedRef.current = JSON.stringify(fresco.data);
+              lastVersionRef.current = fresco.version;
+              setData(combinado2);
+              setSyncStatus("ok");
+              if(conflictos2.length){
+                window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
+              }
+              // Sin conflicto real: la combinación queda guardada localmente y el
+              // siguiente ciclo del propio efecto (al cambiar "data") la subirá sola.
+            } else {
+              lastSyncedRef.current = lastSyncedRef.current;
+              lastVersionRef.current = fresco.version;
+              setSyncStatus("ok");
+            }
             return;
           }
-          lastSyncedRef.current = json;
+          lastSyncedRef.current = JSON.stringify(aGuardar);
           lastVersionRef.current = resp.version;
+          if(aGuardar !== data) setData(aGuardar);
           setSyncStatus("ok");
         }catch(e){
           setSyncStatus("error");
