@@ -311,6 +311,7 @@ const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material
 const TIPOS_AVISO = ["Reparación","Montaje","Puesta en marcha","Ajuste/mantenimiento","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
+const METODOS_ENTREGA_OFERTA = ["Email","WhatsApp","En persona","Teléfono","Otro"];
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
 const inic = (n) => (n||"").trim().split(/\s+/).filter(Boolean).map(w=>w[0]||"").join("").toUpperCase().slice(0,3);
 const Avatar = ({ u, size=26, fontSize=11, color, onClick, style }) => {
@@ -2403,7 +2404,7 @@ const Ventas = ({ data, setData, userActual }) => {
   const totalGanado = ganadas.reduce((s, v) => s + maxOferta(v), 0);
   const tasaExito = (ganadas.length + perdidas.length) > 0 ? Math.round(ganadas.length / (ganadas.length + perdidas.length) * 100) : null;
   const openNew = () => {
-    setForm({ comercialId: userActual.id,clienteId: data.clientes[0]?.id || "",fecha: today(),maquina: "",ofertaEntregada: false,ofertas: [{ maquina: "",importe: "" }],maquinaRetirar: "",valoracionRetirada: "",competencia: "",percepcionCierre: "",estado: "Prospecto",motivoCierre: "",notas: "",personaContacto: "",ultimoContacto: "" });
+    setForm({ comercialId: userActual.id,clienteId: data.clientes[0]?.id || "",fecha: today(),maquina: "",ofertaEntregada: false,metodoEntrega: "",ofertas: [{ maquina: "",importe: "" }],maquinaRetirar: "",valoracionRetirada: "",competencia: "",percepcionCierre: "",estado: "Prospecto",motivoCierre: "",notas: "",personaContacto: "",ultimoContacto: "",ultimoContactoNota: "" });
     setModal(true);
   };
   // Abrir una venta existente en el modal de edición, migrando sus ofertas al
@@ -2427,15 +2428,18 @@ const Ventas = ({ data, setData, userActual }) => {
   const programarSeguimiento = () => {
     const v = data.ventas.find(x => x.id === modalSeguimiento);
     if (!v || !formSeguimiento.fecha) { alert("Elige una fecha"); return; }
+    // Si hay una persona de contacto registrada, su nombre debe verse en la
+    // propia tarea (no solo el cliente), para saber a quién hay que llamar.
+    const quien = v.personaContacto ? `${v.personaContacto} (${cN(v.clienteId)})` : cN(v.clienteId);
     const tarea = {
       id: Date.now(),
-      titulo: `Contactar con ${cN(v.clienteId)} para oferta de ${v.maquina}`,
+      titulo: `Contactar con ${quien} para oferta de ${v.maquina}`,
       asignadoId: v.comercialId,
       creadoPor: userActual.id,
       prioridad: "Media",
       vence: formSeguimiento.fecha,
       estado: "Pendiente",
-      notas: "Actualizar información de la operación de venta.",
+      notas: v.personaContacto ? `Persona de contacto: ${v.personaContacto}. Actualizar información de la operación de venta.` : "Actualizar información de la operación de venta.",
     };
     setData(d => ({ ...d,tareas: [...d.tareas, tarea],ventas: d.ventas.map(x => x.id === v.id ? { ...x,proximoContacto: formSeguimiento.fecha } : x) }));
     setModalSeguimiento(null);
@@ -2451,7 +2455,7 @@ const Ventas = ({ data, setData, userActual }) => {
   const modalSeguimientoJSX = modalSeguimiento && ventaSeg && (
     <Modal title="📅 Programar aviso" onClose={() => setModalSeguimiento(null)}>
       <div style={{background:"#3b82f612",border:"1px solid #3b82f633",borderRadius:9,padding:"10px 13px",marginBottom:14,color:"#3b82f6",fontSize:13}}>
-        Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
+        Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {ventaSeg.personaContacto ? `${ventaSeg.personaContacto} (${cN(ventaSeg.clienteId)})` : cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
       </div>
       <Field label="Fecha exacta">
         <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} />
@@ -2520,7 +2524,7 @@ const Ventas = ({ data, setData, userActual }) => {
                 ["Máquina demandada", venta.maquina],
                 ["Cliente", cN(venta.clienteId)],
                 ["Localidad", cl?.localidad || "—"],
-                ["Oferta entregada", venta.ofertaEntregada ? "✅ Sí" : "⏳ Pendiente"],
+                ["Oferta entregada", venta.ofertaEntregada ? `✅ Sí — ${venta.metodoEntrega || "método sin especificar"}` : "⏳ Pendiente"],
               ].map(([l, v]) => (
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
                   <span style={{color:"#6b7a99",fontSize:12}}>{l}</span>
@@ -2552,6 +2556,7 @@ const Ventas = ({ data, setData, userActual }) => {
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
                 </div>
               ))}
+              {venta.ultimoContactoNota && <div style={{color:"#9aa3b8",fontSize:12,marginTop:7,fontStyle:"italic"}}>"{venta.ultimoContactoNota}"</div>}
             </div>
             {/* Máquina a retirar */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
@@ -2705,15 +2710,17 @@ const Ventas = ({ data, setData, userActual }) => {
           <Field label="Estado"><Select value={form.estado} onChange={f("estado")} options={ESTADOS_VENTA} /></Field>
           <Field label="Oferta económica entregada">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",paddingTop:8}}>
-              <input type="checkbox" checked={!!form.ofertaEntregada} onChange={e => setForm(p => ({ ...p,ofertaEntregada: e.target.checked }))} style={{width:16,height:16}} />
+              <input type="checkbox" checked={!!form.ofertaEntregada} onChange={e => setForm(p => ({ ...p,ofertaEntregada: e.target.checked,metodoEntrega: e.target.checked ? p.metodoEntrega : "" }))} style={{width:16,height:16}} />
               <span style={{color:"#9aa3b8",fontSize:13}}>Sí, oferta entregada al cliente</span>
             </label>
           </Field>
+          {form.ofertaEntregada && <Field label="Cómo se entregó"><Select value={form.metodoEntrega || "Email"} onChange={f("metodoEntrega")} options={METODOS_ENTREGA_OFERTA} /></Field>}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
           <Field label="Persona de contacto"><Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona con quien hablas" /></Field>
           <Field label="Último contacto"><Input type="date" value={form.ultimoContacto} onChange={f("ultimoContacto")} /></Field>
         </div>
+        {form.ultimoContacto && <Field label="Comentario del último contacto"><Textarea value={form.ultimoContactoNota} onChange={f("ultimoContactoNota")} placeholder="¿Qué se habló? ¿Próximos pasos?" rows={2} /></Field>}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
           <Field label="Máquina a retirar (si hay)"><Input value={form.maquinaRetirar} onChange={f("maquinaRetirar")} placeholder="Modelo y marca" /></Field>
           <Field label="Valoración retirada €"><Input type="number" value={form.valoracionRetirada} onChange={f("valoracionRetirada")} /></Field>
@@ -2763,7 +2770,7 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onAviso
         <div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
           <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{v.maquina}</span>
           <Badge text={v.estado} />
-          {v.ofertaEntregada && <span style={{background:"#0ea5e918",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>📄 Oferta enviada</span>}
+          {v.ofertaEntregada && <span style={{background:"#0ea5e918",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>📄 Oferta enviada{v.metodoEntrega ? ` (${v.metodoEntrega})` :""}</span>}
         </div>
         <div style={{color:"#9aa3b8",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
         {/* Columnas tipo tabla: cada oferta por separado, último contacto y aviso */}
@@ -2775,9 +2782,10 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onAviso
               <div style={{color:"#10b981",fontSize:11.5,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</div>
             </div>
           ))}
-          <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100}}>
+          <div title={v.ultimoContactoNota || ""} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100,maxWidth:180}}>
             <div style={{color:"#6b7a99",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Último contacto</div>
             <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600}}>{v.ultimoContacto || "Sin registrar"}</div>
+            {v.ultimoContactoNota && <div style={{color:"#9aa3b8",fontSize:10.5,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.ultimoContactoNota}</div>}
           </div>
           <div onClick={e => { e.stopPropagation(); onAviso && onAviso(); }} title="Programar aviso para volver a contactar"
             style={{background:v.proximoContacto ? "#3b82f618" :"#0d1117",border:`1px solid ${v.proximoContacto ? "#3b82f655" :"#2a3550"}`,borderRadius:7,padding:"5px 10px",minWidth:100,cursor:"pointer"}}>
