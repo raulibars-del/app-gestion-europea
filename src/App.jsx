@@ -31,6 +31,22 @@ const fmtFrase = (s) => {
   const f = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
   return /[.!?…]$/.test(f) ? f : f + ".";
 };
+// Variante para los pop-ups de Tareas y Avisos: el texto principal (título de
+// la tarea o del aviso) va TODO EN MAYÚSCULAS con un punto final; el cliente
+// se sigue mostrando aparte, en mayúsculas y en negrita (ver render del pop-up).
+const fraseMayus = (s) => {
+  if (!s) return s;
+  const t = s.trim().toUpperCase();
+  return t && !/[.!?…]$/.test(t) ? t + "." : t;
+};
+// Añade un punto final a una frase si no lo tiene ya, sin tocar mayúsculas ni
+// minúsculas (para el texto de "vencida hace.../vence el..." de las tareas,
+// que ya viene en minúsculas desde fmtVenceCompleto).
+const conPunto = (s) => {
+  if (!s) return s;
+  const t = s.trim();
+  return t && !/[.!?…]$/.test(t) ? t + "." : t;
+};
 const generarNum = (prefijo, fecha, lista, campoNum) => {
   // Format: P010926-01, AV010926-01, ALB010926-01
   const d = fecha || today();
@@ -8718,17 +8734,17 @@ export default function App() {
             {p.linea&&(
               <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
                 {p.cliente
-                  ? <>{fmtFrase(p.linea)} <b style={{color:"#fff"}}>{p.cliente.toUpperCase()}</b></>
-                  : fmtFrase(p.linea)}
+                  ? <>{fraseMayus(p.linea)} <b style={{color:"#fff"}}>{p.cliente.toUpperCase()}</b></>
+                  : (p.categoria==="TAREAS" ? fraseMayus(p.linea) : fmtFrase(p.linea))}
               </div>
             )}
-            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#6b7a99",fontSize:12,fontWeight:700,marginBottom:18}}>{p.vence.charAt(0).toUpperCase()+p.vence.slice(1)}</div>}
+            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#6b7a99",fontSize:12,fontWeight:700,marginBottom:18}}>{conPunto(p.vence)}</div>}
             {p.lista&&(
               <div style={{marginBottom:18}}>
                 {p.lista.map((l,i)=>(
                   <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?7:0}}>
                     <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
-                    <span>{fmtFrase(l.texto)} <b style={{color:"#f1f3f9"}}>{l.cliente.toUpperCase()}</b></span>
+                    <span>{fraseMayus(l.texto)} <b style={{color:"#f1f3f9"}}>{l.cliente.toUpperCase()}</b></span>
                   </div>
                 ))}
               </div>
