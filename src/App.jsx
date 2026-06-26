@@ -8729,22 +8729,30 @@ export default function App() {
           <div style={{width:"min(440px,100%)",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,flexShrink:0}}><Icon name="mail" size={20}/></div>
-              <div style={{color:"#f1f3f9",fontWeight:900,fontSize:16,letterSpacing:".5px"}}>{p.categoria}</div>
+              <div style={{color:p.color,fontWeight:900,fontSize:16,letterSpacing:".5px",textDecoration:"underline"}}>{p.categoria}</div>
             </div>
             {p.linea&&(
-              <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
-                {p.cliente
-                  ? <>{fraseMayus(p.linea)} <b style={{color:"#fff"}}>{p.cliente.toUpperCase()}</b></>
-                  : (p.categoria==="TAREAS" ? fraseMayus(p.linea) : fmtFrase(p.linea))}
-              </div>
+              p.cliente ? (
+                <div style={{marginBottom:(p.vence||p.lista)?6:18}}>
+                  <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4}}>{fraseMayus(p.linea)}</div>
+                  <div style={{color:"#fff",fontSize:14,fontWeight:700,lineHeight:1.4}}>{p.cliente.toUpperCase()}</div>
+                </div>
+              ) : (
+                <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
+                  {p.categoria==="TAREAS" ? fraseMayus(p.linea) : fmtFrase(p.linea)}
+                </div>
+              )
             )}
             {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#6b7a99",fontSize:12,fontWeight:700,marginBottom:18}}>{conPunto(p.vence)}</div>}
             {p.lista&&(
               <div style={{marginBottom:18}}>
                 {p.lista.map((l,i)=>(
-                  <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?7:0}}>
+                  <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?10:0}}>
                     <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
-                    <span>{fraseMayus(l.texto)} <b style={{color:"#f1f3f9"}}>{l.cliente.toUpperCase()}</b></span>
+                    <div>
+                      <div>{fraseMayus(l.texto)}</div>
+                      <div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>
+                    </div>
                   </div>
                 ))}
               </div>
