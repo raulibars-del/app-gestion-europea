@@ -2780,9 +2780,29 @@ const Tareas = ({ data, setData, userActual }) => {
         ["Estado", nueva.estado],
         ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
       ];
-      const html = "<p>Hola,</p><p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
-        + lineas.map(([l, v]) => "<p>" + l + ": " + v + "</p>").join("")
-        + "<p>Un saludo,<br/>Europea de Maquinaria</p>";
+      // Tabla con etiquetas en negrita y color de marca, y una franja verde con el
+      // logo a modo de firma. Todo con estilos inline y tablas (no flexbox/clases),
+      // que es lo único que se renderiza de forma fiable en clientes de correo
+      // como Outlook o Gmail.
+      const filaHtml = ([l, v]) =>
+        "<tr>"
+        + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
+        + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
+        + "</tr>";
+      const html = "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
+        + "<p>Hola,</p>"
+        + "<p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
+        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
+        + lineas.map(filaHtml).join("")
+        + "</table>"
+        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:26px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
+        + "<tr><td style=\"padding:14px 18px;\">"
+        + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+        + "<td style=\"padding-right:12px;\"><img src=\"https://gestion.europeademaquinaria.com/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
+        + "<td style=\"color:#ffffff;font-weight:700;font-size:14px;font-family:Arial,Helvetica,sans-serif;\">Europea de Maquinaria</td>"
+        + "</tr></table>"
+        + "</td></tr></table>"
+        + "</div>";
       // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
       // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
       const enviados = [];
@@ -2792,7 +2812,7 @@ const Tareas = ({ data, setData, userActual }) => {
           await apiSendMail({
             to: u.email.trim(),
             toName: u.nombre,
-            subject: "Nueva tarea enviada por parte de " + nombreCreador,
+            subject: "Tarea nueva enviada por " + nombreCreador,
             html,
           });
           enviados.push(u.email.trim());
