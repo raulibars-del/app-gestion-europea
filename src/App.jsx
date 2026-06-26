@@ -6797,7 +6797,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 const TIPOS_EVENTO = ["Aviso","Visita","Feria","Medico","Vacaciones","Formacion","Otro"];
 const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#10b981",Vacaciones:"#a855f7",Formacion:"#06b6d4",Otro:"#6b7a99"};
 
-const Calendario = ({ data, setData, userActual, irAAviso }) => {
+const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
   const [semanaOffset, setSemanaOffset] = useState(0);
   const [modal, setModal] = useState(false);
@@ -6843,27 +6843,93 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
 
   const todosEventos = [...avisosEventos, ...eventos];
 
+  // Personas asignadas a un evento: soporta el array nuevo (varias) y el id legacy (uno solo).
+  // A diferencia de Avisos/Partes, aqui se guardan ids numericos (no nombres), porque el campo
+  // legacy "usuarioId" ya era numerico.
+  const idsEvento = (ev) => (Array.isArray(ev.usuarioIds)&&ev.usuarioIds.length) ? ev.usuarioIds : (ev.usuarioId?[ev.usuarioId]:[]);
+  const nombresEvento = (ev) => idsEvento(ev).map(id=>data.usuarios.find(u=>u.id===id)?.nombre).filter(Boolean);
+
   const eventosDia = (fecha, uid) => todosEventos.filter(e=>{
-    if(e.fecha!==fecha) return false;
-    if(!esAdmin && uid==="todos") return e.usuarioId===userActual.id||!e.usuarioId;
-    if(uid!=="todos") return e.usuarioId===parseInt(uid)||(!e.usuarioId&&esAdmin);
+    const enRango = fecha>=e.fecha && fecha<=(e.fechaFin||e.fecha);
+    if(!enRango) return false;
+    const ids = idsEvento(e);
+    if(!esAdmin && uid==="todos") return ids.includes(userActual.id)||!ids.length;
+    if(uid!=="todos") return ids.includes(parseInt(uid))||(!ids.length&&esAdmin);
     return true;
   });
 
   const abrirNuevo = (fecha) => {
-    setForm({fecha:fecha||today(),titulo:"",tipo:"Visita",usuarioId:userActual.id,notas:""});
+    const f = fecha||today();
+    setForm({fecha:f,fechaFin:f,titulo:"",tipo:"Visita",usuarioIds:[userActual.id],notas:""});
     setModal(true);
+  };
+
+  const abrirEditar = (ev) => {
+    if(ev.readOnly) return;
+    setForm({...ev, fechaFin:ev.fechaFin||ev.fecha, usuarioIds:idsEvento(ev).length?idsEvento(ev):[userActual.id]});
+    setModal(true);
+  };
+
+  const enviarEmailEventoCreado = async (evento) => {
+    try {
+      const destinatarios = data.usuarios.filter(u=>idsEvento(evento).includes(u.id)&&u.email?.trim());
+      if(!destinatarios.length) return;
+      const nombreCreador = userActual.nombre;
+      const fechaTxt = (evento.fechaFin&&evento.fechaFin!==evento.fecha) ? fmtFecha(evento.fecha)+" — "+fmtFecha(evento.fechaFin) : fmtFecha(evento.fecha);
+      const personasTxt = nombresEvento(evento).join(", ");
+      const lineas = [
+        ["Titulo", evento.titulo],
+        ["Tipo", evento.tipo],
+        ["Fecha", fechaTxt],
+        ...(personasTxt ? [["Personas", personasTxt]] : []),
+        ["Creado por", nombreCreador],
+        ...(evento.notas?.trim() ? [["Notas", evento.notas]] : []),
+      ];
+      const html = htmlEmailTarea(lineas, evento, "Se ha creado un nuevo evento en el calendario", false, {
+        firmaNombre: nombreCreador,
+        firmaTelefono: userActual.telefono?.trim(),
+        firmaEmail: userActual.email?.trim(),
+      });
+      const enviados = [];
+      const fallos = [];
+      for (const u of destinatarios) {
+        try {
+          await apiSendMail({
+            to: u.email.trim(),
+            toName: u.nombre,
+            subject: "Nuevo evento en el calendario: " + evento.titulo,
+            html,
+            fromName: nombreCreador + " - Europea de Maquinaria",
+          });
+          enviados.push(u.email.trim());
+        } catch (e) {
+          fallos.push(u.email.trim() + " (" + e.message + ")");
+        }
+      }
+      if (enviados.length) alert("Email del evento enviado a: " + enviados.join(", ") + ".");
+      if (fallos.length) alert("No se pudo enviar el email del evento a: " + fallos.join(", ") + ".");
+    } catch (e) { alert("No se pudo enviar el email del evento.\n\n" + e.message); }
   };
 
   const save = () => {
     if(!form.titulo?.trim()){alert("Escribe un titulo para el evento");return;}
-    const item = {...form, usuarioId:parseInt(form.usuarioId)||userActual.id};
-    if(!item.id) setData(d=>({...d,calendario:[...(d.calendario||[]),{...item,id:Date.now()}]}));
-    else setData(d=>({...d,calendario:(d.calendario||[]).map(e=>e.id===item.id?item:e)}));
+    const ids = (Array.isArray(form.usuarioIds)&&form.usuarioIds.length) ? form.usuarioIds : [userActual.id];
+    const fechaFin = (form.fechaFin && form.fechaFin>=form.fecha) ? form.fechaFin : form.fecha;
+    const item = {...form, usuarioId:ids[0], usuarioIds:ids, fechaFin};
+    if(!item.id){
+      const nuevoItem = {...item,id:Date.now()};
+      setData(d=>({...d,calendario:[...(d.calendario||[]),nuevoItem]}));
+      enviarEmailEventoCreado(nuevoItem);
+    } else {
+      setData(d=>({...d,calendario:(d.calendario||[]).map(e=>e.id===item.id?item:e)}));
+    }
     setModal(false);
   };
 
-  const delEvento = id => setData(d=>({...d,calendario:(d.calendario||[]).filter(e=>e.id!==id)}));
+  const delEvento = id => {
+    if(!window.confirm("¿Estas seguro de que quieres eliminar este evento?")) return;
+    setData(d=>({...d,calendario:(d.calendario||[]).filter(e=>e.id!==id)}));
+  };
 
   const mesActual = fmtMes(lunes)+" "+lunes.getFullYear();
 
@@ -6904,7 +6970,47 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
         ))}
       </div>
 
-      {/* Grid semana */}
+      {/* Vista semana: grid de 7 columnas en escritorio, lista vertical (agenda) en movil
+          para que no se corte cuando hay varios eventos en un dia */}
+      {isMobile ? (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {diasSemana.map(dia=>{
+            const fecha = fmtDate(dia);
+            const evsDia = eventosDia(fecha, usuarioFiltro);
+            const hoy = esHoy(dia);
+            return(
+              <div key={fecha} style={{background:hoy?"#1e293b":"#151b2a",border:`1px solid ${hoy?"#f97316":"#2a3550"}`,borderRadius:10,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:evsDia.length?8:0,cursor:"pointer"}} onClick={()=>abrirNuevo(fecha)}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{width:28,height:28,borderRadius:14,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:13,flexShrink:0}}>
+                      {fmtNum(dia)}
+                    </div>
+                    <span style={{color:"#9aa3b8",fontSize:12,textTransform:"capitalize"}}>{dia.toLocaleDateString("es-ES",{weekday:"long"})}</span>
+                  </div>
+                  {evsDia.length>0&&<span style={{background:"#f97316",color:"#fff",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:800,minWidth:16,textAlign:"center"}}>{evsDia.length}</span>}
+                </div>
+                {evsDia.length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                    {evsDia.map(ev=>{
+                      const nombres = nombresEvento(ev).join(", ");
+                      return(
+                        <div key={ev.id} onClick={()=>abrirEditar(ev)}
+                          style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:6,padding:"6px 8px",cursor:ev.readOnly?"default":"pointer"}}>
+                          <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
+                          <div style={{color:"#e2e8f0",fontSize:12,fontWeight:600}}>{ev.titulo}</div>
+                          {ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:10}}>{ev.clienteNombre}</div>}
+                          {nombres&&<div style={{color:"#6b7a99",fontSize:10}}>{nombres}</div>}
+                          {ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:10,fontWeight:700}}>{ev.prioridad}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6}}>
         {diasSemana.map(dia=>{
           const fecha = fmtDate(dia);
@@ -6929,14 +7035,13 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
               {/* Eventos del dia */}
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
                 {evsDia.slice(0,4).map(ev=>{
-                  const uNombre = data.usuarios.find(u=>u.id===ev.usuarioId)?.nombre||"";
                   return(
-                    <div key={ev.id} onClick={e=>{e.stopPropagation();if(!ev.readOnly){setForm({...ev});setModal(true);}}}
+                    <div key={ev.id} onClick={e=>{e.stopPropagation();abrirEditar(ev);}}
                       style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:5,padding:"3px 5px",cursor:ev.readOnly?"default":"pointer"}}>
                       <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                       <div style={{color:"#e2e8f0",fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.titulo}</div>
                       {ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
-                      {esAdmin&&(()=>{const uN=data.usuarios.find(u=>u.id===ev.usuarioId)?.nombre; return uN?<div style={{color:"#6b7a99",fontSize:9}}>{uN}</div>:null;})()}
+                      {(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#6b7a99",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
                       {ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:9,fontWeight:700}}>{ev.prioridad}</div>}
                     </div>
                   );
@@ -6947,6 +7052,7 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
           );
         })}
       </div>
+      )}
 
       {/* Proximos avisos pendientes del usuario */}
       {(()=>{
@@ -6995,20 +7101,38 @@ const Calendario = ({ data, setData, userActual, irAAviso }) => {
         <Modal title={form.id?"Editar evento":"Nuevo evento"} onClose={()=>setModal(false)}>
           <Field label="Titulo del evento"><Input value={form.titulo||""} onChange={e=>setForm(p=>({...p,titulo:e.target.value}))} placeholder="Visita cliente, Feria Valencia..."/></Field>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11}}>
-            <Field label="Fecha"><Input type="date" value={form.fecha||today()} onChange={e=>setForm(p=>({...p,fecha:e.target.value}))}/></Field>
+            <Field label="Fecha inicio">
+              <Input type="date" value={form.fecha||today()} onChange={e=>{
+                const f = e.target.value;
+                setForm(p=>({...p,fecha:f,fechaFin:(p.fechaFin&&p.fechaFin>=f)?p.fechaFin:f}));
+              }}/>
+            </Field>
+            <Field label="Fecha fin (si dura varios dias)">
+              <Input type="date" value={form.fechaFin||form.fecha||today()} min={form.fecha||today()} onChange={e=>setForm(p=>({...p,fechaFin:e.target.value}))}/>
+            </Field>
             <Field label="Tipo">
               <select value={form.tipo||"Visita"} onChange={e=>setForm(p=>({...p,tipo:e.target.value}))} style={{...inputStyle}}>
                 {TIPOS_EVENTO.filter(t=>t!=="Aviso").map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </Field>
           </div>
-          {esAdmin&&(
-            <Field label="Asignar a">
-              <select value={form.usuarioId||userActual.id} onChange={e=>setForm(p=>({...p,usuarioId:parseInt(e.target.value)}))} style={{...inputStyle}}>
-                {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre} — {u.rol}</option>)}
-              </select>
-            </Field>
-          )}
+          <Field label="Personas (puedes elegir varias, por ejemplo un viaje de 2 personas)">
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {data.usuarios.filter(u=>u.activo).map(u=>{
+                const ids = Array.isArray(form.usuarioIds)?form.usuarioIds:(form.usuarioId?[form.usuarioId]:[]);
+                const on = ids.includes(u.id);
+                return (
+                  <button key={u.id} type="button" onClick={()=>{
+                    const cur = Array.isArray(form.usuarioIds)?form.usuarioIds:(form.usuarioId?[form.usuarioId]:[]);
+                    const next = cur.includes(u.id) ? cur.filter(x=>x!==u.id) : [...cur,u.id];
+                    setForm(p=>({...p,usuarioIds:next}));
+                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#f97316":"#2a3550"),background:on?"#f9731615":"#0d1117",color:on?"#f97316":"#6b7a99",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+                    {on&&<Icon name="check" size={11}/>}{u.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
           <Field label="Notas"><Textarea value={form.notas||""} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Detalles del evento..."/></Field>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             {form.id&&<button onClick={()=>{delEvento(form.id);setModal(false);}} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644"}}>Eliminar</button>}
@@ -8734,7 +8858,7 @@ export default function App() {
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
-          {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso}/>}
+          {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso} isMobile={isMobile}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
