@@ -2377,7 +2377,11 @@ const Ventas = ({ data, setData, userActual }) => {
   // solo tenían un campo singular maquina+importeOferta: este helper las migra sobre
   // la marcha a la nueva forma de lista, sin tener que tocar los datos guardados.
   const ofertasDe = v => (v.ofertas && v.ofertas.length) ? v.ofertas : (v.maquina ? [{ maquina: v.maquina,importe: v.importeOferta || 0 }] : []);
-  const sumaOfertas = v => ofertasDe(v).reduce((s, o) => s + (parseFloat(o.importe) || 0), 0);
+  // Las distintas máquinas ofertadas en una misma operación son alternativas
+  // (el cliente comprará como mucho una de ellas), así que NUNCA se suman entre
+  // sí. Para estimar el valor de una operación en los KPIs de pipeline se usa
+  // la oferta de mayor importe, no la suma de todas.
+  const maxOferta = v => ofertasDe(v).reduce((m, o) => Math.max(m, parseFloat(o.importe) || 0), 0);
   const [modalSeguimiento, setModalSeguimiento] = useState(null);
   const [formSeguimiento, setFormSeguimiento] = useState({});
   const misVentas = data.ventas.filter(v => v.comercialId === userActual.id);
@@ -2395,8 +2399,8 @@ const Ventas = ({ data, setData, userActual }) => {
   const activas = misVentas.filter(v => ESTADOS_VENTA_ABIERTOS.includes(v.estado));
   const ganadas = misVentas.filter(v => v.estado === "Ganada");
   const perdidas = misVentas.filter(v => v.estado === "Perdida");
-  const totalPipeline = activas.reduce((s, v) => s + sumaOfertas(v), 0);
-  const totalGanado = ganadas.reduce((s, v) => s + sumaOfertas(v), 0);
+  const totalPipeline = activas.reduce((s, v) => s + maxOferta(v), 0);
+  const totalGanado = ganadas.reduce((s, v) => s + maxOferta(v), 0);
   const tasaExito = (ganadas.length + perdidas.length) > 0 ? Math.round(ganadas.length / (ganadas.length + perdidas.length) * 100) : null;
   const openNew = () => {
     setForm({ comercialId: userActual.id,clienteId: data.clientes[0]?.id || "",fecha: today(),maquina: "",ofertaEntregada: false,ofertas: [{ maquina: "",importe: "" }],maquinaRetirar: "",valoracionRetirada: "",competencia: "",percepcionCierre: "",estado: "Prospecto",motivoCierre: "",notas: "",personaContacto: "",ultimoContacto: "" });
@@ -2437,6 +2441,31 @@ const Ventas = ({ data, setData, userActual }) => {
     setModalSeguimiento(null);
     alert("Tarea de seguimiento creada para " + uN(v.comercialId) + ".");
   };
+  // Calcula la fecha a partir de "dentro de X días" (alternativa rápida a elegir
+  // una fecha exacta en el calendario).
+  const fechaDesdeDias = dias => { const d = new Date(); d.setDate(d.getDate() + parseInt(dias)); return d.toISOString().split("T")[0]; };
+  // Venta sobre la que se está programando un aviso (válido tanto desde la
+  // tarjeta de la lista como desde la vista de detalle) + el modal en sí,
+  // calculado una sola vez para poder reutilizarlo en ambas vistas.
+  const ventaSeg = modalSeguimiento ? data.ventas.find(x => x.id === modalSeguimiento) : null;
+  const modalSeguimientoJSX = modalSeguimiento && ventaSeg && (
+    <Modal title="📅 Programar aviso" onClose={() => setModalSeguimiento(null)}>
+      <div style={{background:"#3b82f612",border:"1px solid #3b82f633",borderRadius:9,padding:"10px 13px",marginBottom:14,color:"#3b82f6",fontSize:13}}>
+        Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
+      </div>
+      <Field label="Fecha exacta">
+        <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} />
+      </Field>
+      <div style={{textAlign:"center",color:"#6b7a99",fontSize:11,margin:"10px 0",fontWeight:700}}>— O —</div>
+      <Field label="Dentro de (días)">
+        <Input type="number" value={formSeguimiento.dias || ""} onChange={e => { const dias = e.target.value; setFormSeguimiento(p => ({ ...p,dias,fecha: dias ? fechaDesdeDias(dias) : "" })); }} placeholder="Ej: 7" />
+      </Field>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6}}>
+        <button onClick={() => setModalSeguimiento(null)} style={btnOutline}>Cancelar</button>
+        <button onClick={programarSeguimiento} style={{...btnPrimary,background:"#3b82f6"}}>Crear tarea</button>
+      </div>
+    </Modal>
+  );
   const cerrarOp = () => {
     const v = data.ventas.find(x => x.id === modalCierre);
     if (!v) return;
@@ -2478,7 +2507,7 @@ const Ventas = ({ data, setData, userActual }) => {
             <button onClick={() => { setModalCierre(venta.id); setFormCierre({ estado: "Ganada",motivoCierre: venta.motivoCierre || "" }); }} style={{background:"#16a34a20",border:"1px solid #16a34a44",borderRadius:8,padding:"7px 13px",color:"#16a34a",fontWeight:700,cursor:"pointer",fontSize:13}}>✅ Cerrar ganada</button>
             <button onClick={() => { setModalCierre(venta.id); setFormCierre({ estado: "Perdida",motivoCierre: venta.motivoCierre || "" }); }} style={{background:"#dc262618",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:13}}>❌ Cerrar perdida</button>
           </>}
-          <button onClick={() => { setModalSeguimiento(venta.id); setFormSeguimiento({ fecha: "" }); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="calendario" size={13} />Programar seguimiento</button>
+          <button onClick={() => { setModalSeguimiento(venta.id); setFormSeguimiento({ fecha: "",dias: "" }); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="calendario" size={13} />Programar aviso</button>
           <button onClick={() => abrirEditar(venta)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13} />Editar</button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:12}}>
@@ -2504,14 +2533,11 @@ const Ventas = ({ data, setData, userActual }) => {
               <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Máquinas ofertadas</div>
               {ofertasDe(venta).filter(o => o.maquina || o.importe).map((o, i) => (
                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
-                  <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{o.maquina || "—"}</span>
+                  <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>Oferta {i + 1}: {o.maquina || "—"}</span>
                   <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</span>
                 </div>
               ))}
-              {sumaOfertas(venta) > 0 && <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0 0",marginTop:3}}>
-                <span style={{color:"#6b7a99",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>Total</span>
-                <span style={{color:"#10b981",fontSize:14,fontWeight:800}}>€{sumaOfertas(venta).toLocaleString()}</span>
-              </div>}
+              <div style={{color:"#6b7a99",fontSize:10.5,marginTop:7,fontStyle:"italic"}}>El cliente comprará como mucho una de estas opciones, no se suman.</div>
             </div>
             {/* Contacto */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
@@ -2590,20 +2616,7 @@ const Ventas = ({ data, setData, userActual }) => {
             <button onClick={cerrarOp} style={{...btnPrimary,background:formCierre.estado === "Ganada" ? "#16a34a" :"#dc2626"}}>Confirmar cierre</button>
           </div>
         </Modal>}
-        {/* Modal programar seguimiento: crea una tarea para el comercial recordando
-            que debe volver a contactar con el cliente y actualizar la información */}
-        {modalSeguimiento && <Modal title="📅 Programar seguimiento" onClose={() => setModalSeguimiento(null)}>
-          <div style={{background:"#3b82f612",border:"1px solid #3b82f633",borderRadius:9,padding:"10px 13px",marginBottom:14,color:"#3b82f6",fontSize:13}}>
-            Se creará una tarea para {uN(venta.comercialId)}: "Contactar con {cN(venta.clienteId)} para oferta de {venta.maquina}".
-          </div>
-          <Field label="Fecha de seguimiento">
-            <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value }))} />
-          </Field>
-          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-            <button onClick={() => setModalSeguimiento(null)} style={btnOutline}>Cancelar</button>
-            <button onClick={programarSeguimiento} style={{...btnPrimary,background:"#3b82f6"}}>Crear tarea</button>
-          </div>
-        </Modal>}
+        {modalSeguimientoJSX}
       </div>
     );
   }
@@ -2657,7 +2670,7 @@ const Ventas = ({ data, setData, userActual }) => {
               {PIPELINE_ICON[estado]} {estado} <span style={{background:c + "22",borderRadius:8,padding:"1px 7px",fontSize:10}}>{grupo.length}</span>
             </div>
             <div style={{display:"grid",gap:6}}>
-              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} sumaOfertas={sumaOfertas} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
+              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
             </div>
           </div>
         );
@@ -2665,7 +2678,7 @@ const Ventas = ({ data, setData, userActual }) => {
       {/* Lista plana para cerradas/todas */}
       {filtroEstado !== "Activas" && <div style={{display:"grid",gap:6}}>
         {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#6b7a99"}}>Sin operaciones</div>}
-        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} sumaOfertas={sumaOfertas} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
+        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
       </div>}
       {/* Modal nueva/editar */}
       {modal && <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
@@ -2730,16 +2743,19 @@ const Ventas = ({ data, setData, userActual }) => {
           <button onClick={cerrarOp} style={{...btnPrimary,background:formCierre.estado === "Ganada" ? "#16a34a" :"#dc2626"}}>Confirmar cierre</button>
         </div>
       </Modal>}
+      {modalSeguimientoJSX}
     </div>
   );
 };
-const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onCerrar, onDel, sumaOfertas, ofertasDe }) => {
+const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onAviso, onCerrar, onDel, ofertasDe }) => {
   const cerrada = ESTADOS_VENTA_CERRADOS.includes(v.estado);
   const dc = diasCierre(v.percepcionCierre);
   const cl_label = cierreLabel(dc);
   const pc = PIPELINE_COLOR[v.estado] || "#6b7a99";
-  const nombresOfertas = (ofertasDe ? ofertasDe(v) : []).map(o => o.maquina).filter(Boolean).join(", ");
-  const total = sumaOfertas ? sumaOfertas(v) : (v.importeOferta || 0);
+  // Cada máquina ofertada es una alternativa, no algo que se suma: el cliente
+  // comprará como mucho una de ellas. Por eso se listan por separado (Oferta 1,
+  // Oferta 2...) en vez de mostrar un total combinado.
+  const ofertas = (ofertasDe ? ofertasDe(v) : []).filter(o => o.maquina || o.importe);
   return (
     <div onClick={onClick} style={{background:"#151b2a",border:`1px solid ${cerrada ? (v.estado === "Ganada" ? "#16a34a33" :"#dc262633") :"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:10}}
       onMouseEnter={e => e.currentTarget.style.borderColor = pc + "88"} onMouseLeave={e => e.currentTarget.style.borderColor = cerrada ? (v.estado === "Ganada" ? "#16a34a33" : "#dc262633") : "#2a3550"}>
@@ -2749,17 +2765,30 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onCerra
           <Badge text={v.estado} />
           {v.ofertaEntregada && <span style={{background:"#0ea5e918",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>📄 Oferta enviada</span>}
         </div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          <span style={{color:"#9aa3b8",fontSize:12}}>🏢 {cN(v.clienteId)}</span>
-          {total > 0 && <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>€{total.toLocaleString()}</span>}
+        <div style={{color:"#9aa3b8",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+        {/* Columnas tipo tabla: cada oferta por separado, último contacto y aviso */}
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"stretch"}}>
+          {ofertas.map((o, i) => (
+            <div key={i} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100}}>
+              <div style={{color:"#6b7a99",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Oferta {i + 1}</div>
+              <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.maquina || "—"}</div>
+              <div style={{color:"#10b981",fontSize:11.5,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</div>
+            </div>
+          ))}
+          <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100}}>
+            <div style={{color:"#6b7a99",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Último contacto</div>
+            <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600}}>{v.ultimoContacto || "Sin registrar"}</div>
+          </div>
+          <div onClick={e => { e.stopPropagation(); onAviso && onAviso(); }} title="Programar aviso para volver a contactar"
+            style={{background:v.proximoContacto ? "#3b82f618" :"#0d1117",border:`1px solid ${v.proximoContacto ? "#3b82f655" :"#2a3550"}`,borderRadius:7,padding:"5px 10px",minWidth:100,cursor:"pointer"}}>
+            <div style={{color:"#3b82f6",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>📅 Aviso</div>
+            <div style={{color:v.proximoContacto ? "#3b82f6" :"#6b7a99",fontSize:11.5,fontWeight:600}}>{v.proximoContacto || "Programar"}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:7}}>
           {v.maquinaRetirar && <span style={{color:"#6b7a99",fontSize:11}}>↩️ Retirada: {v.maquinaRetirar}</span>}
           {v.competencia && <span style={{color:"#f59e0b",fontSize:11}}>⚔️ {v.competencia.length > 35 ? v.competencia.slice(0, 35) + "…" : v.competencia}</span>}
         </div>
-        {nombresOfertas && <div style={{color:"#6b7a99",fontSize:11,marginTop:3}}>🛠️ {nombresOfertas}</div>}
-        {(v.personaContacto || v.proximoContacto) && <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:3}}>
-          {v.personaContacto && <span style={{color:"#6b7a99",fontSize:11}}>👤 {v.personaContacto}</span>}
-          {v.proximoContacto && <span style={{color:"#0ea5e9",fontSize:11}}>📅 Próx. contacto: {v.proximoContacto}</span>}
-        </div>}
         {cerrada && v.motivoCierre && <div style={{color:"#6b7a99",fontSize:11,marginTop:4,fontStyle:"italic"}}>"{v.motivoCierre.slice(0, 80)}{v.motivoCierre.length > 80 ? "…" : ""}"</div>}
       </div>
       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
