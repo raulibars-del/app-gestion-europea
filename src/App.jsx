@@ -8168,7 +8168,7 @@ export default function App() {
             {p.linea&&(
               <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
                 {p.cliente
-                  ? <>{p.linea.charAt(0).toUpperCase()+p.linea.slice(1).toLowerCase()} — <b style={{color:"#fff"}}>{p.cliente.toLowerCase()}</b>.</>
+                  ? <>{fmtFrase(p.linea)} <b style={{color:"#fff"}}>{p.cliente.toUpperCase()}</b></>
                   : fmtFrase(p.linea)}
               </div>
             )}
@@ -8178,7 +8178,7 @@ export default function App() {
                 {p.lista.map((l,i)=>(
                   <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?7:0}}>
                     <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
-                    <span>{l.texto.charAt(0).toUpperCase()+l.texto.slice(1).toLowerCase()} — <b style={{color:"#f1f3f9"}}>{l.cliente.toLowerCase()}</b>.</span>
+                    <span>{fmtFrase(l.texto)} <b style={{color:"#f1f3f9"}}>{l.cliente.toUpperCase()}</b></span>
                   </div>
                 ))}
               </div>
