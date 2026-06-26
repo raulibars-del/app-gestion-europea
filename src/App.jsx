@@ -2666,6 +2666,70 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onCerra
     </div>
   );
 };
+// Construye el cuerpo HTML del email de una tarea (tabla de datos + imágenes +
+// firma con franja verde), compartido por el aviso interno (a quien se asigna,
+// con enlace para abrirla en la app) y por el reenvío a un externo (sin ese
+// enlace, porque no tiene cuenta en la aplicación). Todo con estilos inline y
+// tablas (no flexbox/clases), que es lo único que se renderiza de forma fiable
+// en clientes de correo como Outlook o Gmail.
+// Es una función global (no solo de Tareas) porque también la usa Calendario
+// para el email de evento creado, con el mismo diseño.
+const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
+  const filaHtml = ([l, v]) =>
+    "<tr>"
+    + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
+    + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
+    + "</tr>";
+  const SITE_URL = "https://gestion.europeademaquinaria.com";
+  const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
+  const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
+  const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
+  const fotosHtml = fotos.length
+    ? "<p style=\"font-weight:700;color:#0f9b6e;margin:14px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">Imágenes adjuntas:</p>"
+      + fotos.map(a => "<div style=\"margin:0 0 8px;\"><img src=\"" + urlAbs(a.url) + "\" style=\"display:block;max-width:260px;width:100%;border-radius:6px;border:1px solid #e2e2e2;\" alt=\"" + (a.nombre || "foto") + "\"/></div>").join("")
+    : "";
+  const otrosHtml = otrosAdj.length
+    ? "<p style=\"margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + otrosAdj.map(a => "📎 <a href=\"" + urlAbs(a.url) + "\" style=\"color:#0f9b6e;\">" + (a.nombre || "adjunto") + "</a>").join("<br/>") + "</p>"
+    : "";
+  const botonHtml = incluirBotonApp
+    ? "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
+    : "";
+  // saludo: por defecto "Hola," + intro en párrafo aparte; en el reenvío a un
+  // externo se sustituye por una única frase personalizada (opts.saludo) y se
+  // omite el párrafo de intro (no hace falta, ya queda dicho en el saludo).
+  const saludoHtml = "<p>" + (opts.saludo || "Hola,") + "</p>";
+  const introHtml = (!opts.saludo && intro) ? "<p>" + intro + ":</p>" : "";
+  // firmaNombre: nombre de quien envía (el creador de la tarea, tanto si se
+  // reenvía a un externo como si es el aviso normal de asignación/autoenvío),
+  // con un cierre "Un saludo," y, si están rellenos en su usuario, el teléfono
+  // y el email de contacto justo debajo, antes de la razón social.
+  const firmaNombreHtml = opts.firmaNombre
+    ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
+      + "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>"
+      + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
+      + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
+    : "";
+  return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
+    + saludoHtml
+    + introHtml
+    + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
+    + lineas.map(filaHtml).join("")
+    + "</table>"
+    + fotosHtml + otrosHtml
+    + botonHtml
+    + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
+    + "<tr><td style=\"padding:14px 18px;\">"
+    + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+    + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
+    + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+    + firmaNombreHtml
+    + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
+    + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
+    + "</td>"
+    + "</tr></table>"
+    + "</td></tr></table>"
+    + "</div>";
+};
 const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
@@ -2847,68 +2911,8 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   // se les envía automáticamente un correo de texto con los datos de la tarea (sin PDF
   // adjunto, para que se lea de un vistazo y se pueda reenviar fácilmente). Es un envío
   // "best-effort": si falla, la tarea ya se ha guardado igualmente, no se interrumpe el flujo.
-  // Construye el cuerpo HTML del email de una tarea (tabla de datos + imágenes +
-  // firma con franja verde), compartido por el aviso interno (a quien se asigna,
-  // con enlace para abrirla en la app) y por el reenvío a un externo (sin ese
-  // enlace, porque no tiene cuenta en la aplicación). Todo con estilos inline y
-  // tablas (no flexbox/clases), que es lo único que se renderiza de forma fiable
-  // en clientes de correo como Outlook o Gmail.
-  const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
-    const filaHtml = ([l, v]) =>
-      "<tr>"
-      + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
-      + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
-      + "</tr>";
-    const SITE_URL = "https://gestion.europeademaquinaria.com";
-    const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
-    const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
-    const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
-    const fotosHtml = fotos.length
-      ? "<p style=\"font-weight:700;color:#0f9b6e;margin:14px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">Imágenes adjuntas:</p>"
-        + fotos.map(a => "<div style=\"margin:0 0 8px;\"><img src=\"" + urlAbs(a.url) + "\" style=\"display:block;max-width:260px;width:100%;border-radius:6px;border:1px solid #e2e2e2;\" alt=\"" + (a.nombre || "foto") + "\"/></div>").join("")
-      : "";
-    const otrosHtml = otrosAdj.length
-      ? "<p style=\"margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + otrosAdj.map(a => "📎 <a href=\"" + urlAbs(a.url) + "\" style=\"color:#0f9b6e;\">" + (a.nombre || "adjunto") + "</a>").join("<br/>") + "</p>"
-      : "";
-    const botonHtml = incluirBotonApp
-      ? "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
-      : "";
-    // saludo: por defecto "Hola," + intro en párrafo aparte; en el reenvío a un
-    // externo se sustituye por una única frase personalizada (opts.saludo) y se
-    // omite el párrafo de intro (no hace falta, ya queda dicho en el saludo).
-    const saludoHtml = "<p>" + (opts.saludo || "Hola,") + "</p>";
-    const introHtml = (!opts.saludo && intro) ? "<p>" + intro + ":</p>" : "";
-    // firmaNombre: nombre de quien envía (el creador de la tarea, tanto si se
-    // reenvía a un externo como si es el aviso normal de asignación/autoenvío),
-    // con un cierre "Un saludo," y, si están rellenos en su usuario, el teléfono
-    // y el email de contacto justo debajo, antes de la razón social.
-    const firmaNombreHtml = opts.firmaNombre
-      ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
-        + "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>"
-        + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
-        + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
-      : "";
-    return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
-      + saludoHtml
-      + introHtml
-      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
-      + lineas.map(filaHtml).join("")
-      + "</table>"
-      + fotosHtml + otrosHtml
-      + botonHtml
-      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
-      + "<tr><td style=\"padding:14px 18px;\">"
-      + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-      + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
-      + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
-      + firmaNombreHtml
-      + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
-      + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
-      + "</td>"
-      + "</tr></table>"
-      + "</td></tr></table>"
-      + "</div>";
-  };
+  // (htmlEmailTarea está definida a nivel global, antes de este componente, para que
+  // también pueda usarla Calendario).
   const enviarEmailTareaCreada = async (nueva, esEmpresaFlag) => {
     try {
       // Se envía siempre que el destinatario tenga email registrado, incluso si uno
