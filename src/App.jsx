@@ -311,6 +311,7 @@ const Icon = ({ name, size=18 }) => {
     maquina:"M2 22V10l5-3v3l5-3v3l5-3v15z M2 22h20 M6 14h2 M6 18h2 M11 14h2 M11 18h2 M16 14h2 M16 18h2",
     pin:"M12 22s7-7.58 7-12A7 7 0 0 0 5 10c0 4.42 7 12 7 12z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
     share:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6 12 2 8 6 M12 2v13",
+    refresh:"M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M20.49 15a9 9 0 0 1-14.85 3.36L1 14",
   };
   const d = P[name]||"";
   return (
@@ -7721,6 +7722,45 @@ export default function App() {
     return ()=>{ clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
   },[syncStatus]);
 
+  // Botón manual de "Actualizar datos" (junto al punto de color de la cabecera).
+  // Primero comprueba si hay una versión de código más nueva publicada (si la
+  // hay, recarga directamente: así el usuario tiene la garantía de quedar al
+  // día sin esperar al sondeo automático de 5 min); si el código ya está al
+  // día, simplemente trae los datos más recientes del servidor.
+  const [actualizando,setActualizando]=useState(false);
+  const actualizarManual = async ()=>{
+    if(actualizando) return;
+    setActualizando(true);
+    try{
+      try{
+        const res = await fetch("/version.json?t="+Date.now(), { cache:"no-store" });
+        if(res.ok){
+          const json = await res.json();
+          if(json && json.build && json.build !== __BUILD_ID__){
+            window.location.reload();
+            return;
+          }
+        }
+      }catch(e){}
+      const remoto = await apiGetData();
+      if(remoto.data){
+        const remoteJson = JSON.stringify(remoto.data);
+        if(remoteJson !== JSON.stringify(dataRef.current)){
+          lastSyncedRef.current = remoteJson;
+          lastVersionRef.current = remoto.version;
+          setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
+        } else {
+          lastVersionRef.current = remoto.version;
+        }
+      }
+      setSyncStatus(s => s==="offline" ? "ok" : s);
+    }catch(e){
+      setSyncStatus("offline");
+    }finally{
+      setActualizando(false);
+    }
+  };
+
   const [articuloPublico]=useState(()=>{
     try { return new URLSearchParams(window.location.search).get("articulo"); } catch(e) { return null; }
   });
@@ -7937,6 +7977,9 @@ export default function App() {
           {/* Notifs + avatar */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
+            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#6b7a99",display:"flex",alignItems:"center",padding:3,opacity:actualizando?0.5:1}}>
+              <Icon name="refresh" size={14}/>
+            </button>
             <div ref={notifRef} style={{position:"relative"}}>
               <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:"#6b7a99",display:"flex",alignItems:"center",gap:3}}>
                 <Icon name="bell" size={16}/>
@@ -7953,6 +7996,9 @@ export default function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
+          <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#6b7a99",display:"flex",alignItems:"center",padding:4,opacity:actualizando?0.5:1}}>
+            <Icon name="refresh" size={15}/>
+          </button>
           <div ref={notifRef} style={{position:"relative"}}>
             <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:"#6b7a99",display:"flex",alignItems:"center",gap:4}}>
               <Icon name="bell" size={16}/>
