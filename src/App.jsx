@@ -2430,7 +2430,10 @@ const Ventas = ({ data, setData, userActual }) => {
     if (!v || !formSeguimiento.fecha) { alert("Elige una fecha"); return; }
     // Si hay una persona de contacto registrada, su nombre debe verse en la
     // propia tarea (no solo el cliente), para saber a quién hay que llamar.
-    const quien = v.personaContacto ? `${v.personaContacto} (${cN(v.clienteId)})` : cN(v.clienteId);
+    // Solo se añade el nombre del cliente entre paréntesis si se ha podido
+    // resolver (evita el feo "(—)" cuando no hay cliente válido).
+    const cliNombre = cN(v.clienteId);
+    const quien = v.personaContacto ? (cliNombre !== "—" ? `${v.personaContacto} (${cliNombre})` : v.personaContacto) : cliNombre;
     const tarea = {
       id: Date.now(),
       titulo: `Contactar con ${quien} para oferta de ${v.maquina}`,
@@ -2455,7 +2458,7 @@ const Ventas = ({ data, setData, userActual }) => {
   const modalSeguimientoJSX = modalSeguimiento && ventaSeg && (
     <Modal title="📅 Programar aviso" onClose={() => setModalSeguimiento(null)}>
       <div style={{background:"#3b82f612",border:"1px solid #3b82f633",borderRadius:9,padding:"10px 13px",marginBottom:14,color:"#3b82f6",fontSize:13}}>
-        Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {ventaSeg.personaContacto ? `${ventaSeg.personaContacto} (${cN(ventaSeg.clienteId)})` : cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
+        Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {ventaSeg.personaContacto ? (cN(ventaSeg.clienteId) !== "—" ? `${ventaSeg.personaContacto} (${cN(ventaSeg.clienteId)})` : ventaSeg.personaContacto) : cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
       </div>
       <Field label="Fecha exacta">
         <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} />
