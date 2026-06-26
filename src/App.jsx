@@ -2763,9 +2763,11 @@ const Tareas = ({ data, setData, userActual }) => {
   // "best-effort": si falla, la tarea ya se ha guardado igualmente, no se interrumpe el flujo.
   const enviarEmailTareaCreada = async (nueva, esEmpresaFlag) => {
     try {
+      // Se envía siempre que el destinatario tenga email registrado, incluso si uno
+      // se asigna la tarea a sí mismo (en ese caso el destinatario es uno mismo).
       const destinatarios = esEmpresaFlag
         ? data.usuarios.filter(u => u.activo && u.id !== userActual.id && u.email?.trim())
-        : (nueva.asignadoId !== userActual.id ? data.usuarios.filter(u => u.id === nueva.asignadoId && u.email?.trim()) : []);
+        : data.usuarios.filter(u => u.id === nueva.asignadoId && u.email?.trim());
       if (!destinatarios.length) return;
       const nombreCreador = uN(nueva.creadoPor);
       const lineas = [
@@ -2786,7 +2788,7 @@ const Tareas = ({ data, setData, userActual }) => {
           await apiSendMail({
             to: u.email.trim(),
             toName: u.nombre,
-            subject: "Nueva tarea asignada por " + nombreCreador,
+            subject: "Nueva tarea enviada por parte de " + nombreCreador,
             html,
           });
         } catch (e) { /* fallo de email a un destinatario concreto no debe afectar a los demás */ }
@@ -7366,6 +7368,7 @@ async function apiUploadFile(payload){
 
 const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   const [foto, setFoto] = useState(userActual.foto || null);
+  const [email, setEmail] = useState(userActual.email || "");
   const [pass1, setPass1] = useState("");
   const [pass2, setPass2] = useState("");
   const [err, setErr] = useState("");
@@ -7380,7 +7383,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
     if (pass1 && pass1.length < 4) { setErr("La contraseña debe tener al menos 4 caracteres."); return; }
     if (pass1 && pass1 !== pass2) { setErr("Las contraseñas no coinciden."); return; }
     setErr("");
-    const cambios = { foto };
+    const cambios = { foto, email: email.trim() };
     if (pass1) cambios.password = pass1;
     setData(d => ({ ...d, usuarios: d.usuarios.map(u => u.id === userActual.id ? { ...u, ...cambios } : u) }));
     onUpdateUser(prev => ({ ...prev, ...cambios }));
@@ -7403,6 +7406,11 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
             {foto && <button onClick={() => setFoto(null)} style={{ ...btnSm("#3b1c1c", "#dc2626"), fontSize: 11 }}>Quitar foto</button>}
           </div>
         </div>
+      </div>
+      <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Contacto</div>
+        <Field label="Email (para recibir avisos de tareas)"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@europeademaquinaria.com" /></Field>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, marginTop: 5 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
       </div>
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
