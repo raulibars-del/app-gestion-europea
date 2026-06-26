@@ -2783,6 +2783,10 @@ const Tareas = ({ data, setData, userActual }) => {
       const html = "<p>Hola,</p><p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
         + lineas.map(([l, v]) => "<p>" + l + ": " + v + "</p>").join("")
         + "<p>Un saludo,<br/>Europea de Maquinaria</p>";
+      // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
+      // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
+      const enviados = [];
+      const fallos = [];
       for (const u of destinatarios) {
         try {
           await apiSendMail({
@@ -2791,9 +2795,14 @@ const Tareas = ({ data, setData, userActual }) => {
             subject: "Nueva tarea enviada por parte de " + nombreCreador,
             html,
           });
-        } catch (e) { /* fallo de email a un destinatario concreto no debe afectar a los demás */ }
+          enviados.push(u.email.trim());
+        } catch (e) {
+          fallos.push(u.email.trim() + " (" + e.message + ")");
+        }
       }
-    } catch (e) { /* email fallido: la tarea ya quedó guardada */ }
+      if (enviados.length) alert("Email de la tarea enviado a: " + enviados.join(", ") + ".");
+      if (fallos.length) alert("No se pudo enviar el email de la tarea a: " + fallos.join(", ") + ".");
+    } catch (e) { alert("No se pudo enviar el email de la tarea.\n\n" + e.message); }
   };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
@@ -2823,6 +2832,9 @@ const Tareas = ({ data, setData, userActual }) => {
     titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false
   });
   const save = () => {
+    // No guardar mientras un adjunto se está subiendo: si no, la tarea se crea sin
+    // esa imagen (se queda "a medias") porque el adjunto aún no está en form.adjuntos.
+    if (subiendoAdjunto) { alert("Espera a que termine de subirse el adjunto antes de guardar."); return; }
     const esEmpresa = !!form.esEmpresa;
     const item = { ...form,esEmpresa,asignadoId: esEmpresa ? null : parseInt(form.asignadoId) };
     if (!item.id) {
@@ -3106,7 +3118,7 @@ const Tareas = ({ data, setData, userActual }) => {
         </Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
           <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
-          <button onClick={save} style={btnPrimary}>{form.id ? "Guardar" : "Crear tarea"}</button>
+          <button onClick={save} disabled={subiendoAdjunto} style={subiendoAdjunto ? {...btnPrimary,opacity:.55,cursor:"default"} : btnPrimary}>{subiendoAdjunto ? "Subiendo adjunto..." : (form.id ? "Guardar" : "Crear tarea")}</button>
         </div>
       </Modal>}
     </div>
@@ -7320,10 +7332,10 @@ const UPLOAD_API_URL = "/api/upload.php";
 // Redimensiona y comprime una imagen en el navegador antes de subirla: las
 // fotos hechas con el móvil pueden pesar varios MB (o venir en HEIC, que el
 // servidor no admite). Si el navegador puede decodificarla, la reescalamos a
-// un máximo de 1600px y la convertimos a JPEG ligero; si no puede (algunos
+// un máximo de 900px y la convertimos a JPEG ligero; si no puede (algunos
 // navegadores no decodifican HEIC), devolvemos el archivo original tal cual
 // y será el servidor quien decida si lo admite.
-async function comprimirImagen(file, maxDim = 1600, calidad = 0.82) {
+async function comprimirImagen(file, maxDim = 900, calidad = 0.72) {
   if (!file || !file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
   let url;
   try {
