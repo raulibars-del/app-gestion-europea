@@ -18,7 +18,7 @@ header('Content-Type: application/json; charset=utf-8');
 // CORS básico (la app se sirve desde el mismo dominio, pero por si acaso)
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Api-Key');
+header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, X-Expected-Version');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -51,6 +51,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
     data LONGTEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Columna de versión para guardado optimista de verdad (a nivel de base de
+// datos, no solo de comprobación previa en el cliente): cada guardado indica
+// la versión que creía vigente y el UPDATE solo se aplica si esa versión
+// sigue siendo la actual ("WHERE version = :esperada"). Si otro dispositivo
+// guardó justo antes, la versión ya cambió, 0 filas se actualizan y
+// devolvemos 409 en vez de sobrescribir su trabajo. Esto cierra el hueco que
+// quedaba entre "comprobar" y "guardar" con dos peticiones HTTP separadas,
+// que por sí solas no pueden ser atómicas. La tabla ya existía, así que se
+// añade con ALTER; si la columna ya existe, el ALTER falla y se ignora.
+try { $pdo->exec("ALTER TABLE app_data ADD COLUMN version INT NOT NULL DEFAULT 0"); } catch (Exception $e) { /* ya existe */ }
 
 // Copias de seguridad periódicas (red de seguridad ante sobrescrituras
 // accidentales, p.ej. por condiciones de carrera entre varios dispositivos).
@@ -111,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
             $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
             $insHist->execute(['data' => $actual['data']]);
         }
-        $upd = $pdo->prepare("INSERT INTO app_data (id, data) VALUES (1, :data) ON DUPLICATE KEY UPDATE data = :data2");
+        $upd = $pdo->prepare("INSERT INTO app_data (id, data, version) VALUES (1, :data, 1) ON DUPLICATE KEY UPDATE data = :data2, version = version + 1");
         $upd->execute(['data' => $row['data'], 'data2' => $row['data']]);
         echo json_encode(['ok' => true]);
     } catch (Throwable $e) {
@@ -122,15 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $stmt = $pdo->query("SELECT data, updated_at FROM app_data WHERE id = 1");
+    $stmt = $pdo->query("SELECT data, updated_at, version FROM app_data WHERE id = 1");
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) {
         echo json_encode([
             'data' => json_decode($row['data']),
             'updated_at' => $row['updated_at'],
+            'version' => (int)$row['version'],
         ]);
     } else {
-        echo json_encode(['data' => null, 'updated_at' => null]);
+        echo json_encode(['data' => null, 'updated_at' => null, 'version' => null]);
     }
     exit;
 }
@@ -144,11 +156,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $stmt = $pdo->prepare(
-        "INSERT INTO app_data (id, data) VALUES (1, :data)
-         ON DUPLICATE KEY UPDATE data = :data2"
-    );
-    $stmt->execute(['data' => $raw, 'data2' => $raw]);
+    // Versión que el cliente cree vigente (la última que leyó). Si no la manda
+    // (clientes antiguos, o la primera vez que se crea la fila) no se aplica
+    // la comprobación y se sobrescribe directamente, como antes.
+    $expectedVersion = isset($_SERVER['HTTP_X_EXPECTED_VERSION']) && $_SERVER['HTTP_X_EXPECTED_VERSION'] !== ''
+        ? (int)$_SERVER['HTTP_X_EXPECTED_VERSION'] : null;
+
+    $existe = $pdo->query("SELECT version FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+
+    if ($existe && $expectedVersion !== null) {
+        $upd = $pdo->prepare("UPDATE app_data SET data = :data, version = version + 1 WHERE id = 1 AND version = :expected");
+        $upd->execute(['data' => $raw, 'expected' => $expectedVersion]);
+        if ($upd->rowCount() === 0) {
+            // Alguien guardó una versión más nueva justo antes que nosotros: no
+            // sobrescribimos su trabajo, avisamos para que el cliente recargue.
+            $actual = $pdo->query("SELECT version FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+            http_response_code(409);
+            echo json_encode(['error' => 'conflict', 'version' => $actual ? (int)$actual['version'] : null]);
+            exit;
+        }
+    } else {
+        $stmt = $pdo->prepare(
+            "INSERT INTO app_data (id, data, version) VALUES (1, :data, 1)
+             ON DUPLICATE KEY UPDATE data = :data2, version = version + 1"
+        );
+        $stmt->execute(['data' => $raw, 'data2' => $raw]);
+    }
 
     // Copia de seguridad: como máximo una vez al día, para no acumular una
     // fila por cada guardado (que puede ser cada pocos segundos mientras
@@ -165,10 +198,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // La copia de seguridad nunca debe impedir que el guardado principal funcione.
     }
 
-    $stmt2 = $pdo->query("SELECT updated_at FROM app_data WHERE id = 1");
+    $stmt2 = $pdo->query("SELECT updated_at, version FROM app_data WHERE id = 1");
     $updated = $stmt2->fetch(PDO::FETCH_ASSOC);
 
-    echo json_encode(['ok' => true, 'updated_at' => $updated['updated_at'] ?? null]);
+    echo json_encode([
+        'ok' => true,
+        'updated_at' => $updated['updated_at'] ?? null,
+        'version' => isset($updated['version']) ? (int)$updated['version'] : null,
+    ]);
     exit;
 }
 

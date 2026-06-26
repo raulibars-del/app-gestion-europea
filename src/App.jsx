@@ -7019,14 +7019,24 @@ const API_KEY = import.meta.env.VITE_API_KEY || "";
 async function apiGetData(){
   const res = await fetch(API_URL, { headers: { "X-Api-Key": API_KEY } });
   if(!res.ok) throw new Error("GET "+res.status);
-  return res.json(); // { data, updated_at }
+  return res.json(); // { data, updated_at, version }
 }
-async function apiSaveData(payload){
+// expectedVersion: la versión que creíamos vigente la última vez que leímos.
+// El servidor solo guarda si esa versión sigue siendo la actual; si alguien
+// guardó algo más nuevo mientras tanto, responde 409 en vez de sobrescribirlo.
+async function apiSaveData(payload, expectedVersion){
   const res = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    headers: {
+      "Content-Type": "application/json", "X-Api-Key": API_KEY,
+      ...(typeof expectedVersion==="number" ? { "X-Expected-Version": String(expectedVersion) } : {}),
+    },
     body: JSON.stringify(payload),
   });
+  if(res.status===409){
+    const json = await res.json().catch(()=>({}));
+    return { conflict:true, version: json.version };
+  }
   if(!res.ok) throw new Error("POST "+res.status);
   return res.json();
 }
@@ -7551,6 +7561,7 @@ export default function App() {
   });
   const [syncStatus,setSyncStatus]=useState("cargando"); // cargando | ok | guardando | error | offline
   const lastSyncedRef = useRef(null); // JSON de los datos que sabemos están en el servidor
+  const lastVersionRef = useRef(null); // versión de BD que creemos vigente (guardado optimista atómico)
   const dataRef = useRef(data);
   const saveTimerRef = useRef(null);
   useEffect(()=>{ dataRef.current = data; },[data]);
@@ -7569,9 +7580,14 @@ export default function App() {
           // si backfillCodigosMaquina añade códigos nuevos, el efecto de autoguardado
           // detectará la diferencia y los subirá automáticamente.
           lastSyncedRef.current = JSON.stringify(res.data);
+          lastVersionRef.current = res.version;
           setData(backfillConsumiblesClave(backfillCodigosMaquina(res.data)));
         } else {
-          try { await apiSaveData(dataRef.current); lastSyncedRef.current = JSON.stringify(dataRef.current); } catch(e){}
+          try {
+            const guardado = await apiSaveData(dataRef.current, res.version);
+            lastSyncedRef.current = JSON.stringify(dataRef.current);
+            lastVersionRef.current = guardado.version;
+          } catch(e){}
         }
         setSyncStatus("ok");
       }catch(e){
@@ -7605,24 +7621,40 @@ export default function App() {
     saveTimerRef.current = setTimeout(()=>{
       (async()=>{
         try{
-          // Comprobación de seguridad antes de guardar: si una pestaña/dispositivo
-          // ha estado mucho tiempo en segundo plano (móvil bloqueado, portátil
-          // suspendido...), su copia local puede estar basada en datos de horas
-          // antes. Antes de sobrescribir el servidor comprobamos que lo que hay
-          // ahí sigue siendo lo que creíamos (lastSyncedRef); si alguien más ha
-          // guardado cambios mientras tanto, NO los pisamos: nos quedamos con
-          // los suyos y avisamos, en vez de borrar su trabajo.
+          // Comprobación previa (rápida, no atómica) antes de guardar: si una
+          // pestaña/dispositivo ha estado mucho tiempo en segundo plano (móvil
+          // bloqueado, portátil suspendido...), su copia local puede estar
+          // basada en datos de horas antes. Si vemos que el servidor ya tiene
+          // algo distinto de lo que creíamos, no lo pisamos: cargamos lo suyo
+          // y avisamos. Esto es solo una primera red de seguridad: la garantía
+          // real (atómica, sin huecos de tiempo entre comprobar y guardar) la
+          // da el guardado condicionado por versión de más abajo.
           const remoto = await apiGetData();
           const remotoJson = remoto.data ? JSON.stringify(remoto.data) : null;
           if(remotoJson !== null && remotoJson !== lastSyncedRef.current){
             lastSyncedRef.current = remotoJson;
+            lastVersionRef.current = remoto.version;
             setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
             setSyncStatus("ok");
             window.alert("Otro dispositivo ha guardado cambios más recientes mientras editabas. Se han cargado esos cambios para no perderlos; si tu última edición no aparece, repítela.");
             return;
           }
-          await apiSaveData(data);
+          // Guardado real: el servidor solo lo aplica si la versión que mandamos
+          // sigue siendo la vigente en la base de datos (comprobación atómica,
+          // sin el hueco de tiempo del paso anterior). Si otro dispositivo
+          // guardó justo en medio, responde "conflict" en vez de sobrescribir.
+          const resp = await apiSaveData(data, lastVersionRef.current);
+          if(resp && resp.conflict){
+            const fresco = await apiGetData();
+            lastSyncedRef.current = fresco.data ? JSON.stringify(fresco.data) : lastSyncedRef.current;
+            lastVersionRef.current = fresco.version;
+            if(fresco.data) setData(backfillConsumiblesClave(backfillCodigosMaquina(fresco.data)));
+            setSyncStatus("ok");
+            window.alert("Otro dispositivo ha guardado cambios más recientes mientras editabas. Se han cargado esos cambios para no perderlos; si tu última edición no aparece, repítela.");
+            return;
+          }
           lastSyncedRef.current = json;
+          lastVersionRef.current = resp.version;
           setSyncStatus("ok");
         }catch(e){
           setSyncStatus("error");
@@ -7643,7 +7675,13 @@ export default function App() {
           const localJson = JSON.stringify(dataRef.current);
           if(remoteJson !== localJson && localJson === lastSyncedRef.current){
             lastSyncedRef.current = remoteJson;
+            lastVersionRef.current = res.version;
             setData(res.data);
+          } else if(localJson === lastSyncedRef.current){
+            // Sin cambios propios pendientes y el remoto coincide: aprovechamos
+            // para mantener la versión al día (por si el número subió sin que
+            // el contenido cambiara, p.ej. tras una restauración de copia).
+            lastVersionRef.current = res.version;
           }
         }
         setSyncStatus(s => s==="offline" ? "ok" : s);
@@ -7657,6 +7695,31 @@ export default function App() {
     document.addEventListener("visibilitychange", onVisible);
     return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", onVisible); };
   },[]);
+
+  // Recarga forzada de pestañas con código antiguo. Cada build genera un
+  // public/version.json nuevo con un id distinto (ver vite.config.js); esta
+  // pestaña tiene incrustado el id de la build con la que cargó (__BUILD_ID__).
+  // Si el id que devuelve version.json ya no coincide, es que se ha desplegado
+  // una versión más nueva mientras esta pestaña seguía abierta: recargamos
+  // para que use el JS actualizado (con todas las protecciones de guardado),
+  // en vez de quedarse para siempre con la lógica antigua sin enterarse. Solo
+  // recargamos si no hay un guardado en curso, para no cortar una escritura.
+  useEffect(()=>{
+    const comprobar = async ()=>{
+      try{
+        const res = await fetch("/version.json?t="+Date.now(), { cache: "no-store" });
+        if(!res.ok) return;
+        const json = await res.json();
+        if(json && json.build && json.build !== __BUILD_ID__ && syncStatus !== "guardando"){
+          window.location.reload();
+        }
+      }catch(e){ /* sin conexión: no forzamos nada */ }
+    };
+    const interval = setInterval(comprobar, 5*60000);
+    const onVisible = ()=>{ if(document.visibilityState==="visible") comprobar(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return ()=>{ clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  },[syncStatus]);
 
   const [articuloPublico]=useState(()=>{
     try { return new URLSearchParams(window.location.search).get("articulo"); } catch(e) { return null; }

@@ -3,3 +3,4 @@ dist
 public/api/config.php
 .env.production
 .DS_Store
+public/version.json
