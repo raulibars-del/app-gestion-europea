@@ -21,6 +21,16 @@ const fmtVenceCompleto = (vence) => {
   if (dif === 1) return `vence mañana, ${dia} ${fechaFmt}`;
   return `vence el ${dia} ${fechaFmt}`;
 };
+// Da estilo uniforme a una frase de pop-up de notificación: solo la primera
+// letra en mayúscula, el resto en minúscula, y un punto final si no lo tenía
+// ya (admite que termine en "?", "!" o "…" sin añadir punto encima).
+const fmtFrase = (s) => {
+  if (!s) return s;
+  const t = s.trim();
+  if (!t) return t;
+  const f = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+  return /[.!?…]$/.test(f) ? f : f + ".";
+};
 const generarNum = (prefijo, fecha, lista, campoNum) => {
   // Format: P010926-01, AV010926-01, ALB010926-01
   const d = fecha || today();
@@ -7827,11 +7837,16 @@ export default function App() {
     };
     // 1) AVISOS NUEVOS: uno por uno. Solo se muestran la primera vez — al cerrar el pop-up
     // (ver cerrarPopup) quedan marcados como leídos y nunca vuelven a aparecer.
+    // Color por tipo de pop-up: rojo para tareas (lo más urgente, hay que hacer
+    // algo), amarillo para avisos y stock (información a revisar). Se usa tanto
+    // en el borde de la tarjeta como en el icono del sobre, para que todo el
+    // pop-up tenga un único color coherente con su categoría.
+    const COLOR_TAREA="#ef4444", COLOR_AVISO="#f59e0b";
     const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
     avisosNuevos.forEach(n=>{
       cola.push({
-        id:"avn_"+n.id,notifId:n.id,color:"#ef4444",categoria:"AVISOS NUEVOS",
-        linea:(n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""))+" — "+clienteDeNotifAviso(n),
+        id:"avn_"+n.id,notifId:n.id,color:COLOR_AVISO,categoria:"AVISOS NUEVOS",
+        linea:n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""),cliente:clienteDeNotifAviso(n),
         titulo:n.titulo,mensaje:n.mensaje
       });
     });
@@ -7839,7 +7854,7 @@ export default function App() {
     const stockNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="stock_consumible");
     stockNuevos.forEach(n=>{
       cola.push({
-        id:"stn_"+n.id,notifId:n.id,color:"#f59e0b",categoria:"STOCK",
+        id:"stn_"+n.id,notifId:n.id,color:COLOR_AVISO,categoria:"STOCK",
         linea:n.mensaje,titulo:n.titulo,mensaje:n.mensaje
       });
     });
@@ -7847,8 +7862,8 @@ export default function App() {
     // Se repite en cada conexión mientras siga pendiente (es una consulta en vivo, no "nueva").
     data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
       cola.push({
-        id:"tp_"+t.id,color:"#f59e0b",categoria:"TAREAS",
-        linea:`"${t.titulo}"`,vence:t.vence?fmtVenceCompleto(t.vence):null,
+        id:"tp_"+t.id,color:COLOR_TAREA,categoria:"TAREAS",
+        linea:t.titulo,vence:t.vence?fmtVenceCompleto(t.vence):null,
         titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — ${fmtVenceCompleto(t.vence)}`,
         sintetico:true,logTipo:"tarea_pendiente"
       });
@@ -7858,14 +7873,18 @@ export default function App() {
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
     const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
     if(chatsNuevos.length>0||avisosPend.length>0){
-      const lista=avisosPend.slice(0,8).map(a=>a.titulo+" — "+(data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente"));
+      // Versión estructurada (texto + cliente por separado) para poder pintar el
+      // pop-up con el nombre del cliente en negrita; versión en texto plano (unida
+      // con guion) para el mensaje que se guarda en el historial de notificaciones.
+      const listaEstructurada=avisosPend.slice(0,8).map(a=>({texto:a.titulo,cliente:data.clientes.find(c=>c.id===a.clienteId)?.nombreEmpresa||"sin cliente"}));
+      const listaPlana=listaEstructurada.map(l=>l.texto+" — "+l.cliente);
       const partes=[];
       if(chatsNuevos.length>0)partes.push(`💬 Últimos mensajes de chat recibidos (${chatsNuevos.length}) — quién escribe y en qué canal:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+" → \""+n.mensaje+"\"").join("\n"));
-      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+lista.map(l=>"· "+l).join("\n"));
+      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+listaPlana.map(l=>"· "+l).join("\n"));
       cola.push({
-        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:"#06b6d4",categoria:"AVISOS",
+        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:COLOR_AVISO,categoria:"AVISOS",
         linea:chatsNuevos.length>0?`${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}`:null,
-        lista:avisosPend.length>0?lista:null,
+        lista:avisosPend.length>0?listaEstructurada:null,
         titulo:"📨 Resumen de tu conexión",mensaje:partes.join("\n\n"),
         sintetico:avisosPend.length>0,logTipo:"avisos_pendientes_resumen"
       });
@@ -8143,12 +8162,27 @@ export default function App() {
         <div style={{position:"fixed",inset:0,background:"rgba(5,8,15,.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:20}}>
           <div style={{width:"min(440px,100%)",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <div style={{width:42,height:42,borderRadius:11,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444",flexShrink:0}}><Icon name="mail" size={20}/></div>
+              <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,flexShrink:0}}><Icon name="mail" size={20}/></div>
               <div style={{color:"#f1f3f9",fontWeight:900,fontSize:16,letterSpacing:".5px"}}>{p.categoria}</div>
             </div>
-            {p.linea&&<div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>{p.linea}</div>}
+            {p.linea&&(
+              <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
+                {p.cliente
+                  ? <>{p.linea.charAt(0).toUpperCase()+p.linea.slice(1).toLowerCase()} — <b style={{color:"#fff"}}>{p.cliente.toLowerCase()}</b>.</>
+                  : fmtFrase(p.linea)}
+              </div>
+            )}
             {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#6b7a99",fontSize:12,fontWeight:700,marginBottom:18}}>{p.vence.charAt(0).toUpperCase()+p.vence.slice(1)}</div>}
-            {p.lista&&<div style={{color:"#c7d0e0",fontSize:13,whiteSpace:"pre-line",lineHeight:1.6,marginBottom:18}}>{p.lista.map(l=>"· "+l).join("\n")}</div>}
+            {p.lista&&(
+              <div style={{marginBottom:18}}>
+                {p.lista.map((l,i)=>(
+                  <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?7:0}}>
+                    <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
+                    <span>{l.texto.charAt(0).toUpperCase()+l.texto.slice(1).toLowerCase()} — <b style={{color:"#f1f3f9"}}>{l.cliente.toLowerCase()}</b>.</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <span style={{color:"#6b7a99",fontSize:12,fontWeight:800}}>{pos}/{totalPopups}</span>
               <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>CERRAR</button>
