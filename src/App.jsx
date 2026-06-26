@@ -7273,7 +7273,7 @@ async function apiGetData(){
 // expectedVersion: la versión que creíamos vigente la última vez que leímos.
 // El servidor solo guarda si esa versión sigue siendo la actual; si alguien
 // guardó algo más nuevo mientras tanto, responde 409 en vez de sobrescribirlo.
-async function apiSaveData(payload, expectedVersion){
+async function apiSaveData(payload, expectedVersion, opts={}){
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -7281,6 +7281,10 @@ async function apiSaveData(payload, expectedVersion){
       ...(typeof expectedVersion==="number" ? { "X-Expected-Version": String(expectedVersion) } : {}),
     },
     body: JSON.stringify(payload),
+    // keepalive: para guardados de emergencia al ocultar/cerrar la pestaña (ver más
+    // abajo); permite que el navegador complete la petición aunque la página ya se
+    // haya cerrado, algo que un fetch normal no garantiza.
+    ...(opts.keepalive ? { keepalive: true } : {}),
   });
   if(res.status===409){
     const json = await res.json().catch(()=>({}));
@@ -7954,6 +7958,31 @@ export default function App() {
     return ()=>clearTimeout(saveTimerRef.current);
   },[data, syncStatus]);
 
+  // Guardado de emergencia al ocultar/cerrar la pestaña (cambiar de app en el
+  // móvil, bloquear la pantalla, cerrar la pestaña...). Sin esto, un cambio
+  // hecho justo antes (completar una tarea, guardar el email en "Mi cuenta")
+  // se pierde si el debounce de 1.2s de arriba no llega a dispararse: el
+  // sistema operativo puede congelar o matar la pestaña antes de que pase ese
+  // tiempo. Usamos keepalive para que la petición sobreviva aunque la página
+  // ya se haya cerrado, y no esperamos la respuesta (no hay tiempo para eso).
+  useEffect(()=>{
+    const flushUrgente = ()=>{
+      if(saveTimerRef.current){ clearTimeout(saveTimerRef.current); saveTimerRef.current=null; }
+      const json = JSON.stringify(dataRef.current);
+      if(json === lastSyncedRef.current) return; // nada pendiente de guardar
+      apiSaveData(dataRef.current, lastVersionRef.current, {keepalive:true}).then(resp=>{
+        if(resp && !resp.conflict){ lastSyncedRef.current = json; lastVersionRef.current = resp.version; }
+      }).catch(()=>{});
+    };
+    const onVisibility = ()=>{ if(document.visibilityState==="hidden") flushUrgente(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flushUrgente);
+    return ()=>{
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flushUrgente);
+    };
+  },[]);
+
   // Pull periódico para ver cambios hechos por otros usuarios (solo si no tenemos
   // cambios locales propios pendientes de guardar, para no pisarlos)
   useEffect(()=>{
@@ -8057,6 +8086,18 @@ export default function App() {
     try { return new URLSearchParams(window.location.search).get("maquina"); } catch(e) { return null; }
   });
   const [user,setUser]=useState(null);
+  // "user" se fija una vez al iniciar sesión (con la foto de data.usuarios de ese
+  // momento) y nunca se volvía a tocar salvo edición manual en "Mi cuenta". Si en
+  // ese momento los datos locales eran una copia vieja de localStorage (antes de
+  // que termine de llegar la versión fresca del servidor), "user" se queda
+  // congelado con campos desfasados (p.ej. el email guardado desde otro
+  // dispositivo) aunque "data" se corrija segundos después. Mantenemos "user"
+  // sincronizado con su registro real en data.usuarios en todo momento.
+  useEffect(()=>{
+    if(!user)return;
+    const actual=data.usuarios.find(u=>u.id===user.id);
+    if(actual&&JSON.stringify(actual)!==JSON.stringify(user))setUser(actual);
+  },[data.usuarios,user]);
   const [active,setActive]=useState("asistencia");
   const [notifOpen,setNotifOpen]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false); // sidebar móvil drawer
@@ -8099,8 +8140,18 @@ export default function App() {
   // en cada login (no solo la primera vez por sesión de navegador).
   // La campanita deja de llevar contador de "no leídas": cada pop-up cerrado queda registrado
   // y marcado como leído, así que la campanita pasa a ser solo el historial en modo lista.
+  // IMPORTANTE: si el login ocurre antes de que termine la carga inicial desde el
+  // servidor (syncStatus==="cargando"), "data" puede ser todavía la copia vieja de
+  // localStorage (de horas o días antes en ese dispositivo): la cola saldría con
+  // menos avisos de los que hay en realidad y con tareas ya completadas en otro
+  // dispositivo mostradas como pendientes. Por eso esperamos a que la carga
+  // termine, y solo construimos la cola una vez por login (popupsHechosRef).
+  const popupsHechosRef=useRef(null);
   useEffect(()=>{
-    if(!user)return;
+    if(!user){popupsHechosRef.current=null;return;}
+    if(syncStatus==="cargando")return;
+    if(popupsHechosRef.current===user.id)return;
+    popupsHechosRef.current=user.id;
     const misNotifsIniciales=data.notificaciones[user.id]||[];
     const cola=[];
     // El nombre del cliente puede venir guardado en el propio aviso (n.clienteNombre, en los
@@ -8169,7 +8220,7 @@ export default function App() {
       });
     }
     if(cola.length>0){setPopupQueue(cola);setTotalPopups(cola.length);}
-  },[user]);
+  },[user,syncStatus]);
   const cerrarPopup=()=>{
     const actual=popupQueue[0];
     if(actual){
