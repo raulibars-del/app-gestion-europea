@@ -2601,6 +2601,11 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
+  // "Tarea reenviada": al crear la tarea, además del aviso interno normal (a quien
+  // se le asigna), se puede mandar una copia a un proveedor/cliente externo sin
+  // cuenta en la app, rellenando aquí su nombre y email.
+  const [modalReenviar, setModalReenviar] = useState(false);
+  const [formReenviar, setFormReenviar] = useState({nombre:"",email:""});
   const fileRefTarea = useRef(null);
   // Permite que un enlace externo (el botón "Ver tarea en la app" del email
   // automático) abra directamente la vista previa de una tarea concreta al
@@ -2770,6 +2775,52 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   // se les envía automáticamente un correo de texto con los datos de la tarea (sin PDF
   // adjunto, para que se lea de un vistazo y se pueda reenviar fácilmente). Es un envío
   // "best-effort": si falla, la tarea ya se ha guardado igualmente, no se interrumpe el flujo.
+  // Construye el cuerpo HTML del email de una tarea (tabla de datos + imágenes +
+  // firma con franja verde), compartido por el aviso interno (a quien se asigna,
+  // con enlace para abrirla en la app) y por el reenvío a un externo (sin ese
+  // enlace, porque no tiene cuenta en la aplicación). Todo con estilos inline y
+  // tablas (no flexbox/clases), que es lo único que se renderiza de forma fiable
+  // en clientes de correo como Outlook o Gmail.
+  const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp) => {
+    const filaHtml = ([l, v]) =>
+      "<tr>"
+      + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
+      + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
+      + "</tr>";
+    const SITE_URL = "https://gestion.europeademaquinaria.com";
+    const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
+    const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
+    const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
+    const fotosHtml = fotos.length
+      ? "<p style=\"font-weight:700;color:#0f9b6e;margin:14px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">Imágenes adjuntas:</p>"
+        + fotos.map(a => "<div style=\"margin:0 0 8px;\"><img src=\"" + urlAbs(a.url) + "\" style=\"display:block;max-width:260px;width:100%;border-radius:6px;border:1px solid #e2e2e2;\" alt=\"" + (a.nombre || "foto") + "\"/></div>").join("")
+      : "";
+    const otrosHtml = otrosAdj.length
+      ? "<p style=\"margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + otrosAdj.map(a => "📎 <a href=\"" + urlAbs(a.url) + "\" style=\"color:#0f9b6e;\">" + (a.nombre || "adjunto") + "</a>").join("<br/>") + "</p>"
+      : "";
+    const botonHtml = incluirBotonApp
+      ? "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
+      : "";
+    return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
+      + "<p>Hola,</p>"
+      + "<p>" + intro + ":</p>"
+      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
+      + lineas.map(filaHtml).join("")
+      + "</table>"
+      + fotosHtml + otrosHtml
+      + botonHtml
+      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
+      + "<tr><td style=\"padding:14px 18px;\">"
+      + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+      + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
+      + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+      + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
+      + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
+      + "</td>"
+      + "</tr></table>"
+      + "</td></tr></table>"
+      + "</div>";
+  };
   const enviarEmailTareaCreada = async (nueva, esEmpresaFlag) => {
     try {
       // Se envía siempre que el destinatario tenga email registrado, incluso si uno
@@ -2789,45 +2840,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ["Estado", nueva.estado],
         ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
       ];
-      // Tabla con etiquetas en negrita y color de marca, y una franja verde con el
-      // logo a modo de firma. Todo con estilos inline y tablas (no flexbox/clases),
-      // que es lo único que se renderiza de forma fiable en clientes de correo
-      // como Outlook o Gmail.
-      const filaHtml = ([l, v]) =>
-        "<tr>"
-        + "<td style=\"padding:4px 14px 4px 0;font-weight:700;color:#0f9b6e;white-space:nowrap;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + l + ":</td>"
-        + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
-        + "</tr>";
-      const SITE_URL = "https://gestion.europeademaquinaria.com";
-      const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
-      const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
-      const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
-      const fotosHtml = fotos.length
-        ? "<p style=\"font-weight:700;color:#0f9b6e;margin:14px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">Imágenes adjuntas:</p>"
-          + fotos.map(a => "<div style=\"margin:0 0 8px;\"><img src=\"" + urlAbs(a.url) + "\" style=\"display:block;max-width:260px;width:100%;border-radius:6px;border:1px solid #e2e2e2;\" alt=\"" + (a.nombre || "foto") + "\"/></div>").join("")
-        : "";
-      const otrosHtml = otrosAdj.length
-        ? "<p style=\"margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + otrosAdj.map(a => "📎 <a href=\"" + urlAbs(a.url) + "\" style=\"color:#0f9b6e;\">" + (a.nombre || "adjunto") + "</a>").join("<br/>") + "</p>"
-        : "";
-      const html = "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
-        + "<p>Hola,</p>"
-        + "<p>" + (esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea") + ":</p>"
-        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:14px 0;border-collapse:collapse;\">"
-        + lineas.map(filaHtml).join("")
-        + "</table>"
-        + fotosHtml + otrosHtml
-        + "<p style=\"margin:18px 0;\"><a href=\"" + SITE_URL + "/?tarea=" + nueva.id + "\" style=\"background-color:#0f9b6e;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;display:inline-block;\">Ver tarea en la app</a></p>"
-        + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
-        + "<tr><td style=\"padding:14px 18px;\">"
-        + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-        + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
-        + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
-        + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
-        + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
-        + "</td>"
-        + "</tr></table>"
-        + "</td></tr></table>"
-        + "</div>";
+      const html = htmlEmailTarea(lineas, nueva, esEmpresaFlag ? "Se ha creado una nueva tarea de empresa" : "Se te ha asignado una nueva tarea", true);
       // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
       // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
       const enviados = [];
@@ -2848,6 +2861,33 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       if (enviados.length) alert("Email de la tarea enviado a: " + enviados.join(", ") + ".");
       if (fallos.length) alert("No se pudo enviar el email de la tarea a: " + fallos.join(", ") + ".");
     } catch (e) { alert("No se pudo enviar el email de la tarea.\n\n" + e.message); }
+  };
+  // Reenvío a un proveedor/cliente externo (sin cuenta en la app): mismos datos de
+  // la tarea, sin el botón "Ver tarea en la app" (no tiene acceso) y con Reply-To
+  // al email de quien la reenvía, para que si responde, la respuesta le llegue a él
+  // directamente aunque el correo salga de la cuenta gestion@europeademaquinaria.com.
+  // No afecta en nada a las tareas que no se reenvían: es un envío extra opcional.
+  const enviarEmailTareaReenviada = async (nueva, destino) => {
+    if (!destino?.email?.trim()) return;
+    try {
+      const nombreCreador = uN(nueva.creadoPor);
+      const lineas = [
+        ["Título", nueva.titulo],
+        ["Prioridad", nueva.prioridad],
+        ["Vencimiento", fmtFecha(nueva.vence)],
+        ...(nueva.notas?.trim() ? [["Notas", nueva.notas]] : []),
+      ];
+      const html = htmlEmailTarea(lineas, nueva, "Te reenviamos la siguiente tarea desde Europea de Maquinaria", false);
+      const emailCreador = data.usuarios.find(u => u.id === nueva.creadoPor)?.email?.trim();
+      await apiSendMail({
+        to: destino.email.trim(),
+        toName: destino.nombre || "",
+        subject: "Tarea reenviada por " + nombreCreador,
+        html,
+        ...(emailCreador ? { replyTo: emailCreador } : {}),
+      });
+      alert("Tarea reenviada a " + (destino.nombre ? destino.nombre + " (" + destino.email.trim() + ")" : destino.email.trim()) + ".");
+    } catch (e) { alert("No se pudo reenviar la tarea a " + destino.email.trim() + ".\n\n" + e.message); }
   };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
@@ -2874,7 +2914,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     return d;
   };
   const abrirNueva = () => setForm({
-    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false
+    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
   });
   const save = () => {
     // No guardar mientras un adjunto se está subiendo: si no, la tarea se crea sin
@@ -2901,6 +2941,10 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         return nd;
       });
       enviarEmailTareaCreada(nueva, esEmpresa);
+      // Reenvío opcional a un proveedor/cliente externo (no afecta en nada a las
+      // tareas que no marcan "Tarea reenviada": ese aviso interno de arriba sigue
+      // funcionando exactamente igual que antes).
+      if (nueva.reenviarA?.email?.trim()) enviarEmailTareaReenviada(nueva, nueva.reenviarA);
     } else {
       setData(d => ({ ...d,tareas: d.tareas.map(t => t.id === item.id ? item : t) }));
     }
@@ -3161,11 +3205,47 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             <Icon name="image" size={13} />{subiendoAdjunto ? "Subiendo..." : "Adjuntar imagen o archivo"}
           </button>
         </Field>
+        {/* Tarea reenviada: además del aviso interno de arriba, se puede mandar una
+            copia a un proveedor/cliente sin cuenta en la app. Solo al crear (no en
+            edición), igual que el resto del envío automático. */}
+        {!form.id && (
+          <Field label="Reenviar a un proveedor o cliente (opcional)">
+            {form.reenviarA?.email ? (
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",flexWrap:"wrap"}}>
+                <Icon name="mail" size={13} style={{color:"#0ea5e9",flexShrink:0}} />
+                <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600,flex:1,minWidth:0}}>{form.reenviarA.nombre || "(sin nombre)"} — {form.reenviarA.email}</span>
+                <button type="button" onClick={() => { setFormReenviar({nombre:form.reenviarA.nombre||"",email:form.reenviarA.email||""}); setModalReenviar(true); }} style={{background:"none",border:"none",color:"#8b5cf6",cursor:"pointer",fontSize:11,fontWeight:700}}>Editar</button>
+                <button type="button" onClick={() => setForm(p => ({...p, reenviarA:null}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:0,display:"flex",alignItems:"center"}}>
+                  <Icon name="close" size={12} />
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => { setFormReenviar({nombre:"",email:""}); setModalReenviar(true); }} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+                <Icon name="send" size={13} />Tarea reenviada
+              </button>
+            )}
+          </Field>
+        )}
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
           <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
           <button onClick={save} disabled={subiendoAdjunto} style={subiendoAdjunto ? {...btnPrimary,opacity:.55,cursor:"default"} : btnPrimary}>{subiendoAdjunto ? "Subiendo adjunto..." : (form.id ? "Guardar" : "Crear tarea")}</button>
         </div>
       </Modal>}
+      {/* Sub-modal: nombre y email del destinatario externo para "Tarea reenviada" */}
+      {modalReenviar && (
+        <Modal title="Reenviar tarea a..." onClose={() => setModalReenviar(false)}>
+          <Field label="Nombre"><Input value={formReenviar.nombre} onChange={e => setFormReenviar(p => ({...p, nombre: e.target.value}))} placeholder="Ej: Carlos" /></Field>
+          <Field label="Email"><Input type="email" value={formReenviar.email} onChange={e => setFormReenviar(p => ({...p, email: e.target.value}))} placeholder="ej: carlos@nivel10.com" /></Field>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={() => setModalReenviar(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={() => {
+              if (!formReenviar.email?.trim()) { alert("Indica el email del destinatario."); return; }
+              setForm(p => ({...p, reenviarA: {nombre: formReenviar.nombre?.trim() || "", email: formReenviar.email.trim()}}));
+              setModalReenviar(false);
+            }} style={btnPrimary}>Guardar</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
