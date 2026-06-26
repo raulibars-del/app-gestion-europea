@@ -156,15 +156,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Versión que el cliente cree vigente (la última que leyó). Si no la manda
-    // (clientes antiguos, o la primera vez que se crea la fila) no se aplica
-    // la comprobación y se sobrescribe directamente, como antes.
+    // Versión que el cliente cree vigente (la última que leyó).
     $expectedVersion = isset($_SERVER['HTTP_X_EXPECTED_VERSION']) && $_SERVER['HTTP_X_EXPECTED_VERSION'] !== ''
         ? (int)$_SERVER['HTTP_X_EXPECTED_VERSION'] : null;
 
     $existe = $pdo->query("SELECT version FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
 
-    if ($existe && $expectedVersion !== null) {
+    if ($existe && $expectedVersion === null) {
+        // Ya hay datos guardados pero esta petición no manda versión: viene de
+        // una pestaña con JS tan antiguo que ni siquiera sabe de este mecanismo
+        // (anterior a este fix). Antes esto se sobrescribía a ciegas sin
+        // comprobar nada, que es justo el agujero por el que se perdían datos.
+        // Ahora se rechaza: ese dispositivo no sube nada hasta que actualice.
+        http_response_code(426);
+        echo json_encode(['error' => 'upgrade_required', 'version' => (int)$existe['version']]);
+        exit;
+    }
+
+    if ($existe) {
         $upd = $pdo->prepare("UPDATE app_data SET data = :data, version = version + 1 WHERE id = 1 AND version = :expected");
         $upd->execute(['data' => $raw, 'expected' => $expectedVersion]);
         if ($upd->rowCount() === 0) {
@@ -176,6 +185,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } else {
+        // Primera vez que se guarda algo (fila todavía no existe): no hay nada
+        // que proteger, se crea sin más.
         $stmt = $pdo->prepare(
             "INSERT INTO app_data (id, data, version) VALUES (1, :data, 1)
              ON DUPLICATE KEY UPDATE data = :data2, version = version + 1"
