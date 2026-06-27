@@ -2474,6 +2474,62 @@ const Ventas = ({ data, setData, userActual }) => {
       </div>
     </Modal>
   );
+  // Modal de nueva/editar operación: se calcula una sola vez (igual que el de
+  // seguimiento) para poder mostrarlo tanto desde la lista como desde la vista
+  // de detalle — si no, al pulsar "Editar" desde el detalle no pasaba nada,
+  // porque ese JSX solo estaba en el return de la lista.
+  const modalEditarJSX = modal && (
+    <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
+        <Field label="Cliente"><ClientePicker clientes={data.clientes} value={form.clienteId} onChange={id => setForm(p=>({...p,clienteId: id}))}/></Field>
+        <Field label="Fecha inicio"><Input type="date" value={form.fecha} onChange={f("fecha")} /></Field>
+      </div>
+      <Field label="Máquina demandada / necesidad"><Input value={form.maquina} onChange={f("maquina")} placeholder="Ej: CNC Busellato Jet Start 3 ejes" /></Field>
+      {/* Máquinas ofertadas: a veces se ofertan varios modelos distintos al mismo
+          cliente, cada uno con su propio precio — por eso es una lista en vez de
+          un único campo. */}
+      <div style={{marginTop:4,marginBottom:13}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>Máquinas ofertadas</div>
+        {(form.ofertas || []).map((o, i) => (
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 130px 32px",gap:6,marginBottom:6}}>
+            <input value={o.maquina || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,maquina: e.target.value } : x) }))} placeholder={`Máquina ofertada ${i + 1}`} style={inputStyle} />
+            <input type="number" value={o.importe || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,importe: e.target.value } : x) }))} placeholder="Precio €" style={inputStyle} />
+            <button onClick={() => setForm(p => ({ ...p,ofertas: p.ofertas.filter((_, j) => j !== i) }))} disabled={(form.ofertas || []).length === 1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626"}}><Icon name="trash" size={12} /></button>
+          </div>
+        ))}
+        <button onClick={() => setForm(p => ({ ...p,ofertas: [...(p.ofertas || []),{ maquina: "",importe: "" }] }))} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#6b7a99",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir máquina ofertada</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
+        <Field label="Estado"><Select value={form.estado} onChange={f("estado")} options={ESTADOS_VENTA} /></Field>
+        <Field label="Oferta económica entregada">
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",paddingTop:8}}>
+            <input type="checkbox" checked={!!form.ofertaEntregada} onChange={e => setForm(p => ({ ...p,ofertaEntregada: e.target.checked,metodoEntrega: e.target.checked ? p.metodoEntrega : "" }))} style={{width:16,height:16}} />
+            <span style={{color:"#9aa3b8",fontSize:13}}>Sí, oferta entregada al cliente</span>
+          </label>
+        </Field>
+        {form.ofertaEntregada && <Field label="Cómo se entregó"><Select value={form.metodoEntrega || "Email"} onChange={f("metodoEntrega")} options={METODOS_ENTREGA_OFERTA} /></Field>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
+        <Field label="Persona de contacto"><Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona con quien hablas" /></Field>
+        <Field label="Último contacto"><Input type="date" value={form.ultimoContacto} onChange={f("ultimoContacto")} /></Field>
+      </div>
+      {form.ultimoContacto && <Field label="Comentario del último contacto"><Textarea value={form.ultimoContactoNota} onChange={f("ultimoContactoNota")} placeholder="¿Qué se habló? ¿Próximos pasos?" rows={2} /></Field>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
+        <Field label="Máquina a retirar (si hay)"><Input value={form.maquinaRetirar} onChange={f("maquinaRetirar")} placeholder="Modelo y marca" /></Field>
+        <Field label="Valoración retirada €"><Input type="number" value={form.valoracionRetirada} onChange={f("valoracionRetirada")} /></Field>
+      </div>
+      <Field label="Ofertas de la competencia"><Input value={form.competencia} onChange={f("competencia")} placeholder="Marca, modelo, precio estimado..." /></Field>
+      <Field label="Percepción fecha de cierre">
+        <Input type="date" value={form.percepcionCierre} onChange={f("percepcionCierre")} />
+        <div style={{fontSize:11,color:"#6b7a99",marginTop:4}}>Tu estimación de cuándo se cerrará la operación</div>
+      </Field>
+      <Field label="Notas"><Textarea value={form.notas} onChange={f("notas")} /></Field>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+        <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
+        <button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id ? "Guardar" : "Crear operación"}</button>
+      </div>
+    </Modal>
+  );
   const cerrarOp = () => {
     const v = data.ventas.find(x => x.id === modalCierre);
     if (!v) return;
@@ -2626,6 +2682,7 @@ const Ventas = ({ data, setData, userActual }) => {
           </div>
         </Modal>}
         {modalSeguimientoJSX}
+        {modalEditarJSX}
       </div>
     );
   }
@@ -2689,57 +2746,7 @@ const Ventas = ({ data, setData, userActual }) => {
         {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#6b7a99"}}>Sin operaciones</div>}
         {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
       </div>}
-      {/* Modal nueva/editar */}
-      {modal && <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Cliente"><ClientePicker clientes={data.clientes} value={form.clienteId} onChange={id => setForm(p=>({...p,clienteId: id}))}/></Field>
-          <Field label="Fecha inicio"><Input type="date" value={form.fecha} onChange={f("fecha")} /></Field>
-        </div>
-        <Field label="Máquina demandada / necesidad"><Input value={form.maquina} onChange={f("maquina")} placeholder="Ej: CNC Busellato Jet Start 3 ejes" /></Field>
-        {/* Máquinas ofertadas: a veces se ofertan varios modelos distintos al mismo
-            cliente, cada uno con su propio precio — por eso es una lista en vez de
-            un único campo. */}
-        <div style={{marginTop:4,marginBottom:13}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>Máquinas ofertadas</div>
-          {(form.ofertas || []).map((o, i) => (
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 130px 32px",gap:6,marginBottom:6}}>
-              <input value={o.maquina || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,maquina: e.target.value } : x) }))} placeholder={`Máquina ofertada ${i + 1}`} style={inputStyle} />
-              <input type="number" value={o.importe || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,importe: e.target.value } : x) }))} placeholder="Precio €" style={inputStyle} />
-              <button onClick={() => setForm(p => ({ ...p,ofertas: p.ofertas.filter((_, j) => j !== i) }))} disabled={(form.ofertas || []).length === 1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626"}}><Icon name="trash" size={12} /></button>
-            </div>
-          ))}
-          <button onClick={() => setForm(p => ({ ...p,ofertas: [...(p.ofertas || []),{ maquina: "",importe: "" }] }))} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#6b7a99",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir máquina ofertada</button>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Estado"><Select value={form.estado} onChange={f("estado")} options={ESTADOS_VENTA} /></Field>
-          <Field label="Oferta económica entregada">
-            <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",paddingTop:8}}>
-              <input type="checkbox" checked={!!form.ofertaEntregada} onChange={e => setForm(p => ({ ...p,ofertaEntregada: e.target.checked,metodoEntrega: e.target.checked ? p.metodoEntrega : "" }))} style={{width:16,height:16}} />
-              <span style={{color:"#9aa3b8",fontSize:13}}>Sí, oferta entregada al cliente</span>
-            </label>
-          </Field>
-          {form.ofertaEntregada && <Field label="Cómo se entregó"><Select value={form.metodoEntrega || "Email"} onChange={f("metodoEntrega")} options={METODOS_ENTREGA_OFERTA} /></Field>}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Persona de contacto"><Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona con quien hablas" /></Field>
-          <Field label="Último contacto"><Input type="date" value={form.ultimoContacto} onChange={f("ultimoContacto")} /></Field>
-        </div>
-        {form.ultimoContacto && <Field label="Comentario del último contacto"><Textarea value={form.ultimoContactoNota} onChange={f("ultimoContactoNota")} placeholder="¿Qué se habló? ¿Próximos pasos?" rows={2} /></Field>}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Máquina a retirar (si hay)"><Input value={form.maquinaRetirar} onChange={f("maquinaRetirar")} placeholder="Modelo y marca" /></Field>
-          <Field label="Valoración retirada €"><Input type="number" value={form.valoracionRetirada} onChange={f("valoracionRetirada")} /></Field>
-        </div>
-        <Field label="Ofertas de la competencia"><Input value={form.competencia} onChange={f("competencia")} placeholder="Marca, modelo, precio estimado..." /></Field>
-        <Field label="Percepción fecha de cierre">
-          <Input type="date" value={form.percepcionCierre} onChange={f("percepcionCierre")} />
-          <div style={{fontSize:11,color:"#6b7a99",marginTop:4}}>Tu estimación de cuándo se cerrará la operación</div>
-        </Field>
-        <Field label="Notas"><Textarea value={form.notas} onChange={f("notas")} /></Field>
-        <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-          <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
-          <button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id ? "Guardar" : "Crear operación"}</button>
-        </div>
-      </Modal>}
+      {modalEditarJSX}
       {/* Modal cierre desde lista */}
       {modalCierre && <Modal title={formCierre.estado === "Ganada" ? "✅ Cerrar como Ganada" : "❌ Cerrar como Perdida"} onClose={() => setModalCierre(null)}>
         <div style={{background:(formCierre.estado === "Ganada" ? "#16a34a" :"#dc2626") + "12",border:`1px solid ${(formCierre.estado === "Ganada" ? "#16a34a" :"#dc2626")}33`,borderRadius:9,padding:"10px 13px",marginBottom:14,color:formCierre.estado === "Ganada" ? "#16a34a" :"#dc2626",fontSize:13}}>
