@@ -9067,7 +9067,7 @@ export default function App() {
       // Versión estructurada (texto + cliente por separado) para poder pintar el
       // pop-up con el nombre del cliente en negrita; versión en texto plano (unida
       // con guion) para el mensaje que se guarda en el historial de notificaciones.
-      const listaEstructurada=avisosPend.slice(0,8).map(a=>{
+      const listaEstructurada=avisosPend.map(a=>{
         const c=data.clientes.find(c=>c.id===a.clienteId);
         return{texto:a.titulo,cliente:c?.nombreEmpresa||"sin cliente",municipio:c?.localidad||null};
       });
@@ -9363,7 +9363,7 @@ export default function App() {
         const pos=totalPopups-popupQueue.length+1;
         return(
         <div style={{position:"fixed",inset:0,background:"rgba(5,8,15,.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:20}}>
-          <div style={{width:"min(440px,100%)",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
+          <div style={{width:"min(440px,100%)",maxHeight:"85vh",overflowY:"auto",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
               <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,flexShrink:0}}><Icon name="mail" size={20}/></div>
               <div style={{color:p.color,fontWeight:900,fontSize:16,letterSpacing:".5px",textDecoration:"underline"}}>{p.categoria}</div>
