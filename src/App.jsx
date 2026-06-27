@@ -3013,12 +3013,12 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
       {modal && (
         <Modal title="📍 Nueva visita" onClose={() => setModal(false)}>
+          <div style={{marginBottom:6,textAlign:"right"}}>
+            <button onClick={() => setModalNuevoCliente(true)} style={{background:"none",border:"none",color:"#3b82f6",fontSize:12,cursor:"pointer",fontWeight:700,padding:0}}>+ El cliente no existe, crearlo</button>
+          </div>
           <Field label="Cliente">
             <ClientePicker clientes={data.clientes} value={form.clienteId || ""} onChange={id => setForm(p => ({ ...p, clienteId: id }))} />
           </Field>
-          <div style={{marginTop:-6,marginBottom:13}}>
-            <button onClick={() => setModalNuevoCliente(true)} style={{background:"none",border:"none",color:"#3b82f6",fontSize:12,cursor:"pointer",fontWeight:700,padding:0}}>+ El cliente no existe, crearlo</button>
-          </div>
           <Field label="Fecha">
             <Input type="date" value={form.fecha || today()} onChange={f("fecha")} />
           </Field>
