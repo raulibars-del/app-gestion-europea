@@ -294,13 +294,30 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#8892a4",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes"],
-  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
+  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes"],
+  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","inventario","documentacion","calendario","chat","fichaje"],
-  comercial:["dashboard","asistencia","clientes","maquinas","ventas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
+  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
 const ROLES = ["manager","admin","tecnico","comercial"];
+// Jerarquía del Diario de visitas (de mayor a menor escalón): un usuario puede ver
+// las visitas de cualquiera que esté por debajo de él en esta lista, además de las
+// suyas propias, pero nunca las de su mismo escalón ni las de uno superior. Tecnico
+// no participa (el módulo ni siquiera se le muestra).
+const JERARQUIA_VISITAS = ["manager","admin","comercial"];
+const rangoVisita = rol => { const i = JERARQUIA_VISITAS.indexOf(rol); return i === -1 ? 999 : i; };
+const puedeVerVisitaDe = (viewerRol, viewerId, ownerRol, ownerId) => {
+  if (viewerId === ownerId) return true;
+  return rangoVisita(viewerRol) < rangoVisita(ownerRol);
+};
+// Distancia aproximada entre dos coordenadas (fórmula de Haversine), en km.
+const distanciaKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLat = rad(lat2 - lat1), dLng = rad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
 const ROLES_LABEL = { manager:"Manager",admin:"Admin",tecnico:"Técnico",comercial:"Comercial" };
 const ROLES_COLOR = { manager:"#f59e0b",admin:"#8b5cf6",tecnico:"#3b82f6",comercial:"#10b981" };
 const TECNICOS_NOMBRES = []; // legacy - now dynamic from data.usuarios
@@ -357,6 +374,7 @@ const initialData = {
     { id:1,comercialId:5,clienteId:1,fecha:"2026-04-10",maquina:"Escuadradora Casadei SC3",ofertaEntregada:true,importeOferta:12500,maquinaRetirar:"Escuadradora vieja MH-95",valoracionRetirada:800,competencia:"Oferta de Holz-Her a 11.900 €",percepcionCierre:"2026-05-15",estado:"Ganada",motivoCierre:"Cliente valora el servicio posventa y financiación ofrecida. Precio ajustado.",notas:"" },
     { id:2,comercialId:5,clienteId:2,fecha:"2026-05-02",maquina:"CNC Busellato Jet Start",ofertaEntregada:true,importeOferta:34800,maquinaRetirar:"",valoracionRetirada:0,competencia:"Biesse Rover A pendiente de precio",percepcionCierre:"2026-06-10",estado:"En curso",motivoCierre:"",notas:"Esperando visita técnica cliente" },
     { id:3,comercialId:5,clienteId:3,fecha:"2026-05-20",maquina:"Lijadora Orma LS120 nueva",ofertaEntregada:false,importeOferta:4200,maquinaRetirar:"",valoracionRetirada:0,competencia:"",percepcionCierre:"2026-06-30",estado:"Prospecto",motivoCierre:"",notas:"Primera reunión, interés alto" },
+  ],visitas:[
   ],reparaciones:[
     {id:1,clienteId:1,maquinaClienteId:1,fecha:"2026-05-15",maquina:"Escuadradora Casadei SC2",descripcion:"Sustitución motor principal",estado:"En curso",tecnico:"Carlos V.",presupuesto:850,notas:""},
     {id:2,clienteId:2,maquinaClienteId:1,fecha:"2026-05-20",maquina:"CNC Masterwood Project 350",descripcion:"Fallo en husillo eje Z",estado:"Pendiente",tecnico:"Miguel R.",presupuesto:1200,notas:"Esperando recambio"},
@@ -2841,6 +2859,209 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
           <button onClick={onDel} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
         </div>
       </div>
+    </div>
+  );
+};
+// Diario de visitas: registro diario de visitas comerciales a clientes (existentes
+// o creados sobre la marcha), con visibilidad piramidal (cada usuario ve las suyas
+// y las de cualquiera por debajo en la jerarquía, nunca las de su mismo rango ni
+// las de uno superior) y sugerencias de los 5 clientes geocodificados más cercanos
+// al que se está visitando que todavía no tengan visita registrada hoy.
+const DiarioVisitas = ({ data, setData, userActual }) => {
+  const [subVista, setSubVista] = useState("fecha"); // "fecha" | "cliente"
+  const [fechaSel, setFechaSel] = useState(today());
+  const [clienteVistaId, setClienteVistaId] = useState("");
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({});
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
+  const [formNuevoCliente, setFormNuevoCliente] = useState({});
+
+  const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
+  const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
+  const uN = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "—";
+  const uRol = id => data.usuarios.find(u => u.id === parseInt(id))?.rol;
+
+  // Visibilidad piramidal: cada uno ve sus propias visitas, más las de cualquiera
+  // por debajo de él en JERARQUIA_VISITAS — nunca las de su mismo rango ni las de
+  // uno por encima.
+  const visitasVisibles = (data.visitas || []).filter(v => puedeVerVisitaDe(userActual.rol, userActual.id, uRol(v.usuarioId), v.usuarioId));
+
+  // --- Geocodificación de TODOS los clientes (no solo los que tienen máquinas) ---
+  // El efecto de geocodificación del mapa de Máquinas solo cubre clientes con
+  // parque propio y solo se dispara al abrir el mapa; aquí hace falta cubrir a
+  // cualquier cliente (incluidos prospectos sin máquinas) para poder calcular
+  // distancias y sugerir visitas cercanas, así que se dispara siempre que se entra
+  // en este apartado. Reutiliza los mismos campos de caché (lat/lng/_geocodedFrom...)
+  // que el mapa, para que ambas funciones queden sincronizadas.
+  const firmaGeoVisitas = (data.clientes || []).map(c => `${c.id}:${direccionMapaCliente(c)}:${c.lat == null ? 0 : 1}:${c._geocodeError || ""}`).join("|");
+  useEffect(() => {
+    const pendientes = (data.clientes || []).filter(c => (c.lat == null || c.lng == null || c._geocodedFrom !== direccionMapaCliente(c)) && c._geocodeError !== direccionMapaCliente(c));
+    if (!pendientes.length) return;
+    let cancelado = false;
+    (async () => {
+      for (const c of pendientes) {
+        if (cancelado) break;
+        const dir = direccionMapaCliente(c);
+        if (!dir) continue;
+        const r = await geocodificarConFallback(c);
+        if (cancelado) break;
+        setData(d => ({ ...d, clientes: d.clientes.map(x => x.id === c.id ? (r ? { ...x, lat: r.lat, lng: r.lng, _geocodedFrom: dir, _geocodePrecision: r.precision, _geocodeError: undefined } : { ...x, _geocodeError: dir, _geocodePrecision: undefined }) : x) }));
+        await new Promise(res => setTimeout(res, 1100));
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [firmaGeoVisitas]);
+
+  // --- Sugerencias de visita: 5 clientes geocodificados más cercanos al elegido en
+  // el formulario, que no tengan ya una visita registrada hoy (de cualquier
+  // comercial — a efectos de "ya cubierto hoy" no importa quién la hizo). ---
+  const clienteForm = form.clienteId ? data.clientes.find(c => c.id === parseInt(form.clienteId)) : null;
+  const clientesVisitadosHoy = new Set((data.visitas || []).filter(v => v.fecha === (form.fecha || today())).map(v => v.clienteId));
+  const sugerenciasVisita = (() => {
+    if (!clienteForm || clienteForm.lat == null || clienteForm.lng == null) return [];
+    return (data.clientes || [])
+      .filter(c => c.id !== clienteForm.id && c.lat != null && c.lng != null && !clientesVisitadosHoy.has(c.id))
+      .map(c => ({ cliente: c, distancia: distanciaKm(clienteForm.lat, clienteForm.lng, c.lat, c.lng) }))
+      .sort((a, b) => a.distancia - b.distancia)
+      .slice(0, 5);
+  })();
+
+  const crearNuevoClienteYSeleccionar = () => {
+    if (!formNuevoCliente.nombreEmpresa?.trim()) return;
+    const nc = { ...formNuevoCliente, id: Date.now(), contactos: [], maquinas: [], notas: "", nombreFiscal: formNuevoCliente.nombreFiscal || formNuevoCliente.nombreEmpresa || "" };
+    setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
+    setForm(p => ({ ...p, clienteId: nc.id }));
+    setModalNuevoCliente(false); setFormNuevoCliente({});
+  };
+
+  const openNew = clientePre => {
+    setForm({ clienteId: clientePre?.id || "", fecha: today(), personaContacto: "", notas: "", interesMaquina: false, interesAsistencia: false });
+    setModal(true);
+  };
+  const save = () => {
+    if (!form.clienteId) { alert("Elige o crea un cliente a visitar."); return; }
+    const item = { id: Date.now(), usuarioId: userActual.id, clienteId: parseInt(form.clienteId), fecha: form.fecha || today(), personaContacto: form.personaContacto || "", notas: form.notas || "", interesMaquina: !!form.interesMaquina, interesAsistencia: !!form.interesAsistencia, creadoEn: new Date().toISOString() };
+    setData(d => ({ ...d, visitas: [...(d.visitas || []), item] }));
+    setModal(false);
+  };
+  const puedeBorrar = v => v.usuarioId === userActual.id || userActual.rol === "manager";
+  const delVisita = id => {
+    if (!confirm("¿Eliminar esta visita?")) return;
+    setData(d => ({ ...d, visitas: (d.visitas || []).filter(v => v.id !== id) }));
+  };
+
+  const visitasDelDia = visitasVisibles.filter(v => v.fecha === fechaSel).sort((a, b) => (b.creadoEn || "").localeCompare(a.creadoEn || ""));
+  const visitasDeCliente = clienteVistaId ? visitasVisibles.filter(v => v.clienteId === parseInt(clienteVistaId)).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) : [];
+
+  const TarjetaVisita = ({ v }) => (
+    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 14px",marginBottom:9}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:6}}>
+        <div>
+          <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13.5}}>🏢 {cN(v.clienteId)}</div>
+          <div style={{color:"#6b7a99",fontSize:11.5,marginTop:2}}>📅 {v.fecha} · 💼 {uN(v.usuarioId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+        </div>
+        {puedeBorrar(v) && <button onClick={() => delVisita(v.id)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>}
+      </div>
+      {v.notas && <div style={{color:"#9aa3b8",fontSize:12.5,whiteSpace:"pre-wrap",marginBottom:6}}>{v.notas}</div>}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {v.interesMaquina && <span style={{background:"#10b98118",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🛠️ Interesado en máquina</span>}
+        {v.interesAsistencia && <span style={{background:"#3b82f618",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🔧 Interesado en asistencia</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <h2 style={{color:"#f1f3f9",fontSize:20,fontWeight:800,margin:0}}>📍 Diario de visitas</h2>
+        <button onClick={() => openNew()} style={btnPrimary}>+ Nueva visita</button>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        <button onClick={() => setSubVista("fecha")} style={subVista === "fecha" ? btnPrimary : btnOutline}>Por fecha</button>
+        <button onClick={() => setSubVista("cliente")} style={subVista === "cliente" ? btnPrimary : btnOutline}>Por cliente</button>
+      </div>
+
+      {subVista === "fecha" && <>
+        <Field label="Fecha">
+          <Input type="date" value={fechaSel} onChange={e => setFechaSel(e.target.value)} />
+        </Field>
+        {visitasDelDia.length === 0 && <div style={{color:"#6b7a99",fontSize:13,padding:"20px 0",textAlign:"center"}}>Sin visitas registradas ese día.</div>}
+        {visitasDelDia.map(v => <TarjetaVisita key={v.id} v={v} />)}
+      </>}
+
+      {subVista === "cliente" && <>
+        <Field label="Cliente">
+          <ClientePicker clientes={data.clientes} value={clienteVistaId} onChange={id => setClienteVistaId(id)} />
+        </Field>
+        {clienteVistaId && visitasDeCliente.length === 0 && <div style={{color:"#6b7a99",fontSize:13,padding:"20px 0",textAlign:"center"}}>Sin visitas registradas a este cliente.</div>}
+        {visitasDeCliente.map(v => <TarjetaVisita key={v.id} v={v} />)}
+      </>}
+
+      {modal && (
+        <Modal title="📍 Nueva visita" onClose={() => setModal(false)}>
+          <Field label="Cliente">
+            <ClientePicker clientes={data.clientes} value={form.clienteId || ""} onChange={id => setForm(p => ({ ...p, clienteId: id }))} />
+          </Field>
+          <div style={{marginTop:-6,marginBottom:13}}>
+            <button onClick={() => setModalNuevoCliente(true)} style={{background:"none",border:"none",color:"#3b82f6",fontSize:12,cursor:"pointer",fontWeight:700,padding:0}}>+ El cliente no existe, crearlo</button>
+          </div>
+          <Field label="Fecha">
+            <Input type="date" value={form.fecha || today()} onChange={f("fecha")} />
+          </Field>
+          <Field label="Persona con la que habla">
+            <Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona" />
+          </Field>
+          <Field label="Notas de la visita">
+            <Textarea value={form.notas} onChange={f("notas")} placeholder="¿De qué se ha hablado?" rows={4} />
+          </Field>
+          <div style={{display:"flex",gap:16,marginBottom:14}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!form.interesMaquina} onChange={e => setForm(p => ({ ...p, interesMaquina: e.target.checked }))} /> Interesado en máquina
+            </label>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!form.interesAsistencia} onChange={e => setForm(p => ({ ...p, interesAsistencia: e.target.checked }))} /> Interesado en asistencia
+            </label>
+          </div>
+
+          {clienteForm && (
+            <div style={{marginBottom:14}}>
+              <div style={{color:"#6b7a99",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",marginBottom:7}}>📌 Sugerencias de visita (cercanos, sin visitar hoy)</div>
+              {clienteForm.lat == null && <div style={{color:"#6b7a99",fontSize:12}}>Geocodificando dirección del cliente para calcular cercanía…</div>}
+              {clienteForm.lat != null && sugerenciasVisita.length === 0 && <div style={{color:"#6b7a99",fontSize:12}}>Sin sugerencias disponibles (faltan clientes geocodificados cercanos).</div>}
+              {sugerenciasVisita.map(s => (
+                <div key={s.cliente.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",marginBottom:6}}>
+                  <div>
+                    <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12.5}}>{s.cliente.nombreEmpresa}</div>
+                    <div style={{color:"#6b7a99",fontSize:11}}>{s.cliente.localidad || ""} · {s.distancia.toFixed(1)} km</div>
+                  </div>
+                  <button onClick={() => { save(); openNew(s.cliente); }} style={{...btnSm("#3b82f618", "#3b82f6"),fontSize:11,fontWeight:700,padding:"5px 10px"}}>Visitar</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={save} style={btnPrimary}>Guardar visita</button>
+          </div>
+        </Modal>
+      )}
+
+      {modalNuevoCliente && (
+        <Modal title="Nuevo cliente rápido" onClose={() => setModalNuevoCliente(false)}>
+          <div style={{background:"#0ea5e912",border:"1px solid #0ea5e933",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#0ea5e9",fontSize:12}}>
+            El cliente se creará y quedará disponible en el módulo de Clientes.
+          </div>
+          <Field label="Nombre empresa *"><Input value={formNuevoCliente.nombreEmpresa || ""} onChange={fnc("nombreEmpresa")} placeholder="Ej: Muebles García S.L." /></Field>
+          <Field label="Nombre fiscal"><Input value={formNuevoCliente.nombreFiscal || ""} onChange={fnc("nombreFiscal")} placeholder="Razón social completa" /></Field>
+          <Field label="Localidad"><Input value={formNuevoCliente.localidad || ""} onChange={fnc("localidad")} placeholder="Ciudad" /></Field>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={() => setModalNuevoCliente(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim()} style={{...btnPrimary,opacity:formNuevoCliente.nombreEmpresa?.trim() ? 1 : 0.5}}>Crear y seleccionar</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
@@ -7779,6 +8000,7 @@ const NAV_ITEMS = [
   {id:"clientes",label:"Clientes",icon:"clients",color:"#3b82f6"},
   {id:"maquinas",label:"Máquinas",icon:"maquina",color:"#0ea5e9"},
   {id:"ventas",label:"Operaciones de venta",icon:"sales",color:"#10b981"},
+  {id:"visitas",label:"Diario de visitas",icon:"pin",color:"#06b6d4"},
   {id:"tareas",label:"Tareas",icon:"tasks",color:"#8b5cf6"},
   {id:"partes",label:"Partes",icon:"parts",color:"#0ea5e9"},
   {id:"albaran",label:"Albaranes",icon:"albaran",color:"#f97316"},
@@ -9057,6 +9279,7 @@ export default function App() {
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
+          {active==="visitas"&&puedeVer(user.rol,"visitas")&&<DiarioVisitas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user} abrirTareaId={tareaAAbrir} onAbrirTareaId={()=>setTareaAAbrir(null)}/>}
           {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
