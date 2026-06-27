@@ -697,7 +697,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
-  const filtered=data.clientes.filter(c=>c.nombreEmpresa.toLowerCase().includes(search.toLowerCase())||c.localidad.toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
+  const filtered=data.clientes.filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(search.toLowerCase())||(c.localidad||"").toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
   // "Europea de Maquinaria" (cliente interno, id 0) siempre va primero; el resto, alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
@@ -2929,7 +2929,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
   const crearNuevoClienteYSeleccionar = () => {
     if (!formNuevoCliente.nombreEmpresa?.trim()) return;
-    const nc = { ...formNuevoCliente, id: Date.now(), contactos: [], maquinas: [], notas: "", nombreFiscal: formNuevoCliente.nombreFiscal || formNuevoCliente.nombreEmpresa || "" };
+    const nc = { ...formNuevoCliente, id: Date.now(), contactos: [], maquinas: [], notas: "", localidad: formNuevoCliente.localidad || "", nombreFiscal: formNuevoCliente.nombreFiscal || formNuevoCliente.nombreEmpresa || "" };
     setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
     setForm(p => ({ ...p, clienteId: nc.id }));
     setModalNuevoCliente(false); setFormNuevoCliente({});
