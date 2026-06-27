@@ -2003,7 +2003,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     cancelarAv(cancelTarget, motivoCancel.trim());
     setCancelTarget(null); setMotivoCancel(""); setDetalle(null);
   };
-  const delAv = id => { setData(d => ({ ...d,avisos: d.avisos.filter(a => a.id !== id) })); setDetalle(null); };
+  const delAv = id => { if (!window.confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return; setData(d => ({ ...d,avisos: d.avisos.filter(a => a.id !== id) })); setDetalle(null); };
   const crit = data.avisos.filter(a => a.prioridad === "Alta" && a.estado !== "Resuelto" && a.estado !== "Cancelado");
   const sinA = data.avisos.filter(a => a.estado === "Sin asignar");
   const ant  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
@@ -2678,7 +2678,7 @@ const Ventas = ({ data, setData, userActual }) => {
               {PIPELINE_ICON[estado]} {estado} <span style={{background:c + "22",borderRadius:8,padding:"1px 7px",fontSize:10}}>{grupo.length}</span>
             </div>
             <div style={{display:"grid",gap:6}}>
-              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
+              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
             </div>
           </div>
         );
@@ -2686,7 +2686,7 @@ const Ventas = ({ data, setData, userActual }) => {
       {/* Lista plana para cerradas/todas */}
       {filtroEstado !== "Activas" && <div style={{display:"grid",gap:6}}>
         {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#6b7a99"}}>Sin operaciones</div>}
-        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) }))} />)}
+        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
       </div>}
       {/* Modal nueva/editar */}
       {modal && <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
@@ -5384,7 +5384,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
                 <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
                 <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={11}/></button>
-                <button onClick={() => setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)}))} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
+                <button onClick={() => { if (window.confirm("¿Eliminar este albarán? Esta acción no se puede deshacer.")) setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)})); }} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
             </div>
           );
@@ -6536,6 +6536,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
   // Eliminar un documento ya subido y persistido de la ficha
   const eliminarArchivo = (docId, idx) => {
+    if (!window.confirm("¿Eliminar este archivo? Esta acción no se puede deshacer.")) return;
     setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===docId ? {...x, archivos:(x.archivos||[]).filter((_,j)=>j!==idx)} : x) }));
   };
   // Guardar el nuevo tipo de un documento ya subido (tras editarlo inline)
@@ -6620,7 +6621,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
             {propietario?"Cambiar propietario":"Asignar propietario"}
           </button>
           <button onClick={()=>openEdit(doc)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
-          <button onClick={()=>{setData(d=>({...d,documentacion:(d.documentacion||[]).filter(x=>x.id!==doc.id)}));setVista(null);}} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"7px 13px",fontSize:13}}>Eliminar</button>
+          <button onClick={()=>{if(window.confirm("¿Eliminar este documento y todos sus archivos? Esta acción no se puede deshacer.")){setData(d=>({...d,documentacion:(d.documentacion||[]).filter(x=>x.id!==doc.id)}));setVista(null);}}} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"7px 13px",fontSize:13}}>Eliminar</button>
         </div>
 
         {/* Modal cambiar propietario */}
