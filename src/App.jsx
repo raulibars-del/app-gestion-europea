@@ -2386,7 +2386,16 @@ const Ventas = ({ data, setData, userActual }) => {
   const maxOferta = v => ofertasDe(v).reduce((m, o) => Math.max(m, parseFloat(o.importe) || 0), 0);
   const [modalSeguimiento, setModalSeguimiento] = useState(null);
   const [formSeguimiento, setFormSeguimiento] = useState({});
-  const misVentas = data.ventas.filter(v => v.comercialId === userActual.id);
+  // Ventas es un apartado privado: cada comercial solo ve sus propias
+  // operaciones. Solo el manager puede consultar las de otros, eligiendo a
+  // quién mirar (o "Todos") con el selector de abajo.
+  const esManager = userActual.rol === "manager";
+  const usuariosVenta = data.usuarios.filter(u => ["manager","admin","comercial"].includes(u.rol));
+  const [filtroComercial, setFiltroComercial] = useState("propias");
+  const misVentas = !esManager ? data.ventas.filter(v => v.comercialId === userActual.id)
+    : filtroComercial === "todos" ? data.ventas
+    : filtroComercial === "propias" ? data.ventas.filter(v => v.comercialId === userActual.id)
+    : data.ventas.filter(v => v.comercialId === parseInt(filtroComercial));
   const filtered = misVentas.filter(v => {
     if (filtroEstado === "Activas") return ESTADOS_VENTA_ABIERTOS.includes(v.estado);
     if (filtroEstado === "Cerradas") return ESTADOS_VENTA_CERRADOS.includes(v.estado);
@@ -2417,7 +2426,10 @@ const Ventas = ({ data, setData, userActual }) => {
   const save = () => {
     const { importeOferta,...resto } = form;
     const ofertasLimpias = (resto.ofertas || []).filter(o => (o.maquina || "").trim() || o.importe).map(o => ({ maquina: o.maquina || "",importe: parseFloat(o.importe) || 0 }));
-    const item = { ...resto,comercialId: userActual.id,clienteId: parseInt(form.clienteId),ofertas: ofertasLimpias.length ? ofertasLimpias : [{ maquina: "",importe: 0 }],valoracionRetirada: parseFloat(form.valoracionRetirada) || 0 };
+    // El comercial dueño de la operación no cambia al editar (importante para
+    // que el manager pueda editar ventas de otros sin "robárselas"); solo se
+    // asigna al usuario actual cuando es una operación nueva.
+    const item = { ...resto,comercialId: form.id ? form.comercialId : userActual.id,clienteId: parseInt(form.clienteId),ofertas: ofertasLimpias.length ? ofertasLimpias : [{ maquina: "",importe: 0 }],valoracionRetirada: parseFloat(form.valoracionRetirada) || 0 };
     if (!item.id) setData(d => ({ ...d,ventas: [...d.ventas, { ...item,id: Date.now() }] }));
     else setData(d => ({ ...d,ventas: d.ventas.map(v => v.id === item.id ? item : v) }));
     setModal(false);
@@ -2688,13 +2700,21 @@ const Ventas = ({ data, setData, userActual }) => {
   }
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Ventas</h2>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-            <Avatar u={userActual} size={22} fontSize={9}/>
-            <span style={{color:"#6b7a99",fontSize:13}}>{userActual.nombre}</span>
-          </div>
+          <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>{filtroComercial === "todos" ? "Operaciones de venta — Todos" : "Mis operaciones de venta"}</h2>
+          {filtroComercial !== "todos" && <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+            <Avatar u={filtroComercial === "propias" ? userActual : (data.usuarios.find(u=>u.id===parseInt(filtroComercial)) || userActual)} size={22} fontSize={9}/>
+            <span style={{color:"#6b7a99",fontSize:13}}>{filtroComercial === "propias" ? userActual.nombre : (data.usuarios.find(u=>u.id===parseInt(filtroComercial))?.nombre || userActual.nombre)}</span>
+          </div>}
+          {/* Ventas es privado por comercial: solo el manager puede mirar las de otros */}
+          {esManager && <div style={{marginTop:8}}>
+            <select value={filtroComercial} onChange={e=>setFiltroComercial(e.target.value)} style={{...inputStyle,width:"auto",fontSize:12,padding:"6px 9px"}}>
+              <option value="propias">👤 Mis operaciones</option>
+              <option value="todos">🌐 Todos los comerciales</option>
+              {usuariosVenta.filter(u=>u.id!==userActual.id).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+            </select>
+          </div>}
         </div>
         <button onClick={openNew} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
           <Icon name="plus" size={14} />Nueva operación
@@ -2736,7 +2756,7 @@ const Ventas = ({ data, setData, userActual }) => {
               {PIPELINE_ICON[estado]} {estado} <span style={{background:c + "22",borderRadius:8,padding:"1px 7px",fontSize:10}}>{grupo.length}</span>
             </div>
             <div style={{display:"grid",gap:6}}>
-              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
+              {grupo.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} uN={uN} mostrarComercial={filtroComercial === "todos"} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
             </div>
           </div>
         );
@@ -2744,7 +2764,7 @@ const Ventas = ({ data, setData, userActual }) => {
       {/* Lista plana para cerradas/todas */}
       {filtroEstado !== "Activas" && <div style={{display:"grid",gap:6}}>
         {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#6b7a99"}}>Sin operaciones</div>}
-        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
+        {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} uN={uN} mostrarComercial={filtroComercial === "todos"} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
       </div>}
       {modalEditarJSX}
       {/* Modal cierre desde lista */}
@@ -2765,7 +2785,7 @@ const Ventas = ({ data, setData, userActual }) => {
     </div>
   );
 };
-const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onAviso, onCerrar, onDel, ofertasDe }) => {
+const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, onClick, onEdit, onAviso, onCerrar, onDel, ofertasDe }) => {
   const cerrada = ESTADOS_VENTA_CERRADOS.includes(v.estado);
   const dc = diasCierre(v.percepcionCierre);
   const cl_label = cierreLabel(dc);
@@ -2783,7 +2803,7 @@ const TarjetaVenta = ({ v, cN, cierreLabel, diasCierre, onClick, onEdit, onAviso
           <Badge text={v.estado} />
           {v.ofertaEntregada && <span style={{background:"#0ea5e918",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>📄 Oferta enviada{v.metodoEntrega ? ` (${v.metodoEntrega})` :""}</span>}
         </div>
-        <div style={{color:"#9aa3b8",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+        <div style={{color:"#9aa3b8",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}{mostrarComercial && uN ? ` · 💼 ${uN(v.comercialId)}` : ""}</div>
         {/* Columnas tipo tabla: cada oferta por separado, último contacto y aviso */}
         <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"stretch"}}>
           {ofertas.map((o, i) => (
@@ -5001,7 +5021,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>
               {data.ventas.filter(v => v.comercialId === userActual.id && ["Prospecto","Oferta enviada","Negociación"].includes(v.estado)).length}
             </div>
-            <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Ventas activas</div>
+            <div style={{color:"#6b7a99",fontSize:12,marginTop:3}}>Operaciones activas</div>
           </div>
         )}
       </div>
@@ -7758,7 +7778,7 @@ const NAV_ITEMS = [
   {id:"asistencia",label:"Avisos",icon:"bell",color:"#ef4444"},
   {id:"clientes",label:"Clientes",icon:"clients",color:"#3b82f6"},
   {id:"maquinas",label:"Máquinas",icon:"maquina",color:"#0ea5e9"},
-  {id:"ventas",label:"Ventas",icon:"sales",color:"#10b981"},
+  {id:"ventas",label:"Operaciones de venta",icon:"sales",color:"#10b981"},
   {id:"tareas",label:"Tareas",icon:"tasks",color:"#8b5cf6"},
   {id:"partes",label:"Partes",icon:"parts",color:"#0ea5e9"},
   {id:"albaran",label:"Albaranes",icon:"albaran",color:"#f97316"},
