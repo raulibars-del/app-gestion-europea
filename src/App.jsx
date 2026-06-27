@@ -2502,10 +2502,10 @@ const Ventas = ({ data, setData, userActual }) => {
     const cl_label = cierreLabel(dc);
     return (
       <div>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#8892a4",display:"flex"}}><Icon name="back" size={15} /></button>
-          <div style={{flex:1}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#8892a4",display:"flex",flexShrink:0}}><Icon name="back" size={15} /></button>
+          <div style={{flex:"1 1 200px",minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{venta.maquina}</h2>
               <Badge text={venta.estado} />
             </div>
