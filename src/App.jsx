@@ -2869,7 +2869,7 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
 // al que se está visitando que todavía no tengan visita registrada hoy.
 const DiarioVisitas = ({ data, setData, userActual }) => {
   const [subVista, setSubVista] = useState("fecha"); // "fecha" | "cliente"
-  const [fechaSel, setFechaSel] = useState(today());
+  const [fechaSel, setFechaSel] = useState("");
   const [clienteVistaId, setClienteVistaId] = useState("");
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
@@ -2964,7 +2964,9 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
     setData(d => ({ ...d, visitas: (d.visitas || []).filter(v => v.id !== id) }));
   };
 
-  const visitasDelDia = visitasVisibles.filter(v => v.fecha === fechaSel).sort((a, b) => (b.creadoEn || "").localeCompare(a.creadoEn || ""));
+  const visitasDelDia = visitasVisibles
+    .filter(v => !fechaSel || v.fecha === fechaSel)
+    .sort((a, b) => a.fecha === b.fecha ? (a.creadoEn || "").localeCompare(b.creadoEn || "") : a.fecha.localeCompare(b.fecha));
   const visitasDeCliente = clienteVistaId ? visitasVisibles.filter(v => v.clienteId === parseInt(clienteVistaId)).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) : [];
 
   const TarjetaVisita = ({ v }) => (
@@ -2996,10 +2998,13 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       </div>
 
       {subVista === "fecha" && <>
-        <Field label="Fecha">
-          <Input type="date" value={fechaSel} onChange={e => setFechaSel(e.target.value)} />
+        <Field label="Filtrar por fecha (opcional)">
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div style={{flex:1}}><Input type="date" value={fechaSel} onChange={e => setFechaSel(e.target.value)} /></div>
+            {fechaSel && <button onClick={() => setFechaSel("")} style={btnOutline}>Ver todas</button>}
+          </div>
         </Field>
-        {visitasDelDia.length === 0 && <div style={{color:"#6b7a99",fontSize:13,padding:"20px 0",textAlign:"center"}}>Sin visitas registradas ese día.</div>}
+        {visitasDelDia.length === 0 && <div style={{color:"#6b7a99",fontSize:13,padding:"20px 0",textAlign:"center"}}>{fechaSel ? "Sin visitas registradas ese día." : "Sin visitas registradas."}</div>}
         {visitasDelDia.map(v => <TarjetaVisita key={v.id} v={v} />)}
       </>}
 
