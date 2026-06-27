@@ -490,7 +490,7 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
   const filtrados = value.trim().length === 0 ? clientes.slice(0, 8) :
-    clientes.filter(c => { const q = value.toLowerCase(); return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q); }).slice(0, 10);
+    clientes.filter(c => { const q = value.toLowerCase(); return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q); }).slice(0, 10);
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
@@ -523,7 +523,7 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
     </div>
   );
 };
-const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente por nombre, fiscal o localidad..." }) => {
+const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente por nombre, fiscal, CIF/DNI o localidad..." }) => {
   const sel = clientes.find(c => c.id === parseInt(value)) || null;
   const [busq, setBusq] = useState(sel?.nombreEmpresa || "");
   const [open, setOpen] = useState(false);
@@ -544,6 +544,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
         const q = busq.toLowerCase();
         return c.nombreEmpresa?.toLowerCase().includes(q)
           || c.nombreFiscal?.toLowerCase().includes(q)
+          || c.cif?.toLowerCase().includes(q)
           || c.localidad?.toLowerCase().includes(q);
       }).slice(0, 10);
   const seleccionar = c => { setBusq(c.nombreEmpresa); onChange(c.id); setOpen(false); };
@@ -595,7 +596,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
               {c.id === parseInt(value) && <span style={{color:"#10b981"}}>✓</span>}
             </div>
           ))}
-          {filtrados.length > 0 && busq.trim().length > 0 && filtrados.length < clientes.filter(c=>{const q=busq.toLowerCase();return c.nombreEmpresa?.toLowerCase().includes(q)||c.nombreFiscal?.toLowerCase().includes(q)||c.localidad?.toLowerCase().includes(q);}).length && (
+          {filtrados.length > 0 && busq.trim().length > 0 && filtrados.length < clientes.filter(c=>{const q=busq.toLowerCase();return c.nombreEmpresa?.toLowerCase().includes(q)||c.nombreFiscal?.toLowerCase().includes(q)||c.cif?.toLowerCase().includes(q)||c.localidad?.toLowerCase().includes(q);}).length && (
             <div style={{padding:"6px 13px",color:"#6b7a99",fontSize:11,fontStyle:"italic",background:"#0a0f1a"}}>Refina la búsqueda para ver más resultados</div>
           )}
         </div>
@@ -697,7 +698,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
-  const filtered=data.clientes.filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(search.toLowerCase())||(c.localidad||"").toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
+  const filtered=data.clientes.filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(search.toLowerCase())||(c.nombreFiscal||"").toLowerCase().includes(search.toLowerCase())||(c.cif||"").toLowerCase().includes(search.toLowerCase())||(c.localidad||"").toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
   // "Europea de Maquinaria" (cliente interno, id 0) siempre va primero; el resto, alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
@@ -3873,7 +3874,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const clientesFiltrados = busqCliente.trim().length < 1 ? data.clientes.slice(0, 8) :
     data.clientes.filter(c => {
       const q = busqCliente.toLowerCase();
-      return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q);
+      return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q);
     }).slice(0, 8);
   const seleccionarCliente = c => { setClienteSel(c); setBusqCliente(c.nombreEmpresa); setMostrarDropCliente(false); setForm(p => ({ ...p,clienteDirectoId: c.id })); };
   const crearNuevoClienteYSeleccionar = () => {
