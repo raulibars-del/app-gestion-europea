@@ -2928,8 +2928,8 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
   })();
 
   const crearNuevoClienteYSeleccionar = () => {
-    if (!formNuevoCliente.nombreEmpresa?.trim()) return;
-    const nc = { ...formNuevoCliente, id: Date.now(), contactos: [], maquinas: [], notas: "", localidad: formNuevoCliente.localidad || "", nombreFiscal: formNuevoCliente.nombreFiscal || formNuevoCliente.nombreEmpresa || "" };
+    if (!formNuevoCliente.nombreEmpresa?.trim() || !formNuevoCliente.localidad?.trim()) return;
+    const nc = { ...formNuevoCliente, id: Date.now(), contactos: [], maquinas: [], notas: "", localidad: formNuevoCliente.localidad.trim(), nombreFiscal: formNuevoCliente.nombreFiscal || formNuevoCliente.nombreEmpresa || "" };
     setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
     setForm(p => ({ ...p, clienteId: nc.id }));
     setModalNuevoCliente(false); setFormNuevoCliente({});
@@ -2941,8 +2941,21 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
   };
   const save = () => {
     if (!form.clienteId) { alert("Elige o crea un cliente a visitar."); return; }
-    const item = { id: Date.now(), usuarioId: userActual.id, clienteId: parseInt(form.clienteId), fecha: form.fecha || today(), personaContacto: form.personaContacto || "", notas: form.notas || "", interesMaquina: !!form.interesMaquina, interesAsistencia: !!form.interesAsistencia, creadoEn: new Date().toISOString() };
-    setData(d => ({ ...d, visitas: [...(d.visitas || []), item] }));
+    if (!form.personaContacto?.trim()) { alert("Indica con quién has hablado en la visita."); return; }
+    const item = { id: Date.now(), usuarioId: userActual.id, clienteId: parseInt(form.clienteId), fecha: form.fecha || today(), personaContacto: form.personaContacto.trim(), notas: form.notas || "", interesMaquina: !!form.interesMaquina, interesAsistencia: !!form.interesAsistencia, creadoEn: new Date().toISOString() };
+    setData(d => ({
+      ...d,
+      visitas: [...(d.visitas || []), item],
+      // La persona con la que se habla queda registrada también como contacto en la
+      // ficha del cliente, si todavía no había uno con ese mismo nombre.
+      clientes: d.clientes.map(c => {
+        if (c.id !== item.clienteId) return c;
+        const yaExiste = (c.contactos || []).some(x => x.nombre?.trim().toLowerCase() === item.personaContacto.toLowerCase());
+        if (yaExiste) return c;
+        const nuevoContacto = { id: Date.now() + Math.random(), nombre: item.personaContacto, puesto: "", tel: "", email: "", principal: (c.contactos || []).length === 0 };
+        return { ...c, contactos: [...(c.contactos || []), nuevoContacto] };
+      }),
+    }));
     setModal(false);
   };
   const puedeBorrar = v => v.usuarioId === userActual.id || userActual.rol === "manager";
@@ -3009,7 +3022,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           <Field label="Fecha">
             <Input type="date" value={form.fecha || today()} onChange={f("fecha")} />
           </Field>
-          <Field label="Persona con la que habla">
+          <Field label="Persona con la que habla *">
             <Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona" />
           </Field>
           <Field label="Notas de la visita">
@@ -3043,7 +3056,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={save} style={btnPrimary}>Guardar visita</button>
+            <button onClick={save} disabled={!form.clienteId || !form.personaContacto?.trim()} style={{...btnPrimary,opacity:(!form.clienteId || !form.personaContacto?.trim()) ? 0.5 : 1}}>Guardar visita</button>
           </div>
         </Modal>
       )}
@@ -3053,12 +3066,11 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           <div style={{background:"#0ea5e912",border:"1px solid #0ea5e933",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#0ea5e9",fontSize:12}}>
             El cliente se creará y quedará disponible en el módulo de Clientes.
           </div>
-          <Field label="Nombre empresa *"><Input value={formNuevoCliente.nombreEmpresa || ""} onChange={fnc("nombreEmpresa")} placeholder="Ej: Muebles García S.L." /></Field>
-          <Field label="Nombre fiscal"><Input value={formNuevoCliente.nombreFiscal || ""} onChange={fnc("nombreFiscal")} placeholder="Razón social completa" /></Field>
-          <Field label="Localidad"><Input value={formNuevoCliente.localidad || ""} onChange={fnc("localidad")} placeholder="Ciudad" /></Field>
+          <Field label="Nombre *"><Input value={formNuevoCliente.nombreEmpresa || ""} onChange={fnc("nombreEmpresa")} placeholder="Ej: Muebles García" /></Field>
+          <Field label="Localidad *"><Input value={formNuevoCliente.localidad || ""} onChange={fnc("localidad")} placeholder="Ciudad" /></Field>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={() => setModalNuevoCliente(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim()} style={{...btnPrimary,opacity:formNuevoCliente.nombreEmpresa?.trim() ? 1 : 0.5}}>Crear y seleccionar</button>
+            <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim() || !formNuevoCliente.localidad?.trim()} style={{...btnPrimary,opacity:(formNuevoCliente.nombreEmpresa?.trim() && formNuevoCliente.localidad?.trim()) ? 1 : 0.5}}>Crear y seleccionar</button>
           </div>
         </Modal>
       )}
