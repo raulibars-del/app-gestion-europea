@@ -2937,16 +2937,34 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
   };
 
   const openNew = clientePre => {
-    setForm({ clienteId: clientePre?.id || "", fecha: today(), personaContacto: "", notas: "", interesMaquina: false, interesAsistencia: false });
+    setForm({ clienteId: clientePre?.id || "", fecha: today(), personaContacto: "", notas: "", interesMaquina: false, interesAsistencia: false, sinInteres: false });
+    setModal(true);
+  };
+  // Abre el modal en modo edición sobre una visita ya registrada — guarda el id
+  // original en form.editId para que save() sepa que debe actualizar en vez de crear.
+  const openEdit = v => {
+    setForm({ editId: v.id, clienteId: v.clienteId, fecha: v.fecha, personaContacto: v.personaContacto || "", notas: v.notas || "", interesMaquina: !!v.interesMaquina, interesAsistencia: !!v.interesAsistencia, sinInteres: !!v.sinInteres });
     setModal(true);
   };
   const save = () => {
     if (!form.clienteId) { alert("Elige o crea un cliente a visitar."); return; }
     if (!form.personaContacto?.trim()) { alert("Indica con quién has hablado en la visita."); return; }
-    const item = { id: Date.now(), usuarioId: userActual.id, clienteId: parseInt(form.clienteId), fecha: form.fecha || today(), personaContacto: form.personaContacto.trim(), notas: form.notas || "", interesMaquina: !!form.interesMaquina, interesAsistencia: !!form.interesAsistencia, creadoEn: new Date().toISOString() };
+    const orig = form.editId ? (data.visitas || []).find(v => v.id === form.editId) : null;
+    const item = {
+      id: orig ? orig.id : Date.now(),
+      usuarioId: orig ? orig.usuarioId : userActual.id,
+      clienteId: parseInt(form.clienteId),
+      fecha: form.fecha || today(),
+      personaContacto: form.personaContacto.trim(),
+      notas: form.notas || "",
+      interesMaquina: !!form.interesMaquina,
+      interesAsistencia: !!form.interesAsistencia,
+      sinInteres: !!form.sinInteres,
+      creadoEn: orig ? orig.creadoEn : new Date().toISOString(),
+    };
     setData(d => ({
       ...d,
-      visitas: [...(d.visitas || []), item],
+      visitas: orig ? (d.visitas || []).map(v => v.id === item.id ? item : v) : [...(d.visitas || []), item],
       // La persona con la que se habla queda registrada también como contacto en la
       // ficha del cliente, si todavía no había uno con ese mismo nombre.
       clientes: d.clientes.map(c => {
@@ -2959,7 +2977,9 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
     }));
     setModal(false);
   };
-  const puedeBorrar = v => v.usuarioId === userActual.id || userActual.rol === "manager";
+  // Misma regla para poder editar o borrar una visita: solo el comercial que la
+  // hizo, o el manager.
+  const puedeGestionar = v => v.usuarioId === userActual.id || userActual.rol === "manager";
   const delVisita = id => {
     if (!confirm("¿Eliminar esta visita?")) return;
     setData(d => ({ ...d, visitas: (d.visitas || []).filter(v => v.id !== id) }));
@@ -2967,25 +2987,41 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
   const visitasDelDia = visitasVisibles
     .filter(v => !fechaSel || v.fecha === fechaSel)
-    .sort((a, b) => a.fecha === b.fecha ? (a.creadoEn || "").localeCompare(b.creadoEn || "") : a.fecha.localeCompare(b.fecha));
+    .sort((a, b) => a.fecha === b.fecha ? (a.creadoEn || "").localeCompare(b.creadoEn || "") : b.fecha.localeCompare(a.fecha));
+  // Agrupa las visitas por día (más reciente primero), cada grupo es una fila con su fecha y las visitas de ese día debajo.
+  const gruposPorFecha = [];
+  visitasDelDia.forEach(v => {
+    let g = gruposPorFecha[gruposPorFecha.length - 1];
+    if (!g || g.fecha !== v.fecha) { g = { fecha: v.fecha, visitas: [] }; gruposPorFecha.push(g); }
+    g.visitas.push(v);
+  });
+  const fmtFechaLarga = fecha => {
+    const d = new Date(fecha + "T00:00:00");
+    const txt = d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
+  };
   const visitasDeCliente = clienteVistaId ? visitasVisibles.filter(v => v.clienteId === parseInt(clienteVistaId)).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) : [];
 
-  const TarjetaVisita = ({ v }) => (
-    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 14px",marginBottom:9}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:6}}>
-        <div>
-          <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13.5}}>🏢 {cN(v.clienteId)}</div>
-          <div style={{color:"#6b7a99",fontSize:11.5,marginTop:2}}>📅 {v.fecha} · 💼 {uN(v.usuarioId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+  const TarjetaVisita = ({ v }) => {
+    const editable = puedeGestionar(v);
+    return (
+      <div onClick={() => editable && openEdit(v)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 14px",marginBottom:9,cursor:editable ? "pointer" : "default"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:6}}>
+          <div>
+            <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13.5}}>🏢 {cN(v.clienteId)}</div>
+            <div style={{color:"#6b7a99",fontSize:11.5,marginTop:2}}>📅 {v.fecha} · 💼 {uN(v.usuarioId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+          </div>
+          {editable && <button onClick={e => { e.stopPropagation(); delVisita(v.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>}
         </div>
-        {puedeBorrar(v) && <button onClick={() => delVisita(v.id)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>}
+        {v.notas && <div style={{color:"#9aa3b8",fontSize:12.5,whiteSpace:"pre-wrap",marginBottom:6}}>{v.notas}</div>}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {v.interesMaquina && <span style={{background:"#10b98118",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🛠️ Interesado en máquina</span>}
+          {v.interesAsistencia && <span style={{background:"#3b82f618",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🔧 Interesado en asistencia</span>}
+          {v.sinInteres && <span style={{background:"#6b7a9918",color:"#9aa3b8",border:"1px solid #6b7a9944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>➖ Sin interés concreto</span>}
+        </div>
       </div>
-      {v.notas && <div style={{color:"#9aa3b8",fontSize:12.5,whiteSpace:"pre-wrap",marginBottom:6}}>{v.notas}</div>}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        {v.interesMaquina && <span style={{background:"#10b98118",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🛠️ Interesado en máquina</span>}
-        {v.interesAsistencia && <span style={{background:"#3b82f618",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🔧 Interesado en asistencia</span>}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div>
@@ -3006,7 +3042,12 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           </div>
         </Field>
         {visitasDelDia.length === 0 && <div style={{color:"#6b7a99",fontSize:13,padding:"20px 0",textAlign:"center"}}>{fechaSel ? "Sin visitas registradas ese día." : "Sin visitas registradas."}</div>}
-        {visitasDelDia.map(v => <TarjetaVisita key={v.id} v={v} />)}
+        {gruposPorFecha.map(g => (
+          <div key={g.fecha} style={{marginBottom:18}}>
+            <div style={{color:"#9aa3b8",fontSize:12.5,fontWeight:700,textTransform:"capitalize",borderBottom:"1px solid #2a3550",paddingBottom:6,marginBottom:10}}>{fmtFechaLarga(g.fecha)} · {g.visitas.length} visita{g.visitas.length !== 1 ? "s" : ""}</div>
+            {g.visitas.map(v => <TarjetaVisita key={v.id} v={v} />)}
+          </div>
+        ))}
       </>}
 
       {subVista === "cliente" && <>
@@ -3018,7 +3059,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       </>}
 
       {modal && (
-        <Modal title="📍 Nueva visita" onClose={() => setModal(false)}>
+        <Modal title={form.editId ? "✏️ Editar visita" : "📍 Nueva visita"} onClose={() => setModal(false)}>
           <div style={{marginBottom:6,textAlign:"right"}}>
             <button onClick={() => setModalNuevoCliente(true)} style={{background:"none",border:"none",color:"#3b82f6",fontSize:12,cursor:"pointer",fontWeight:700,padding:0}}>+ El cliente no existe, crearlo</button>
           </div>
@@ -3036,10 +3077,13 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           </Field>
           <div style={{display:"flex",gap:16,marginBottom:14}}>
             <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
-              <input type="checkbox" checked={!!form.interesMaquina} onChange={e => setForm(p => ({ ...p, interesMaquina: e.target.checked }))} /> Interesado en máquina
+              <input type="checkbox" checked={!!form.interesMaquina} onChange={e => setForm(p => ({ ...p, interesMaquina: e.target.checked, sinInteres: e.target.checked ? false : p.sinInteres }))} /> Interesado en máquina
             </label>
             <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
-              <input type="checkbox" checked={!!form.interesAsistencia} onChange={e => setForm(p => ({ ...p, interesAsistencia: e.target.checked }))} /> Interesado en asistencia
+              <input type="checkbox" checked={!!form.interesAsistencia} onChange={e => setForm(p => ({ ...p, interesAsistencia: e.target.checked, sinInteres: e.target.checked ? false : p.sinInteres }))} /> Interesado en asistencia
+            </label>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!form.sinInteres} onChange={e => setForm(p => ({ ...p, sinInteres: e.target.checked, interesMaquina: e.target.checked ? false : p.interesMaquina, interesAsistencia: e.target.checked ? false : p.interesAsistencia }))} /> Sin interés concreto
             </label>
           </div>
 
@@ -3062,7 +3106,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={save} disabled={!form.clienteId || !form.personaContacto?.trim()} style={{...btnPrimary,opacity:(!form.clienteId || !form.personaContacto?.trim()) ? 0.5 : 1}}>Guardar visita</button>
+            <button onClick={save} disabled={!form.clienteId || !form.personaContacto?.trim()} style={{...btnPrimary,opacity:(!form.clienteId || !form.personaContacto?.trim()) ? 0.5 : 1}}>{form.editId ? "Guardar cambios" : "Guardar visita"}</button>
           </div>
         </Modal>
       )}
