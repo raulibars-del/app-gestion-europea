@@ -5291,10 +5291,10 @@ const Albaran = ({ data, setData, userActual }) => {
     const emisor = data.usuarios.find(u => u.id === alb.emisorId);
     return (
       <div>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#8892a4",display:"flex"}}><Icon name="back" size={15}/></button>
-          <div style={{flex:1}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#8892a4",display:"flex",flexShrink:0}}><Icon name="back" size={15}/></button>
+          <div style={{flex:"1 1 200px",minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{alb.numero}</h2>
               <span style={{background:alb.firmada ? "#16a34a20":"#f59e0b20",color:alb.firmada?"#16a34a":"#f59e0b",border:`1px solid ${alb.firmada?"#16a34a44":"#f59e0b44"}`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{alb.firmada ? "✅ Firmado":"⏳ Pendiente firma"}</span>
             </div>
