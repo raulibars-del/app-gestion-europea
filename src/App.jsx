@@ -3163,10 +3163,15 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   // firmaNombre: nombre de quien envía (el creador de la tarea, tanto si se
   // reenvía a un externo como si es el aviso normal de asignación/autoenvío),
   // con un cierre "Un saludo," y, si están rellenos en su usuario, el teléfono
-  // y el email de contacto justo debajo, antes de la razón social.
+  // y el email de contacto justo debajo, antes de la razón social. Si tiene
+  // foto de perfil (opts.firmaFoto), se muestra en miniatura circular junto al
+  // nombre (en tabla, no flexbox, para que se vea bien en Outlook/Gmail).
   const firmaNombreHtml = opts.firmaNombre
     ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
-      + "<div style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</div>"
+      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-bottom:1px;\"><tr>"
+      + (opts.firmaFoto ? "<td style=\"padding-right:8px;\"><img src=\"" + opts.firmaFoto + "\" width=\"32\" height=\"32\" style=\"display:block;width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.4);\" alt=\"" + opts.firmaNombre + "\"/></td>" : "")
+      + "<td style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</td>"
+      + "</tr></table>"
       + (opts.firmaPuesto ? "<div style=\"font-size:12px;\">" + opts.firmaPuesto + "</div>" : "")
       + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
       + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
@@ -3400,6 +3405,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
+        firmaFoto: creador?.foto,
       });
       // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
       // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
@@ -3447,6 +3453,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
+        firmaFoto: creador?.foto,
       });
       const emailCreador = creador?.email?.trim();
       await apiSendMail({
@@ -7361,6 +7368,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
         firmaPuesto: userActual.puesto?.trim(),
         firmaTelefono: userActual.telefono?.trim(),
         firmaEmail: userActual.email?.trim(),
+        firmaFoto: userActual.foto,
       });
       const enviados = [];
       const fallos = [];
@@ -9049,16 +9057,23 @@ export default function App() {
         linea:n.mensaje,titulo:n.titulo,mensaje:n.mensaje
       });
     });
-    // 2) TAREAS: una por cada tarea pendiente (de empresa o propia) que no esté completada.
-    // Se repite en cada conexión mientras siga pendiente (es una consulta en vivo, no "nueva").
-    data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").forEach(t=>{
+    // 2) TAREAS: un único pop-up con TODAS las tareas pendientes (de empresa o propia)
+    // que no estén completadas, en formato lista (mismo formato que el resumen de
+    // avisos: punto de color a la izquierda, título en mayúsculas y debajo el
+    // vencimiento). Antes salía una por una, lo que era muy repetitivo si había
+    // varias; ahora se agrupan en una sola pantalla, scrolleable si hay más de 8.
+    // Se repite en cada conexión mientras sigan pendientes (es una consulta en vivo, no "nueva").
+    const tareasPend=data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada");
+    if(tareasPend.length>0){
+      const listaTareas=tareasPend.map(t=>({texto:t.titulo,vence:t.vence?fmtVenceCompleto(t.vence):null}));
       cola.push({
-        id:"tp_"+t.id,color:COLOR_TAREA,categoria:"TAREAS",
-        linea:t.titulo,vence:t.vence?fmtVenceCompleto(t.vence):null,
-        titulo:"⏳ Tarea pendiente",mensaje:`"${t.titulo}" — ${fmtVenceCompleto(t.vence)}`,
-        sintetico:true,logTipo:"tarea_pendiente"
+        id:"tp_resumen",color:COLOR_TAREA,categoria:"TAREAS",
+        lista:listaTareas,
+        titulo:"⏳ Tareas pendientes",
+        mensaje:`${tareasPend.length} tarea${tareasPend.length>1?"s":""} pendiente${tareasPend.length>1?"s":""}:\n`+listaTareas.map(l=>"· "+l.texto+(l.vence?" — "+l.vence:"")).join("\n"),
+        sintetico:true,logTipo:"tareas_pendientes_resumen"
       });
-    });
+    }
     // 3) Por último, resumen conjunto de todos los avisos pendientes (+ mensajes de chat
     // nuevos si los hay). Es siempre el cierre de la conexión, también una consulta en vivo.
     const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
@@ -9389,8 +9404,9 @@ export default function App() {
                     <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
                     <div>
                       <div>{fraseMayus(l.texto)}</div>
-                      <div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>
+                      {l.cliente&&<div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>}
                       {l.municipio&&<div style={{color:"#8b96ad",fontSize:12,fontWeight:600}}>{capitalizaNombre(l.municipio)}</div>}
+                      {l.vence&&<div style={{color:l.vence.startsWith("vencida")?"#ef4444":"#8b96ad",fontSize:12,fontWeight:600}}>{conPunto(l.vence)}</div>}
                     </div>
                   </div>
                 ))}
