@@ -611,189 +611,44 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
     </div>
   );
 };
-// --- Escaneo de tarjetas de visita (OCR gratuito en el propio navegador) ---
-// No usa ninguna IA externa ni API de pago: lee el texto de la foto con
-// Tesseract.js y luego reparte ese texto en los campos del cliente/contacto
-// con heurísticas (regex y palabras clave). Es "mejor esfuerzo": nunca va a
-// acertar el 100% de las tarjetas (sobre todo el nombre de empresa cuando no
-// pone SL/SA en ningún sitio, o cuando hay varios teléfonos/cargos), así que
-// el resultado siempre se presenta para revisar y completar a mano.
-const SUFIJOS_SOCIETARIOS = /\b(S\.?\s?L\.?\s?U?\.?|S\.?\s?A\.?\s?U?\.?|S\.?\s?COOP\.?|SOCIEDAD\s+LIMITADA|SOCIEDAD\s+AN[OÓ]NIMA|SLU|SAU|SL|SA)\b/i;
-const PALABRAS_CARGO_TARJETA = ["gerente","director","directora","comercial","técnico","tecnico","administrador","administradora","encargado","encargada","responsable","propietario","propietaria","jefe","jefa","ceo","gerencia","ventas","compras","export","marketing","atención al cliente","atencion al cliente","delegado","delegada","representante","socio","socia","autónomo","autonomo"];
-// Palabras clave que delatan una línea de dirección. Se ha ampliado bastante
-// porque muchas tarjetas no usan "Calle"/"C/" sino otras fórmulas (vía,
-// urbanización, polígono, nave, sector...).
-const RE_DIRECCION_TARJETA = /\b(calle|c\/|avda\.?|avenida|av\.|pol[ií]gono|pol\.|parcela|ctra\.?|carretera|plaza|pza\.?|paseo|passeig|cam[ií]|camino|poligono|v[ií]a|ronda|glorieta|urb\.?|urbanizaci[oó]n|barrio|trav\.?|travesia|travesía|rambla|pasaje|pje\.?|sector|nave|local|edificio|pol[ií]g\.?\s*ind)\b/i;
-// Nombre de persona: 2 a 4 palabras que empiezan por mayúscula. Se acepta tanto
-// "Juan Pérez" (formato normal) como "JUAN PÉREZ" (muchas tarjetas imprimen el
-// nombre del contacto íntegramente en mayúsculas), que antes no se detectaba.
-const RE_NOMBRE_PERSONA = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]*\.?(\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]*\.?){1,3}$/;
-// Mapa de caracteres que el OCR confunde a menudo con cifras (O/0, I-l/1, S/5,
-// B/8, Z/2), usado para no perder un teléfono entero por un solo carácter mal
-// leído.
-const OCR_DIGITOS_CONFUNDIDOS = { O:"0", o:"0", I:"1", l:"1", S:"5", s:"5", B:"8", b:"8", Z:"2", z:"2" };
-const normalizarDigitosOcr = s => s.replace(/[OoIlSsBbZz]/g, c => OCR_DIGITOS_CONFUNDIDOS[c]);
-
-const parsearTarjetaVisita = (texto) => {
-  const limpiar = l => l.replace(/\s+/g," ").trim();
-  const lineas = (texto||"").split("\n").map(limpiar).filter(l => l.replace(/[^a-zA-Z0-9]/g,"").length >= 2);
-
-  const resultado = {};
-  const usadas = new Set();
-  const marcar = l => usadas.add(l);
-
-  // Email
-  const reEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
-  for (const l of lineas) { const m = l.match(reEmail); if (m) { resultado.email = m[0].toLowerCase(); marcar(l); break; } }
-
-  // Web (que no sea el dominio del email)
-  const reWeb = /(https?:\/\/)?(www\.)?[a-z0-9-]+\.(com|es|net|org|eu|info)(\.[a-z]{2})?\b/i;
-  for (const l of lineas) {
-    if (usadas.has(l)) continue;
-    const m = l.match(reWeb);
-    if (m && !(resultado.email && resultado.email.includes(m[0].toLowerCase()))) { resultado.web = m[0].replace(/^https?:\/\//i,""); marcar(l); break; }
-  }
-
-  // Nombre de contacto + cargo cuando van juntos en la misma línea (ej. "Juan Pérez - Director Comercial")
-  for (const l of lineas) {
-    if (usadas.has(l)) continue;
-    const partes = l.split(/\s*[-–|]\s*/);
-    if (partes.length === 2) {
-      const [a,b] = partes;
-      const aEsCargo = PALABRAS_CARGO_TARJETA.some(p => a.toLowerCase().includes(p));
-      const bEsCargo = PALABRAS_CARGO_TARJETA.some(p => b.toLowerCase().includes(p));
-      if (bEsCargo && RE_NOMBRE_PERSONA.test(a)) { resultado.contactoNombre = a; resultado.puesto = b; marcar(l); break; }
-      if (aEsCargo && RE_NOMBRE_PERSONA.test(b)) { resultado.contactoNombre = b; resultado.puesto = a; marcar(l); break; }
-    }
-  }
-
-  // Teléfono(s): grupos de 9 a 12 dígitos, con o sin +34/espacios/puntos. Se
-  // admiten también letras que el OCR confunde fácilmente con cifras (O, I,
-  // l, S, B, Z), porque un solo carácter mal leído bastaba antes para que no
-  // se detectara el teléfono en absoluto; el valor guardado se normaliza a
-  // dígitos reales.
-  const reTel = /(?:\+\d{1,3}[\s.-]?)?(?:[\dOoIlSsBbZz][\s.-]?){8,11}[\dOoIlSsBbZz]/g;
-  const telsEncontrados = [];
-  for (const l of lineas) {
-    if (usadas.has(l) || reEmail.test(l)) continue;
-    let m; const re2 = new RegExp(reTel);
-    while ((m = re2.exec(l))) {
-      const normalizado = normalizarDigitosOcr(m[0]).trim();
-      const digitos = normalizado.replace(/\D/g,"");
-      if (digitos.length >= 9 && digitos.length <= 12) telsEncontrados.push({ linea: l, valor: normalizado });
-    }
-  }
-  if (telsEncontrados.length) {
-    resultado.tel = telsEncontrados[0].valor;
-    marcar(telsEncontrados[0].linea);
-    if (telsEncontrados.length > 1) resultado._telsExtra = telsEncontrados.slice(1).map(t => t.valor);
-  }
-
-  // Dirección (calle)
-  for (const l of lineas) {
-    if (usadas.has(l)) continue;
-    if (RE_DIRECCION_TARJETA.test(l)) { resultado.dirFiscal = l; marcar(l); break; }
-  }
-
-  // Código postal + localidad
-  const reCP = /\b(\d{5})\b/;
-  let idxLineaCP = -1;
-  for (let i=0;i<lineas.length;i++) {
-    const l = lineas[i];
-    if (usadas.has(l)) continue;
-    const m = l.match(reCP);
-    if (m) {
-      resultado.cpFiscal = m[1];
-      const resto = limpiar(l.replace(m[1],"")).replace(/^[,\-–]+|[,\-–]+$/g,"").trim();
-      if (resto) resultado.localidad = resto;
-      marcar(l);
-      idxLineaCP = i;
-      break;
-    }
-  }
-
-  // Si no se ha detectado la calle por palabra clave, en el formato típico de
-  // tarjeta la dirección suele ser la línea justo antes de la del código
-  // postal/localidad (p.ej. "Gran Vía 45" sin ninguna palabra clave delante).
-  if (!resultado.dirFiscal && idxLineaCP > 0) {
-    const anterior = lineas[idxLineaCP - 1];
-    if (anterior && !usadas.has(anterior) && !reEmail.test(anterior) && !SUFIJOS_SOCIETARIOS.test(anterior)) {
-      resultado.dirFiscal = anterior;
-      marcar(anterior);
-    }
-  }
-
-  // Empresa: línea con sufijo societario (SL/SA/SLU/SAU/Sdad. Coop...)
-  for (const l of lineas) {
-    if (usadas.has(l)) continue;
-    if (SUFIJOS_SOCIETARIOS.test(l)) {
-      resultado.nombreFiscal = l;
-      resultado.nombreEmpresa = l.replace(SUFIJOS_SOCIETARIOS,"").replace(/[,.\s]+$/,"").trim() || l;
-      marcar(l);
-      break;
-    }
-  }
-
-  // Si no se encontró contacto por la línea combinada, buscamos una línea de
-  // cargo y, si la anterior parece un nombre de persona, la tomamos como contacto
-  if (!resultado.contactoNombre) {
-    for (let i=0;i<lineas.length;i++) {
-      const l = lineas[i];
-      if (usadas.has(l)) continue;
-      if (PALABRAS_CARGO_TARJETA.some(p => l.toLowerCase().includes(p))) {
-        resultado.puesto = l; marcar(l);
-        const anterior = lineas[i-1];
-        if (anterior && !usadas.has(anterior) && RE_NOMBRE_PERSONA.test(anterior)) { resultado.contactoNombre = anterior; marcar(anterior); }
-        break;
-      }
-    }
-  }
-
-  // Si aún no hay nombre de contacto, cualquier línea libre con pinta de "Nombre Apellido(s)"
-  if (!resultado.contactoNombre) {
-    for (const l of lineas) {
-      if (usadas.has(l)) continue;
-      if (RE_NOMBRE_PERSONA.test(l) && l.split(" ").length <= 4) { resultado.contactoNombre = l; marcar(l); break; }
-    }
-  }
-
-  // Empresa (si no había sufijo societario): la línea libre más larga, que
-  // suele ser el nombre/marca destacada en la tarjeta
-  if (!resultado.nombreEmpresa) {
-    const candidatas = lineas.filter(l => !usadas.has(l));
-    if (candidatas.length) {
-      const elegida = candidatas.slice().sort((a,b) => b.length - a.length)[0];
-      resultado.nombreEmpresa = elegida;
-      marcar(elegida);
-    }
-  }
-
-  resultado._lineasSinUsar = lineas.filter(l => !usadas.has(l));
-  return resultado;
-};
-
+// --- Escaneo de tarjetas de visita (lectura con IA — Gemini, tier gratuito) ---
+// La foto se envía al backend (public/api/escanear-tarjeta.php), que llama a
+// la API de Gemini con la imagen y un esquema de salida; Gemini devuelve ya
+// los campos repartidos (no hace falta ningún parseo heurístico por regex).
+// La clave de Gemini nunca se expone en el navegador: solo vive en el
+// servidor (config.php), igual que la API_KEY de la propia app.
 const ASPECTO_TARJETA = 1.586; // ancho/alto estándar de una tarjeta de visita (85.6 x 54mm)
 
-// Escala de grises + aumento de contraste sobre un canvas ya dibujado: mejora
-// notablemente la precisión de Tesseract en fotos de móvil con iluminación
-// desigual, sin tener que tocar el algoritmo de OCR en sí.
-const aplicarGrisYContraste = (ctx, w, h) => {
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const d = imgData.data;
-  const factor = 1.35;
-  for (let i = 0; i < d.length; i += 4) {
-    const gris = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-    const ajustado = Math.min(255, Math.max(0, (gris - 128) * factor + 128));
-    d[i] = d[i+1] = d[i+2] = ajustado;
+// Convierte los campos que devuelve Gemini (strings, puede traer espacios o
+// venir ausentes) a la forma exacta que usan crearClienteDesdeTarjeta /
+// crearClienteDesdeTarjetaVisita.
+const normalizarCamposTarjetaIA = (c) => {
+  if (!c || typeof c !== "object") return {};
+  const limpio = v => (typeof v === "string" ? v.trim() : "");
+  const campos = {
+    nombreEmpresa: limpio(c.nombreEmpresa),
+    nombreFiscal: limpio(c.nombreFiscal),
+    contactoNombre: limpio(c.contactoNombre),
+    puesto: limpio(c.puesto),
+    dirFiscal: limpio(c.dirFiscal),
+    cpFiscal: limpio(c.cpFiscal),
+    localidad: limpio(c.localidad),
+    provinciaFiscal: limpio(c.provinciaFiscal),
+    tel: limpio(c.tel),
+    email: limpio(c.email),
+    web: limpio(c.web),
+  };
+  if (Array.isArray(c.telsExtra)) {
+    const extra = c.telsExtra.map(limpio).filter(Boolean);
+    if (extra.length) campos._telsExtra = extra;
   }
-  ctx.putImageData(imgData, 0, 0);
+  return campos;
 };
 
 const EscanearTarjetaModal = ({ onClose, onResultado }) => {
   const [paso, setPaso] = useState("camara"); // camara | revision | procesando
   const [foto, setFoto] = useState(null);
   const [camError, setCamError] = useState("");
-  const [progreso, setProgreso] = useState(0);
   const [errorOcr, setErrorOcr] = useState("");
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -818,12 +673,13 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
 
   useEffect(() => () => detenerCamara(), []);
 
-  // Ancho de trabajo al que se reescala la imagen recortada antes del OCR.
-  // Mandar el fotograma completo (con todo el fondo alrededor de la tarjeta)
-  // era una de las causas principales de que apenas se leyera nada: la
-  // tarjeta ocupaba solo una fracción de los píxeles. Ahora se recorta a la
-  // zona del recuadro guía y se reescala a un tamaño cómodo para Tesseract.
-  const ANCHO_OBJETIVO_OCR = 1100;
+  // Ancho de trabajo al que se reescala la imagen recortada antes de enviarla
+  // a Gemini. Recortar al recuadro guía (en vez de mandar el fotograma
+  // completo con todo el fondo alrededor) sigue mereciendo la pena: menos
+  // datos que enviar/procesar y la tarjeta ocupa toda la imagen. No se aplica
+  // blanco y negro ni contraste artificial: un modelo de visión lee mejor la
+  // foto a color tal cual, sin el preprocesado que ayudaba al OCR clásico.
+  const ANCHO_OBJETIVO_IA = 1000;
 
   const capturar = () => {
     const video = videoRef.current;
@@ -841,13 +697,12 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
     }
     if (sw <= 0 || sh <= 0) { sx = 0; sy = 0; sw = video.videoWidth; sh = video.videoHeight; }
 
-    const destW = ANCHO_OBJETIVO_OCR;
+    const destW = ANCHO_OBJETIVO_IA;
     const destH = Math.round(destW / (sw / sh));
     const canvas = canvasRef.current;
     canvas.width = destW; canvas.height = destH;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, destW, destH);
-    aplicarGrisYContraste(ctx, destW, destH);
 
     detenerCamara();
     setFoto(canvas.toDataURL("image/jpeg", 0.92));
@@ -861,16 +716,14 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
     const img = new Image();
     img.onload = () => {
       // Aquí no hay recuadro guía sobre el que recortar (es una foto ya
-      // hecha), así que solo se reescala a un tamaño de trabajo razonable y
-      // se mejora el contraste.
-      const MAXW = 1600;
+      // hecha), así que solo se reescala a un tamaño de trabajo razonable.
+      const MAXW = 1400;
       const escala = Math.min(1, MAXW / img.naturalWidth);
       const w = Math.round(img.naturalWidth * escala), h = Math.round(img.naturalHeight * escala);
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, w, h);
-      aplicarGrisYContraste(ctx, w, h);
       URL.revokeObjectURL(url);
       detenerCamara();
       setFoto(canvas.toDataURL("image/jpeg", 0.92));
@@ -882,15 +735,11 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
   const repetir = () => { setFoto(null); setErrorOcr(""); setPaso("camara"); };
 
   const leerTarjeta = async () => {
-    if (!window.Tesseract) { setErrorOcr("No se ha podido cargar el lector de texto. Comprueba tu conexión a internet e inténtalo de nuevo."); return; }
-    setPaso("procesando"); setProgreso(0); setErrorOcr("");
+    setPaso("procesando"); setErrorOcr("");
     try {
-      const resultado = await window.Tesseract.recognize(foto, "spa", {
-        logger: m => { if (m.status === "recognizing text" && typeof m.progress === "number") setProgreso(Math.round(m.progress * 100)); }
-      });
-      const texto = resultado?.data?.text || "";
-      const campos = parsearTarjetaVisita(texto);
-      onResultado(campos, foto, texto);
+      const respuesta = await apiEscanearTarjeta(foto);
+      const campos = normalizarCamposTarjetaIA(respuesta.campos);
+      onResultado(campos, foto, respuesta.textoCrudo || "");
     } catch (e) {
       setErrorOcr("No se ha podido leer la tarjeta: " + (e?.message || e));
       setPaso("revision");
@@ -939,11 +788,8 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
       )}
       {paso === "procesando" && (
         <div style={{textAlign:"center",padding:"30px 10px"}}>
-          <div style={{fontSize:40,marginBottom:14}}>🔎</div>
-          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>Leyendo la tarjeta...</div>
-          <div style={{background:"#0d1117",borderRadius:8,height:8,overflow:"hidden"}}>
-            <div style={{background:"#3b82f6",height:"100%",width:`${progreso}%`,transition:"width .2s"}}/>
-          </div>
+          <div style={{fontSize:40,marginBottom:14}}>🤖</div>
+          <div style={{color:"#9aa3b8",fontSize:13}}>Analizando la tarjeta con IA...</div>
         </div>
       )}
     </Modal>
@@ -1220,7 +1066,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       localidad: campos.localidad || "",
       dirFiscal: campos.dirFiscal || "",
       cpFiscal: campos.cpFiscal || "",
-      provinciaFiscal: "",
+      provinciaFiscal: campos.provinciaFiscal || "",
       esCliente: false,
       contactos: contactoNuevo ? [contactoNuevo] : [],
       maquinas: [],
@@ -3399,6 +3245,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       localidad: campos.localidad || "",
       dirFiscal: campos.dirFiscal || "",
       cpFiscal: campos.cpFiscal || "",
+      provinciaFiscal: campos.provinciaFiscal || "",
       contactos: contactoNuevo ? [contactoNuevo] : [],
       maquinas: [],
       notas: notasExtra,
@@ -8677,6 +8524,24 @@ async function apiRestoreHistory(historyId){
   });
   const json = await res.json().catch(()=>({}));
   if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
+  return json;
+}
+const ESCANEAR_TARJETA_API_URL = "/api/escanear-tarjeta.php";
+// Envía la foto de la tarjeta (data URL) al backend, que la pasa a Gemini y
+// devuelve los campos ya extraídos: { ok, campos, textoCrudo }.
+async function apiEscanearTarjeta(imagenBase64){
+  const res = await fetch(ESCANEAR_TARJETA_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify({ imagen: imagenBase64 }),
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error){
+    const msg = json.error === "gemini_not_configured"
+      ? "El escáner de tarjetas no está configurado en el servidor (falta la clave de Gemini)."
+      : (json.detail || json.error || ("HTTP "+res.status));
+    throw new Error(msg);
+  }
   return json;
 }
 const MAIL_API_URL = "/api/send-mail.php";

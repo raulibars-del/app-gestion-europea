@@ -9,3 +9,4 @@ define('DB_NAME', 'nombre_basededatos');
 define('DB_USER', 'usuario_db');
 define('DB_PASS', 'password_db');
 define('API_KEY', 'una_clave_secreta_larga');
+define('GEMINI_API_KEY', 'clave_de_aistudio_google_com'); // escáner de tarjetas de visita

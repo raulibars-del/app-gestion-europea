@@ -29,6 +29,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASS: ${{ secrets.DB_PASS }}
           API_KEY: ${{ secrets.API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           cat > public/api/config.php << EOF
           <?php
@@ -37,6 +38,7 @@ jobs:
           define('DB_USER', '$DB_USER');
           define('DB_PASS', '$DB_PASS');
           define('API_KEY', '$API_KEY');
+          define('GEMINI_API_KEY', '$GEMINI_API_KEY');
           EOF
           echo "VITE_API_KEY=$API_KEY" > .env.production
 
