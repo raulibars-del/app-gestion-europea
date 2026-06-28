@@ -611,6 +611,272 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
     </div>
   );
 };
+// --- Escaneo de tarjetas de visita (OCR gratuito en el propio navegador) ---
+// No usa ninguna IA externa ni API de pago: lee el texto de la foto con
+// Tesseract.js y luego reparte ese texto en los campos del cliente/contacto
+// con heurísticas (regex y palabras clave). Es "mejor esfuerzo": nunca va a
+// acertar el 100% de las tarjetas (sobre todo el nombre de empresa cuando no
+// pone SL/SA en ningún sitio, o cuando hay varios teléfonos/cargos), así que
+// el resultado siempre se presenta para revisar y completar a mano.
+const SUFIJOS_SOCIETARIOS = /\b(S\.?\s?L\.?\s?U?\.?|S\.?\s?A\.?\s?U?\.?|S\.?\s?COOP\.?|SOCIEDAD\s+LIMITADA|SOCIEDAD\s+AN[OÓ]NIMA|SLU|SAU|SL|SA)\b/i;
+const PALABRAS_CARGO_TARJETA = ["gerente","director","directora","comercial","técnico","tecnico","administrador","administradora","encargado","encargada","responsable","propietario","propietaria","jefe","jefa","ceo","gerencia","ventas","compras","export","marketing","atención al cliente","atencion al cliente","delegado","delegada","representante","socio","socia","autónomo","autonomo"];
+const RE_DIRECCION_TARJETA = /\b(calle|c\/|avda\.?|avenida|av\.|pol[ií]gono|pol\.|parcela|ctra\.?|carretera|plaza|pza\.?|paseo|passeig|cam[ií]|camino|poligono)\b/i;
+const RE_NOMBRE_PERSONA = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ.]+){1,3}$/;
+
+const parsearTarjetaVisita = (texto) => {
+  const limpiar = l => l.replace(/\s+/g," ").trim();
+  const lineas = (texto||"").split("\n").map(limpiar).filter(l => l.replace(/[^a-zA-Z0-9]/g,"").length >= 2);
+
+  const resultado = {};
+  const usadas = new Set();
+  const marcar = l => usadas.add(l);
+
+  // Email
+  const reEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+  for (const l of lineas) { const m = l.match(reEmail); if (m) { resultado.email = m[0].toLowerCase(); marcar(l); break; } }
+
+  // Web (que no sea el dominio del email)
+  const reWeb = /(https?:\/\/)?(www\.)?[a-z0-9-]+\.(com|es|net|org|eu|info)(\.[a-z]{2})?\b/i;
+  for (const l of lineas) {
+    if (usadas.has(l)) continue;
+    const m = l.match(reWeb);
+    if (m && !(resultado.email && resultado.email.includes(m[0].toLowerCase()))) { resultado.web = m[0].replace(/^https?:\/\//i,""); marcar(l); break; }
+  }
+
+  // Nombre de contacto + cargo cuando van juntos en la misma línea (ej. "Juan Pérez - Director Comercial")
+  for (const l of lineas) {
+    if (usadas.has(l)) continue;
+    const partes = l.split(/\s*[-–|]\s*/);
+    if (partes.length === 2) {
+      const [a,b] = partes;
+      const aEsCargo = PALABRAS_CARGO_TARJETA.some(p => a.toLowerCase().includes(p));
+      const bEsCargo = PALABRAS_CARGO_TARJETA.some(p => b.toLowerCase().includes(p));
+      if (bEsCargo && RE_NOMBRE_PERSONA.test(a)) { resultado.contactoNombre = a; resultado.puesto = b; marcar(l); break; }
+      if (aEsCargo && RE_NOMBRE_PERSONA.test(b)) { resultado.contactoNombre = b; resultado.puesto = a; marcar(l); break; }
+    }
+  }
+
+  // Teléfono(s): grupos de 9 a 12 dígitos, con o sin +34/espacios/puntos
+  const reTel = /(?:\+\d{1,3}[\s.-]?)?(?:\d[\s.-]?){8,11}\d/g;
+  const telsEncontrados = [];
+  for (const l of lineas) {
+    if (usadas.has(l) || reEmail.test(l)) continue;
+    let m; const re2 = new RegExp(reTel);
+    while ((m = re2.exec(l))) {
+      const digitos = m[0].replace(/\D/g,"");
+      if (digitos.length >= 9 && digitos.length <= 12) telsEncontrados.push({ linea: l, valor: m[0].trim() });
+    }
+  }
+  if (telsEncontrados.length) {
+    resultado.tel = telsEncontrados[0].valor;
+    marcar(telsEncontrados[0].linea);
+    if (telsEncontrados.length > 1) resultado._telsExtra = telsEncontrados.slice(1).map(t => t.valor);
+  }
+
+  // Dirección (calle)
+  for (const l of lineas) {
+    if (usadas.has(l)) continue;
+    if (RE_DIRECCION_TARJETA.test(l)) { resultado.dirFiscal = l; marcar(l); break; }
+  }
+
+  // Código postal + localidad
+  const reCP = /\b(\d{5})\b/;
+  for (const l of lineas) {
+    if (usadas.has(l)) continue;
+    const m = l.match(reCP);
+    if (m) {
+      resultado.cpFiscal = m[1];
+      const resto = limpiar(l.replace(m[1],"")).replace(/^[,\-–]+|[,\-–]+$/g,"").trim();
+      if (resto) resultado.localidad = resto;
+      marcar(l);
+      break;
+    }
+  }
+
+  // Empresa: línea con sufijo societario (SL/SA/SLU/SAU/Sdad. Coop...)
+  for (const l of lineas) {
+    if (usadas.has(l)) continue;
+    if (SUFIJOS_SOCIETARIOS.test(l)) {
+      resultado.nombreFiscal = l;
+      resultado.nombreEmpresa = l.replace(SUFIJOS_SOCIETARIOS,"").replace(/[,.\s]+$/,"").trim() || l;
+      marcar(l);
+      break;
+    }
+  }
+
+  // Si no se encontró contacto por la línea combinada, buscamos una línea de
+  // cargo y, si la anterior parece un nombre de persona, la tomamos como contacto
+  if (!resultado.contactoNombre) {
+    for (let i=0;i<lineas.length;i++) {
+      const l = lineas[i];
+      if (usadas.has(l)) continue;
+      if (PALABRAS_CARGO_TARJETA.some(p => l.toLowerCase().includes(p))) {
+        resultado.puesto = l; marcar(l);
+        const anterior = lineas[i-1];
+        if (anterior && !usadas.has(anterior) && RE_NOMBRE_PERSONA.test(anterior)) { resultado.contactoNombre = anterior; marcar(anterior); }
+        break;
+      }
+    }
+  }
+
+  // Si aún no hay nombre de contacto, cualquier línea libre con pinta de "Nombre Apellido(s)"
+  if (!resultado.contactoNombre) {
+    for (const l of lineas) {
+      if (usadas.has(l)) continue;
+      if (RE_NOMBRE_PERSONA.test(l) && l.split(" ").length <= 4) { resultado.contactoNombre = l; marcar(l); break; }
+    }
+  }
+
+  // Empresa (si no había sufijo societario): la línea libre más larga, que
+  // suele ser el nombre/marca destacada en la tarjeta
+  if (!resultado.nombreEmpresa) {
+    const candidatas = lineas.filter(l => !usadas.has(l));
+    if (candidatas.length) {
+      const elegida = candidatas.slice().sort((a,b) => b.length - a.length)[0];
+      resultado.nombreEmpresa = elegida;
+      marcar(elegida);
+    }
+  }
+
+  resultado._lineasSinUsar = lineas.filter(l => !usadas.has(l));
+  return resultado;
+};
+
+const ASPECTO_TARJETA = 1.586; // ancho/alto estándar de una tarjeta de visita (85.6 x 54mm)
+
+const EscanearTarjetaModal = ({ onClose, onResultado }) => {
+  const [paso, setPaso] = useState("camara"); // camara | revision | procesando
+  const [foto, setFoto] = useState(null);
+  const [camError, setCamError] = useState("");
+  const [progreso, setProgreso] = useState(0);
+  const [errorOcr, setErrorOcr] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  const detenerCamara = () => { if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current = null; } };
+
+  useEffect(() => {
+    if (paso !== "camara") return;
+    let activo = true;
+    setCamError("");
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        if (!activo) { stream.getTracks().forEach(t=>t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(()=>{}); }
+      })
+      .catch(err => setCamError("No se pudo acceder a la cámara: " + (err.message || err)));
+    return () => { activo = false; detenerCamara(); };
+  }, [paso]);
+
+  useEffect(() => () => detenerCamara(), []);
+
+  const capturar = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const MAXW = 1280;
+    const escala = Math.min(1, MAXW / video.videoWidth);
+    const w = Math.round(video.videoWidth * escala), h = Math.round(video.videoHeight * escala);
+    const canvas = canvasRef.current;
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+    detenerCamara();
+    setFoto(canvas.toDataURL("image/jpeg", 0.9));
+    setPaso("revision");
+  };
+
+  const subirFoto = e => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const MAXW = 1280;
+      const escala = Math.min(1, MAXW / img.naturalWidth);
+      const w = Math.round(img.naturalWidth * escala), h = Math.round(img.naturalHeight * escala);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      detenerCamara();
+      setFoto(canvas.toDataURL("image/jpeg", 0.9));
+      setPaso("revision");
+    };
+    img.src = url;
+  };
+
+  const repetir = () => { setFoto(null); setErrorOcr(""); setPaso("camara"); };
+
+  const leerTarjeta = async () => {
+    if (!window.Tesseract) { setErrorOcr("No se ha podido cargar el lector de texto. Comprueba tu conexión a internet e inténtalo de nuevo."); return; }
+    setPaso("procesando"); setProgreso(0); setErrorOcr("");
+    try {
+      const resultado = await window.Tesseract.recognize(foto, "spa", {
+        logger: m => { if (m.status === "recognizing text" && typeof m.progress === "number") setProgreso(Math.round(m.progress * 100)); }
+      });
+      const texto = resultado?.data?.text || "";
+      const campos = parsearTarjetaVisita(texto);
+      onResultado(campos, foto);
+    } catch (e) {
+      setErrorOcr("No se ha podido leer la tarjeta: " + (e?.message || e));
+      setPaso("revision");
+    }
+  };
+
+  return (
+    <Modal title="Escanear tarjeta de visita" onClose={onClose}>
+      {paso === "camara" && (
+        <>
+          <div style={{background:"#000",borderRadius:10,overflow:"hidden",marginBottom:14,position:"relative",minHeight:240,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {camError ? (
+              <div style={{color:"#ef4444",fontSize:13,padding:20,textAlign:"center"}}>{camError}</div>
+            ) : (
+              <>
+                <video ref={videoRef} autoPlay muted playsInline style={{width:"100%",display:"block"}}/>
+                <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"82%",aspectRatio:String(ASPECTO_TARJETA),border:"2px dashed #faff00",borderRadius:10,boxShadow:"0 0 0 2000px rgba(0,0,0,.35)",pointerEvents:"none"}}/>
+              </>
+            )}
+          </div>
+          <canvas ref={canvasRef} style={{display:"none"}}/>
+          <div style={{color:"#6b7a99",fontSize:11,marginBottom:14,textAlign:"center"}}>Encuadra la tarjeta dentro del recuadro, bien iluminada y sin reflejos</div>
+          <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+            <label style={{color:"#3b82f6",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              Subir foto en su lugar
+              <input type="file" accept="image/*" capture="environment" onChange={subirFoto} style={{display:"none"}}/>
+            </label>
+            <div style={{display:"flex",gap:9}}>
+              <button onClick={onClose} style={btnOutline}>Cancelar</button>
+              <button onClick={capturar} disabled={!!camError} style={{...btnPrimary,opacity:camError?0.5:1}}>📷 Capturar</button>
+            </div>
+          </div>
+        </>
+      )}
+      {paso === "revision" && (
+        <>
+          <div style={{background:"#000",borderRadius:10,overflow:"hidden",marginBottom:14,textAlign:"center"}}>
+            <img src={foto} alt="Tarjeta capturada" style={{maxWidth:"100%",maxHeight:320,display:"block",margin:"0 auto"}}/>
+          </div>
+          {errorOcr && <div style={{color:"#ef4444",fontSize:12,marginBottom:12,textAlign:"center"}}>{errorOcr}</div>}
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={repetir} style={btnOutline}>Repetir foto</button>
+            <button onClick={leerTarjeta} style={btnPrimary}>Usar esta foto</button>
+          </div>
+        </>
+      )}
+      {paso === "procesando" && (
+        <div style={{textAlign:"center",padding:"30px 10px"}}>
+          <div style={{fontSize:40,marginBottom:14}}>🔎</div>
+          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>Leyendo la tarjeta...</div>
+          <div style={{background:"#0d1117",borderRadius:8,height:8,overflow:"hidden"}}>
+            <div style={{background:"#3b82f6",height:"100%",width:`${progreso}%`,transition:"width .2s"}}/>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
 const Textarea = ({ value, onChange, placeholder="", rows=3 }) => <textarea value={value||""} onChange={onChange} placeholder={placeholder} rows={rows} style={{...inputStyle,resize:"vertical"}}/>;
 const StatCard = ({ label, value, icon, accent, sub }) => (
   <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13}}>
@@ -700,6 +966,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   },[abrirClienteId]);
   const [modalC,setModalC]=useState(null); const [modalM,setModalM]=useState(null); const [modalCo,setModalCo]=useState(null);
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
+  const [modalEscaner,setModalEscaner]=useState(false); const [resumenEscaneo,setResumenEscaneo]=useState(null);
   const fc=k=>e=>setFormC(p=>({...p,[k]:e.target.value}));
   const fm=k=>e=>setFormM(p=>({...p,[k]:e.target.value}));
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
@@ -851,6 +1118,60 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     } catch(e) { alert("No se pudo generar el PDF de la ficha del cliente."); }
   };
   const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
+  // Crea la empresa Y el contacto a la vez a partir de los campos leídos de una
+  // tarjeta de visita escaneada. No pasa por el formulario normal (sería un
+  // paso más y la idea es ahorrar tecleo): se crea directamente y se informa
+  // de qué se ha rellenado y qué falta por completar a mano.
+  const crearClienteDesdeTarjeta = (campos) => {
+    const nuevoId = Date.now();
+    const nombreEmpresa = campos.nombreEmpresa || "Empresa sin nombre (revisar)";
+    const hayContacto = !!(campos.contactoNombre || campos.tel || campos.email || campos.puesto);
+    const contactoNuevo = hayContacto ? {
+      id: nuevoId + 1,
+      nombre: campos.contactoNombre || "",
+      puesto: campos.puesto || "",
+      tel: campos.tel || "",
+      email: campos.email || "",
+      principal: true,
+    } : null;
+    const notasExtra = [
+      campos.web ? `Web: ${campos.web}` : null,
+      campos._telsExtra && campos._telsExtra.length ? `Otros teléfonos en la tarjeta: ${campos._telsExtra.join(", ")}` : null,
+    ].filter(Boolean).join("\n");
+    const nuevoCliente = {
+      id: nuevoId,
+      nombreEmpresa,
+      nombreFiscal: campos.nombreFiscal || nombreEmpresa,
+      cif: "",
+      localidad: campos.localidad || "",
+      dirFiscal: campos.dirFiscal || "",
+      cpFiscal: campos.cpFiscal || "",
+      provinciaFiscal: "",
+      esCliente: false,
+      contactos: contactoNuevo ? [contactoNuevo] : [],
+      maquinas: [],
+      notas: notasExtra,
+    };
+    setData(d => ({...d, clientes: [...d.clientes, nuevoCliente]}));
+
+    const faltan = [];
+    if (!campos.nombreEmpresa) faltan.push("Nombre de empresa (no se ha detectado con seguridad)");
+    if (!campos.nombreFiscal) faltan.push("Nombre fiscal completo / CIF");
+    if (!campos.localidad) faltan.push("Localidad");
+    if (!campos.dirFiscal) faltan.push("Dirección");
+    if (!campos.cpFiscal) faltan.push("Código postal");
+    if (!contactoNuevo) faltan.push("Contacto (no se ha detectado ningún dato de persona)");
+    else {
+      if (!campos.contactoNombre) faltan.push("Nombre del contacto");
+      if (!campos.puesto) faltan.push("Cargo del contacto");
+      if (!campos.tel) faltan.push("Teléfono");
+      if (!campos.email) faltan.push("Email");
+    }
+
+    setModalEscaner(false);
+    setModalC(null);
+    setResumenEscaneo({ clienteId: nuevoId, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan });
+  };
   const saveM=()=>{
     const maqId = formM.id || Date.now();
     const maqFinal = {...formM, id: maqId, codigo: formM.codigo || nextCodigoMaquina(data)};
@@ -941,7 +1262,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           </div>
         );})}
       </div>
-      {modalC&&<Modal title={formC.id?"Editar cliente":"Nuevo Cliente"} onClose={()=>setModalC(null)} wide>
+      {modalC&&<Modal title={formC.id?"Editar cliente":(
+        <span style={{display:"inline-flex",alignItems:"center",gap:10}}>
+          Nuevo Cliente
+          <button type="button" onClick={()=>setModalEscaner(true)} style={{background:"#a855f720",border:"1px solid #a855f755",borderRadius:7,padding:"4px 10px",color:"#a855f7",fontSize:11,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>📷 Escanear tarjeta</button>
+        </span>
+      )} onClose={()=>setModalC(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
           <Field label="Nombre empresa"><Input value={formC.nombreEmpresa||""} onChange={fc("nombreEmpresa")}/></Field>
           <Field label="Nombre fiscal completo"><Input value={formC.nombreFiscal||""} onChange={fc("nombreFiscal")}/></Field>
@@ -986,6 +1312,27 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         <Field label="Notas"><Textarea value={formC.notas||""} onChange={fc("notas")}/></Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalC(null)} style={btnOutline}>Cancelar</button><button onClick={saveC} style={btnPrimary}>{formC.id?"Guardar":"Crear"}</button></div>
       </Modal>}
+      {modalEscaner && <EscanearTarjetaModal onClose={()=>setModalEscaner(false)} onResultado={crearClienteDesdeTarjeta}/>}
+      {resumenEscaneo && (
+        <Modal title="Tarjeta escaneada" onClose={()=>setResumenEscaneo(null)}>
+          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>
+            He creado la empresa <b style={{color:"#f1f3f9"}}>{resumenEscaneo.nombreEmpresa}</b>
+            {resumenEscaneo.nombreContacto && <> y el contacto <b style={{color:"#f1f3f9"}}>{resumenEscaneo.nombreContacto}</b></>} a partir de la tarjeta.
+          </div>
+          {resumenEscaneo.faltan.length > 0 && (
+            <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Revisa y completa</div>
+              <ul style={{margin:0,paddingLeft:18,color:"#9aa3b8",fontSize:13}}>
+                {resumenEscaneo.faltan.map(f => <li key={f}>{f}</li>)}
+              </ul>
+            </div>
+          )}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button onClick={()=>setResumenEscaneo(null)} style={btnOutline}>Cerrar</button>
+            <button onClick={()=>{ setVista(resumenEscaneo.clienteId); setResumenEscaneo(null); }} style={btnPrimary}>Revisar cliente</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
   const c=cliente; if(!c){setVista(null);return null;}
@@ -2883,6 +3230,8 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
   const [form, setForm] = useState({});
   const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
   const [formNuevoCliente, setFormNuevoCliente] = useState({});
+  const [modalEscanerVisita, setModalEscanerVisita] = useState(false);
+  const [resumenEscaneoVisita, setResumenEscaneoVisita] = useState(null);
 
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
@@ -2941,6 +3290,52 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
     setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
     setForm(p => ({ ...p, clienteId: nc.id }));
     setModalNuevoCliente(false); setFormNuevoCliente({});
+  };
+
+  // Igual que "crear cliente rápido", pero a partir de los campos leídos de una
+  // tarjeta de visita: crea la empresa Y el contacto en un solo paso (sin exigir
+  // localidad, que aquí es obligatoria a mano) y selecciona el cliente para la visita.
+  const crearClienteDesdeTarjetaVisita = (campos) => {
+    const nuevoId = Date.now();
+    const nombreEmpresa = campos.nombreEmpresa || "Empresa sin nombre (revisar)";
+    const hayContacto = !!(campos.contactoNombre || campos.tel || campos.email || campos.puesto);
+    const contactoNuevo = hayContacto ? {
+      id: nuevoId + 1,
+      nombre: campos.contactoNombre || "",
+      puesto: campos.puesto || "",
+      tel: campos.tel || "",
+      email: campos.email || "",
+      principal: true,
+    } : null;
+    const nc = {
+      id: nuevoId,
+      nombreEmpresa,
+      nombreFiscal: campos.nombreFiscal || nombreEmpresa,
+      localidad: campos.localidad || "",
+      dirFiscal: campos.dirFiscal || "",
+      cpFiscal: campos.cpFiscal || "",
+      contactos: contactoNuevo ? [contactoNuevo] : [],
+      maquinas: [],
+      notas: campos.web ? `Web: ${campos.web}` : "",
+    };
+    setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
+    setForm(p => ({ ...p, clienteId: nc.id, personaContacto: contactoNuevo?.nombre || p.personaContacto }));
+
+    const faltan = [];
+    if (!campos.nombreEmpresa) faltan.push("Nombre de empresa (no se ha detectado con seguridad)");
+    if (!campos.localidad) faltan.push("Localidad");
+    if (!campos.dirFiscal) faltan.push("Dirección");
+    if (!contactoNuevo) faltan.push("Contacto (no se ha detectado ningún dato de persona)");
+    else {
+      if (!campos.contactoNombre) faltan.push("Nombre del contacto");
+      if (!campos.puesto) faltan.push("Cargo del contacto");
+      if (!campos.tel) faltan.push("Teléfono");
+      if (!campos.email) faltan.push("Email");
+    }
+
+    setModalEscanerVisita(false);
+    setModalNuevoCliente(false); setFormNuevoCliente({});
+    setResumenEscaneoVisita({ clienteId: nc.id, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan });
   };
 
   const openNew = clientePre => {
@@ -3125,9 +3520,32 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           </div>
           <Field label="Nombre *"><Input value={formNuevoCliente.nombreEmpresa || ""} onChange={fnc("nombreEmpresa")} placeholder="Ej: Muebles García" /></Field>
           <Field label="Localidad *"><Input value={formNuevoCliente.localidad || ""} onChange={fnc("localidad")} placeholder="Ciudad" /></Field>
-          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-            <button onClick={() => setModalNuevoCliente(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim() || !formNuevoCliente.localidad?.trim()} style={{...btnPrimary,opacity:(formNuevoCliente.nombreEmpresa?.trim() && formNuevoCliente.localidad?.trim()) ? 1 : 0.5}}>Crear y seleccionar</button>
+          <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+            <button onClick={() => setModalEscanerVisita(true)} style={{background:"#a855f720",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",color:"#a855f7",fontSize:13,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>📷 Escanear tarjeta</button>
+            <div style={{display:"flex",gap:9}}>
+              <button onClick={() => setModalNuevoCliente(false)} style={btnOutline}>Cancelar</button>
+              <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim() || !formNuevoCliente.localidad?.trim()} style={{...btnPrimary,opacity:(formNuevoCliente.nombreEmpresa?.trim() && formNuevoCliente.localidad?.trim()) ? 1 : 0.5}}>Crear y seleccionar</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {modalEscanerVisita && <EscanearTarjetaModal onClose={() => setModalEscanerVisita(false)} onResultado={crearClienteDesdeTarjetaVisita}/>}
+      {resumenEscaneoVisita && (
+        <Modal title="Tarjeta escaneada" onClose={() => setResumenEscaneoVisita(null)}>
+          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>
+            He creado la empresa <b style={{color:"#f1f3f9"}}>{resumenEscaneoVisita.nombreEmpresa}</b>
+            {resumenEscaneoVisita.nombreContacto && <> y el contacto <b style={{color:"#f1f3f9"}}>{resumenEscaneoVisita.nombreContacto}</b></>} a partir de la tarjeta, y la he seleccionado para esta visita.
+          </div>
+          {resumenEscaneoVisita.faltan.length > 0 && (
+            <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Revisa y completa (en Clientes)</div>
+              <ul style={{margin:0,paddingLeft:18,color:"#9aa3b8",fontSize:13}}>
+                {resumenEscaneoVisita.faltan.map(f => <li key={f}>{f}</li>)}
+              </ul>
+            </div>
+          )}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button onClick={() => setResumenEscaneoVisita(null)} style={btnPrimary}>Entendido</button>
           </div>
         </Modal>
       )}
