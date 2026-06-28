@@ -620,8 +620,19 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
 // el resultado siempre se presenta para revisar y completar a mano.
 const SUFIJOS_SOCIETARIOS = /\b(S\.?\s?L\.?\s?U?\.?|S\.?\s?A\.?\s?U?\.?|S\.?\s?COOP\.?|SOCIEDAD\s+LIMITADA|SOCIEDAD\s+AN[OÓ]NIMA|SLU|SAU|SL|SA)\b/i;
 const PALABRAS_CARGO_TARJETA = ["gerente","director","directora","comercial","técnico","tecnico","administrador","administradora","encargado","encargada","responsable","propietario","propietaria","jefe","jefa","ceo","gerencia","ventas","compras","export","marketing","atención al cliente","atencion al cliente","delegado","delegada","representante","socio","socia","autónomo","autonomo"];
-const RE_DIRECCION_TARJETA = /\b(calle|c\/|avda\.?|avenida|av\.|pol[ií]gono|pol\.|parcela|ctra\.?|carretera|plaza|pza\.?|paseo|passeig|cam[ií]|camino|poligono)\b/i;
-const RE_NOMBRE_PERSONA = /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ.]+){1,3}$/;
+// Palabras clave que delatan una línea de dirección. Se ha ampliado bastante
+// porque muchas tarjetas no usan "Calle"/"C/" sino otras fórmulas (vía,
+// urbanización, polígono, nave, sector...).
+const RE_DIRECCION_TARJETA = /\b(calle|c\/|avda\.?|avenida|av\.|pol[ií]gono|pol\.|parcela|ctra\.?|carretera|plaza|pza\.?|paseo|passeig|cam[ií]|camino|poligono|v[ií]a|ronda|glorieta|urb\.?|urbanizaci[oó]n|barrio|trav\.?|travesia|travesía|rambla|pasaje|pje\.?|sector|nave|local|edificio|pol[ií]g\.?\s*ind)\b/i;
+// Nombre de persona: 2 a 4 palabras que empiezan por mayúscula. Se acepta tanto
+// "Juan Pérez" (formato normal) como "JUAN PÉREZ" (muchas tarjetas imprimen el
+// nombre del contacto íntegramente en mayúsculas), que antes no se detectaba.
+const RE_NOMBRE_PERSONA = /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]*\.?(\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]*\.?){1,3}$/;
+// Mapa de caracteres que el OCR confunde a menudo con cifras (O/0, I-l/1, S/5,
+// B/8, Z/2), usado para no perder un teléfono entero por un solo carácter mal
+// leído.
+const OCR_DIGITOS_CONFUNDIDOS = { O:"0", o:"0", I:"1", l:"1", S:"5", s:"5", B:"8", b:"8", Z:"2", z:"2" };
+const normalizarDigitosOcr = s => s.replace(/[OoIlSsBbZz]/g, c => OCR_DIGITOS_CONFUNDIDOS[c]);
 
 const parsearTarjetaVisita = (texto) => {
   const limpiar = l => l.replace(/\s+/g," ").trim();
@@ -656,15 +667,20 @@ const parsearTarjetaVisita = (texto) => {
     }
   }
 
-  // Teléfono(s): grupos de 9 a 12 dígitos, con o sin +34/espacios/puntos
-  const reTel = /(?:\+\d{1,3}[\s.-]?)?(?:\d[\s.-]?){8,11}\d/g;
+  // Teléfono(s): grupos de 9 a 12 dígitos, con o sin +34/espacios/puntos. Se
+  // admiten también letras que el OCR confunde fácilmente con cifras (O, I,
+  // l, S, B, Z), porque un solo carácter mal leído bastaba antes para que no
+  // se detectara el teléfono en absoluto; el valor guardado se normaliza a
+  // dígitos reales.
+  const reTel = /(?:\+\d{1,3}[\s.-]?)?(?:[\dOoIlSsBbZz][\s.-]?){8,11}[\dOoIlSsBbZz]/g;
   const telsEncontrados = [];
   for (const l of lineas) {
     if (usadas.has(l) || reEmail.test(l)) continue;
     let m; const re2 = new RegExp(reTel);
     while ((m = re2.exec(l))) {
-      const digitos = m[0].replace(/\D/g,"");
-      if (digitos.length >= 9 && digitos.length <= 12) telsEncontrados.push({ linea: l, valor: m[0].trim() });
+      const normalizado = normalizarDigitosOcr(m[0]).trim();
+      const digitos = normalizado.replace(/\D/g,"");
+      if (digitos.length >= 9 && digitos.length <= 12) telsEncontrados.push({ linea: l, valor: normalizado });
     }
   }
   if (telsEncontrados.length) {
@@ -681,7 +697,9 @@ const parsearTarjetaVisita = (texto) => {
 
   // Código postal + localidad
   const reCP = /\b(\d{5})\b/;
-  for (const l of lineas) {
+  let idxLineaCP = -1;
+  for (let i=0;i<lineas.length;i++) {
+    const l = lineas[i];
     if (usadas.has(l)) continue;
     const m = l.match(reCP);
     if (m) {
@@ -689,7 +707,19 @@ const parsearTarjetaVisita = (texto) => {
       const resto = limpiar(l.replace(m[1],"")).replace(/^[,\-–]+|[,\-–]+$/g,"").trim();
       if (resto) resultado.localidad = resto;
       marcar(l);
+      idxLineaCP = i;
       break;
+    }
+  }
+
+  // Si no se ha detectado la calle por palabra clave, en el formato típico de
+  // tarjeta la dirección suele ser la línea justo antes de la del código
+  // postal/localidad (p.ej. "Gran Vía 45" sin ninguna palabra clave delante).
+  if (!resultado.dirFiscal && idxLineaCP > 0) {
+    const anterior = lineas[idxLineaCP - 1];
+    if (anterior && !usadas.has(anterior) && !reEmail.test(anterior) && !SUFIJOS_SOCIETARIOS.test(anterior)) {
+      resultado.dirFiscal = anterior;
+      marcar(anterior);
     }
   }
 
@@ -744,6 +774,21 @@ const parsearTarjetaVisita = (texto) => {
 
 const ASPECTO_TARJETA = 1.586; // ancho/alto estándar de una tarjeta de visita (85.6 x 54mm)
 
+// Escala de grises + aumento de contraste sobre un canvas ya dibujado: mejora
+// notablemente la precisión de Tesseract en fotos de móvil con iluminación
+// desigual, sin tener que tocar el algoritmo de OCR en sí.
+const aplicarGrisYContraste = (ctx, w, h) => {
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+  const factor = 1.35;
+  for (let i = 0; i < d.length; i += 4) {
+    const gris = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    const ajustado = Math.min(255, Math.max(0, (gris - 128) * factor + 128));
+    d[i] = d[i+1] = d[i+2] = ajustado;
+  }
+  ctx.putImageData(imgData, 0, 0);
+};
+
 const EscanearTarjetaModal = ({ onClose, onResultado }) => {
   const [paso, setPaso] = useState("camara"); // camara | revision | procesando
   const [foto, setFoto] = useState(null);
@@ -753,6 +798,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const rectRef = useRef(null);
 
   const detenerCamara = () => { if (streamRef.current) { streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current = null; } };
 
@@ -772,17 +818,39 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
 
   useEffect(() => () => detenerCamara(), []);
 
+  // Ancho de trabajo al que se reescala la imagen recortada antes del OCR.
+  // Mandar el fotograma completo (con todo el fondo alrededor de la tarjeta)
+  // era una de las causas principales de que apenas se leyera nada: la
+  // tarjeta ocupaba solo una fracción de los píxeles. Ahora se recorta a la
+  // zona del recuadro guía y se reescala a un tamaño cómodo para Tesseract.
+  const ANCHO_OBJETIVO_OCR = 1100;
+
   const capturar = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
-    const MAXW = 1280;
-    const escala = Math.min(1, MAXW / video.videoWidth);
-    const w = Math.round(video.videoWidth * escala), h = Math.round(video.videoHeight * escala);
+
+    const videoRect = video.getBoundingClientRect();
+    const escalaNativa = video.videoWidth / videoRect.width;
+    let sx = 0, sy = 0, sw = video.videoWidth, sh = video.videoHeight;
+    if (rectRef.current) {
+      const guia = rectRef.current.getBoundingClientRect();
+      sx = Math.max(0, (guia.left - videoRect.left) * escalaNativa);
+      sy = Math.max(0, (guia.top - videoRect.top) * escalaNativa);
+      sw = Math.min(video.videoWidth - sx, guia.width * escalaNativa);
+      sh = Math.min(video.videoHeight - sy, guia.height * escalaNativa);
+    }
+    if (sw <= 0 || sh <= 0) { sx = 0; sy = 0; sw = video.videoWidth; sh = video.videoHeight; }
+
+    const destW = ANCHO_OBJETIVO_OCR;
+    const destH = Math.round(destW / (sw / sh));
     const canvas = canvasRef.current;
-    canvas.width = w; canvas.height = h;
-    canvas.getContext("2d").drawImage(video, 0, 0, w, h);
+    canvas.width = destW; canvas.height = destH;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, destW, destH);
+    aplicarGrisYContraste(ctx, destW, destH);
+
     detenerCamara();
-    setFoto(canvas.toDataURL("image/jpeg", 0.9));
+    setFoto(canvas.toDataURL("image/jpeg", 0.92));
     setPaso("revision");
   };
 
@@ -792,15 +860,20 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const MAXW = 1280;
+      // Aquí no hay recuadro guía sobre el que recortar (es una foto ya
+      // hecha), así que solo se reescala a un tamaño de trabajo razonable y
+      // se mejora el contraste.
+      const MAXW = 1600;
       const escala = Math.min(1, MAXW / img.naturalWidth);
       const w = Math.round(img.naturalWidth * escala), h = Math.round(img.naturalHeight * escala);
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      aplicarGrisYContraste(ctx, w, h);
       URL.revokeObjectURL(url);
       detenerCamara();
-      setFoto(canvas.toDataURL("image/jpeg", 0.9));
+      setFoto(canvas.toDataURL("image/jpeg", 0.92));
       setPaso("revision");
     };
     img.src = url;
@@ -817,7 +890,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
       });
       const texto = resultado?.data?.text || "";
       const campos = parsearTarjetaVisita(texto);
-      onResultado(campos, foto);
+      onResultado(campos, foto, texto);
     } catch (e) {
       setErrorOcr("No se ha podido leer la tarjeta: " + (e?.message || e));
       setPaso("revision");
@@ -834,7 +907,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
             ) : (
               <>
                 <video ref={videoRef} autoPlay muted playsInline style={{width:"100%",display:"block"}}/>
-                <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"82%",aspectRatio:String(ASPECTO_TARJETA),border:"2px dashed #faff00",borderRadius:10,boxShadow:"0 0 0 2000px rgba(0,0,0,.35)",pointerEvents:"none"}}/>
+                <div ref={rectRef} style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:"82%",aspectRatio:String(ASPECTO_TARJETA),border:"2px dashed #faff00",borderRadius:10,boxShadow:"0 0 0 2000px rgba(0,0,0,.35)",pointerEvents:"none"}}/>
               </>
             )}
           </div>
@@ -1122,7 +1195,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   // tarjeta de visita escaneada. No pasa por el formulario normal (sería un
   // paso más y la idea es ahorrar tecleo): se crea directamente y se informa
   // de qué se ha rellenado y qué falta por completar a mano.
-  const crearClienteDesdeTarjeta = (campos) => {
+  const crearClienteDesdeTarjeta = (campos, foto, textoOcr) => {
     const nuevoId = Date.now();
     const nombreEmpresa = campos.nombreEmpresa || "Empresa sin nombre (revisar)";
     const hayContacto = !!(campos.contactoNombre || campos.tel || campos.email || campos.puesto);
@@ -1137,6 +1210,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     const notasExtra = [
       campos.web ? `Web: ${campos.web}` : null,
       campos._telsExtra && campos._telsExtra.length ? `Otros teléfonos en la tarjeta: ${campos._telsExtra.join(", ")}` : null,
+      textoOcr && textoOcr.trim() ? `Texto leído en la tarjeta (sin procesar, por si falta algo):\n${textoOcr.trim()}` : null,
     ].filter(Boolean).join("\n");
     const nuevoCliente = {
       id: nuevoId,
@@ -1170,7 +1244,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
 
     setModalEscaner(false);
     setModalC(null);
-    setResumenEscaneo({ clienteId: nuevoId, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan });
+    setResumenEscaneo({ clienteId: nuevoId, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan, textoOcr });
   };
   const saveM=()=>{
     const maqId = formM.id || Date.now();
@@ -1326,6 +1400,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                 {resumenEscaneo.faltan.map(f => <li key={f}>{f}</li>)}
               </ul>
             </div>
+          )}
+          {resumenEscaneo.textoOcr && resumenEscaneo.textoOcr.trim() && (
+            <details style={{marginBottom:14}}>
+              <summary style={{cursor:"pointer",color:"#3b82f6",fontSize:12,fontWeight:700}}>Ver texto leído en la tarjeta (sin procesar)</summary>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#6b7a99",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneo.textoOcr.trim()}</div>
+            </details>
           )}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={()=>setResumenEscaneo(null)} style={btnOutline}>Cerrar</button>
@@ -3295,7 +3375,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
   // Igual que "crear cliente rápido", pero a partir de los campos leídos de una
   // tarjeta de visita: crea la empresa Y el contacto en un solo paso (sin exigir
   // localidad, que aquí es obligatoria a mano) y selecciona el cliente para la visita.
-  const crearClienteDesdeTarjetaVisita = (campos) => {
+  const crearClienteDesdeTarjetaVisita = (campos, foto, textoOcr) => {
     const nuevoId = Date.now();
     const nombreEmpresa = campos.nombreEmpresa || "Empresa sin nombre (revisar)";
     const hayContacto = !!(campos.contactoNombre || campos.tel || campos.email || campos.puesto);
@@ -3307,6 +3387,11 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       email: campos.email || "",
       principal: true,
     } : null;
+    const notasExtra = [
+      campos.web ? `Web: ${campos.web}` : null,
+      campos._telsExtra && campos._telsExtra.length ? `Otros teléfonos en la tarjeta: ${campos._telsExtra.join(", ")}` : null,
+      textoOcr && textoOcr.trim() ? `Texto leído en la tarjeta (sin procesar, por si falta algo):\n${textoOcr.trim()}` : null,
+    ].filter(Boolean).join("\n");
     const nc = {
       id: nuevoId,
       nombreEmpresa,
@@ -3316,7 +3401,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       cpFiscal: campos.cpFiscal || "",
       contactos: contactoNuevo ? [contactoNuevo] : [],
       maquinas: [],
-      notas: campos.web ? `Web: ${campos.web}` : "",
+      notas: notasExtra,
     };
     setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
     setForm(p => ({ ...p, clienteId: nc.id, personaContacto: contactoNuevo?.nombre || p.personaContacto }));
@@ -3335,7 +3420,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 
     setModalEscanerVisita(false);
     setModalNuevoCliente(false); setFormNuevoCliente({});
-    setResumenEscaneoVisita({ clienteId: nc.id, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan });
+    setResumenEscaneoVisita({ clienteId: nc.id, nombreEmpresa, nombreContacto: contactoNuevo?.nombre, faltan, textoOcr });
   };
 
   const openNew = clientePre => {
@@ -3543,6 +3628,12 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
                 {resumenEscaneoVisita.faltan.map(f => <li key={f}>{f}</li>)}
               </ul>
             </div>
+          )}
+          {resumenEscaneoVisita.textoOcr && resumenEscaneoVisita.textoOcr.trim() && (
+            <details style={{marginBottom:14}}>
+              <summary style={{cursor:"pointer",color:"#3b82f6",fontSize:12,fontWeight:700}}>Ver texto leído en la tarjeta (sin procesar)</summary>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#6b7a99",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneoVisita.textoOcr.trim()}</div>
+            </details>
           )}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
             <button onClick={() => setResumenEscaneoVisita(null)} style={btnPrimary}>Entendido</button>
