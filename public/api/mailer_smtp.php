@@ -104,8 +104,8 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
         $headers[] = "Content-Type: multipart/mixed; boundary=\"$boundary\"";
         $body .= "--$boundary\r\n";
         $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-        $body .= $html . "\r\n\r\n";
+        $body .= "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
+        $body .= quoted_printable_encode($html) . "\r\n\r\n";
         $body .= "--$boundary\r\n";
         $mime = $attachment['mime'] ?: 'application/octet-stream';
         $name = $attachment['name'] ?: 'documento.pdf';
@@ -116,7 +116,8 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
         $body .= "--$boundary--\r\n";
     } else {
         $headers[] = "Content-Type: text/html; charset=UTF-8";
-        $body .= $html . "\r\n";
+        $headers[] = "Content-Transfer-Encoding: quoted-printable";
+        $body .= quoted_printable_encode($html) . "\r\n";
     }
 
     $message = implode("\r\n", $headers) . "\r\n\r\n" . $body;
