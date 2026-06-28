@@ -3164,9 +3164,9 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   // todo dentro de la MISMA celda de tabla para que quede bien alineado: antes el
   // nombre iba en una tabla aparte y el puesto/teléfono/email quedaban sueltos
   // debajo, sin alinearse con el nombre — de ahí que se viera descuadrado). La
-  // foto va a 56x56, el mismo tamaño que el logo de empresa de abajo, para que
+  // foto va a 72x72, el mismo tamaño que el logo de empresa de abajo, para que
   // ambos bloques queden simétricos.
-  const AVATAR_PX = 56;
+  const AVATAR_PX = 72;
   const firmaPersonaHtml = opts.firmaNombre
     ? "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
       + (opts.firmaFoto
@@ -3211,7 +3211,7 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
 // albaranes...), con la dirección, CIF, teléfono y los 3 emails de contacto.
 const htmlFirmaGestion = () => {
   const SITE_URL = "https://gestion.europeademaquinaria.com";
-  const AVATAR_PX = 56;
+  const AVATAR_PX = 72;
   return "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:10px;width:100%;\">"
     + "<tr><td style=\"padding:18px 20px;\">"
     + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
@@ -8236,6 +8236,93 @@ async function apiUploadFile(payload){
   return json;
 }
 
+// Modal de encuadre/recorte de foto de perfil: permite arrastrar para reposicionar
+// y un deslizador de zoom, de forma que la foto final sea siempre cuadrada y bien
+// centrada antes de guardarla (evita que luego se vea cortada en el avatar circular).
+const FotoCropModal = ({ source, onCancel, onSave }) => {
+  const VIEW = 260; // tamaño del visor circular en pantalla (px)
+  const OUT = 480;  // resolución de la imagen final guardada (px)
+  const [img, setImg] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const dragRef = useRef(null);
+  const baseScaleRef = useRef(1);
+
+  useEffect(() => {
+    // source puede ser un File recién elegido o ya un data URL (al reencuadrar una foto existente)
+    let url, cancelado = false;
+    const esFile = source instanceof File || source instanceof Blob;
+    const el = new Image();
+    el.onload = () => {
+      if (cancelado) return;
+      const base = Math.max(VIEW / el.naturalWidth, VIEW / el.naturalHeight);
+      baseScaleRef.current = base;
+      setImg(el);
+      setZoom(1);
+      setPos({ x: (VIEW - el.naturalWidth * base) / 2, y: (VIEW - el.naturalHeight * base) / 2 });
+    };
+    if (esFile) { url = URL.createObjectURL(source); el.src = url; }
+    else el.src = source;
+    return () => { cancelado = true; if (url) URL.revokeObjectURL(url); };
+  }, [source]);
+
+  const clamp = (p, z) => {
+    if (!img) return p;
+    const w = img.naturalWidth * baseScaleRef.current * z;
+    const h = img.naturalHeight * baseScaleRef.current * z;
+    return { x: Math.min(0, Math.max(p.x, VIEW - w)), y: Math.min(0, Math.max(p.y, VIEW - h)) };
+  };
+  const onPointerDown = e => { dragRef.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }; e.target.setPointerCapture?.(e.pointerId); };
+  const onPointerMove = e => {
+    if (!dragRef.current) return;
+    const d = dragRef.current;
+    setPos(clamp({ x: d.ox + (e.clientX - d.sx), y: d.oy + (e.clientY - d.sy) }, zoom));
+  };
+  const onPointerUp = () => { dragRef.current = null; };
+  const handleZoom = e => { const z = parseFloat(e.target.value); setZoom(z); setPos(p => clamp(p, z)); };
+
+  const guardar = () => {
+    if (!img) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = OUT; canvas.height = OUT;
+    const ctx = canvas.getContext("2d");
+    const f = OUT / VIEW;
+    const w = img.naturalWidth * baseScaleRef.current * zoom * f;
+    const h = img.naturalHeight * baseScaleRef.current * zoom * f;
+    ctx.drawImage(img, pos.x * f, pos.y * f, w, h);
+    canvas.toBlob(blob => {
+      if (!blob) return;
+      const r = new FileReader();
+      r.onload = ev => onSave(ev.target.result);
+      r.readAsDataURL(blob);
+    }, "image/jpeg", 0.88);
+  };
+
+  return (
+    <Modal title="Encuadrar foto de perfil" onClose={onCancel}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div
+          onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+          style={{ width: VIEW, height: VIEW, borderRadius: "50%", overflow: "hidden", position: "relative", background: "#0d1117", border: "2px solid #2a3550", cursor: img ? "grab" : "default", touchAction: "none" }}
+        >
+          {img && (
+            <img src={img.src} draggable={false} alt=""
+              style={{ position: "absolute", left: pos.x, top: pos.y, width: img.naturalWidth * baseScaleRef.current * zoom, height: img.naturalHeight * baseScaleRef.current * zoom, userSelect: "none", pointerEvents: "none" }} />
+          )}
+        </div>
+        <div style={{ width: "100%", maxWidth: 280 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 6, textAlign: "center" }}>Zoom</div>
+          <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoom} style={{ width: "100%" }} />
+        </div>
+        <div style={{ color: "#6b7a99", fontSize: 11.5, textAlign: "center" }}>Arrastra la foto para encuadrarla y usa el deslizador para hacer zoom.</div>
+      </div>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>
+        <button onClick={onCancel} style={btnOutline}>Cancelar</button>
+        <button onClick={guardar} style={btnPrimary}>Usar esta foto</button>
+      </div>
+    </Modal>
+  );
+};
 const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   const [foto, setFoto] = useState(userActual.foto || null);
   const [email, setEmail] = useState(userActual.email || "");
@@ -8245,12 +8332,11 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   const [pass2, setPass2] = useState("");
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
-  const handleFoto = async e => {
+  const [cropSource, setCropSource] = useState(null);
+  const handleFoto = e => {
     const f0 = e.target.files[0]; if (!f0) return;
-    const f = await comprimirImagen(f0);
-    const r = new FileReader();
-    r.onload = ev => setFoto(ev.target.result);
-    r.readAsDataURL(f);
+    setCropSource(f0);
+    e.target.value = "";
   };
   const guardar = () => {
     if (pass1 && pass1.length < 4) { setErr("La contraseña debe tener al menos 4 caracteres."); return; }
@@ -8265,6 +8351,8 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
     setTimeout(() => setOk(""), 2500);
   };
   return (
+    <>
+    {cropSource && <FotoCropModal source={cropSource} onCancel={() => setCropSource(null)} onSave={dataUrl => { setFoto(dataUrl); setCropSource(null); }} />}
     <Modal title="Mi cuenta" onClose={onClose}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
         <Avatar u={{ ...userActual, foto }} size={64} fontSize={22} />
@@ -8276,6 +8364,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
               <Icon name="image" size={13} />{foto ? "Cambiar foto" : "Subir foto"}
               <input type="file" accept="image/*" onChange={handleFoto} style={{ display: "none" }} />
             </label>
+            {foto && <button onClick={() => setCropSource(foto)} style={{ ...btnSm("#2a3550", "#9aa3b8"), fontSize: 11 }}>Editar encuadre</button>}
             {foto && <button onClick={() => setFoto(null)} style={{ ...btnSm("#3b1c1c", "#dc2626"), fontSize: 11 }}>Quitar foto</button>}
           </div>
         </div>
@@ -8303,6 +8392,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
       </div>
     </Modal>
+    </>
   );
 };
 
