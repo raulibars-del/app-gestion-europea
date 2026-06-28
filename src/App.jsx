@@ -8352,7 +8352,6 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
   };
   return (
     <>
-    {cropSource && <FotoCropModal source={cropSource} onCancel={() => setCropSource(null)} onSave={dataUrl => { setFoto(dataUrl); setCropSource(null); }} />}
     <Modal title="Mi cuenta" onClose={onClose}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
         <Avatar u={{ ...userActual, foto }} size={64} fontSize={22} />
@@ -8392,6 +8391,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
       </div>
     </Modal>
+    {cropSource && <FotoCropModal source={cropSource} onCancel={() => setCropSource(null)} onSave={dataUrl => { setFoto(dataUrl); setCropSource(null); }} />}
     </>
   );
 };
