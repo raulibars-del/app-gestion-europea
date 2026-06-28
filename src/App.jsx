@@ -1403,6 +1403,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                 );})():(
                   <div style={{color:"#f59e0b",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: falta fecha de instalación</div>
                 ))}
+                {c.revendedor&&(
+                  <div style={{color:"#ec4899",fontSize:12,marginTop:5,fontWeight:700}}>📍 Cliente final: {m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"desconocido"}</div>
+                )}
               </div>
             </div>
             <div style={{borderTop:"1px solid #2a3550",paddingTop:13}}>
@@ -1517,6 +1520,16 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <Field label="Año fabricación"><Input type="number" value={formM.anyo} onChange={fm("anyo")}/></Field>
         </div>
         {c.id===0&&!formM.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={formM.precioVenta||""} onChange={fm("precioVenta")}/></Field>}
+        {c.revendedor && (
+          <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
+            <div style={{color:"#6b7a99",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
+              <Field label="Cliente final (nombre)"><Input value={formM.clienteFinalNombre||""} onChange={fm("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
+              <Field label="Localidad / lugar"><Input value={formM.clienteFinalLugar||""} onChange={fm("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
+            </div>
+          </div>
+        )}
         <Field label="Notas"><Textarea value={formM.notas} onChange={fm("notas")}/></Field>
         <Field label="Foto de la máquina">
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
@@ -1717,7 +1730,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const [modalInstalacion,setModalInstalacion]=useState(false);
   const [fechaInstalacionForm,setFechaInstalacionForm]=useState("");
 
-  const todas = (data.clientes||[]).flatMap(c=>(c.maquinas||[]).map(m=>({...m, _clienteId:c.id, _clienteNombre:c.nombreEmpresa})));
+  const todas = (data.clientes||[]).flatMap(c=>(c.maquinas||[]).map(m=>({...m, _clienteId:c.id, _clienteNombre:c.nombreEmpresa, _clienteRevendedor:!!c.revendedor})));
   // Distingue las máquinas del "parque propio" de Europea de Maquinaria: las que vienen
   // de Stock maquinaria nueva (origenStock, vendidas a un cliente real) y las usadas que
   // la empresa compra y asocia al cliente interno "Europea de Maquinaria" (id 0).
@@ -1758,14 +1771,20 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   // así el efecto se vuelve a disparar aunque el Nº total de clientes no cambie
   // (p.ej. al corregir la dirección de fábrica de un cliente que ya existía).
   const firmaGeo = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0).map(c=>`${c.id}:${direccionMapaCliente(c)}:${c.lat==null?0:1}:${c._geocodeError||""}`).join("|");
+  // Los revendedores no tienen las máquinas en sus instalaciones: si se conoce el
+  // "lugar" del cliente final, esa dirección de texto libre se geocodifica también
+  // (en la misma cola, para no superar ~1 req/seg a Nominatim) y se guarda en la
+  // propia máquina, separada de las coordenadas del cliente revendedor.
+  const firmaGeoMaquinas = (data.clientes||[]).filter(c=>c.revendedor).flatMap(c=>(c.maquinas||[]).map(m=>`${c.id}:${m.id}:${m.clienteFinalLugar||""}:${m.clienteFinalLat==null?0:1}:${m._clienteFinalGeocodeError||""}`)).join("|");
   useEffect(()=>{
     if(modoVista!=="mapa") return;
-    const pendientes = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && (c.lat==null||c.lng==null||c._geocodedFrom!==direccionMapaCliente(c)) && c._geocodeError!==direccionMapaCliente(c));
-    if(!pendientes.length) return;
+    const pendientesClientes = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && (c.lat==null||c.lng==null||c._geocodedFrom!==direccionMapaCliente(c)) && c._geocodeError!==direccionMapaCliente(c));
+    const pendientesMaquinas = (data.clientes||[]).filter(c=>c.revendedor).flatMap(c=>(c.maquinas||[]).filter(m=>m.clienteFinalLugar && (m.clienteFinalLat==null||m._clienteFinalGeocodedFrom!==m.clienteFinalLugar) && m._clienteFinalGeocodeError!==m.clienteFinalLugar).map(m=>({clienteId:c.id, maquinaId:m.id, lugar:m.clienteFinalLugar})));
+    if(!pendientesClientes.length && !pendientesMaquinas.length) return;
     let cancelado=false;
     setGeocodificando(true);
     (async()=>{
-      for(const c of pendientes){
+      for(const c of pendientesClientes){
         if(cancelado) break;
         const dir = direccionMapaCliente(c);
         if(!dir) continue;
@@ -1776,23 +1795,45 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
         setData(d=>({...d, clientes:d.clientes.map(x=>x.id===c.id?(r?{...x,lat:r.lat,lng:r.lng,_geocodedFrom:dir,_geocodePrecision:r.precision,_geocodeError:undefined}:{...x,_geocodeError:dir,_geocodePrecision:undefined}):x)}));
         await new Promise(res=>setTimeout(res,1100));
       }
+      for(const item of pendientesMaquinas){
+        if(cancelado) break;
+        const r = await geocodificarDireccion(item.lugar);
+        if(cancelado) break;
+        setData(d=>({...d, clientes:d.clientes.map(x=>x.id===item.clienteId?{...x, maquinas:(x.maquinas||[]).map(mm=>mm.id===item.maquinaId?(r?{...mm,clienteFinalLat:r.lat,clienteFinalLng:r.lng,_clienteFinalGeocodedFrom:item.lugar,_clienteFinalGeocodeError:undefined}:{...mm,_clienteFinalGeocodeError:item.lugar}):mm)}:x)}));
+        await new Promise(res=>setTimeout(res,1100));
+      }
       if(!cancelado) setGeocodificando(false);
     })();
     return ()=>{ cancelado=true; };
-  },[modoVista, firmaGeo]);
-  // Permite forzar un nuevo intento de geocodificación para los clientes cuya
-  // dirección falló antes (p.ej. error puntual de red o de Nominatim), sin tener
-  // que esperar a que cambie la dirección.
+  },[modoVista, firmaGeo, firmaGeoMaquinas]);
+  // Permite forzar un nuevo intento de geocodificación para los clientes (o las
+  // ubicaciones de cliente final de máquinas en revendedores) cuya dirección
+  // falló antes (p.ej. error puntual de red o de Nominatim).
   const reintentarGeocodificacion = () => {
-    setData(d=>({...d, clientes:d.clientes.map(c=>c._geocodeError?{...c,_geocodeError:undefined}:c)}));
+    setData(d=>({...d, clientes:d.clientes.map(c=>{
+      const base = c._geocodeError?{...c,_geocodeError:undefined}:c;
+      if(!(base.maquinas||[]).some(m=>m._clienteFinalGeocodeError)) return base;
+      return {...base, maquinas:base.maquinas.map(m=>m._clienteFinalGeocodeError?{...m,_clienteFinalGeocodeError:undefined}:m)};
+    })}));
   };
-  const clientesConErrorGeo = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && c._geocodeError).length;
+  const clientesConErrorGeo = (data.clientes||[]).filter(c=>(c.maquinas||[]).length>0 && c._geocodeError).length
+    + (data.clientes||[]).filter(c=>c.revendedor).flatMap(c=>(c.maquinas||[]).filter(m=>m._clienteFinalGeocodeError)).length;
 
   const jitter = id => ((id%1000)/1000-0.5)*0.01;
+  // Caso especial revendedores: la máquina no está en las instalaciones del
+  // cliente registrado, así que NUNCA se pinta en la dirección del revendedor.
+  // Sólo aparece en el mapa si se conoce y se ha podido geocodificar el lugar
+  // del cliente final; si no se conoce, se excluye (mejor no mostrarla que
+  // mostrarla en un sitio incorrecto).
   const puntosMapa = filtradas.map(m=>{
     const cli = data.clientes.find(c=>c.id===m._clienteId);
-    if(!cli || cli.lat==null || cli.lng==null) return null;
-    return { clienteId:m._clienteId, maquinaId:m.id, lat:cli.lat+jitter(m.id), lng:cli.lng+jitter(m.id*7), nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`, clienteNombre:m._clienteNombre, codigo:m.codigo, precision:cli._geocodePrecision||"exacta" };
+    if(!cli) return null;
+    if(cli.revendedor){
+      if(m.clienteFinalLat==null || m.clienteFinalLng==null) return null;
+      return { clienteId:m._clienteId, maquinaId:m.id, lat:m.clienteFinalLat+jitter(m.id), lng:m.clienteFinalLng+jitter(m.id*7), nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`, clienteNombre:m._clienteNombre, clienteFinalNombre:m.clienteFinalNombre, clienteFinalLugar:m.clienteFinalLugar, codigo:m.codigo, precision:"exacta", viaRevendedor:true };
+    }
+    if(cli.lat==null || cli.lng==null) return null;
+    return { clienteId:m._clienteId, maquinaId:m.id, lat:cli.lat+jitter(m.id), lng:cli.lng+jitter(m.id*7), nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`, clienteNombre:m._clienteNombre, codigo:m.codigo, precision:cli._geocodePrecision||"exacta", viaRevendedor:false };
   }).filter(Boolean);
   const centroMapa = puntosMapa.length
     ? [puntosMapa.reduce((s,p)=>s+p.lat,0)/puntosMapa.length, puntosMapa.reduce((s,p)=>s+p.lng,0)/puntosMapa.length]
@@ -2053,6 +2094,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
         {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseFloat(m.precioVenta).toLocaleString():"—"}</div></div>}
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#6b7a99",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
+        {cliente.revendedor&&<div style={{background:"#1a0d18",border:"1px solid #ec489944",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#ec4899",fontSize:11,textTransform:"uppercase",marginBottom:4}}>📍 Cliente final</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:14}}>{m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"Desconocido"}</div></div>}
         {garantiaInfo(m)&&(()=>{const g=garantiaInfo(m);
           if(g.estado==="pendiente") return (
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
@@ -2108,6 +2150,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         </div>
         <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
         {cliente.id===0&&!form.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>}
+        {cliente.revendedor && (
+          <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
+            <div style={{color:"#6b7a99",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+              <Field label="Cliente final (nombre)"><Input value={form.clienteFinalNombre||""} onChange={f("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
+              <Field label="Localidad / lugar"><Input value={form.clienteFinalLugar||""} onChange={f("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
+            </div>
+          </div>
+        )}
         <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
         <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
@@ -2188,6 +2240,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             {m.codigo&&<span style={{color:"#0ea5e9",fontSize:10,fontWeight:700,fontFamily:"monospace",whiteSpace:"nowrap"}}>{m.codigo}</span>}
           </div>
           <div style={{color:"#6b7a99",fontSize:12,marginBottom:4}}>🏢 {m._clienteNombre}</div>
+          {m._clienteRevendedor&&<div style={{color:"#ec4899",fontSize:11,marginBottom:4,fontWeight:700}}>📍 Cliente final: {m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"desconocido"}</div>}
           <div style={{color:"#6b7a99",fontSize:11}}>{[m.marca,m.modelo,m.serie,m.anyo].filter(Boolean).join(" · ")||"Sin datos técnicos"}</div>
         </div>
       ))}
@@ -2195,7 +2248,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     ):(
     <div style={{height:540,borderRadius:14,overflow:"hidden",border:"1px solid #2a3550",position:"relative"}}>
       {geocodificando&&<div style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#0ea5e9",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7}}>Localizando direcciones...</div>}
-      {puntosMapa.length===0&&!geocodificando&&<div style={{position:"absolute",top:8,left:8,zIndex:500,background:"#0d1117cc",color:"#6b7a99",fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:7}}>Sin máquinas localizables (revisa que el cliente tenga dirección)</div>}
+      {puntosMapa.length===0&&!geocodificando&&<div style={{position:"absolute",top:8,left:8,zIndex:500,background:"#0d1117cc",color:"#6b7a99",fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:7}}>Sin máquinas localizables (revisa que el cliente tenga dirección; las de revendedores sólo se ubican si se conoce el lugar del cliente final)</div>}
       {!geocodificando&&clientesConErrorGeo>0&&(
         <button onClick={reintentarGeocodificacion} style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#f59e0b",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7,border:"1px solid #f59e0b44",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
           <Icon name="search" size={11}/>No se pudo localizar {clientesConErrorGeo} dirección{clientesConErrorGeo>1?"es":""} · Reintentar
@@ -2207,8 +2260,11 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <Marker key={p.clienteId+"-"+p.maquinaId} position={[p.lat,p.lng]} icon={maquinaMarkerIcon}>
             <Popup>
               <div onClick={()=>setVista({clienteId:p.clienteId,maquinaId:p.maquinaId})} style={{minWidth:140,cursor:"pointer"}}>
-                <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>
+                {p.viaRevendedor
+                  ? <div style={{fontWeight:700,marginBottom:2,color:"#be185d"}}>📍 {p.clienteFinalNombre||p.clienteFinalLugar}</div>
+                  : <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>}
                 <div style={{fontSize:12,color:"#333"}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
+                {p.viaRevendedor&&<div style={{fontSize:10,color:"#be185d",marginTop:3,fontWeight:600}}>🔁 Vía revendedor: {p.clienteNombre}{p.clienteFinalLugar?" · "+p.clienteFinalLugar:""}</div>}
                 {p.precision!=="exacta"&&<div style={{fontSize:10,color:"#b45309",marginTop:3,fontWeight:600}}>📍 Ubicación aproximada (por {p.precision==="cp"?"código postal":"provincia"}, no se encontró la dirección exacta)</div>}
                 <div style={{fontSize:10,color:"#0ea5e9",marginTop:4,fontWeight:700}}>Ver máquina →</div>
               </div>
@@ -2249,6 +2305,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Field label="Año"><Input value={formNueva.anyo||""} onChange={fN("anyo")}/></Field>
       </div>
       {parseInt(formNueva.clienteId)===0&&<Field label="Precio de venta (EUR)"><Input type="number" value={formNueva.precioVenta||""} onChange={fN("precioVenta")}/></Field>}
+      {data.clientes.find(c=>c.id===parseInt(formNueva.clienteId))?.revendedor && (
+        <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
+          <div style={{color:"#6b7a99",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+            <Field label="Cliente final (nombre)"><Input value={formNueva.clienteFinalNombre||""} onChange={fN("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
+            <Field label="Localidad / lugar"><Input value={formNueva.clienteFinalLugar||""} onChange={fN("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
+          </div>
+        </div>
+      )}
       <Field label="Foto"><input type="file" accept="image/*" onChange={handleFotoNueva}/></Field>
       <Field label="Documentación (opcional)">
         <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#6b7a99",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
