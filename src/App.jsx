@@ -204,8 +204,15 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
         const itemB = baseById.get(itemR.id);
         const itemL = localById.get(itemR.id);
         if (!itemL) {
-          if (itemB && mismoJSON(itemB, itemR)) continue; // lo borramos nosotros -> respetamos el borrado
-          resultado.push(itemR); // nuevo o cambiado en remoto después de que lo borráramos -> lo mantenemos
+          // Si ya lo teníamos en base y ha desaparecido de nuestra copia local, es que
+          // lo hemos borrado nosotros explícitamente: ese borrado se respeta siempre,
+          // aunque el remoto lo haya modificado mientras tanto (antes solo se respetaba
+          // si el remoto seguía exactamente igual que en "base", y si alguien lo tocó
+          // -aunque fuera un cambio mínimo, p.ej. desde otra pestaña- el borrado se
+          // descartaba y el registro reaparecía). Si no estaba en "base" es que es
+          // nuevo en el remoto (no lo hemos borrado, nunca lo tuvimos) y sí se incorpora.
+          if (itemB) continue;
+          resultado.push(itemR); // nuevo en el remoto, no relacionado con un borrado nuestro
           continue;
         }
         if (itemB && mismoJSON(itemL, itemB)) { resultado.push(itemR); continue; } // no tocamos este registro
