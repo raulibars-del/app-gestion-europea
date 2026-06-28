@@ -3160,22 +3160,36 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   // omite el párrafo de intro (no hace falta, ya queda dicho en el saludo).
   const saludoHtml = "<p>" + (opts.saludo || "Hola,") + "</p>";
   const introHtml = (!opts.saludo && intro) ? "<p>" + intro + ":</p>" : "";
-  // firmaNombre: nombre de quien envía (el creador de la tarea, tanto si se
-  // reenvía a un externo como si es el aviso normal de asignación/autoenvío),
-  // con un cierre "Un saludo," y, si están rellenos en su usuario, el teléfono
-  // y el email de contacto justo debajo, antes de la razón social. Si tiene
-  // foto de perfil (opts.firmaFoto), se muestra en miniatura circular junto al
-  // nombre (en tabla, no flexbox, para que se vea bien en Outlook/Gmail).
-  const firmaNombreHtml = opts.firmaNombre
-    ? "<div style=\"font-size:13px;margin-bottom:6px;\">Un saludo,</div>"
-      + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-bottom:1px;\"><tr>"
-      + (opts.firmaFoto ? "<td style=\"padding-right:8px;\"><img src=\"" + opts.firmaFoto + "\" width=\"32\" height=\"32\" style=\"display:block;width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.4);\" alt=\"" + opts.firmaNombre + "\"/></td>" : "")
-      + "<td style=\"font-weight:700;font-size:14px;\">" + opts.firmaNombre + "</td>"
+  // Bloque de la persona que firma (foto circular + nombre/puesto/teléfono/email,
+  // todo dentro de la MISMA celda de tabla para que quede bien alineado: antes el
+  // nombre iba en una tabla aparte y el puesto/teléfono/email quedaban sueltos
+  // debajo, sin alinearse con el nombre — de ahí que se viera descuadrado). La
+  // foto va a 56x56, el mismo tamaño que el logo de empresa de abajo, para que
+  // ambos bloques queden simétricos.
+  const AVATAR_PX = 56;
+  const firmaPersonaHtml = opts.firmaNombre
+    ? "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+      + (opts.firmaFoto
+          ? "<td style=\"width:" + AVATAR_PX + "px;padding-right:14px;vertical-align:top;\"><img src=\"" + opts.firmaFoto + "\" width=\"" + AVATAR_PX + "\" height=\"" + AVATAR_PX + "\" style=\"display:block;width:" + AVATAR_PX + "px;height:" + AVATAR_PX + "px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);\" alt=\"" + opts.firmaNombre + "\"/></td>"
+          : "")
+      + "<td style=\"vertical-align:middle;\">"
+      + "<div style=\"font-weight:700;font-size:16px;margin-bottom:3px;\">" + opts.firmaNombre + "</div>"
+      + (opts.firmaPuesto ? "<div style=\"font-size:12.5px;line-height:1.5;\">" + opts.firmaPuesto + "</div>" : "")
+      + (opts.firmaTelefono ? "<div style=\"font-size:12.5px;line-height:1.5;\">" + opts.firmaTelefono + "</div>" : "")
+      + (opts.firmaEmail ? "<div style=\"font-size:12.5px;line-height:1.5;\">" + opts.firmaEmail + "</div>" : "")
+      + "</td>"
       + "</tr></table>"
-      + (opts.firmaPuesto ? "<div style=\"font-size:12px;\">" + opts.firmaPuesto + "</div>" : "")
-      + (opts.firmaTelefono ? "<div style=\"font-size:12px;\">" + opts.firmaTelefono + "</div>" : "")
-      + (opts.firmaEmail ? "<div style=\"font-size:12px;margin-bottom:6px;\">" + opts.firmaEmail + "</div>" : "")
     : "";
+  // Bloque de empresa (logo + razón social + web), mismo tamaño de imagen (56px)
+  // que la foto personal de arriba para que ambos queden simétricos, separados
+  // por una línea fina cuando hay firma personal antes.
+  const firmaEmpresaHtml = "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+    + "<td style=\"width:" + AVATAR_PX + "px;padding-right:14px;vertical-align:top;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"" + AVATAR_PX + "\" height=\"" + AVATAR_PX + "\" style=\"display:block;width:" + AVATAR_PX + "px;height:" + AVATAR_PX + "px;border-radius:12px;\" alt=\"Europea de Maquinaria\"/></td>"
+    + "<td style=\"vertical-align:middle;\">"
+    + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
+    + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
+    + "</td>"
+    + "</tr></table>";
   return "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\">"
     + saludoHtml
     + introHtml
@@ -3184,16 +3198,10 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
     + "</table>"
     + fotosHtml + otrosHtml
     + botonHtml
-    + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
-    + "<tr><td style=\"padding:14px 18px;\">"
-    + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-    + "<td style=\"padding-right:12px;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
-    + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
-    + firmaNombreHtml
-    + "<div style=\"font-weight:700;font-size:14px;\">Europea de Maquinaria, PMM, S.L.</div>"
-    + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
-    + "</td>"
-    + "</tr></table>"
+    + "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:10px;width:100%;\">"
+    + "<tr><td style=\"padding:18px 20px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;\">"
+    + (opts.firmaNombre ? "<div style=\"font-size:13px;margin-bottom:12px;\">Un saludo,</div>" + firmaPersonaHtml + "<div style=\"height:1px;line-height:1px;font-size:1px;background-color:rgba(255,255,255,.3);margin:16px 0;\">&nbsp;</div>" : "")
+    + firmaEmpresaHtml
     + "</td></tr></table>"
     + "</div>";
 };
@@ -3203,17 +3211,18 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
 // albaranes...), con la dirección, CIF, teléfono y los 3 emails de contacto.
 const htmlFirmaGestion = () => {
   const SITE_URL = "https://gestion.europeademaquinaria.com";
-  return "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
-    + "<tr><td style=\"padding:14px 18px;\">"
+  const AVATAR_PX = 56;
+  return "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:10px;width:100%;\">"
+    + "<tr><td style=\"padding:18px 20px;\">"
     + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
-    + "<td style=\"padding-right:12px;vertical-align:top;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
-    + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+    + "<td style=\"width:" + AVATAR_PX + "px;padding-right:14px;vertical-align:top;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"" + AVATAR_PX + "\" height=\"" + AVATAR_PX + "\" style=\"display:block;width:" + AVATAR_PX + "px;height:" + AVATAR_PX + "px;border-radius:12px;\" alt=\"Europea de Maquinaria\"/></td>"
+    + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;vertical-align:middle;\">"
     + "<div style=\"font-weight:700;font-size:14px;margin-bottom:3px;\">Europea de Maquinaria, PMM, S.L.</div>"
-    + "<div style=\"font-size:12px;\">C/ Mas del Jutge, 33 — 46900</div>"
-    + "<div style=\"font-size:12px;margin-bottom:5px;\">CIF B98527583 · Tel. +34 96 155 07 07</div>"
-    + "<div style=\"font-size:12px;\">Información general: info@europeademaquinaria.com</div>"
-    + "<div style=\"font-size:12px;\">Servicio y asistencia: servicio@europeademaquinaria.com</div>"
-    + "<div style=\"font-size:12px;margin-bottom:5px;\">Administración: admin@europeademaquinaria.com</div>"
+    + "<div style=\"font-size:12.5px;line-height:1.5;\">C/ Mas del Jutge, 33 — 46900</div>"
+    + "<div style=\"font-size:12.5px;line-height:1.5;margin-bottom:5px;\">CIF B98527583 · Tel. +34 96 155 07 07</div>"
+    + "<div style=\"font-size:12.5px;line-height:1.5;\">Información general: info@europeademaquinaria.com</div>"
+    + "<div style=\"font-size:12.5px;line-height:1.5;\">Servicio y asistencia: servicio@europeademaquinaria.com</div>"
+    + "<div style=\"font-size:12.5px;line-height:1.5;margin-bottom:5px;\">Administración: admin@europeademaquinaria.com</div>"
     + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
     + "</td>"
     + "</tr></table>"
