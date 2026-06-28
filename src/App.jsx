@@ -1036,7 +1036,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       setPdfFicha({ url, nombre: "Ficha "+(c.nombreEmpresa||"cliente"), blob });
     } catch(e) { alert("No se pudo generar el PDF de la ficha del cliente."); }
   };
-  const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
+  const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente,revendedor:!!formC.revendedor}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
   // Crea la empresa Y el contacto a la vez a partir de los campos leídos de una
   // tarjeta de visita escaneada. No pasa por el formulario normal (sería un
   // paso más y la idea es ahorrar tecleo): se crea directamente y se informa
@@ -1142,19 +1142,20 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
-        <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
+        <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
       </div>
       <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
       <div style={{display:"grid",gap:9}}>
-        {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; return(
-          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":"#151b2a",border:`1px solid ${esPropia?"#10b98155":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
-            onMouseEnter={e=>e.currentTarget.style.borderColor=esPropia?"#10b981":"#3b82f6"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor=esPropia?"#10b98155":esCliente?"#3b82f644":"#2a3550"}>
+        {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const revendedor = c.revendedor; return(
+          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":revendedor?"#1a0d18":"#151b2a",border:`1px solid ${esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=esPropia?"#10b981":revendedor?"#ec4899":"#3b82f6"}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-                  <div style={{color: esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
+                  <div style={{color: esPropia?"#10b981":revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
                   {esPropia && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
+                  {revendedor && <span style={{background:"#ec4899",color:"#1a0014",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔁 REVENDEDOR</span>}
                   {esCliente && !esPropia && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>CLIENTE</span>}
                   <span style={{color:"#6b7a99",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px",flexShrink:0}}>📍 {c.localidad}</span>
                 </div>
@@ -1217,18 +1218,26 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             <Field label="Provincia"><Input value={formC.provinciaFabrica||""} onChange={fc("provinciaFabrica")}/></Field>
           </div>
         </div>
-        <Field label="Ha comprado maquinaria a Europea de Maquinaria?">
-          <div style={{display:"flex",gap:8}}>
-            <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:true}))}
-              style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#6b7a99",fontWeight:800,fontSize:13,cursor:"pointer"}}>
-              SI — ES CLIENTE
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
+          <Field label="Ha comprado maquinaria a Europea de Maquinaria?">
+            <div style={{display:"flex",gap:8}}>
+              <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:true}))}
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#6b7a99",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                SI — ES CLIENTE
+              </button>
+              <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:false}))}
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#6b7a99":"#2a3550"),background:!formC.esCliente?"#6b7a9915":"#0d1117",color:!formC.esCliente?"#9aa3b8":"#6b7a99",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                Prospecto / Contacto
+              </button>
+            </div>
+          </Field>
+          <Field label="¿Es revendedor de maquinaria?">
+            <button type="button" onClick={()=>setFormC(p=>({...p,revendedor:!p.revendedor}))}
+              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#6b7a99",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              {formC.revendedor ? "✓ REVENDEDOR DE MAQUINARIA" : "Revendedor de maquinaria"}
             </button>
-            <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:false}))}
-              style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#6b7a99":"#2a3550"),background:!formC.esCliente?"#6b7a9915":"#0d1117",color:!formC.esCliente?"#9aa3b8":"#6b7a99",fontWeight:700,fontSize:13,cursor:"pointer"}}>
-              Prospecto / Contacto
-            </button>
-          </div>
-        </Field>
+          </Field>
+        </div>
         <Field label="Notas"><Textarea value={formC.notas||""} onChange={fc("notas")}/></Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalC(null)} style={btnOutline}>Cancelar</button><button onClick={saveC} style={btnPrimary}>{formC.id?"Guardar":"Crear"}</button></div>
       </Modal>}
@@ -1271,6 +1280,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             <h2 style={{color:c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>{c.nombreEmpresa}</h2>
             {c.esPropia && (
               <span style={{background:"#10b981",color:"#001a0a",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>🏠 CUENTA PROPIA</span>
+            )}
+            {c.revendedor && (
+              <span style={{background:"#ec4899",color:"#1a0014",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>🔁 REVENDEDOR DE MAQUINARIA</span>
             )}
             {c.esCliente && !c.esPropia && (
               <span style={{background:"#faff00",color:"#1a1a00",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>✓ CLIENTE</span>
@@ -2270,6 +2282,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   const [motivoCancel, setMotivoCancel] = useState("");
   const fa = k => e => setFormAv(p => ({ ...p, [k]: e.target.value }));
   const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
+  // Los avisos de clientes revendedores de maquinaria van siempre primero dentro
+  // de su grupo de prioridad (Alta/Media/Leve), por delante de la antigüedad.
+  const esRevendedor = id => !!data.clientes.find(c => c.id === parseInt(id))?.revendedor;
   const avs = useMemo(() => {
     let l = [...data.avisos];
     if (fe === "Activos") l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
@@ -2280,8 +2295,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
     if (ft !== "Todos") l = l.filter(a => a.tipo === ft);
     if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => a.titulo.toLowerCase().includes(q) || cN(a.clienteId).toLowerCase().includes(q)); }
-    return l.sort((a, b) => { const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9; return pa !== pb ? pa - pb : diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso); });
-  }, [data.avisos, fe, fp, ft, s, soloSinAsignar, soloAntiguos]);
+    return l.sort((a, b) => {
+      const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
+      if (pa !== pb) return pa - pb;
+      const ra = esRevendedor(a.clienteId), rb = esRevendedor(b.clienteId);
+      if (ra !== rb) return ra ? -1 : 1;
+      return diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso);
+    });
+  }, [data.avisos, data.clientes, fe, fp, ft, s, soloSinAsignar, soloAntiguos]);
   const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignados:[],fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
   const openEditAv = item => { setFormAv({ ...item, asignados: listaNombres(item,"asignados","asignado") }); setModalAv("form"); };
   const saveAv = () => {
@@ -2442,7 +2463,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 </div>
                 <div style={{color:"#9aa3b8",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  <span style={{color:"#6b7a99",fontSize:11}}>🏢 {cN(av.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return cl?.esCliente?<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>CLIENTE</span>:null;})()}</span>
+                  <span style={{color:"#6b7a99",fontSize:11}}>🏢 {cN(av.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>CLIENTE</span>}</>;})()}</span>
                   {(av.marca||av.modelo||av.matricula) && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>}
                   <span style={{color:"#6b7a99",fontSize:11}}>👤 {av.dadoPor}</span>
                   <span style={{color:"#6b7a99",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
