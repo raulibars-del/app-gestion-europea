@@ -8244,6 +8244,7 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
   const OUT = 480;  // resolución de la imagen final guardada (px)
   const [img, setImg] = useState(null);
   const [zoom, setZoom] = useState(1);
+  const [minZoom, setMinZoom] = useState(0.5);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
   const baseScaleRef = useRef(1);
@@ -8255,8 +8256,12 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
     const el = new Image();
     el.onload = () => {
       if (cancelado) return;
-      const base = Math.max(VIEW / el.naturalWidth, VIEW / el.naturalHeight);
+      const ratioW = VIEW / el.naturalWidth, ratioH = VIEW / el.naturalHeight;
+      const base = Math.max(ratioW, ratioH); // escala mínima que cubre todo el visor sin huecos
+      const contain = Math.min(ratioW, ratioH); // escala a la que se ve la foto entera
       baseScaleRef.current = base;
+      const minZ = Math.min(1, Math.max(0.15, contain / base));
+      setMinZoom(minZ);
       setImg(el);
       setZoom(1);
       setPos({ x: (VIEW - el.naturalWidth * base) / 2, y: (VIEW - el.naturalHeight * base) / 2 });
@@ -8266,11 +8271,16 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
     return () => { cancelado = true; if (url) URL.revokeObjectURL(url); };
   }, [source]);
 
+  // Si la foto, al hacer zoom, queda más pequeña que el visor, se centra (en vez
+  // de quedar pegada a una esquina); si es más grande, se limita para que no
+  // se salga del marco. En ambos casos se escala igual en ancho y alto, así
+  // que la proporción de la foto nunca se deforma.
+  const clampAxis = (p, size) => size <= VIEW ? (VIEW - size) / 2 : Math.min(0, Math.max(p, VIEW - size));
   const clamp = (p, z) => {
     if (!img) return p;
     const w = img.naturalWidth * baseScaleRef.current * z;
     const h = img.naturalHeight * baseScaleRef.current * z;
-    return { x: Math.min(0, Math.max(p.x, VIEW - w)), y: Math.min(0, Math.max(p.y, VIEW - h)) };
+    return { x: clampAxis(p.x, w), y: clampAxis(p.y, h) };
   };
   const onPointerDown = e => { dragRef.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }; e.target.setPointerCapture?.(e.pointerId); };
   const onPointerMove = e => {
@@ -8286,6 +8296,8 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
     const canvas = document.createElement("canvas");
     canvas.width = OUT; canvas.height = OUT;
     const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, OUT, OUT);
     const f = OUT / VIEW;
     const w = img.naturalWidth * baseScaleRef.current * zoom * f;
     const h = img.naturalHeight * baseScaleRef.current * zoom * f;
@@ -8312,7 +8324,7 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
         </div>
         <div style={{ width: "100%", maxWidth: 280 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7a99", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 6, textAlign: "center" }}>Zoom</div>
-          <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoom} style={{ width: "100%" }} />
+          <input type="range" min={minZoom} max="3" step="0.01" value={zoom} onChange={handleZoom} style={{ width: "100%" }} />
         </div>
         <div style={{ color: "#6b7a99", fontSize: 11.5, textAlign: "center" }}>Arrastra la foto para encuadrarla y usa el deslizador para hacer zoom.</div>
       </div>
