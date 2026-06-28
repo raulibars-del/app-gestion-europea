@@ -3197,6 +3197,28 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
     + "</td></tr></table>"
     + "</div>";
 };
+// Pie de firma de "empresa" — misma estética que la firma personal de arriba
+// (caja verde, logo, tipografía Arial) pero sin nombre de ninguna persona:
+// para los emails que salen de la cuenta de gestión (partes de trabajo,
+// albaranes...), con la dirección, CIF, teléfono y los 3 emails de contacto.
+const htmlFirmaGestion = () => {
+  const SITE_URL = "https://gestion.europeademaquinaria.com";
+  return "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;background-color:#0f9b6e;border-radius:8px;width:100%;\">"
+    + "<tr><td style=\"padding:14px 18px;\">"
+    + "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
+    + "<td style=\"padding-right:12px;vertical-align:top;\"><img src=\"" + SITE_URL + "/icon-512.png\" width=\"34\" height=\"34\" style=\"display:block;border-radius:8px;\" alt=\"Europea de Maquinaria\"/></td>"
+    + "<td style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;\">"
+    + "<div style=\"font-weight:700;font-size:14px;margin-bottom:3px;\">Europea de Maquinaria, PMM, S.L.</div>"
+    + "<div style=\"font-size:12px;\">C/ Mas del Jutge, 33 — 46900</div>"
+    + "<div style=\"font-size:12px;margin-bottom:5px;\">CIF B98527583 · Tel. +34 96 155 07 07</div>"
+    + "<div style=\"font-size:12px;\">Información general: info@europeademaquinaria.com</div>"
+    + "<div style=\"font-size:12px;\">Servicio y asistencia: servicio@europeademaquinaria.com</div>"
+    + "<div style=\"font-size:12px;margin-bottom:5px;\">Administración: admin@europeademaquinaria.com</div>"
+    + "<a href=\"https://www.europeademaquinaria.com\" style=\"color:#ffffff;font-size:12px;text-decoration:underline;\">www.europeademaquinaria.com</a>"
+    + "</td>"
+    + "</tr></table>"
+    + "</td></tr></table>";
+};
 const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
@@ -4395,7 +4417,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         to: emailCliente,
         cc: ccUsada,
         subject: "Parte de trabajo "+numeroMostrado+" — Europea de Maquinaria",
-        html: "<p>Buenas,</p><p>Adjuntamos documento relativo a gestión de trabajo realizada, parte de trabajo <strong>"+numeroMostrado+"</strong>"+(cadena?" (incluye las "+cadena.length+" visitas realizadas)":"")+".</p><p>La cuenta gestion@europeademaquinaria.com es para envío de información y no es una vía de contacto válida. Para información general, escriba a info@europeademaquinaria.com; para aspectos técnicos, a servicio@europeademaquinaria.com o al teléfono 961550707.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+        html: "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos documento relativo a la gestión de trabajo realizada, parte de trabajo <strong>"+numeroMostrado+"</strong>"+(cadena?" (incluye las "+cadena.length+" visitas realizadas)":"")+".</p><p>Esta cuenta es solo para el envío de documentación y no es una vía de contacto válida; para cualquier consulta, escríbanos usando los datos de abajo.</p>"+htmlFirmaGestion()+"</div>",
         attachmentBase64: base64,
         attachmentName: "parte-"+numeroMostrado+".pdf",
         attachmentMime: "application/pdf",
@@ -5586,7 +5608,7 @@ const Albaran = ({ data, setData, userActual }) => {
           to: destino,
           cc: ccUsada,
           subject: "Albarán "+alb.numero+" — Europea de Maquinaria",
-          html: "<p>Buenas,</p><p>Adjuntamos el albarán <strong>"+alb.numero+"</strong> firmado.</p><p>Un saludo,<br/>Europea de Maquinaria</p>",
+          html: "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos el albarán <strong>"+alb.numero+"</strong> firmado.</p>"+htmlFirmaGestion()+"</div>",
           attachmentBase64: base64,
           attachmentName: "albaran-"+alb.numero+".pdf",
           attachmentMime: "application/pdf",
