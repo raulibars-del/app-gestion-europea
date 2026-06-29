@@ -4069,8 +4069,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     setModal(false);
   };
   const toggle = t => {
-    // Las tareas de empresa puede completarlas cualquier miembro; las individuales solo el asignado.
-    if (!t.esEmpresa && t.asignadoId !== userActual.id) return;
+    // Las tareas de empresa puede completarlas cualquier miembro; las individuales solo el
+    // asignado o quien la creó (para que quien la envió pueda darla por hecha también).
+    if (!t.esEmpresa && t.asignadoId !== userActual.id && t.creadoPor !== userActual.id) return;
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
     if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
     setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null } : x) }));
@@ -4145,7 +4146,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         )}
         {sorted.map(t => {
           const vc = venceColor(t.vence);
-          const esMia = t.asignadoId === userActual.id || t.esEmpresa;
+          const esMia = t.asignadoId === userActual.id || t.esEmpresa || t.creadoPor === userActual.id;
           const creadoPorMi = t.creadoPor === userActual.id;
           return (
             <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
