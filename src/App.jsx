@@ -9320,6 +9320,8 @@ export default function App() {
     return initialData;
   });
   const [syncStatus,setSyncStatus]=useState("cargando"); // cargando | ok | guardando | error | offline
+  const syncStatusRef = useRef(syncStatus); // copia siempre actualizada para leer dentro de efectos que no dependen de syncStatus
+  useEffect(()=>{ syncStatusRef.current = syncStatus; },[syncStatus]);
   const lastSyncedRef = useRef(null); // JSON de los datos que sabemos están en el servidor
   const lastVersionRef = useRef(null); // versión de BD que creemos vigente (guardado optimista atómico)
   const dataRef = useRef(data);
@@ -9519,16 +9521,21 @@ export default function App() {
         const res = await fetch("/version.json?t="+Date.now(), { cache: "no-store" });
         if(!res.ok) return;
         const json = await res.json();
-        if(json && json.build && json.build !== __BUILD_ID__ && syncStatus !== "guardando"){
+        if(json && json.build && json.build !== __BUILD_ID__ && syncStatusRef.current !== "guardando"){
           window.location.reload();
         }
       }catch(e){ /* sin conexión: no forzamos nada */ }
     };
-    const interval = setInterval(comprobar, 5*60000);
+    // Comprobamos también justo al montar (cubre pestañas que llevan abiertas
+    // desde antes de un despliegue y todavía no han cambiado de pestaña ni de
+    // foco), y cada 30s en vez de cada 5 min: así un despliegue nuevo llega a
+    // todo el mundo casi al momento en vez de esperar hasta 5 minutos.
+    comprobar();
+    const interval = setInterval(comprobar, 30000);
     const onVisible = ()=>{ if(document.visibilityState==="visible") comprobar(); };
     document.addEventListener("visibilitychange", onVisible);
     return ()=>{ clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
-  },[syncStatus]);
+  },[]);
 
   // Botón manual de "Actualizar datos" (junto al punto de color de la cabecera).
   // Primero comprueba si hay una versión de código más nueva publicada (si la
