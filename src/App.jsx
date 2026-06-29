@@ -3923,6 +3923,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             subject: "Tarea nueva enviada por " + nombreCreador,
             html,
             fromName: nombreCreador + " - Europea de Maquinaria",
+            ...(creador?.email?.trim() ? { replyTo: creador.email.trim() } : {}),
           });
           enviados.push(u.email.trim());
         } catch (e) {
@@ -4002,6 +4003,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         subject: "✅ Tarea completada por " + nombreQuienCompleta,
         html,
         fromName: nombreQuienCompleta + " - Europea de Maquinaria",
+        ...(userActual.email?.trim() ? { replyTo: userActual.email.trim() } : {}),
       });
     } catch (e) { /* aviso de cortesía: si falla, no interrumpimos a quien completó la tarea */ }
   };
@@ -7919,6 +7921,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             subject: "Nuevo evento en el calendario: " + evento.titulo,
             html,
             fromName: nombreCreador + " - Europea de Maquinaria",
+            ...(userActual.email?.trim() ? { replyTo: userActual.email.trim() } : {}),
           });
           enviados.push(u.email.trim());
         } catch (e) {
