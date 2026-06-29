@@ -3948,6 +3948,40 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       alert("Tarea reenviada a " + (destino.nombre ? destino.nombre + " (" + destino.email.trim() + ")" : destino.email.trim()) + ".");
     } catch (e) { alert("No se pudo reenviar la tarea a " + destino.email.trim() + ".\n\n" + e.message); }
   };
+  // Aviso por email a quien creó/asignó la tarea cuando otra persona la marca como
+  // completada. Antes esto solo generaba una notificación interna (campanita), fácil
+  // de no ver si no se entra en la app a menudo — de ahí que pareciera que las tareas
+  // "no se completaban": sí se completaban, pero quien las asignó no se enteraba. No
+  // se avisa con un alert ni se bloquea el guardado si el email falla: es un aviso de
+  // cortesía, no debe interferir con el flujo de quien está completando la tarea.
+  const enviarEmailTareaCompletada = async (t) => {
+    try {
+      const creador = data.usuarios.find(u => u.id === parseInt(t.creadoPor));
+      if (!creador?.email?.trim()) return;
+      const nombreQuienCompleta = userActual.nombre;
+      const lineas = [
+        ["Título", t.titulo],
+        ["Tipo", t.esEmpresa ? "Tarea de empresa (todos)" : "Tarea individual"],
+        ["Completada por", nombreQuienCompleta],
+        ["Vencimiento", fmtFecha(t.vence)],
+        ...(t.notas?.trim() ? [["Notas", t.notas]] : []),
+      ];
+      const html = htmlEmailTarea(lineas, t, "Se ha completado una tarea que creaste o asignaste", true, {
+        firmaNombre: nombreQuienCompleta,
+        firmaPuesto: userActual.puesto?.trim(),
+        firmaTelefono: userActual.telefono?.trim(),
+        firmaEmail: userActual.email?.trim(),
+        firmaFoto: userActual.foto,
+      });
+      await apiSendMail({
+        to: creador.email.trim(),
+        toName: creador.nombre,
+        subject: "✅ Tarea completada por " + nombreQuienCompleta,
+        html,
+        fromName: nombreQuienCompleta + " - Europea de Maquinaria",
+      });
+    } catch (e) { /* aviso de cortesía: si falla, no interrumpimos a quien completó la tarea */ }
+  };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
@@ -4018,6 +4052,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
+      enviarEmailTareaCompletada(t);
     }
   };
   const del = (id, titulo) => {
