@@ -1508,6 +1508,26 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             <Field label="Provincia"><Input value={formC.provinciaFabrica||""} onChange={fc("provinciaFabrica")}/></Field>
           </div>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
+          <Field label="Ha comprado maquinaria a Europea de Maquinaria?">
+            <div style={{display:"flex",gap:8}}>
+              <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:true}))}
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#6b7a99",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                SI — ES CLIENTE
+              </button>
+              <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:false}))}
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#6b7a99":"#2a3550"),background:!formC.esCliente?"#6b7a9915":"#0d1117",color:!formC.esCliente?"#9aa3b8":"#6b7a99",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                Prospecto / Contacto
+              </button>
+            </div>
+          </Field>
+          <Field label="¿Es revendedor de maquinaria?">
+            <button type="button" onClick={()=>setFormC(p=>({...p,revendedor:!p.revendedor}))}
+              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#6b7a99",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              {formC.revendedor ? "✓ REVENDEDOR DE MAQUINARIA" : "Revendedor de maquinaria"}
+            </button>
+          </Field>
+        </div>
         <Field label="Notas"><Textarea value={formC.notas||""} onChange={fc("notas")}/></Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalC(null)} style={btnOutline}>Cancelar</button><button onClick={saveC} style={btnPrimary}>Guardar</button></div>
       </Modal>}
