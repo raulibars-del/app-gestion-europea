@@ -2522,14 +2522,17 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <Icon name="bell" size={15} />
               </div>
               <div style={{flex:"1 1 200px",minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:2}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
                   {av.numeroAviso&&<span style={{background:"#ef444420",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{av.numeroAviso}</span>}
-                  <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word"}}>{av.titulo}</span>
+                  <span style={{color:"#f1f3f9",fontWeight:800,fontSize:14,overflowWrap:"anywhere",wordBreak:"break-word"}}>{av.titulo}</span>
                   <Badge text={av.tipo}/><Badge text={av.prioridad}/>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:5}}>
+                  <span style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {cN(av.clienteId)}</span>
+                  {(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>CLIENTE</span>}</>;})()}
                 </div>
                 <div style={{color:"#9aa3b8",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  <span style={{color:"#6b7a99",fontSize:11}}>🏢 {cN(av.clienteId)}{(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800,marginLeft:4}}>CLIENTE</span>}</>;})()}</span>
                   {(av.marca||av.modelo||av.matricula) && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>}
                   <span style={{color:"#6b7a99",fontSize:11}}>👤 {av.dadoPor}</span>
                   <span style={{color:"#6b7a99",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
