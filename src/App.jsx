@@ -9322,6 +9322,8 @@ export default function App() {
   const [syncStatus,setSyncStatus]=useState("cargando"); // cargando | ok | guardando | error | offline
   const syncStatusRef = useRef(syncStatus); // copia siempre actualizada para leer dentro de efectos que no dependen de syncStatus
   useEffect(()=>{ syncStatusRef.current = syncStatus; },[syncStatus]);
+  const [lastSaveError,setLastSaveError]=useState(null); // motivo real del último fallo de guardado, para no quedarnos solo con el punto rojo sin explicación
+  const saveFailCountRef = useRef(0); // fallos consecutivos de guardado; si se acumulan, avisamos en vez de fallar en silencio para siempre
   const lastSyncedRef = useRef(null); // JSON de los datos que sabemos están en el servidor
   const lastVersionRef = useRef(null); // versión de BD que creemos vigente (guardado optimista atómico)
   const dataRef = useRef(data);
@@ -9406,6 +9408,8 @@ export default function App() {
             aGuardar = combinado;
             if(conflictos.length){
               setSyncStatus("ok");
+              saveFailCountRef.current = 0;
+              setLastSaveError(null);
               window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
               return;
             }
@@ -9426,6 +9430,8 @@ export default function App() {
               lastVersionRef.current = fresco.version;
               setData(combinado2);
               setSyncStatus("ok");
+              saveFailCountRef.current = 0;
+              setLastSaveError(null);
               if(conflictos2.length){
                 window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
               }
@@ -9435,6 +9441,8 @@ export default function App() {
               lastSyncedRef.current = lastSyncedRef.current;
               lastVersionRef.current = fresco.version;
               setSyncStatus("ok");
+              saveFailCountRef.current = 0;
+              setLastSaveError(null);
             }
             return;
           }
@@ -9442,8 +9450,23 @@ export default function App() {
           lastVersionRef.current = resp.version;
           if(aGuardar !== data) setData(aGuardar);
           setSyncStatus("ok");
+          saveFailCountRef.current = 0;
+          setLastSaveError(null);
         }catch(e){
           setSyncStatus("error");
+          const motivo = (e && e.message) ? e.message : String(e);
+          setLastSaveError(motivo);
+          saveFailCountRef.current += 1;
+          // Si llevamos varios fallos consecutivos seguidos (no uno aislado, que
+          // puede ser solo un corte de red momentáneo), avisamos de forma visible
+          // en vez de dejar solo el punto rojo sin explicación: así, si a alguien
+          // se le quedan tareas/avisos "sin guardar" de verdad, se entera en el
+          // momento en vez de descubrirlo horas después al ver que no llegó al
+          // resto. Solo avisamos la primera vez que se cruza el umbral, para no
+          // repetir la alerta en cada reintento mientras el problema persiste.
+          if(saveFailCountRef.current === 3){
+            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"). Sigo reintentando automáticamente, pero si esto no se resuelve solo, avisa: puede que tus últimos cambios no le lleguen a los demás. Comprueba tu conexión a internet.");
+          }
         }
       })();
     }, 1200);
@@ -9855,7 +9878,7 @@ export default function App() {
           </div>
           {/* Notifs + avatar */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
+            <div title={syncStatus==="error" && lastSaveError ? `Error al guardar: ${lastSaveError} (reintentando)` : SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
             <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#6b7a99",display:"flex",alignItems:"center",padding:3,opacity:actualizando?0.5:1}}>
               <Icon name="refresh" size={14}/>
             </button>
