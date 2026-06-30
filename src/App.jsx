@@ -2383,6 +2383,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     if (ft !== "Todos") l = l.filter(a => a.tipo === ft);
     if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => a.titulo.toLowerCase().includes(q) || cN(a.clienteId).toLowerCase().includes(q)); }
     return l.sort((a, b) => {
+      // Una vez cerrado (Resuelto/Cancelado) el aviso ya no compite por prioridad:
+      // se ordena por la fecha en que se cerró, el más reciente primero.
+      if (fe === "Resueltos") {
+        const da = a.fechaResuelto || a.fechaUltimaIntervencion || a.fechaAviso;
+        const db = b.fechaResuelto || b.fechaUltimaIntervencion || b.fechaAviso;
+        return String(db).localeCompare(String(da));
+      }
+      if (fe === "Cancelados") {
+        const da = a.fechaCancelacion || a.fechaAviso;
+        const db = b.fechaCancelacion || b.fechaAviso;
+        return String(db).localeCompare(String(da));
+      }
       const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
       if (pa !== pb) return pa - pb;
       const ra = esRevendedor(a.clienteId), rb = esRevendedor(b.clienteId);
@@ -2404,7 +2416,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     else setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === item.id ? item : a) }));
     setModalAv(null); setDetalle(null);
   };
-  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto" } : a) }));
+  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today() } : a) }));
   const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today() } : a) }));
   const confirmarCancelacion = () => {
     if (!motivoCancel.trim()) { alert("Indica el motivo de la cancelación"); return; }
@@ -4604,7 +4616,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           if (a.id !== item.avisoId) return a;
           if (!continuado) {
             // Parte finalizado → cerrar aviso y registrar fecha última intervención
-            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha };
+            // (también como fecha de resolución, para ordenar la lista de Resueltos)
+            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha };
           } else {
             // Parte continuado → aviso sigue activo, actualizar fecha última intervención
             return { ...a, estado: "En curso", fechaUltimaIntervencion: item.fecha };
