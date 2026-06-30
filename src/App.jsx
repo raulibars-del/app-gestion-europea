@@ -94,32 +94,84 @@ const coincideTexto = (item, query, campos) => {
   const texto = sinAcentos(campos.map(c => String(item?.[c] ?? "")).join(" ")).toLowerCase();
   return palabras.every(p => texto.includes(p));
 };
+// ID del cliente interno "Europea de Maquinaria – Maquinaria Nueva" (stock de máquinas nuevas)
+const CLIENTE_STOCK_ID = -1;
+// Usuarios con acceso a información económica confidencial (precio de compra y precio de venta objetivo).
+// Se compara normalizado (sin tildes, minúsculas) para mayor tolerancia.
+const _USUARIOS_PRECIO_CONF = ["raul ibars","cristina tarin","geles tarin","manuel tarin"];
+const _normNombre = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+const puedeVerPrecioConf = u => _USUARIOS_PRECIO_CONF.includes(_normNombre(u?.nombre));
+
 // Código interno único de máquina, compartido entre Stock (máquinas en venta) y
 // las máquinas de cada cliente — para que nunca se repita un código entre ambos.
 const nextCodigoMaquina = (data) => {
   const nums = [];
-  (data.stock||[]).forEach(m=>{ const n=parseInt((m.codigo||"").replace(/^MAQ-?/,""))||0; if(n) nums.push(n); });
   (data.clientes||[]).forEach(c=>(c.maquinas||[]).forEach(m=>{ const n=parseInt((m.codigo||"").replace(/^MAQ-?/,""))||0; if(n) nums.push(n); }));
   const max = nums.length ? Math.max(...nums) : 0;
   return "MAQ-"+String(max+1).padStart(4,"0");
 };
-// Asigna un código a las máquinas (stock y de clientes) que aún no lo tengan
-// (registros creados antes de existir este campo). Devuelve el mismo objeto
-// si no hay nada que rellenar, para no disparar guardados innecesarios.
+// Asigna un código a las máquinas de clientes (incluido el cliente interno de stock)
+// que aún no lo tengan. Devuelve el mismo objeto si no hay nada que rellenar.
 const backfillCodigosMaquina = (d) => {
   const usados = new Set();
-  (d.stock||[]).forEach(m=>{ if(m.codigo) usados.add(m.codigo); });
   (d.clientes||[]).forEach(c=>(c.maquinas||[]).forEach(m=>{ if(m.codigo) usados.add(m.codigo); }));
   let max = 0;
   usados.forEach(cod=>{ const n=parseInt((cod||"").replace(/^MAQ-?/,""))||0; if(n>max) max=n; });
   let changed = false;
   const sig = () => { max+=1; return "MAQ-"+String(max).padStart(4,"0"); };
-  const stock = (d.stock||[]).map(m=>{ if(m.codigo) return m; changed=true; return {...m, codigo:sig()}; });
   const clientes = (d.clientes||[]).map(c=>{
     const maquinas = (c.maquinas||[]).map(m=>{ if(m.codigo) return m; changed=true; return {...m, codigo:sig()}; });
     return {...c, maquinas};
   });
-  return changed ? {...d, stock, clientes} : d;
+  return changed ? {...d, clientes} : d;
+};
+// Migra el array legacy data.stock[] al cliente interno CLIENTE_STOCK_ID (id=-1).
+// También garantiza que ese cliente exista en data.clientes[].
+// Idempotente: si stock ya está vacío, solo asegura que el cliente -1 esté presente.
+const migrateStockToCliente = (d) => {
+  let clientes = [...(d.clientes||[])];
+  // Asegurar que el cliente interno de stock existe
+  if (!clientes.find(c=>c.id===CLIENTE_STOCK_ID)) {
+    clientes = [{
+      id: CLIENTE_STOCK_ID,
+      nombreEmpresa: "Europea de Maquinaria – Maquinaria Nueva",
+      nombreFiscal: "Europea de Maquinaria – Maquinaria Nueva",
+      cif: "B98527583",
+      localidad: "Torrent (Valencia)",
+      esPropia: true,
+      esStockInterno: true,
+      contactos: [],
+      maquinas: [],
+      notas: "Cliente interno — stock de maquinaria nueva pendiente de venta."
+    }, ...clientes];
+  }
+  // Migrar data.stock[] si todavía existe
+  const stock = d.stock||[];
+  if (stock.length === 0) return {...d, clientes};
+  const cStock = clientes.find(c=>c.id===CLIENTE_STOCK_ID);
+  const existingIds = new Set((cStock.maquinas||[]).map(m=>m._stockId).filter(Boolean));
+  const toMigrate = stock.filter(s=>!existingIds.has(s.id));
+  const nuevasMaquinas = [
+    ...(cStock.maquinas||[]),
+    ...toMigrate.map(s=>({
+      id: s.id,
+      _stockId: s.id,
+      nombre: (`${s.marca||""} ${s.modelo||""}`).trim(),
+      marca: s.marca||"",
+      modelo: s.modelo||"",
+      serie: s.matricula||"",
+      anyo: s.anyo||"",
+      codigos: s.codigos||[],
+      precioCompra: s.precioCompra||0,
+      precioVentaObj: s.precioVentaObj||0,
+      fotos: s.fotos||[],
+      pdfs: s.pdfs||[],
+      notas: s.notas||"",
+      codigo: s.codigo||null,
+    }))
+  ];
+  clientes = clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:nuevasMaquinas}:c);
+  return {...d, clientes, stock:[]};
 };
 // Consumibles "clave" que deben tener siempre su recuadro de stock en Inventario,
 // código fijo INV0001..INV0009 (en este orden) y una estrella que los distinga en el
@@ -176,6 +228,8 @@ const backfillConsumiblesClave = (d) => {
   });
   return changed ? {...d, inventario: nuevoInv} : d;
 };
+// Función que aplica todas las migraciones/backfills al cargar datos.
+const prepararDatos = d => prepararDatos(migrateStockToCliente(d));
 // Fusión inteligente de los datos al detectar que otro dispositivo guardó mientras
 // nosotros teníamos una edición local pendiente. Como "data" es un único bloque
 // compartido por toda la app, antes simplemente se descartaba TODA nuestra edición
@@ -303,7 +357,7 @@ const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3
 const ROL_MODULOS = {
   manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords"],
   admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
-  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","inventario","documentacion","calendario","chat","fichaje","passwords"],
+  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
@@ -354,11 +408,15 @@ const initialData = {
     { id:4,nombre:"Jose Antonio García.",password:"3008",rol:"admin",avatar:"JA",activo:true },
     { id:5,nombre:"Luka",password:"3000",rol:"tecnico",avatar:"L",activo:true },
   ],clientes: [
+    { id:CLIENTE_STOCK_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Nueva",nombreFiscal:"Europea de Maquinaria – Maquinaria Nueva",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria nueva pendiente de venta." },
     { id:0,nombreEmpresa:"Europea de Maquinaria PMM SL",nombreFiscal:"Europea de Maquinaria PMM SL",cif:"B98527583",localidad:"Torrent (Valencia)",esCliente:false,esPropia:true,dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",provinciaFiscal:"Valencia",contactos:[],maquinas:[],notas:"Cuenta interna — máquinas propias, trabajos internos y albaranes propios." },
     { id:1,nombreEmpresa:"Carpintería Martínez S.L.",nombreFiscal:"Carpintería Martínez Sociedad Limitada",localidad:"Valencia",esCliente:true,contactos:[{id:1,nombre:"Luis Martínez",puesto:"Gerente",tel:"600 123 456",email:"luis@carpinteria.es",principal:true},{id:2,nombre:"Marta Martínez",puesto:"Administración",tel:"600 123 457",email:"marta@carpinteria.es",principal:false}],maquinas:[{id:1,nombre:"Escuadradora Casadei SC2",marca:"Casadei",modelo:"SC2",serie:"SC2-2019-441",anyo:"2019",notas:"Mantenimiento anual en mayo",foto:null},{id:2,nombre:"Tupi Vitap Alpha 21",marca:"Vitap",modelo:"Alpha 21",serie:"VA21-2020-112",anyo:"2020",notas:"",foto:null}],notas:"Cliente desde 2018." },
     { id:2,nombreEmpresa:"Muebles García S.L.",nombreFiscal:"Muebles García Sociedad Limitada",localidad:"Alicante",esCliente:true,contactos:[{id:1,nombre:"Ana García",puesto:"Directora",tel:"610 234 567",email:"ana@muebles-garcia.es",principal:true}],maquinas:[{id:1,nombre:"CNC Masterwood Project 350",marca:"Masterwood",modelo:"Project 350",serie:"MW350-2021-88",anyo:"2021",notas:"",foto:null},{id:2,nombre:"CNC Busellato Jet Start",marca:"Busellato",modelo:"Jet Start",serie:"BJS-2026-001",anyo:"2026",notas:"Recién instalado",foto:null}],notas:"Pago a 30 días." },
     { id:3,nombreEmpresa:"Taller Rodríguez",nombreFiscal:"Pedro Rodríguez García (Autónomo)",localidad:"Murcia",esCliente:false,contactos:[{id:1,nombre:"Pedro Rodríguez",puesto:"Propietario",tel:"620 345 678",email:"pedro@tallerrod.es",principal:true}],maquinas:[{id:1,nombre:"Lijadora Orma LS120",marca:"Orma",modelo:"LS120",serie:"OLS-2018-33",anyo:"2018",notas:"",foto:null}],notas:"" },
   ],stock:[
+    // Vacío: las máquinas de stock se almacenan ahora en clientes[id=-1].maquinas[]
+    // Los datos existentes se migran automáticamente al cargar (migrateStockToCliente).
+    // Conservamos la clave por compatibilidad con datos guardados anteriores.
     { id:1,marca:"Casadei",modelo:"SC3 Plus",matricula:"SC3-2024-001",anyo:"2024",estado:"Nueva",codigos:[
         {id:1,codigo:"CSC3-BASE",descripcion:"Máquina base Escuadradora SC3 Plus con mesa 3200mm",valor:8500},
         {id:2,codigo:"CSC3-MOT",descripcion:"Motor principal 5.5kW trifásico",valor:1200},
@@ -1147,15 +1205,18 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       </div>
       <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
       <div style={{display:"grid",gap:9}}>
-        {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const revendedor = c.revendedor; return(
-          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":revendedor?"#1a0d18":"#151b2a",border:`1px solid ${esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
-            onMouseEnter={e=>e.currentTarget.style.borderColor=esPropia?"#10b981":revendedor?"#ec4899":"#3b82f6"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor=esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}>
+        {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const esStock = c.esStockInterno; const revendedor = c.revendedor;
+          const colProp = esStock?"#f97316":esPropia?"#10b981":null;
+          return(
+          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esStock?"#1a0d00":esPropia?"#0d1a1a":revendedor?"#1a0d18":"#151b2a",border:`1px solid ${esStock?"#f9731655":esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor=esStock?"#f97316":esPropia?"#10b981":revendedor?"#ec4899":"#3b82f6"}
+            onMouseLeave={e=>e.currentTarget.style.borderColor=esStock?"#f9731655":esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-                  <div style={{color: esPropia?"#10b981":revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
-                  {esPropia && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
+                  <div style={{color: colProp||revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
+                  {esStock && <span style={{background:"#f97316",color:"#1a0500",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🆕 STOCK MAQUINARIA</span>}
+                  {esPropia && !esStock && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
                   {revendedor && <span style={{background:"#ec4899",color:"#1a0014",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔁 REVENDEDOR</span>}
                   {esCliente && !esPropia && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>CLIENTE</span>}
                   <span style={{color:"#e4e9f6",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px",flexShrink:0}}>📍 {c.localidad}</span>
@@ -1278,8 +1339,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
         <div style={{flex:"1 1 200px",minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <h2 style={{color:c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>{c.nombreEmpresa}</h2>
-            {c.esPropia && (
+            <h2 style={{color:c.esStockInterno?"#f97316":c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>{c.nombreEmpresa}</h2>
+            {c.esStockInterno && (
+              <span style={{background:"#f97316",color:"#1a0500",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>🆕 STOCK MAQUINARIA NUEVA</span>
+            )}
+            {c.esPropia && !c.esStockInterno && (
               <span style={{background:"#10b981",color:"#001a0a",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>🏠 CUENTA PROPIA</span>
             )}
             {c.revendedor && (
@@ -1289,7 +1353,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               <span style={{background:"#faff00",color:"#1a1a00",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>✓ CLIENTE</span>
             )}
           </div>
-          {c.esPropia && (
+          {c.esStockInterno && (
+            <div style={{background:"#f9731612",border:"1px solid #f9731633",borderRadius:8,padding:"7px 12px",marginTop:6,color:"#f97316",fontSize:12}}>
+              Stock de maquinaria nueva · Las máquinas vendidas pasan automáticamente al cliente comprador
+            </div>
+          )}
+          {c.esPropia && !c.esStockInterno && (
             <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"7px 12px",marginTop:6,color:"#10b981",fontSize:12}}>
               Máquinas propias · Trabajos internos · Albaranes de la empresa
             </div>
@@ -6440,134 +6509,147 @@ const FotosCarousel = ({fotos}) => {
 };
 const Stock=({data,setData,userActual})=>{
 const puedeEliminar=userActual?.rol==="manager";
-const puedeVerCompra=userActual?.rol==="manager"||userActual?.rol==="admin";
-const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [filtro,setFiltro]=useState("Disponible");const [busq,setBusq]=useState("");
+const puedeConf=puedeVerPrecioConf(userActual);
+const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[];
+const setMaqStock=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
+const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
-const filtradas=data.stock.filter(m=>filtro==="Todas"?true:filtro==="Disponible"?!m.vendida:m.vendida).filter(m=>!busq||`${m.marca} ${m.modelo} ${m.matricula}`.toLowerCase().includes(busq.toLowerCase()));
-const openNew=()=>{setForm({marca:"",modelo:"",matricula:"",anyo:new Date().getFullYear()+"",estado:"Nueva",precioVentaObj:"",vendida:false,notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
-const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[])]);setModal(true);};
-const save=()=>{const item={...form,estado:"Nueva",precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};if(!item.id)setData(d=>({...d,stock:[...d.stock,{...item,id:Date.now(),codigo:item.codigo||nextCodigoMaquina(d)}]}));else setData(d=>({...d,stock:d.stock.map(m=>m.id===item.id?(m.codigo?item:{...item,codigo:nextCodigoMaquina(d)}):m)}));setModal(false);if(vista)setVista(item.id||vista);};
+const maquinas=maqStock();
+const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.toLowerCase().includes(busq.toLowerCase()));
+const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
+const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[{id:Date.now(),codigo:"",descripcion:"",valor:""}])]);setModal(true);};
+const save=()=>{
+  const item={...form,precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  if(!item.id){
+    const newId=Date.now();
+    const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
+    setMaqStock(ms=>[...ms,{...item,id:newId,codigo}]);
+  } else {
+    setMaqStock(ms=>ms.map(m=>m.id===item.id?item:m));
+  }
+  setModal(false);if(vista)setVista(item.id||vista);
+};
 const venderMaquina=()=>{
-  const m=data.stock.find(x=>x.id===modalVender);
+  const m=maquinas.find(x=>x.id===modalVender);
   if(!m) return;
   if(!ventaClienteId){alert("Selecciona un cliente.");return;}
   const clienteId=parseInt(ventaClienteId);
   const maqId=Date.now();
   const maqFinal={
-    id:maqId,nombre:`${m.marca} ${m.modelo}`,marca:m.marca,modelo:m.modelo,serie:m.matricula,anyo:m.anyo,
-    notas:m.notas||"",foto:(()=>{const fp=(m.fotos||[]).find(x=>x.principal)||(m.fotos&&m.fotos[0]);return fp?fp.data:null;})(),
-    codigo:m.codigo||nextCodigoMaquina(data),origenStock:true,fechaVenta:today(),
+    id:maqId,
+    nombre:`${m.marca} ${m.modelo}`,
+    marca:m.marca,modelo:m.modelo,serie:m.serie,anyo:m.anyo,
+    notas:m.notas||"",
+    foto:(()=>{const fp=(m.fotos||[]).find(x=>x.principal)||(m.fotos&&m.fotos[0]);return fp?fp.data:null;})(),
+    fotos:m.fotos||[],pdfs:m.pdfs||[],codigos:m.codigos||[],
+    precioCompra:m.precioCompra||0,precioVentaObj:m.precioVentaObj||0,
+    codigo:m.codigo||nextCodigoMaquina(data),
+    origenStock:true,fechaVenta:today(),
     fechaInstalacion:ventaFechaInstalacion||null,
   };
   setData(d=>{
-    const nuevosClientes=d.clientes.map(c=>c.id===clienteId?{...c,maquinas:[...(c.maquinas||[]),maqFinal]}:c);
-    const nuevaDoc=[...(d.documentacion||[]),{
+    const nuevosClientes=d.clientes.map(c=>{
+      if(c.id===clienteId) return {...c,maquinas:[...(c.maquinas||[]),maqFinal]};
+      if(c.id===CLIENTE_STOCK_ID) return {...c,maquinas:(c.maquinas||[]).filter(x=>x.id!==m.id)};
+      return c;
+    });
+    const nuevaDoc=[...(d.documentacion||[]),(m.pdfs||[]).length>0?{
       id:Date.now()+1,clienteId,_maquinaClienteId:maqId,
       marca:maqFinal.marca,modelo:maqFinal.modelo,matricula:maqFinal.serie,anyo:maqFinal.anyo,
       descripcion:maqFinal.nombre,
       archivos:(m.pdfs||[]).map((p,i)=>({id:Date.now()+i+2,nombre:p.nombre,tipo:"Ficha técnica",tamanyo:0,data:p.data})),
       notas:maqFinal.notas,fechaAlta:today(),_sincronizada:true,
-    }];
-    return {...d,clientes:nuevosClientes,documentacion:nuevaDoc,stock:d.stock.filter(x=>x.id!==m.id)};
+    }:null].filter(Boolean);
+    return {...d,clientes:nuevosClientes,documentacion:nuevaDoc};
   });
   setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
 };
-const delMaquina=id=>{setData(d=>({...d,stock:d.stock.filter(m=>m.id!==id)}));setVista(null);};
+const delMaquina=id=>{setMaqStock(ms=>ms.filter(m=>m.id!==id));setVista(null);};
 const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);const r=new FileReader();r.onload=ev=>setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:ev.target.result,principal:!(p.fotos&&p.fotos.length>0)}]}));r.readAsDataURL(file);});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
-doc.setFillColor(15,23,42);doc.rect(0,0,W,40,"F");doc.setFillColor(16,185,129);doc.rect(0,37,W,3,"F");
+doc.setFillColor(15,23,42);doc.rect(0,0,W,40,"F");doc.setFillColor(249,115,22);doc.rect(0,37,W,3,"F");
 doc.setTextColor(241,243,249);doc.setFontSize(15);doc.setFont("helvetica","bold");doc.text("EUROPEA DE MAQUINARIA PMM SL",mg,14);
 doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(160,170,190);doc.text("Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583",mg,21);
-doc.setTextColor(16,185,129);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("FICHA DE STOCK",W-mg,15,{align:"right"});
-doc.setTextColor(160,170,190);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Ref: "+m.matricula,W-mg,22,{align:"right"});doc.text("Fecha: "+today(),W-mg,28,{align:"right"});
+doc.setTextColor(249,115,22);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("FICHA DE MÁQUINA",W-mg,15,{align:"right"});
+doc.setTextColor(160,170,190);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Ref: "+(m.serie||"—"),W-mg,22,{align:"right"});doc.text("Fecha: "+today(),W-mg,28,{align:"right"});
 let y=50;
-doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(107,122,153);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MAQUINA",mg+4,y+5);y+=12;
-[["Marca",m.marca],["Modelo",m.modelo],["Matricula",m.matricula],["Anyo",m.anyo],["Estado",m.estado]].forEach(([l,v])=>{doc.setTextColor(107,122,153);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);doc.setTextColor(30,30,50);doc.setFont("helvetica","bold");doc.text(String(v),mg+40,y);y+=6;});y+=4;
-doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(107,122,153);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CONFIGURACION Y VALORACION",mg+4,y+5);y+=10;
-doc.setFillColor(10,15,26);doc.rect(mg,y,W-mg*2,6,"F");doc.setTextColor(107,122,153);doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.text("CODIGO",mg+3,y+4.5);doc.text("DESCRIPCION",mg+38,y+4.5);doc.text("VALOR",W-mg-3,y+4.5,{align:"right"});y+=7;
-(m.codigos||[]).forEach((c,i)=>{if(i%2===0){doc.setFillColor(20,26,40);doc.rect(mg,y-1,W-mg*2,7,"F");}doc.setTextColor(30,40,80);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo,mg+3,y+4);doc.setFont("helvetica","normal");doc.setTextColor(60,70,90);const ls=doc.splitTextToSize(c.descripcion,W-mg*2-60);doc.text(ls,mg+38,y+4);doc.setFont("helvetica","bold");doc.setTextColor(16,80,50);doc.text(""+Math.round(parseFloat(c.valor)||0),W-mg-3,y+4,{align:"right"});y+=Math.max(ls.length*5,7);});y+=4;
+doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MÁQUINA",mg+4,y+5);y+=12;
+[["Marca",m.marca],["Modelo",m.modelo],["Nº Serie / Matrícula",m.serie],["Año",m.anyo]].forEach(([l,v])=>{if(!v) return;doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);doc.setTextColor(40,50,80);doc.setFont("helvetica","bold");doc.text(String(v||"—"),mg+55,y);y+=6;});y+=4;
+if((m.codigos||[]).length>0){
+doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CONFIGURACIÓN Y VALORACIÓN",mg+4,y+5);y+=10;
+doc.setFillColor(10,15,26);doc.rect(mg,y,W-mg*2,6,"F");doc.setTextColor(150,162,180);doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.text("CÓDIGO",mg+3,y+4.5);doc.text("DESCRIPCIÓN",mg+38,y+4.5);doc.text("VALOR",W-mg-3,y+4.5,{align:"right"});y+=7;
+(m.codigos||[]).forEach((c,i)=>{if(i%2===0){doc.setFillColor(20,26,40);doc.rect(mg,y-1,W-mg*2,7,"F");}doc.setTextColor(40,50,80);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo||"",mg+3,y+4);doc.setFont("helvetica","normal");doc.setTextColor(60,70,90);const ls=doc.splitTextToSize(c.descripcion||"",W-mg*2-60);doc.text(ls,mg+38,y+4);doc.setFont("helvetica","bold");doc.setTextColor(20,80,50);doc.text(""+Math.round(parseFloat(c.valor)||0),W-mg-3,y+4,{align:"right"});y+=Math.max(ls.length*5,7);});y+=4;
 const tar=vT(m);
-[["VALOR TARIFA TOTAL","EUR "+tar.toLocaleString()]].forEach(([l,v])=>{doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,9,1,1,"F");doc.setTextColor(107,122,153);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text(l,mg+4,y+6);doc.setTextColor(241,243,249);doc.setFontSize(11);doc.text(v,W-mg-4,y+6.5,{align:"right"});y+=12;});
-doc.setFillColor(16,185,129);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");doc.setTextColor(107,122,153);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583",W/2,291,{align:"center"});
-doc.save(`stock-${m.marca}-${m.modelo}.pdf`);};
+doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,9,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TARIFA TOTAL",mg+4,y+6);doc.setTextColor(241,243,249);doc.setFontSize(11);doc.text("EUR "+tar.toLocaleString(),W-mg-4,y+6.5,{align:"right"});y+=14;
+}
+if(m.notas){doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("NOTAS",mg+4,y+5);y+=10;doc.setTextColor(40,50,80);doc.setFontSize(9);doc.setFont("helvetica","normal");const nl=doc.splitTextToSize(m.notas,W-mg*2-8);doc.text(nl,mg+4,y);y+=nl.length*5+6;}
+if((m.fotos||[]).length>0){
+  let fyStart=y;
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("FOTOGRAFÍAS",mg+4,y+5);y+=10;
+  const fotosSorted=[...(m.fotos||[])].sort((a,b)=>b.principal?1:-1);
+  const fW=55;const fH=42;const cols=3;let fx=mg;let fy=y;
+  for(let i=0;i<Math.min(fotosSorted.length,6);i++){
+    try{if(y+fH>280){doc.addPage();y=20;fy=y;fx=mg;}doc.addImage(fotosSorted[i].data,"JPEG",fx,fy,fW,fH);}catch(e){}
+    fx+=fW+3;if((i+1)%cols===0){fx=mg;fy+=fH+3;y=fy;}
+  }
+  y=fy+fH+6;
+}
+doc.setFillColor(249,115,22);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");doc.setTextColor(150,162,180);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583 · europeademaquinaria.com",W/2,291,{align:"center"});
+doc.save(`maquina-${m.marca||""}-${m.modelo||""}.pdf`);};
 const imprimirQR=(m)=>{
-// Mismo esquema que el QR de Máquinas: apunta a la ficha real de la app
-// (https://dominio/?maquina=CODIGO), con login-gate. El código se conserva
-// cuando la máquina se vende y pasa a la ficha del cliente, así que la
-// etiqueta impresa aquí sigue siendo válida después de la venta.
 const urlMaquina = `${window.location.origin}/?maquina=${encodeURIComponent(m.codigo)}`;
 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${encodeURIComponent(urlMaquina)}`;
 const w = window.open("","_blank","width=380,height=420");
-w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}
-.et{border:2px solid #000;padding:16px;width:250px;text-align:center}
-.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:8px;font-weight:700}
-.nom{font-size:12px;font-weight:700;color:#000;margin-bottom:6px;word-break:break-word}
-.cod{font-size:22px;font-weight:900;letter-spacing:3px;color:#000;margin-bottom:8px}
-img{display:block;margin:0 auto}
-@media print{body{min-height:0}}
-</style></head><body>
-<div class="et">
-  <div class="emp">EUROPEA DE MAQUINARIA PMM SL</div>
-  <div class="nom">${(`${m.marca||""} ${m.modelo||""}`).replace(/</g,"")}</div>
-  <div class="cod">${m.codigo}</div>
-  <img src="${qrUrl}" width="200" height="200" alt="QR"/>
-</div>
-<script>
-var img=document.querySelector("img");
-img.onload=function(){setTimeout(function(){window.print();},300);};
-img.onerror=function(){setTimeout(function(){window.print();},1500);};
-<\/script></body></html>`);
+w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}.et{border:2px solid #000;padding:16px;width:250px;text-align:center}.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:8px;font-weight:700}.nom{font-size:12px;font-weight:700;color:#000;margin-bottom:6px;word-break:break-word}.cod{font-size:22px;font-weight:900;letter-spacing:3px;color:#000;margin-bottom:8px}img{display:block;margin:0 auto}@media print{body{min-height:0}}</style></head><body><div class="et"><div class="emp">EUROPEA DE MAQUINARIA PMM SL</div><div class="nom">${(`${m.marca||""} ${m.modelo||""}`).replace(/</g,"")}</div><div class="cod">${m.codigo}</div><img src="${qrUrl}" width="200" height="200" alt="QR"/></div><script>var img=document.querySelector("img");img.onload=function(){setTimeout(function(){window.print();},300);};img.onerror=function(){setTimeout(function(){window.print();},1500);};<\/script></body></html>`);
 w.document.close();
 };
-if(vista&&data.stock.find(x=>x.id===vista)){
-const m=data.stock.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;
+if(vista&&maquinas.find(x=>x.id===vista)){
+const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;
 return(<div>
-<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
 <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
 <div style={{flex:1}}>
 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
 <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.marca} {m.modelo}</h2>
-{m.codigo&&<span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
-<span style={{background:m.estado==="Nueva"?"#10b98120":"#f59e0b20",color:m.estado==="Nueva"?"#10b981":"#f59e0b",border:"1px solid "+(m.estado==="Nueva"?"#10b98144":"#f59e0b44"),borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{m.estado}</span>
+{m.codigo&&<span style={{background:"#f9731620",color:"#f97316",border:"1px solid #f9731644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
 </div>
 <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>Stock maquinaria nueva · pendiente de venta</div>
 </div>
 {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
-{!m.vendida&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vendida</button>}
+<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vendida</button>
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.matricula||"—"}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / Matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
-{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
+<div style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#f97316",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
+{puedeConf && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
+{puedeConf && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
 </div>
+{(m.codigos||[]).length>0&&<>
 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",background:"#0a0f1a",padding:"9px 16px",gap:12}}>
-{["Codigo","Descripcion","Valor EUR"].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+{["Código","Descripción","Valor EUR"].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
 </div>
-{(m.codigos||[]).length===0&&<div style={{padding:"20px 16px",color:"#e4e9f6",textAlign:"center",fontSize:12}}>Sin codigos</div>}
 {(m.codigos||[]).map((c,i)=>(
-<div key={c.id} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
-<div style={{color:"#3b82f6",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
+<div key={c.id||i} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
+<div style={{color:"#f97316",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
 <div style={{color:"#ecf0f6",fontSize:13}}>{c.descripcion}</div>
 <div style={{color:"#10b981",fontWeight:700,fontSize:13,textAlign:"right"}}>EUR{(parseFloat(c.valor)||0).toLocaleString()}</div>
 </div>))}
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550",background:"#0a0f1a"}}>
 <div style={{color:"#e4e9f6",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
-<div style={{color:"#3b82f6",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
+<div style={{color:"#f97316",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
 </div>
 </div>
+</>}
 {(m.fotos||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
 <FotosCarousel fotos={m.fotos}/>
@@ -6577,101 +6659,101 @@ return(<div>
 {m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#e4e9f6",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
 </div>}
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
-{puedeEliminar && <button onClick={()=>{if(window.confirm("Eliminar esta maquina?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+{puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina del stock?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
 </div>);}
-const disponibles=data.stock.filter(m=>!m.vendida).length;
-const valorTarTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+vT(m),0);
-const valorVentaTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFloat(m.precioVentaObj)||0),0);
-const valorCompraTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFloat(m.precioCompra)||0),0);
+const disponibles=maquinas.length;
+const valorTarTotal=maquinas.reduce((s,m)=>s+vT(m),0);
+const valorVentaTotal=maquinas.reduce((s,m)=>s+(parseFloat(m.precioVentaObj)||0),0);
+const valorCompraTotal=maquinas.reduce((s,m)=>s+(parseFloat(m.precioCompra)||0),0);
 return(<div>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Codigos de configuracion - Valor tarifa - Precio de venta</p></div>
-<button onClick={openNew} style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Anadir maquina</button>
+<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria Nueva</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Códigos de configuración · Valor tarifa · Precio de venta</p></div>
+<button onClick={openNew} style={{background:"linear-gradient(135deg,#f97316,#ef4444)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Añadir máquina</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:9,marginBottom:16}}>
-{[["Disponibles",disponibles,"#10b981"],["Vendidas",data.stock.filter(m=>m.vendida).length,"#e4e9f6"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeVerCompra?[["Precio compra total","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
+{[["Disponibles",disponibles,"#f97316"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeConf?[["Precio compra","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
 <div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}>
 <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
 <div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
 </div>))}
 </div>
 <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
-<div style={{display:"flex",gap:3}}>{["Disponible","Vendida","Todas"].map(fi=><button key={fi} onClick={()=>setFiltro(fi)} style={{background:filtro===fi?"#10b981":"#151b2a",color:filtro===fi?"#fff":"#e4e9f6",border:"1px solid "+(filtro===fi?"#10b981":"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{fi}</button>)}</div>
-<div style={{position:"relative",marginLeft:"auto"}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Marca, modelo..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:170}}/></div>
+<div style={{position:"relative",marginLeft:"auto"}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Marca, modelo..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:200}}/></div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:12}}>
-{filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>Sin maquinas en stock</div>}
+{filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>Sin máquinas en stock</div>}
 {filtradas.map(m=>{const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;return(
-<div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid "+(m.vendida?"#2a3550":"#10b98133"),borderRadius:14,overflow:"hidden",cursor:"pointer",opacity:m.vendida?0.65:1}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
+<div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:14,overflow:"hidden",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
 <div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
 {(m.fotos||[]).length>0?<img src={(m.fotos.find(x=>x.principal)||m.fotos[0]).data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
 <div style={{position:"absolute",top:8,left:8,display:"flex",gap:4}}>
-<span style={{background:m.estado==="Nueva"?"#10b981":"#f59e0b",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>{m.estado}</span>
-{m.vendida&&<span style={{background:"#dc2626",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>VENDIDA</span>}
+<span style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>🆕 NUEVA</span>
+{m.codigo&&<span style={{background:"rgba(0,0,0,.7)",color:"#f97316",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{m.codigo}</span>}
 </div>
 </div>
 <div style={{padding:"13px 15px"}}>
 <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,marginBottom:1}}>{m.marca} <span style={{fontWeight:400}}>{m.modelo}</span></div>
-<div style={{color:"#e4e9f6",fontSize:11,marginBottom:10}}>Matr. {m.matricula} - {m.anyo} - {(m.codigos||[]).length} codigos</div>
-<div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
-<div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
+<div style={{color:"#e4e9f6",fontSize:11,marginBottom:10}}>Serie: {m.serie||"—"} · {m.anyo} · {(m.codigos||[]).length} códigos</div>
+<div style={{display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
+<div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#f97316",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
+{puedeConf && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
 </div>
 </div>
 </div>);})}
 </div>
-{modal&&<Modal title={form.id?"Editar maquina":"Nueva maquina en stock"} onClose={()=>setModal(false)} wide>
+{modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina en stock"} onClose={()=>setModal(false)} wide>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:11}}>
 <Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
 <Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
-<Field label="Matricula/Serie"><Input value={form.matricula||""} onChange={f("matricula")}/></Field>
-<Field label="Anyo"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+<Field label="Matrícula / Nº serie"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+<Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
 </div>
 <div style={{marginBottom:4}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-<div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>Codigos de configuracion</div>
-<div style={{color:"#10b981",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
+<div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>Códigos de configuración</div>
+<div style={{color:"#f97316",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,padding:"5px 0",borderBottom:"1px solid #2a3550",marginBottom:4}}>
-{["Codigo","Descripcion","Valor EUR",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+{["Código","Descripción","Valor EUR",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
 </div>
 {codigos.map((c,i)=>(
 <div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
 <input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
-<input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripcion..." style={{...inputStyle}}/>
+<input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
 <input type="number" value={c.valor} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:e.target.value}:x))} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
 <button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
 </div>))}
-<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Anadir codigo</button>
-<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8}}>
-<div style={{background:"#0d1117",border:"1px solid #3b82f633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
+<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
+<div style={{background:"#0d1117",border:"1px solid #f9731633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#f97316",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
+{puedeConf && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
 </div>
 </div>
-{puedeVerCompra && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
-{puedeVerCompra && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Anadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
-{(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ en una foto para marcarla como principal (se usa como portada).</div>}
-{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f59e0b":"2px solid transparent"}}/><button type="button" title="Marcar como foto principal" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f59e0b":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
+{puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+{(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
+{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
-<Field label="PDF (fichas tecnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Anadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
+<Field label="PDF (fichas técnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
 {(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
 </Field>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id?"Guardar":"Anadir al stock"}</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
-{modalVender&&(()=>{const m=data.stock.find(x=>x.id===modalVender);if(!m) return null;return(
+{modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Marcar como vendida: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
-<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de instalación (si ya se conoce)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
-<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
-🆕 La máquina se trasladará a la ficha del cliente (con su código {m.codigo||"—"}) y dejará de aparecer en Stock. Si todavía no se sabe la fecha de instalación, déjala en blanco: cualquier miembro de la empresa podrá fijarla más adelante desde la ficha de la máquina, y ahí empezará a contar el año de garantía.
+<div style={{background:"#f9731612",border:"1px solid #f9731633",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#f97316",fontSize:12}}>
+🆕 La máquina se trasladará a la ficha del cliente (código {m.codigo||"—"}) y dejará de aparecer en Stock. Desde ese momento comienza el periodo de garantía.
 </div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#f97316"}}>Confirmar venta</button></div>
 </Modal>
 );})()}
 </div>);
 };
+
 // ── INVENTARIO ──────────────────────────────────────────────
 const Inventario = ({ data, setData, userActual, isMobile }) => {
   const puedeVerCompra = userActual?.rol==="manager"||userActual?.rol==="admin";
@@ -9617,7 +9699,7 @@ export default function App() {
           const localJson = JSON.stringify(dataRef.current);
           if(baseGuardada && localJson !== baseGuardada && remoteJson !== localJson){
             const conflictos = [];
-            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(JSON.parse(baseGuardada), dataRef.current, res.data, "raiz", conflictos)));
+            const combinado = prepararDatos(combinarDatosRemotos(JSON.parse(baseGuardada), dataRef.current, res.data, "raiz", conflictos));
             persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = res.version;
             setData(combinado);
@@ -9627,7 +9709,7 @@ export default function App() {
             // detectará la diferencia y los subirá automáticamente.
             persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = res.version;
-            setData(backfillConsumiblesClave(backfillCodigosMaquina(res.data)));
+            setData(prepararDatos(res.data));
           }
         } else {
           try {
@@ -9684,7 +9766,7 @@ export default function App() {
           if(remotoJson !== null && remotoJson !== lastSyncedRef.current){
             const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
             const conflictos = [];
-            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base, data, remoto.data, "raiz", conflictos)));
+            const combinado = prepararDatos(combinarDatosRemotos(base, data, remoto.data, "raiz", conflictos));
             persistirUltimoSincronizado(remotoJson);
             lastVersionRef.current = remoto.version;
             setData(combinado);
@@ -9708,7 +9790,7 @@ export default function App() {
             if(fresco.data){
               const base2 = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
               const conflictos2 = [];
-              const combinado2 = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base2, aGuardar, fresco.data, "raiz", conflictos2)));
+              const combinado2 = prepararDatos(combinarDatosRemotos(base2, aGuardar, fresco.data, "raiz", conflictos2));
               persistirUltimoSincronizado(JSON.stringify(fresco.data));
               lastVersionRef.current = fresco.version;
               setData(combinado2);
@@ -9879,14 +9961,14 @@ export default function App() {
           if(localJson !== lastSyncedRef.current){
             const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
             const conflictos = [];
-            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base, dataRef.current, remoto.data, "raiz", conflictos)));
+            const combinado = prepararDatos(combinarDatosRemotos(base, dataRef.current, remoto.data, "raiz", conflictos));
             persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = remoto.version;
             setData(combinado);
           } else {
             persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = remoto.version;
-            setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
+            setData(prepararDatos(remoto.data));
           }
         } else {
           lastVersionRef.current = remoto.version;
