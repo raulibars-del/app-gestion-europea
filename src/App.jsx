@@ -229,7 +229,7 @@ const backfillConsumiblesClave = (d) => {
   return changed ? {...d, inventario: nuevoInv} : d;
 };
 // Función que aplica todas las migraciones/backfills al cargar datos.
-const prepararDatos = d => prepararDatos(migrateStockToCliente(d));
+const prepararDatos = d => backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d)));
 // Fusión inteligente de los datos al detectar que otro dispositivo guardó mientras
 // nosotros teníamos una edición local pendiente. Como "data" es un único bloque
 // compartido por toda la app, antes simplemente se descartaba TODA nuestra edición
@@ -1214,7 +1214,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-                  <div style={{color: colProp||revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
+                  <div style={{color: esStock?"#f97316":colProp?colProp:revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
                   {esStock && <span style={{background:"#f97316",color:"#1a0500",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🆕 STOCK MAQUINARIA</span>}
                   {esPropia && !esStock && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
                   {revendedor && <span style={{background:"#ec4899",color:"#1a0014",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔁 REVENDEDOR</span>}
