@@ -951,9 +951,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
   const filtered=data.clientes.filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(search.toLowerCase())||(c.nombreFiscal||"").toLowerCase().includes(search.toLowerCase())||(c.cif||"").toLowerCase().includes(search.toLowerCase())||(c.localidad||"").toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
-  // "Europea de Maquinaria" (cliente interno, id 0) siempre va primero; el resto, alfabético.
+  // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo; resto alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
+  if(a.id===CLIENTE_STOCK_ID) return -1;
+  if(b.id===CLIENTE_STOCK_ID) return 1;
   return (a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'});
 });
   const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
