@@ -301,9 +301,9 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#8892a4",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes"],
-  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
-  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","inventario","documentacion","calendario","chat","fichaje"],
+  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords"],
+  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
+  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
@@ -407,7 +407,7 @@ const initialData = {
         {id:2,autorId:4,texto:"Sí: CAS-M22-2024.",ts:"2026-05-24T10:05:00"},
       ],comerciales:[],
     },privados:{},
-  },fichajes:[],notificaciones:{},documentacion:[],calendario:[],inventario:[
+  },fichajes:[],notificaciones:{},documentacion:[],calendario:[],passwords:[],inventario:[
     {id:1,codigo:"INV0001",nombre:"Caja cola natural 15 kg HKP21",descripcion:"Caja de cola natural 15 kg HKP21",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
     {id:2,codigo:"INV0002",nombre:"Caja transparente 15 kg HKP20",descripcion:"Caja de cola transparente 15 kg HKP20",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
     {id:3,codigo:"INV0003",nombre:"Caja blanca 15 kg HKP21 White",descripcion:"Caja de cola blanca 15 kg HKP21 White",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
@@ -429,6 +429,7 @@ const Icon = ({ name, size=18 }) => {
     pin:"M12 22s7-7.58 7-12A7 7 0 0 0 5 10c0 4.42 7 12 7 12z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
     share:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6 12 2 8 6 M12 2v13",
     refresh:"M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M20.49 15a9 9 0 0 1-14.85 3.36L1 14",
+    lock:"M5 11a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1z M7 11V7a5 5 0 0 1 10 0v4",
   };
   const d = P[name]||"";
   return (
@@ -8674,6 +8675,142 @@ const Fichaje = ({ data, setData, userActual }) => {
 };
 // ─── FIN FICHAJE ─────────────────────────────────────────────────────────────
 
+// ─── PASSWORDS: contraseñas de acceso de las máquinas instaladas/mantenidas ──
+const Passwords = ({ data, setData, userActual, isMobile }) => {
+  const puedeEliminar = userActual.rol === "manager" || userActual.rol === "admin";
+  const [busq, setBusq] = useState("");
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({});
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
+  const [colWidths, setColWidths] = useState({ tipoControl:130, maquina:170, fabricante:140, password1:120, password2:120, password3:120, notas:230 });
+  const lista = data.passwords || [];
+  const COLS = [
+    { key:"tipoControl", label:"Tipo de control" },
+    { key:"maquina", label:"Máquina" },
+    { key:"fabricante", label:"Fabricante" },
+    { key:"password1", label:"Contraseña 1" },
+    { key:"password2", label:"Contraseña 2" },
+    { key:"password3", label:"Contraseña 3" },
+    { key:"notas", label:"Notas" },
+  ];
+  const campos = COLS.map(c => c.key);
+  const filtrados = lista.filter(p => coincideTexto(p, busq, campos));
+  const ordenados = sortCol ? [...filtrados].sort((a,b) => {
+    const va = sinAcentos(String(a[sortCol]||"")).toLowerCase(), vb = sinAcentos(String(b[sortCol]||"")).toLowerCase();
+    return (va < vb ? -1 : va > vb ? 1 : 0) * (sortDir === "asc" ? 1 : -1);
+  }) : filtrados;
+  const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const abrirNuevo = () => { setForm({ tipoControl:"",maquina:"",fabricante:"",password1:"",password2:"",password3:"",notas:"" }); setModal(true); };
+  const abrirEditar = item => { setForm({ ...item }); setModal(true); };
+  const guardar = () => {
+    if (!form.maquina?.trim()) { alert("Indica al menos la máquina."); return; }
+    if (!form.id) setData(d => ({ ...d, passwords: [...(d.passwords||[]), { ...form, id: Date.now() }] }));
+    else setData(d => ({ ...d, passwords: (d.passwords||[]).map(p => p.id === form.id ? form : p) }));
+    setModal(null);
+  };
+  const eliminar = item => {
+    if (!puedeEliminar) return;
+    if (window.confirm(`¿Eliminar el registro de "${item.maquina}"?`)) setData(d => ({ ...d, passwords: (d.passwords||[]).filter(p => p.id !== item.id) }));
+  };
+  const toggleSort = col => {
+    if (sortCol === col) setSortDir(dir => dir === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+  const ResizeHandle = ({ col }) => {
+    const onDown = e => {
+      e.preventDefault(); e.stopPropagation();
+      const startX = e.clientX, startW = colWidths[col];
+      const onMove = e2 => setColWidths(p => ({ ...p, [col]: Math.max(60, startW + (e2.clientX - startX)) }));
+      const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+      window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
+    };
+    return <span onMouseDown={onDown} style={{position:"absolute",right:0,top:0,bottom:0,width:7,cursor:"col-resize",userSelect:"none"}}/>;
+  };
+  const TIPOS_CONTROL_SUG = ["Siemens","Syntec","Fanuc","Beckhoff","Delta","OSAI","PC Industrial"];
+  return (<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Passwords</h2><p style={{color:"#6b7a99",fontSize:13,margin:"2px 0 0"}}>Contraseñas de acceso de las máquinas instaladas y mantenidas</p></div>
+      <button onClick={abrirNuevo} style={{background:"#eab308",color:"#1a1a1a",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo registro</button>
+    </div>
+    <div style={{position:"relative",marginBottom:14,maxWidth:360}}>
+      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#6b7a99"}}><Icon name="search" size={13}/></span>
+      <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por máquina, fabricante, contraseña, notas..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 12px 9px 32px",color:"#f1f3f9",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+    </div>
+    {isMobile ? (
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {ordenados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#6b7a99",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin registros</div>}
+        {ordenados.map(item=>(
+          <div key={item.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"12px 14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+              <div style={{minWidth:0}}>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{item.maquina}</div>
+                <div style={{color:"#6b7a99",fontSize:12,marginTop:1}}>{[item.fabricante,item.tipoControl].filter(Boolean).join(" · ")}</div>
+              </div>
+              <div style={{display:"flex",gap:5,flexShrink:0}}>
+                <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
+                {puedeEliminar && <button onClick={()=>eliminar(item)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
+              </div>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:9}}>
+              {item.password1 && <div style={{background:"#0d1117",borderRadius:7,padding:"4px 9px",fontSize:12,color:"#f1f3f9",fontFamily:"monospace"}}>1: {item.password1}</div>}
+              {item.password2 && <div style={{background:"#0d1117",borderRadius:7,padding:"4px 9px",fontSize:12,color:"#f1f3f9",fontFamily:"monospace"}}>2: {item.password2}</div>}
+              {item.password3 && <div style={{background:"#0d1117",borderRadius:7,padding:"4px 9px",fontSize:12,color:"#f1f3f9",fontFamily:"monospace"}}>3: {item.password3}</div>}
+            </div>
+            {item.notas && <div style={{color:"#9aa3b8",fontSize:12,marginTop:8}}>{item.notas}</div>}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+          <thead><tr style={{borderBottom:"1px solid #2a3550"}}>
+            {COLS.map(c=>(
+              <th key={c.key} onClick={()=>toggleSort(c.key)} style={{position:"relative",width:colWidths[c.key],padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#6b7a99",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",overflow:"hidden"}}>
+                {c.label}{sortCol===c.key && <span style={{marginLeft:4}}>{sortDir==="asc"?"▲":"▼"}</span>}
+                <ResizeHandle col={c.key}/>
+              </th>
+            ))}
+            <th style={{width:70,padding:"10px 14px"}}></th>
+          </tr></thead>
+          <tbody>
+            {ordenados.length===0 && <tr><td colSpan={COLS.length+1} style={{padding:"28px",textAlign:"center",color:"#6b7a99"}}>Sin registros</td></tr>}
+            {ordenados.map(item=>(
+              <tr key={item.id} style={{borderBottom:"1px solid #1a2236"}}>
+                {COLS.map(c=>(
+                  <td key={c.key} style={{padding:"10px 14px",color:"#f1f3f9",fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:c.key.startsWith("password")?"monospace":undefined}}>{item[c.key]}</td>
+                ))}
+                <td style={{padding:"10px 14px"}}>
+                  <div style={{display:"flex",gap:4}}>
+                    <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#8892a4")}><Icon name="edit" size={12}/></button>
+                    {puedeEliminar && <button onClick={()=>eliminar(item)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+    {modal && <Modal title={form.id?"Editar registro":"Nuevo registro"} onClose={()=>setModal(null)}>
+      <Field label="Tipo de control">
+        <input list="tipos-control-sug" value={form.tipoControl||""} onChange={f("tipoControl")} placeholder="Siemens, Syntec, Fanuc..." style={inputStyle}/>
+        <datalist id="tipos-control-sug">{TIPOS_CONTROL_SUG.map(t=><option key={t} value={t}/>)}</datalist>
+      </Field>
+      <Field label="Máquina"><Input value={form.maquina} onChange={f("maquina")} placeholder="Ej: TF600KST"/></Field>
+      <Field label="Fabricante"><Input value={form.fabricante} onChange={f("fabricante")} placeholder="Ej: Masterwood"/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:11}}>
+        <Field label="Contraseña 1"><Input value={form.password1} onChange={f("password1")}/></Field>
+        <Field label="Contraseña 2"><Input value={form.password2} onChange={f("password2")}/></Field>
+        <Field label="Contraseña 3"><Input value={form.password3} onChange={f("password3")}/></Field>
+      </div>
+      <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} placeholder="Ej: Solo para servicio técnico." style={{...inputStyle,minHeight:70,resize:"vertical",fontFamily:"inherit"}}/></Field>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={guardar} style={btnPrimary}>Guardar</button></div>
+    </Modal>}
+  </div>);
+};
+// ─── FIN PASSWORDS ───────────────────────────────────────────────────────────
+
 const NAV_ITEMS = [
   {id:"dashboard",label:"Inicio",icon:"dashboard",color:"#3b82f6"},
   {id:"asistencia",label:"Avisos",icon:"bell",color:"#ef4444"},
@@ -8689,6 +8826,7 @@ const NAV_ITEMS = [
   {id:"calendario",label:"Calendario",icon:"calendario",color:"#f97316"},
   {id:"chat",label:"Chat",icon:"chat",color:"#06b6d4"},
   {id:"fichaje",label:"Fichaje",icon:"clock",color:"#14b8a6"},
+  {id:"passwords",label:"Passwords",icon:"lock",color:"#eab308"},
   {id:"usuarios",label:"Usuarios",icon:"users",color:"#8b5cf6"},
   {id:"ajustes",label:"Ajustes",icon:"settings",color:"#6b7a99"},
 ];
@@ -10175,6 +10313,7 @@ export default function App() {
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso} isMobile={isMobile}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
+          {active==="passwords"&&puedeVer(user.rol,"passwords")&&<Passwords data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
           {active==="ajustes"&&puedeVer(user.rol,"ajustes")&&<Ajustes data={data} setData={setData} onPrueba={onPrueba} userActual={user}/>}
         </main>
