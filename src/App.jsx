@@ -9356,6 +9356,18 @@ export default function App() {
   const dataRef = useRef(data);
   const saveTimerRef = useRef(null);
   useEffect(()=>{ dataRef.current = data; },[data]);
+  // lastSyncedRef vive solo en memoria: si la pestaña se recarga (build nuevo,
+  // quedarse sin batería, el sistema mata la app en segundo plano...) justo
+  // cuando había una edición local que el guardado seguía reintentando sin éxito
+  // (p.ej. "Failed to fetch" repetido), se perdía esa base de comparación y la
+  // carga inicial de abajo sobrescribía sin más con lo que hubiera en el servidor,
+  // descartando para siempre un cambio que en realidad nunca llegó a guardarse.
+  // Persistirla también en localStorage permite que la carga inicial compare
+  // contra esa misma base y combine en vez de descartar (ver más abajo).
+  const persistirUltimoSincronizado = (json) => {
+    lastSyncedRef.current = json;
+    try { localStorage.setItem("em_last_synced", json); } catch(e){}
+  };
 
   // Carga inicial desde el servidor: si hay datos remotos, son la fuente de verdad
   // para que todos los usuarios vean lo mismo. Si el servidor está vacío (primera
@@ -9367,16 +9379,35 @@ export default function App() {
         const res = await apiGetData();
         if(cancelled) return;
         if(res.data){
-          // lastSyncedRef guarda lo que YA está en el servidor (sin códigos rellenados);
-          // si backfillCodigosMaquina añade códigos nuevos, el efecto de autoguardado
-          // detectará la diferencia y los subirá automáticamente.
-          lastSyncedRef.current = JSON.stringify(res.data);
-          lastVersionRef.current = res.version;
-          setData(backfillConsumiblesClave(backfillCodigosMaquina(res.data)));
+          const remoteJson = JSON.stringify(res.data);
+          // Si la base que guardamos la última vez (antes de esta recarga) sigue
+          // disponible en localStorage y nuestra copia local pendiente (la que
+          // cargamos al arrancar) es distinta de ella, es que había una edición
+          // que el guardado no había confirmado todavía cuando se recargó la
+          // página (p.ej. tras varios "Failed to fetch" seguidos). En ese caso no
+          // la descartamos sin más: la combinamos con lo remoto igual que hace el
+          // guardado periódico, para no perder ese trabajo.
+          let baseGuardada = null;
+          try { baseGuardada = localStorage.getItem("em_last_synced"); } catch(e){}
+          const localJson = JSON.stringify(dataRef.current);
+          if(baseGuardada && localJson !== baseGuardada && remoteJson !== localJson){
+            const conflictos = [];
+            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(JSON.parse(baseGuardada), dataRef.current, res.data, "raiz", conflictos)));
+            persistirUltimoSincronizado(remoteJson);
+            lastVersionRef.current = res.version;
+            setData(combinado);
+          } else {
+            // lastSyncedRef guarda lo que YA está en el servidor (sin códigos rellenados);
+            // si backfillCodigosMaquina añade códigos nuevos, el efecto de autoguardado
+            // detectará la diferencia y los subirá automáticamente.
+            persistirUltimoSincronizado(remoteJson);
+            lastVersionRef.current = res.version;
+            setData(backfillConsumiblesClave(backfillCodigosMaquina(res.data)));
+          }
         } else {
           try {
             const guardado = await apiSaveData(dataRef.current, res.version);
-            lastSyncedRef.current = JSON.stringify(dataRef.current);
+            persistirUltimoSincronizado(JSON.stringify(dataRef.current));
             lastVersionRef.current = guardado.version;
           } catch(e){}
         }
@@ -9429,7 +9460,7 @@ export default function App() {
             const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
             const conflictos = [];
             const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base, data, remoto.data, "raiz", conflictos)));
-            lastSyncedRef.current = remotoJson;
+            persistirUltimoSincronizado(remotoJson);
             lastVersionRef.current = remoto.version;
             setData(combinado);
             aGuardar = combinado;
@@ -9453,7 +9484,7 @@ export default function App() {
               const base2 = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
               const conflictos2 = [];
               const combinado2 = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base2, aGuardar, fresco.data, "raiz", conflictos2)));
-              lastSyncedRef.current = JSON.stringify(fresco.data);
+              persistirUltimoSincronizado(JSON.stringify(fresco.data));
               lastVersionRef.current = fresco.version;
               setData(combinado2);
               setSyncStatus("ok");
@@ -9473,7 +9504,7 @@ export default function App() {
             }
             return;
           }
-          lastSyncedRef.current = JSON.stringify(aGuardar);
+          persistirUltimoSincronizado(JSON.stringify(aGuardar));
           lastVersionRef.current = resp.version;
           if(aGuardar !== data) setData(aGuardar);
           setSyncStatus("ok");
@@ -9491,8 +9522,13 @@ export default function App() {
           // momento en vez de descubrirlo horas después al ver que no llegó al
           // resto. Solo avisamos la primera vez que se cruza el umbral, para no
           // repetir la alerta en cada reintento mientras el problema persiste.
+          // Incluimos el peso del JSON que se intentaba subir: como se sube SIEMPRE
+          // el bloque entero (no solo el cambio), un fallo de tipo "Failed to fetch"
+          // con un peso de varios MB apunta a un límite de tamaño/tiempo del
+          // servidor, no a la conexión del dispositivo concreto.
           if(saveFailCountRef.current === 3){
-            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"). Sigo reintentando automáticamente, pero si esto no se resuelve solo, avisa: puede que tus últimos cambios no le lleguen a los demás. Comprueba tu conexión a internet.");
+            const pesoMB = (JSON.stringify(data).length/1024/1024).toFixed(1);
+            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"; peso de los datos: "+pesoMB+" MB). Sigo reintentando automáticamente, pero si esto no se resuelve solo, avisa: puede que tus últimos cambios no le lleguen a los demás. Comprueba tu conexión a internet.");
           }
         }
       })();
@@ -9513,7 +9549,7 @@ export default function App() {
       const json = JSON.stringify(dataRef.current);
       if(json === lastSyncedRef.current) return; // nada pendiente de guardar
       apiSaveData(dataRef.current, lastVersionRef.current, {keepalive:true}).then(resp=>{
-        if(resp && !resp.conflict){ lastSyncedRef.current = json; lastVersionRef.current = resp.version; }
+        if(resp && !resp.conflict){ persistirUltimoSincronizado(json); lastVersionRef.current = resp.version; }
       }).catch(()=>{});
     };
     const onVisibility = ()=>{ if(document.visibilityState==="hidden") flushUrgente(); };
@@ -9535,7 +9571,7 @@ export default function App() {
           const remoteJson = JSON.stringify(res.data);
           const localJson = JSON.stringify(dataRef.current);
           if(remoteJson !== localJson && localJson === lastSyncedRef.current){
-            lastSyncedRef.current = remoteJson;
+            persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = res.version;
             setData(res.data);
           } else if(localJson === lastSyncedRef.current){
@@ -9610,10 +9646,23 @@ export default function App() {
       const remoto = await apiGetData();
       if(remoto.data){
         const remoteJson = JSON.stringify(remoto.data);
-        if(remoteJson !== JSON.stringify(dataRef.current)){
-          lastSyncedRef.current = remoteJson;
-          lastVersionRef.current = remoto.version;
-          setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
+        const localJson = JSON.stringify(dataRef.current);
+        if(remoteJson !== localJson){
+          // Si lo local difiere de lo que sabíamos guardado en el servidor, no lo
+          // descartamos sin más (podría ser una edición que el guardado automático
+          // seguía reintentando sin éxito): la combinamos igual que en la carga inicial.
+          if(localJson !== lastSyncedRef.current){
+            const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
+            const conflictos = [];
+            const combinado = backfillConsumiblesClave(backfillCodigosMaquina(combinarDatosRemotos(base, dataRef.current, remoto.data, "raiz", conflictos)));
+            persistirUltimoSincronizado(remoteJson);
+            lastVersionRef.current = remoto.version;
+            setData(combinado);
+          } else {
+            persistirUltimoSincronizado(remoteJson);
+            lastVersionRef.current = remoto.version;
+            setData(backfillConsumiblesClave(backfillCodigosMaquina(remoto.data)));
+          }
         } else {
           lastVersionRef.current = remoto.version;
         }
