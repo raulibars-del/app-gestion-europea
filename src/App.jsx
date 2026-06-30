@@ -4032,38 +4032,48 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     return d;
   };
   const abrirNueva = () => setForm({
-    titulo: "",asignadoId: userActual.id,creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
+    titulo: "",asignadoId: userActual.id,asignadosIds: [userActual.id],creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
   });
   const save = () => {
     // No guardar mientras un adjunto se está subiendo: si no, la tarea se crea sin
     // esa imagen (se queda "a medias") porque el adjunto aún no está en form.adjuntos.
     if (subiendoAdjunto) { alert("Espera a que termine de subirse el adjunto antes de guardar."); return; }
     const esEmpresa = !!form.esEmpresa;
-    const item = { ...form,esEmpresa,asignadoId: esEmpresa ? null : parseInt(form.asignadoId) };
-    if (!item.id) {
-      const nueva = { ...item,id: Date.now() };
+    if (!form.id) {
+      // Tarea nueva: se puede asignar a varias personas a la vez. Como el modelo de
+      // datos de cada tarea solo admite un asignadoId, se crea una copia independiente
+      // por cada persona elegida (cada una se podrá completar/editar por separado).
+      const idsAsignados = esEmpresa
+        ? [null]
+        : (Array.isArray(form.asignadosIds) && form.asignadosIds.length ? form.asignadosIds : [parseInt(form.asignadoId)]);
+      if (!esEmpresa && idsAsignados.length === 0) { alert("Selecciona al menos una persona para asignar la tarea."); return; }
+      const nuevas = idsAsignados.map((aid, idx) => ({ ...form,esEmpresa,asignadoId: esEmpresa ? null : aid,id: Date.now() + idx }));
       setData(d => {
-        const nd = { ...d,tareas: [...d.tareas, nueva] };
-        if (esEmpresa) {
-          // Tarea de empresa: se notifica a todos los miembros activos (salvo a quien la crea).
-          const notifs = { ...nd.notificaciones };
-          data.usuarios.filter(u => u.activo && u.id !== userActual.id).forEach(u => {
-            const n = crearNotif(u.id, "tarea", `🏢 Nueva tarea de empresa`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
-            notifs[u.id] = [n, ...(notifs[u.id] || [])];
-          });
-          nd.notificaciones = notifs;
-        } else if (nueva.asignadoId !== userActual.id) {
-          const n = crearNotif(nueva.asignadoId, "tarea", `📋 Nueva tarea asignada`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
-          nd.notificaciones = { ...nd.notificaciones, [nueva.asignadoId]: [n, ...(nd.notificaciones[nueva.asignadoId] || [])] };
-        }
+        let nd = { ...d,tareas: [...d.tareas, ...nuevas] };
+        nuevas.forEach(nueva => {
+          if (esEmpresa) {
+            // Tarea de empresa: se notifica a todos los miembros activos (salvo a quien la crea).
+            const notifs = { ...nd.notificaciones };
+            data.usuarios.filter(u => u.activo && u.id !== userActual.id).forEach(u => {
+              const n = crearNotif(u.id, "tarea", `🏢 Nueva tarea de empresa`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
+              notifs[u.id] = [n, ...(notifs[u.id] || [])];
+            });
+            nd = { ...nd,notificaciones: notifs };
+          } else if (nueva.asignadoId !== userActual.id) {
+            const n = crearNotif(nueva.asignadoId, "tarea", `📋 Nueva tarea asignada`, `"${nueva.titulo}" — de ${userActual.nombre}. Vence: ${nueva.vence}`);
+            nd = { ...nd,notificaciones: { ...nd.notificaciones, [nueva.asignadoId]: [n, ...(nd.notificaciones[nueva.asignadoId] || [])] } };
+          }
+        });
         return nd;
       });
-      enviarEmailTareaCreada(nueva, esEmpresa);
+      nuevas.forEach(nueva => enviarEmailTareaCreada(nueva, esEmpresa));
       // Reenvío opcional a un proveedor/cliente externo (no afecta en nada a las
       // tareas que no marcan "Tarea reenviada": ese aviso interno de arriba sigue
-      // funcionando exactamente igual que antes).
-      if (nueva.reenviarA?.email?.trim()) enviarEmailTareaReenviada(nueva, nueva.reenviarA);
+      // funcionando exactamente igual que antes). Se manda una sola vez aunque se
+      // haya asignado la tarea a varias personas a la vez.
+      if (nuevas[0].reenviarA?.email?.trim()) enviarEmailTareaReenviada(nuevas[0], nuevas[0].reenviarA);
     } else {
+      const item = { ...form,esEmpresa,asignadoId: esEmpresa ? null : parseInt(form.asignadoId) };
       setData(d => ({ ...d,tareas: d.tareas.map(t => t.id === item.id ? item : t) }));
     }
     setModal(false);
@@ -4279,7 +4289,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             <span style={{color:"#9aa3b8",fontSize:13}}>🏢 Tarea de empresa (visible para todos, cualquiera puede completarla)</span>
           </label>
         </Field>
-        {!form.esEmpresa && (
+        {!form.esEmpresa && (form.id ? (
           <Field label="Asignar a">
             <select value={form.asignadoId} onChange={f("asignadoId")} style={{...inputStyle}}>
               {data.usuarios.filter(u => u.activo).map(u => (
@@ -4287,10 +4297,33 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
               ))}
             </select>
           </Field>
-        )}
-        {!form.esEmpresa && parseInt(form.asignadoId) !== userActual.id && (
+        ) : (
+          <Field label="Asignar a (puedes elegir varias personas: se crea una tarea para cada una)">
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {data.usuarios.filter(u => u.activo).map(u => {
+                const ids = Array.isArray(form.asignadosIds) ? form.asignadosIds : [];
+                const on = ids.includes(u.id);
+                return (
+                  <button key={u.id} type="button" onClick={() => {
+                    const cur = Array.isArray(form.asignadosIds) ? form.asignadosIds : [];
+                    const next = cur.includes(u.id) ? cur.filter(x => x !== u.id) : [...cur, u.id];
+                    setForm(p => ({ ...p,asignadosIds: next }));
+                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#8b5cf6":"#2a3550"),background:on?"#8b5cf615":"#0d1117",color:on?"#8b5cf6":"#6b7a99",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+                    {on && <Icon name="check" size={11} />}{u.nombre}{u.id === userActual.id ? " (yo)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        ))}
+        {!form.esEmpresa && form.id && parseInt(form.asignadoId) !== userActual.id && (
           <div style={{background:"#8b5cf618",border:"1px solid #8b5cf644",borderRadius:8,padding:"8px 12px",marginBottom:4,color:"#8b5cf6",fontSize:12,display:"flex",alignItems:"center",gap:6}}>
             <Icon name="bell" size={12} />Se notificará a {uN(form.asignadoId)} cuando guardes
+          </div>
+        )}
+        {!form.esEmpresa && !form.id && Array.isArray(form.asignadosIds) && form.asignadosIds.length > 0 && (
+          <div style={{background:"#8b5cf618",border:"1px solid #8b5cf644",borderRadius:8,padding:"8px 12px",marginBottom:4,color:"#8b5cf6",fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+            <Icon name="bell" size={12} />Se notificará a {form.asignadosIds.map(uN).join(", ")} cuando guardes{form.asignadosIds.length > 1 ? " (una tarea independiente para cada uno)" : ""}
           </div>
         )}
         {form.esEmpresa && (
