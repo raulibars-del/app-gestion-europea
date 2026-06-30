@@ -4624,7 +4624,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           if (!continuado) {
             // Parte finalizado → cerrar aviso y registrar fecha última intervención
             // (también como fecha de resolución, para ordenar la lista de Resueltos)
-            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha, resueltoPorId: userActual.id, resueltoPor: userActual.nombre };
+            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha, resueltoPorId: null, resueltoPor: (item.tecnicos||[]).join(" y ") || userActual.nombre };
           } else {
             // Parte continuado → aviso sigue activo, actualizar fecha última intervención
             return { ...a, estado: "En curso", fechaUltimaIntervencion: item.fecha };
