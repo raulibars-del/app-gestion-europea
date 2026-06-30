@@ -2416,7 +2416,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     else setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === item.id ? item : a) }));
     setModalAv(null); setDetalle(null);
   };
-  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today() } : a) }));
+  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre } : a) }));
   const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today() } : a) }));
   const confirmarCancelacion = () => {
     if (!motivoCancel.trim()) { alert("Indica el motivo de la cancelación"); return; }
@@ -2595,6 +2595,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
+              {av.estado === "Resuelto" && (
+                <div style={{flex:"1 1 100%",background:"#16a34a1f",border:"1px solid #16a34a55",borderRadius:8,padding:"7px 12px",marginTop:2}}>
+                  <span style={{color:"#22c55e",fontWeight:900,fontSize:14,letterSpacing:0.2,overflowWrap:"anywhere"}}>
+                    ✅ AVISO CERRADO POR {av.resueltoPor || "—"} EN FECHA {av.fechaResuelto || "—"}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
@@ -4617,7 +4624,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           if (!continuado) {
             // Parte finalizado → cerrar aviso y registrar fecha última intervención
             // (también como fecha de resolución, para ordenar la lista de Resueltos)
-            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha };
+            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha, resueltoPorId: userActual.id, resueltoPor: userActual.nombre };
           } else {
             // Parte continuado → aviso sigue activo, actualizar fecha última intervención
             return { ...a, estado: "En curso", fechaUltimaIntervencion: item.fecha };
