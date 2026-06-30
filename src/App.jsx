@@ -298,7 +298,7 @@ const maquinaMarkerIcon = L.divIcon({
 });
 const btnSm = (bg, color) => ({ background: bg,border: "none",borderRadius: 7,padding: "6px 8px",cursor: "pointer", color,display: "flex",alignItems: "center" });
 const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRadius: 9,padding: "10px 22px",fontWeight: 700,cursor: "pointer",fontSize: 14 };
-const btnOutline = { background: "none",color: "#a3acc0",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
+const btnOutline = { background: "none",color: "#cad2e9",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
   manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords"],
@@ -339,7 +339,7 @@ const METODOS_ENTREGA_OFERTA = ["Email","WhatsApp","En persona","Teléfono","Otr
 const ESTADOS_REP = ["Pendiente","En curso","Completada","Cancelada"];
 const inic = (n) => (n||"").trim().split(/\s+/).filter(Boolean).map(w=>w[0]||"").join("").toUpperCase().slice(0,3);
 const Avatar = ({ u, size=26, fontSize=11, color, onClick, style }) => {
-  const c = color || ROLES_COLOR[u?.rol] || "#9aa8c5";
+  const c = color || ROLES_COLOR[u?.rol] || "#c5cee8";
   return u?.foto ? (
     <img src={u.foto} onClick={onClick} alt={u.nombre||"avatar"} style={{width:size,height:size,borderRadius:size>=28?8:7,objectFit:"cover",flexShrink:0,cursor:onClick?"pointer":"default",border:"1px solid "+c+"55",...style}}/>
   ) : (
@@ -439,8 +439,8 @@ const Icon = ({ name, size=18 }) => {
   );
 };
 const Badge = ({ text }) => {
-  const map = {"Facturada":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#9aa3b8","Perdida":"#dc2626","Cancelada":"#9aa3b8","Cancelado":"#9aa3b8","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Enviado presupuesto a espera aceptacion":"#0ea5e9","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#9aa3b8"};
-  const c = map[text]||"#9aa3b8";
+  const map = {"Facturada":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#c2cbe3","Perdida":"#dc2626","Cancelada":"#c2cbe3","Cancelado":"#c2cbe3","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Enviado presupuesto a espera aceptacion":"#0ea5e9","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#c2cbe3"};
+  const c = map[text]||"#c2cbe3";
   return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{text}</span>;
 };
 const DiasBadge = ({ fecha, estado }) => {
@@ -448,7 +448,7 @@ const DiasBadge = ({ fecha, estado }) => {
   const d=diasDesde(fecha); const c=d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
   return <span style={{background:c+"18",color:c,border:`1px solid ${c}44`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}><Icon name="clock" size={11}/>{d===0?"Hoy":d===1?"1 día":`${d} días`}</span>;
 };
-const RolBadge = ({ rol }) => { const c=ROLES_COLOR[rol]||"#9aa3b8"; return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{ROLES_LABEL[rol]||rol}</span>; };
+const RolBadge = ({ rol }) => { const c=ROLES_COLOR[rol]||"#c2cbe3"; return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{ROLES_LABEL[rol]||rol}</span>; };
 const Modal = ({ title, onClose, children, wide }) => {
   const mobile = window.innerWidth < 768;
   return (
@@ -456,7 +456,7 @@ const Modal = ({ title, onClose, children, wide }) => {
       <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:mobile?"18px 18px 0 0":18,width:"100%",maxWidth:mobile?"100%":wide?820:560,maxHeight:mobile?"92dvh":"93vh",overflow:"auto",boxShadow:"0 32px 80px rgba(0,0,0,.7)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
           <span style={{fontWeight:800,fontSize:16,color:"#f1f3f9"}}>{title}</span>
-          <button onClick={onClose} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#a3acc0",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
+          <button onClick={onClose} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#cad2e9",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
         </div>
         <div style={{padding:mobile?"16px 16px 32px":"20px 24px"}}>{children}</div>
       </div>
@@ -465,7 +465,7 @@ const Modal = ({ title, onClose, children, wide }) => {
 };
 const Field = ({ label, children }) => (
   <div style={{marginBottom:13}}>
-    <label style={{display:"block",fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".8px",marginBottom:5}}>{label}</label>
+    <label style={{display:"block",fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".8px",marginBottom:5}}>{label}</label>
     {children}
   </div>
 );
@@ -481,12 +481,12 @@ const SelectorTecnicos = ({ value, onChange, usuarios }) => {
         const on = sel.includes(u.nombre);
         return (
           <button key={u.id} type="button" onClick={() => toggle(u.nombre)}
-            style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#3b82f6":"#2a3550"),background:on?"#3b82f615":"#0d1117",color:on?"#3b82f6":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+            style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#3b82f6":"#2a3550"),background:on?"#3b82f615":"#0d1117",color:on?"#3b82f6":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
             {on && <Icon name="check" size={11} />}{u.nombre}
           </button>
         );
       })}
-      {sel.length === 0 && <span style={{color:"#9aa8c5",fontSize:11,alignSelf:"center"}}>Sin asignar</span>}
+      {sel.length === 0 && <span style={{color:"#c5cee8",fontSize:11,alignSelf:"center"}}>Sin asignar</span>}
     </div>
   );
 };
@@ -502,14 +502,14 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
-        <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5",pointerEvents:"none"}}><Icon name="search" size={13}/></span>
+        <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#c5cee8",pointerEvents:"none"}}><Icon name="search" size={13}/></span>
         <input value={value} onChange={e => { onChange(e.target.value, "", ""); setOpen(true); }} onFocus={() => setOpen(true)}
           placeholder="Buscar cliente existente o escribir nombre libre..."
           style={{...inputStyle,paddingLeft:30,width:"100%",boxSizing:"border-box"}} />
       </div>
       {open && (
         <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,zIndex:300,boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflow:"hidden",maxHeight:240,overflowY:"auto"}}>
-          {filtrados.length === 0 && value.trim() && <div style={{padding:"8px 13px",color:"#9aa8c5",fontSize:12}}>Sin coincidencias — se usará el nombre escrito</div>}
+          {filtrados.length === 0 && value.trim() && <div style={{padding:"8px 13px",color:"#c5cee8",fontSize:12}}>Sin coincidencias — se usará el nombre escrito</div>}
           {filtrados.map(c => {
             const ct = c.contactos?.find(x => x.principal) || c.contactos?.[0];
             return (
@@ -518,7 +518,7 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
                 onMouseEnter={e => e.currentTarget.style.background = "#151b2a"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{c.nombreEmpresa}</div>
-                <div style={{color:"#9aa8c5",fontSize:11}}>
+                <div style={{color:"#c5cee8",fontSize:11}}>
                   {c.localidad && <span>{c.localidad}</span>}
                   {ct?.email && <span> · {ct.email}</span>}
                 </div>
@@ -560,7 +560,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
-        <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5",pointerEvents:"none"}}>
+        <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#c5cee8",pointerEvents:"none"}}>
           <Icon name="search" size={13}/>
         </span>
         <input
@@ -571,7 +571,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
           style={{...inputStyle,paddingLeft:30,paddingRight:28,width:"100%",boxSizing:"border-box"}}
         />
         {(busq || value) && (
-          <button onClick={limpiar} style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#9aa8c5",cursor:"pointer",fontSize:16,lineHeight:1,padding:0}}>×</button>
+          <button onClick={limpiar} style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#c5cee8",cursor:"pointer",fontSize:16,lineHeight:1,padding:0}}>×</button>
         )}
       </div>
       {/* Confirmación cliente seleccionado */}
@@ -579,15 +579,15 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
         <div style={{marginTop:4,background:"#10b98112",border:"1px solid #10b98133",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:7}}>
           <span style={{color:"#10b981",fontSize:12}}>✓</span>
           <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>{sel.nombreEmpresa}</span>
-          {sel.nombreFiscal && <span style={{color:"#9aa8c5",fontSize:11}}>· {sel.nombreFiscal}</span>}
-          {sel.localidad && <span style={{color:"#9aa8c5",fontSize:11}}>· {sel.localidad}</span>}
+          {sel.nombreFiscal && <span style={{color:"#c5cee8",fontSize:11}}>· {sel.nombreFiscal}</span>}
+          {sel.localidad && <span style={{color:"#c5cee8",fontSize:11}}>· {sel.localidad}</span>}
         </div>
       )}
       {/* Dropdown */}
       {open && (
         <div style={{position:"absolute",top:sel ? "calc(100% - 22px)" :"calc(100% + 4px)",left:0,right:0,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,zIndex:300,boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflow:"hidden",maxHeight:260,overflowY:"auto"}}>
           {filtrados.length === 0 && (
-            <div style={{padding:"10px 13px",color:"#9aa8c5",fontSize:12}}>Sin resultados para "{busq}"</div>
+            <div style={{padding:"10px 13px",color:"#c5cee8",fontSize:12}}>Sin resultados para "{busq}"</div>
           )}
           {filtrados.map(c => (
             <div key={c.id} onMouseDown={() => seleccionar(c)}
@@ -596,7 +596,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
               onMouseLeave={e => e.currentTarget.style.background = c.id === parseInt(value) ? "#1a2236" : "transparent"}>
               <div>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{c.nombreEmpresa}</div>
-                <div style={{color:"#9aa8c5",fontSize:11}}>
+                <div style={{color:"#c5cee8",fontSize:11}}>
                   {c.nombreFiscal && <span>{c.nombreFiscal}</span>}
                   {c.localidad && <span> · {c.localidad}</span>}
                 </div>
@@ -605,7 +605,7 @@ const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente 
             </div>
           ))}
           {filtrados.length > 0 && busq.trim().length > 0 && filtrados.length < clientes.filter(c=>{const q=busq.toLowerCase();return c.nombreEmpresa?.toLowerCase().includes(q)||c.nombreFiscal?.toLowerCase().includes(q)||c.cif?.toLowerCase().includes(q)||c.localidad?.toLowerCase().includes(q);}).length && (
-            <div style={{padding:"6px 13px",color:"#9aa8c5",fontSize:11,fontStyle:"italic",background:"#0a0f1a"}}>Refina la búsqueda para ver más resultados</div>
+            <div style={{padding:"6px 13px",color:"#c5cee8",fontSize:11,fontStyle:"italic",background:"#0a0f1a"}}>Refina la búsqueda para ver más resultados</div>
           )}
         </div>
       )}
@@ -762,7 +762,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
             )}
           </div>
           <canvas ref={canvasRef} style={{display:"none"}}/>
-          <div style={{color:"#9aa8c5",fontSize:11,marginBottom:14,textAlign:"center"}}>Encuadra la tarjeta dentro del recuadro, bien iluminada y sin reflejos</div>
+          <div style={{color:"#c5cee8",fontSize:11,marginBottom:14,textAlign:"center"}}>Encuadra la tarjeta dentro del recuadro, bien iluminada y sin reflejos</div>
           <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
             <label style={{color:"#3b82f6",fontSize:12,fontWeight:700,cursor:"pointer"}}>
               Subir foto en su lugar
@@ -790,7 +790,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
       {paso === "procesando" && (
         <div style={{textAlign:"center",padding:"30px 10px"}}>
           <div style={{fontSize:40,marginBottom:14}}>🤖</div>
-          <div style={{color:"#9aa3b8",fontSize:13}}>Analizando la tarjeta con IA...</div>
+          <div style={{color:"#c2cbe3",fontSize:13}}>Analizando la tarjeta con IA...</div>
         </div>
       )}
     </Modal>
@@ -801,7 +801,7 @@ const Textarea = ({ value, onChange, placeholder="", rows=3 }) => <textarea valu
 const StatCard = ({ label, value, icon, accent, sub }) => (
   <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13}}>
     <div style={{width:44,height:44,borderRadius:11,background:accent+"20",display:"flex",alignItems:"center",justifyContent:"center",color:accent,flexShrink:0}}><Icon name={icon} size={20}/></div>
-    <div><div style={{fontSize:22,fontWeight:800,color:"#f1f3f9",lineHeight:1}}>{value}</div><div style={{fontSize:12,color:"#9aa8c5",marginTop:2}}>{label}</div>{sub&&<div style={{fontSize:11,color:accent,marginTop:2,fontWeight:600}}>{sub}</div>}</div>
+    <div><div style={{fontSize:22,fontWeight:800,color:"#f1f3f9",lineHeight:1}}>{value}</div><div style={{fontSize:12,color:"#c5cee8",marginTop:2}}>{label}</div>{sub&&<div style={{fontSize:11,color:accent,marginTop:2,fontWeight:600}}>{sub}</div>}</div>
   </div>
 );
 const crearNotif = (userId,tipo,titulo,mensaje,extra) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false,...(extra||{})});
@@ -830,10 +830,10 @@ const NotifPanel = ({ notifs, onClose, onIrAlChat }) => {
     <div style={{position:"absolute",top:52,right:0,width:370,background:"#151b2a",border:"1px solid #2a3550",borderRadius:16,boxShadow:"0 20px 60px rgba(0,0,0,.6)",zIndex:500}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid #2a3550"}}>
         <span style={{fontWeight:800,fontSize:14,color:"#f1f3f9"}}>Historial de avisos</span>
-        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#9aa8c5"}}><Icon name="close" size={15}/></button>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#c5cee8"}}><Icon name="close" size={15}/></button>
       </div>
       <div style={{maxHeight:380,overflow:"auto"}}>
-        {notifs.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#9aa8c5",fontSize:13}}>Sin notificaciones</div>}
+        {notifs.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#c5cee8",fontSize:13}}>Sin notificaciones</div>}
         {notifs.map(n=>{
           const esChat = n.tipo==="chat";
           return(
@@ -841,13 +841,13 @@ const NotifPanel = ({ notifs, onClose, onIrAlChat }) => {
             style={{padding:"12px 18px",borderBottom:"1px solid #1a2236",cursor:esChat?"pointer":"default",background:"transparent",display:"flex",gap:10}}
             onMouseEnter={e=>{if(esChat)e.currentTarget.style.background="#1e2a3a";}}
             onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-            <div style={{width:7,height:7,borderRadius:4,background:esChat?"#06b6d4":"#9aa8c566",marginTop:5,flexShrink:0}}/>
+            <div style={{width:7,height:7,borderRadius:4,background:esChat?"#06b6d4":"#c5cee866",marginTop:5,flexShrink:0}}/>
             <div style={{flex:1}}>
-              <div style={{color:"#a3acc0",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+              <div style={{color:"#cad2e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>
                 {n.titulo}
                 {esChat&&<span style={{background:"#06b6d420",color:"#06b6d4",border:"1px solid #06b6d433",borderRadius:4,padding:"0 5px",fontSize:9,fontWeight:700}}>IR AL CHAT →</span>}
               </div>
-              <div style={{color:"#9aa8c5",fontSize:11,marginTop:2,whiteSpace:"pre-line"}}>{n.mensaje}</div>
+              <div style={{color:"#c5cee8",fontSize:11,marginTop:2,whiteSpace:"pre-line"}}>{n.mensaje}</div>
               <div style={{color:"#2a3550",fontSize:10,marginTop:3}}>{new Date(n.fecha).toLocaleString("es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
             </div>
           </div>
@@ -865,13 +865,13 @@ const Login = ({ usuarios, onLogin }) => {
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{width:72,height:72,borderRadius:16,overflow:"hidden",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center"}}><img src={LOGO_URL} style={{width:72,height:72,objectFit:"contain"}} alt="Europea de Maquinaria"/></div>
           <div style={{fontWeight:900,fontSize:18,color:"#f1f3f9"}}>EUROPEA DE MAQUINARIA</div>
-          <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Panel de Gestión</div>
+          <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Panel de Gestión</div>
         </div>
         <Field label="Usuario"><input value={usuario} onChange={e=>setUsuario(e.target.value)} type="text" placeholder="Tu nombre de usuario" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()}/></Field>
         <Field label="Contraseña"><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()}/></Field>
         {err&&<div style={{background:"#dc262618",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",color:"#dc2626",fontSize:13,marginBottom:12}}>{err}</div>}
         <button onClick={handle} style={{...btnPrimary,width:"100%",justifyContent:"center",padding:"12px",fontSize:15,marginTop:4}}>Iniciar sesión</button>
-        <div style={{marginTop:20,textAlign:"center",color:"#9aa8c5",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
+        <div style={{marginTop:20,textAlign:"center",color:"#c5cee8",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
       </div>
     </div>
   );
@@ -1145,7 +1145,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
         <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
       </div>
-      <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
+      <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
       <div style={{display:"grid",gap:9}}>
         {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const revendedor = c.revendedor; return(
           <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esPropia?"#0d1a1a":revendedor?"#1a0d18":"#151b2a",border:`1px solid ${esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
@@ -1158,22 +1158,22 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   {esPropia && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
                   {revendedor && <span style={{background:"#ec4899",color:"#1a0014",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔁 REVENDEDOR</span>}
                   {esCliente && !esPropia && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>CLIENTE</span>}
-                  <span style={{color:"#9aa8c5",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px",flexShrink:0}}>📍 {c.localidad}</span>
+                  <span style={{color:"#c5cee8",fontSize:11,background:"#1a2236",borderRadius:5,padding:"2px 7px",flexShrink:0}}>📍 {c.localidad}</span>
                 </div>
-                <div style={{color:"#9aa8c5",fontSize:11,marginBottom:8,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {c.nombreFiscal}</div>
+                <div style={{color:"#c5cee8",fontSize:11,marginBottom:8,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {c.nombreFiscal}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                   {pc&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:6,maxWidth:"100%",minWidth:0}}>
                     <div style={{width:22,height:22,borderRadius:5,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6",fontWeight:800,fontSize:10,flexShrink:0}}>{pc.nombre.charAt(0)}</div>
                     <div style={{minWidth:0,overflow:"hidden"}}>
-                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflowWrap:"anywhere",wordBreak:"break-word"}}>{pc.nombre} <span style={{color:"#9aa8c5",fontWeight:400}}>· {pc.puesto}</span></div>
+                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflowWrap:"anywhere",wordBreak:"break-word"}}>{pc.nombre} <span style={{color:"#c5cee8",fontWeight:400}}>· {pc.puesto}</span></div>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                        {pc.tel&&<a href={"tel:"+pc.tel.replace(/\s+/g,"")} onClick={e=>e.stopPropagation()} style={{color:"#9aa3b8",fontSize:11,textDecoration:"none"}}>📞 {pc.tel}</a>}
+                        {pc.tel&&<a href={"tel:"+pc.tel.replace(/\s+/g,"")} onClick={e=>e.stopPropagation()} style={{color:"#c2cbe3",fontSize:11,textDecoration:"none"}}>📞 {pc.tel}</a>}
                         {pc.email&&<a href={"mailto:"+pc.email} onClick={e=>e.stopPropagation()} style={{color:"#3b82f6",fontSize:11,textDecoration:"none",overflowWrap:"anywhere",wordBreak:"break-word"}}>{pc.email}</a>}
                       </div>
                     </div>
                     {pc.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 5px",fontSize:9,fontWeight:700,marginLeft:2,flexShrink:0}}>★</span>}
                   </div>}
-                  {c.contactos.length>1&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",color:"#9aa8c5",fontSize:11,display:"flex",alignItems:"center"}}>+{c.contactos.length-1} contacto{c.contactos.length>2?"s":""} más</div>}
+                  {c.contactos.length>1&&<div style={{background:"#0d1117",borderRadius:7,padding:"5px 10px",color:"#c5cee8",fontSize:11,display:"flex",alignItems:"center"}}>+{c.contactos.length-1} contacto{c.contactos.length>2?"s":""} más</div>}
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
@@ -1223,18 +1223,18 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <Field label="Ha comprado maquinaria a Europea de Maquinaria?">
             <div style={{display:"flex",gap:8}}>
               <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:true}))}
-                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#9aa8c5",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#c5cee8",fontWeight:800,fontSize:13,cursor:"pointer"}}>
                 SI — ES CLIENTE
               </button>
               <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:false}))}
-                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#9aa8c5":"#2a3550"),background:!formC.esCliente?"#9aa8c515":"#0d1117",color:!formC.esCliente?"#9aa3b8":"#9aa8c5",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#c5cee8":"#2a3550"),background:!formC.esCliente?"#c5cee815":"#0d1117",color:!formC.esCliente?"#c2cbe3":"#c5cee8",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                 Prospecto / Contacto
               </button>
             </div>
           </Field>
           <Field label="¿Es revendedor de maquinaria?">
             <button type="button" onClick={()=>setFormC(p=>({...p,revendedor:!p.revendedor}))}
-              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#9aa8c5",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#c5cee8",fontWeight:800,fontSize:13,cursor:"pointer"}}>
               {formC.revendedor ? "✓ REVENDEDOR DE MAQUINARIA" : "Revendedor de maquinaria"}
             </button>
           </Field>
@@ -1245,14 +1245,14 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       {modalEscaner && <EscanearTarjetaModal onClose={()=>setModalEscaner(false)} onResultado={crearClienteDesdeTarjeta}/>}
       {resumenEscaneo && (
         <Modal title="Tarjeta escaneada" onClose={()=>setResumenEscaneo(null)}>
-          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>
+          <div style={{color:"#c2cbe3",fontSize:13,marginBottom:14}}>
             He creado la empresa <b style={{color:"#f1f3f9"}}>{resumenEscaneo.nombreEmpresa}</b>
             {resumenEscaneo.nombreContacto && <> y el contacto <b style={{color:"#f1f3f9"}}>{resumenEscaneo.nombreContacto}</b></>} a partir de la tarjeta.
           </div>
           {resumenEscaneo.faltan.length > 0 && (
             <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
               <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Revisa y completa</div>
-              <ul style={{margin:0,paddingLeft:18,color:"#9aa3b8",fontSize:13}}>
+              <ul style={{margin:0,paddingLeft:18,color:"#c2cbe3",fontSize:13}}>
                 {resumenEscaneo.faltan.map(f => <li key={f}>{f}</li>)}
               </ul>
             </div>
@@ -1260,7 +1260,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           {resumenEscaneo.textoOcr && resumenEscaneo.textoOcr.trim() && (
             <details style={{marginBottom:14}}>
               <summary style={{cursor:"pointer",color:"#3b82f6",fontSize:12,fontWeight:700}}>Ver texto leído en la tarjeta (sin procesar)</summary>
-              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#9aa8c5",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneo.textoOcr.trim()}</div>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#c5cee8",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneo.textoOcr.trim()}</div>
             </details>
           )}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
@@ -1275,7 +1275,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-        <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex"}}><Icon name="back" size={15}/></button>
+        <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex"}}><Icon name="back" size={15}/></button>
         <div style={{flex:"1 1 200px",minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <h2 style={{color:c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>{c.nombreEmpresa}</h2>
@@ -1295,10 +1295,10 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             </div>
           )}
           <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4}}>
-            {c.nombreFiscal&&<span style={{color:"#9aa3b8",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>🏢 {c.nombreFiscal}</span>}
-            {c.cif&&<span style={{color:"#9aa3b8",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>CIF: {c.cif}</span>}
-            {c.localidad&&<span style={{color:"#9aa3b8",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>📍 {c.localidad}</span>}
-            {(()=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; return pc?.tel?<span style={{color:"#9aa3b8",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>📞 {pc.tel}</span>:null;})()}
+            {c.nombreFiscal&&<span style={{color:"#c2cbe3",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>🏢 {c.nombreFiscal}</span>}
+            {c.cif&&<span style={{color:"#c2cbe3",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>CIF: {c.cif}</span>}
+            {c.localidad&&<span style={{color:"#c2cbe3",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>📍 {c.localidad}</span>}
+            {(()=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; return pc?.tel?<span style={{color:"#c2cbe3",fontSize:11.5,background:"#1a2236",borderRadius:5,padding:"3px 8px",whiteSpace:"nowrap"}}>📞 {pc.tel}</span>:null;})()}
           </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -1312,29 +1312,29 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:14,alignItems:"start"}} className="ficha-grid">
         <div style={{display:"grid",gap:12}}>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Datos fiscales</div>
-            <div style={{marginBottom:7}}><div style={{fontSize:11,color:"#9aa8c5",marginBottom:1}}>Nombre fiscal</div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{c.nombreFiscal}</div></div>
-            {c.cif&&<div style={{marginBottom:7}}><div style={{fontSize:11,color:"#9aa8c5",marginBottom:1}}>CIF / DNI</div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{c.cif}</div></div>}
+            <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Datos fiscales</div>
+            <div style={{marginBottom:7}}><div style={{fontSize:11,color:"#c5cee8",marginBottom:1}}>Nombre fiscal</div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{c.nombreFiscal}</div></div>
+            {c.cif&&<div style={{marginBottom:7}}><div style={{fontSize:11,color:"#c5cee8",marginBottom:1}}>CIF / DNI</div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{c.cif}</div></div>}
             {(c.dirFiscal||c.cpFiscal||c.provinciaFiscal)&&(
               <div style={{marginBottom:7}}>
                 <div style={{fontSize:11,color:"#3b82f6",marginBottom:3,fontWeight:700}}>Dir. Fiscal</div>
-                <div style={{color:"#c4cad8",fontSize:12}}>{[c.dirFiscal,c.cpFiscal,c.localidad,c.provinciaFiscal].filter(Boolean).join(", ")}</div>
+                <div style={{color:"#dde2ee",fontSize:12}}>{[c.dirFiscal,c.cpFiscal,c.localidad,c.provinciaFiscal].filter(Boolean).join(", ")}</div>
               </div>
             )}
             {(c.dirFabrica||c.cpFabrica||c.localidadFabrica)&&(
               <div style={{marginBottom:7}}>
                 <div style={{fontSize:11,color:"#f59e0b",marginBottom:3,fontWeight:700}}>Dir. Fabrica</div>
-                <div style={{color:"#c4cad8",fontSize:12}}>{[c.dirFabrica,c.cpFabrica,c.localidadFabrica,c.provinciaFabrica].filter(Boolean).join(", ")}</div>
+                <div style={{color:"#dde2ee",fontSize:12}}>{[c.dirFabrica,c.cpFabrica,c.localidadFabrica,c.provinciaFabrica].filter(Boolean).join(", ")}</div>
               </div>
             )}
-            {c.notas&&<div><div style={{fontSize:11,color:"#9aa8c5",marginBottom:1}}>Notas</div><div style={{color:"#9aa3b8",fontSize:12}}>{c.notas}</div></div>}
+            {c.notas&&<div><div style={{fontSize:11,color:"#c5cee8",marginBottom:1}}>Notas</div><div style={{color:"#c2cbe3",fontSize:12}}>{c.notas}</div></div>}
           </div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px"}}>Personas de contacto</div>
-              <button onClick={()=>{setFormCo({nombre:"",puesto:"",tel:"",principal:false});setModalCo(true);}} style={{background:"#2a3550",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#a3acc0",display:"flex",alignItems:"center",gap:3,fontSize:11}}><Icon name="plus" size={11}/>Añadir</button>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px"}}>Personas de contacto</div>
+              <button onClick={()=>{setFormCo({nombre:"",puesto:"",tel:"",principal:false});setModalCo(true);}} style={{background:"#2a3550",border:"none",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#cad2e9",display:"flex",alignItems:"center",gap:3,fontSize:11}}><Icon name="plus" size={11}/>Añadir</button>
             </div>
-            {c.contactos.length===0&&<div style={{color:"#9aa8c5",fontSize:12}}>Sin contactos</div>}
+            {c.contactos.length===0&&<div style={{color:"#c5cee8",fontSize:12}}>Sin contactos</div>}
             {c.contactos.map(ct=>(
               <div key={ct.id} style={{background:"#0d1117",borderRadius:9,padding:"10px 12px",marginBottom:7}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1343,11 +1343,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                       <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{ct.nombre}</span>
                       {ct.principal&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>Principal</span>}
                     </div>
-                    <div style={{color:"#9aa8c5",fontSize:12,marginBottom:2}}>💼 {ct.puesto}</div>
-                    {ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#9aa3b8",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}
+                    <div style={{color:"#c5cee8",fontSize:12,marginBottom:2}}>💼 {ct.puesto}</div>
+                    {ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#c2cbe3",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}
                     {ct.email&&<a href={"mailto:"+ct.email} style={{color:"#3b82f6",fontSize:12,textDecoration:"none",display:"block"}}>{ct.email}</a>}
                   </div>
-                  <div style={{display:"flex",gap:3}}><button onClick={()=>{setFormCo({...ct});setModalCo(true);}} style={btnSm("#2a3550","#a3acc0")}><Icon name="edit" size={11}/></button><button onClick={()=>delCo(ct.id)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button></div>
+                  <div style={{display:"flex",gap:3}}><button onClick={()=>{setFormCo({...ct});setModalCo(true);}} style={btnSm("#2a3550","#cad2e9")}><Icon name="edit" size={11}/></button><button onClick={()=>delCo(ct.id)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button></div>
                 </div>
               </div>
             ))}
@@ -1355,10 +1355,10 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         </div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 17px",borderBottom:"1px solid #2a3550"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px"}}>Máquinas ({c.maquinas.length})</div>
+            <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px"}}>Máquinas ({c.maquinas.length})</div>
             <button onClick={()=>{setFormM({nombre:"",marca:"",modelo:"",serie:"",anyo:"",notas:"",foto:null});setModalM(true);}} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:7,padding:"5px 11px",cursor:"pointer",color:"#f59e0b",display:"flex",alignItems:"center",gap:4,fontSize:12,fontWeight:700}}><Icon name="plus" size={12}/>Añadir máquina</button>
           </div>
-          {c.maquinas.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#9aa8c5",fontSize:13}}>Sin máquinas registradas</div>}
+          {c.maquinas.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#c5cee8",fontSize:13}}>Sin máquinas registradas</div>}
           {c.maquinas.length>0&&
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:10,padding:"14px 17px"}}>
               {c.maquinas.map(m=>(
@@ -1390,15 +1390,15 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                     {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} style={{background:"#1e3a5f",border:"1px solid #3b82f644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#3b82f6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="documentacion" size={14}/>Ver documentación</button>}
-                    <button onClick={()=>{setFormM({...m});setModalM(true);}} style={{background:"#2a3550",border:"1px solid #3a4570",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#a3acc0",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="edit" size={14}/>Editar</button>
+                    <button onClick={()=>{setFormM({...m});setModalM(true);}} style={{background:"#2a3550",border:"1px solid #3a4570",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#cad2e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="edit" size={14}/>Editar</button>
                     {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="trash" size={14}/>Eliminar</button>}
                   </div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
-                  {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#9aa8c5",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
+                  {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#c5cee8",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
                 </div>
                 {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseFloat(m.precioVenta).toLocaleString()}</div>}
-                {m.notas&&<div style={{color:"#9aa8c5",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
+                {m.notas&&<div style={{color:"#c5cee8",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
                 {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
                   <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
                 );})():(
@@ -1410,11 +1410,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               </div>
             </div>
             <div style={{borderTop:"1px solid #2a3550",paddingTop:13}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9}}>Historial de órdenes de trabajo ({ords.length})</div>
-              {ords.length===0&&<div style={{color:"#9aa8c5",fontSize:12}}>Sin órdenes registradas.</div>}
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9}}>Historial de órdenes de trabajo ({ords.length})</div>
+              {ords.length===0&&<div style={{color:"#c5cee8",fontSize:12}}>Sin órdenes registradas.</div>}
               {ords.map(r=>(
                 <div key={r.id} style={{background:"#0d1117",borderRadius:9,padding:"11px 13px",marginBottom:7,display:"flex",justifyContent:"space-between"}}>
-                  <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#9aa8c5",fontSize:11}}>{r.fecha}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#9aa8c5",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
+                  <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#c5cee8",fontSize:11}}>{r.fecha}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#c5cee8",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
                   <div style={{color:"#10b981",fontWeight:700,fontSize:14,flexShrink:0,marginLeft:10}}>€{r.presupuesto}</div>
                 </div>
               ))}
@@ -1435,16 +1435,16 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   <div style={{flex:1}}>
                     <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
                       <span style={{color:"#0ea5e9",fontWeight:700,fontSize:12}}>{fmtNombres(p,"tecnicos","tecnico")}</span>
-                      <span style={{color:"#9aa8c5",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
+                      <span style={{color:"#c5cee8",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
                       {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>{p.marca} {p.modelo}</span>}
-                      {p.matricula&&<span style={{color:"#9aa8c5",fontSize:10}}>Matr. {p.matricula}</span>}
+                      {p.matricula&&<span style={{color:"#c5cee8",fontSize:10}}>Matr. {p.matricula}</span>}
                     </div>
-                    <div style={{color:"#c4cad8",fontSize:12}}>{p.descripcion}</div>
-                    {p.materiales&&<div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>🔩 {p.materiales}</div>}
+                    <div style={{color:"#dde2ee",fontSize:12}}>{p.descripcion}</div>
+                    {p.materiales&&<div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>🔩 {p.materiales}</div>}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{p.horasT}h</div>
-                    {p.km>0&&<div style={{color:"#9aa8c5",fontSize:10}}>{p.km} km</div>}
+                    {p.km>0&&<div style={{color:"#c5cee8",fontSize:10}}>{p.km} km</div>}
                   </div>
                 </div>
               ))}
@@ -1464,14 +1464,14 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                 <div key={doc.id} onClick={()=>onIrADocMaquina&&onIrADocMaquina({clienteId:doc.clienteId,maquinaId:doc._maquinaClienteId,marca:doc.marca,modelo:doc.modelo,serie:doc.matricula})} style={{background:"#0d1117",borderRadius:9,padding:"10px 13px",border:"1px solid #e2b71422",cursor:onIrADocMaquina?"pointer":"default"}}>
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:3}}>{doc.marca} {doc.modelo}</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-                    {doc.matricula&&<span style={{color:"#9aa8c5",fontSize:11}}>Matr. {doc.matricula}</span>}
-                    {doc.anyo&&<span style={{color:"#9aa8c5",fontSize:11}}>· {doc.anyo}</span>}
+                    {doc.matricula&&<span style={{color:"#c5cee8",fontSize:11}}>Matr. {doc.matricula}</span>}
+                    {doc.anyo&&<span style={{color:"#c5cee8",fontSize:11}}>· {doc.anyo}</span>}
                   </div>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                     {[...new Set((doc.archivos||[]).map(a=>a.tipo))].slice(0,3).map(t=>(
                       <span key={t} style={{background:"#e2b71415",color:"#e2b714",borderRadius:4,padding:"1px 6px",fontSize:10}}>{t}</span>
                     ))}
-                    {(doc.archivos||[]).length>0&&<span style={{color:"#9aa8c5",fontSize:10}}>{(doc.archivos||[]).length} doc{(doc.archivos||[]).length!==1?"s":""}</span>}
+                    {(doc.archivos||[]).length>0&&<span style={{color:"#c5cee8",fontSize:10}}>{(doc.archivos||[]).length} doc{(doc.archivos||[]).length!==1?"s":""}</span>}
                   </div>
                 </div>
               ))}
@@ -1513,18 +1513,18 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <Field label="Ha comprado maquinaria a Europea de Maquinaria?">
             <div style={{display:"flex",gap:8}}>
               <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:true}))}
-                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#9aa8c5",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(formC.esCliente?"#faff00":"#2a3550"),background:formC.esCliente?"#faff0015":"#0d1117",color:formC.esCliente?"#faff00":"#c5cee8",fontWeight:800,fontSize:13,cursor:"pointer"}}>
                 SI — ES CLIENTE
               </button>
               <button type="button" onClick={()=>setFormC(p=>({...p,esCliente:false}))}
-                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#9aa8c5":"#2a3550"),background:!formC.esCliente?"#9aa8c515":"#0d1117",color:!formC.esCliente?"#9aa3b8":"#9aa8c5",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                style={{flex:1,padding:"10px",borderRadius:9,border:"2px solid "+(!formC.esCliente?"#c5cee8":"#2a3550"),background:!formC.esCliente?"#c5cee815":"#0d1117",color:!formC.esCliente?"#c2cbe3":"#c5cee8",fontWeight:700,fontSize:13,cursor:"pointer"}}>
                 Prospecto / Contacto
               </button>
             </div>
           </Field>
           <Field label="¿Es revendedor de maquinaria?">
             <button type="button" onClick={()=>setFormC(p=>({...p,revendedor:!p.revendedor}))}
-              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#9aa8c5",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              style={{width:"100%",padding:"10px",borderRadius:9,border:"2px solid "+(formC.revendedor?"#ec4899":"#2a3550"),background:formC.revendedor?"#ec489915":"#0d1117",color:formC.revendedor?"#ec4899":"#c5cee8",fontWeight:800,fontSize:13,cursor:"pointer"}}>
               {formC.revendedor ? "✓ REVENDEDOR DE MAQUINARIA" : "Revendedor de maquinaria"}
             </button>
           </Field>
@@ -1544,7 +1544,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         {c.revendedor && (
           <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
             <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
               <Field label="Cliente final (nombre)"><Input value={formM.clienteFinalNombre||""} onChange={fm("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
               <Field label="Localidad / lugar"><Input value={formM.clienteFinalLugar||""} onChange={fm("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
@@ -1555,7 +1555,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         <Field label="Foto de la máquina">
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             {formM.foto&&<img src={formM.foto} alt="preview" style={{width:80,height:60,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
-            <label style={{background:"#2a3550",color:"#9aa3b8",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
+            <label style={{background:"#2a3550",color:"#c2cbe3",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
               <Icon name="image" size={13}/>{formM.foto?"Cambiar foto":"Subir foto"}
               <input type="file" accept="image/*" onChange={handleFoto} style={{display:"none"}}/>
             </label>
@@ -1574,7 +1574,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         <Field label="Contacto principal">
           <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
             <input type="checkbox" checked={!!formCo.principal} onChange={e=>setFormCo(p=>({...p,principal:e.target.checked}))} style={{width:16,height:16}}/>
-            <span style={{color:"#9aa3b8",fontSize:13}}>Marcar como contacto principal</span>
+            <span style={{color:"#c2cbe3",fontSize:13}}>Marcar como contacto principal</span>
           </label>
         </Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalCo(null)} style={btnOutline}>Cancelar</button><button onClick={saveCo} style={btnPrimary}>Guardar</button></div>
@@ -1681,10 +1681,10 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
         </div>
         <div style={{flex:1,overflow:"auto",padding:"6px 5px"}}>
 
-          {canalesV.map(c=><button key={c.id} onClick={()=>irA(c.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===c.id?"#1e2a3a":"transparent",color:canal===c.id?"#f1f3f9":"#9aa8c5",fontSize:12,fontWeight:canal===c.id?700:400,marginBottom:1,textAlign:"left"}}><span>{c.tipo==="general"?"🌐":"👥"}</span>{c.nombre}</button>)}
+          {canalesV.map(c=><button key={c.id} onClick={()=>irA(c.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===c.id?"#1e2a3a":"transparent",color:canal===c.id?"#f1f3f9":"#c5cee8",fontSize:12,fontWeight:canal===c.id?700:400,marginBottom:1,textAlign:"left"}}><span>{c.tipo==="general"?"🌐":"👥"}</span>{c.nombre}</button>)}
           {privK.length>0&&<>
-            <div style={{fontSize:10,color:"#9aa8c5",fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",padding:"9px 7px 5px"}}>Directos</div>
-            {privK.map(k=>{const u=data.usuarios.find(x=>x.id===oUId(k));if(!u)return null;return<button key={k} onClick={()=>irA(k)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===k?"#1e2a3a":"transparent",color:canal===k?"#f1f3f9":"#9aa8c5",fontSize:12,fontWeight:canal===k?700:400,marginBottom:1,textAlign:"left"}}>
+            <div style={{fontSize:10,color:"#c5cee8",fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",padding:"9px 7px 5px"}}>Directos</div>
+            {privK.map(k=>{const u=data.usuarios.find(x=>x.id===oUId(k));if(!u)return null;return<button key={k} onClick={()=>irA(k)} style={{width:"100%",display:"flex",alignItems:"center",gap:7,padding:"7px 9px",borderRadius:7,border:"none",cursor:"pointer",background:canal===k?"#1e2a3a":"transparent",color:canal===k?"#f1f3f9":"#c5cee8",fontSize:12,fontWeight:canal===k?700:400,marginBottom:1,textAlign:"left"}}>
               <div style={{width:20,height:20,borderRadius:5,background:ROLES_COLOR[u.rol]+"30",display:"flex",alignItems:"center",justifyContent:"center",color:ROLES_COLOR[u.rol],fontWeight:700,fontSize:9,flexShrink:0}}>{inic(u.nombre)}</div>{u.nombre}
             </button>;})}
           </>}
@@ -1692,21 +1692,21 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
       </div>}
       {verMsgs && <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
         <div style={{padding:"11px 16px",borderBottom:"1px solid #1a2236",background:"#0a0f1a",display:"flex",alignItems:"center",gap:8}}>
-          {isMobile&&<button onClick={()=>setMView("lista")} style={{background:"none",border:"none",color:"#9aa3b8",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}><Icon name="back" size={17}/></button>}
+          {isMobile&&<button onClick={()=>setMView("lista")} style={{background:"none",border:"none",color:"#c2cbe3",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}><Icon name="back" size={17}/></button>}
           <span style={{fontWeight:700,fontSize:14,color:"#f1f3f9"}}>{canalN()}</span>
         </div>
         <div style={{flex:1,overflow:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:1}}>
-          {msgs.length===0&&<div style={{textAlign:"center",color:"#9aa8c5",fontSize:13,marginTop:36}}>Empieza la conversación...</div>}
+          {msgs.length===0&&<div style={{textAlign:"center",color:"#c5cee8",fontSize:13,marginTop:36}}>Empieza la conversación...</div>}
           {msgs.map((msg,i)=>{
             const esMio=msg.autorId===userActual.id; const av=avU(msg.autorId);
             const showD=i===0||fmtD(msgs[i-1]?.ts)!==fmtD(msg.ts);
             const esImg=msg.adjunto&&msg.adjunto.mime&&msg.adjunto.mime.startsWith("image/");
             return <div key={msg.id}>
-              {showD&&<div style={{textAlign:"center",margin:"8px 0 5px"}}><span style={{background:"#1a2236",color:"#9aa8c5",borderRadius:9,padding:"3px 11px",fontSize:10}}>{fmtD(msg.ts)}</span></div>}
+              {showD&&<div style={{textAlign:"center",margin:"8px 0 5px"}}><span style={{background:"#1a2236",color:"#c5cee8",borderRadius:9,padding:"3px 11px",fontSize:10}}>{fmtD(msg.ts)}</span></div>}
               <div style={{display:"flex",alignItems:"flex-end",gap:7,flexDirection:esMio?"row-reverse":"row",marginBottom:2}}>
                 {!esMio&&<Avatar u={av} size={26} fontSize={10}/>}
                 <div style={{maxWidth:"68%"}}>
-                  {!esMio&&<div style={{fontSize:11,color:"#9aa8c5",marginBottom:2,marginLeft:2}}>{nU(msg.autorId)}</div>}
+                  {!esMio&&<div style={{fontSize:11,color:"#c5cee8",marginBottom:2,marginLeft:2}}>{nU(msg.autorId)}</div>}
                   <div style={{background:esMio?"#2563eb":"#1e2a3a",color:"#f1f3f9",borderRadius:esMio?"11px 11px 3px 11px":"11px 11px 11px 3px",padding:msg.adjunto&&!msg.texto?6:"8px 11px",fontSize:13,lineHeight:1.5,wordBreak:"break-word"}}>
                     {msg.adjunto && (esImg
                       ? <img src={msg.adjunto.url} alt={msg.adjunto.nombre} style={{maxWidth:200,maxHeight:200,borderRadius:7,display:"block",cursor:"pointer",marginBottom:msg.texto?6:0}} onClick={()=>window.open(msg.adjunto.url,"_blank")}/>
@@ -1723,7 +1723,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
         </div>
         <div style={{padding:"10px 14px",borderTop:"1px solid #1a2236",display:"flex",gap:7,alignItems:"center"}}>
           <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style={{display:"none"}} onChange={e=>enviarArchivo(e.target.files[0])}/>
-          <button onClick={()=>fileRef.current?.click()} disabled={subiendo} title="Adjuntar archivo" style={{background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 11px",cursor:subiendo?"default":"pointer",color:"#9aa3b8",fontSize:15,flexShrink:0}}>{subiendo?"…":"📎"}</button>
+          <button onClick={()=>fileRef.current?.click()} disabled={subiendo} title="Adjuntar archivo" style={{background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 11px",cursor:subiendo?"default":"pointer",color:"#c2cbe3",fontSize:15,flexShrink:0}}>{subiendo?"…":"📎"}</button>
           <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&enviar()} placeholder={`Escribe en ${canalN()}...`} style={{flex:1,background:"#1e2a3a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 13px",color:"#f1f3f9",fontSize:13,outline:"none",minWidth:0}}/>
           <button onClick={enviar} disabled={!texto.trim()} style={{background:texto.trim()?"#3b82f6":"#1a2236",border:"none",borderRadius:9,padding:"9px 13px",cursor:texto.trim()?"pointer":"default",color:texto.trim()?"#fff":"#3a4560",display:"flex",alignItems:"center",gap:5,fontWeight:700,fontSize:13,flexShrink:0}}>
             <Icon name="send" size={15}/>{!isMobile&&"Enviar"}
@@ -2095,14 +2095,14 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
     return (<div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-        <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex"}}><Icon name="back" size={15}/></button>
+        <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex"}}><Icon name="back" size={15}/></button>
         <div style={{flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</h2>
             {m.codigo&&<span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
             {origenInfo(m,cliente.id)&&<span style={{background:origenInfo(m,cliente.id).color+"20",color:origenInfo(m,cliente.id).color,border:"1px solid "+origenInfo(m,cliente.id).color+"44",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{origenInfo(m,cliente.id).emoji} {origenInfo(m,cliente.id).label}</span>}
           </div>
-          <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
+          <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
         </div>
         {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
         <button onClick={generarPDFMaquinaFicha} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>PDF</button>
@@ -2110,34 +2110,34 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina? Esta acción no se puede deshacer."))delMaquinaFicha(cliente.id,m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-        {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseFloat(m.precioVenta).toLocaleString():"—"}</div></div>}
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
+        {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseFloat(m.precioVenta).toLocaleString():"—"}</div></div>}
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
         {cliente.revendedor&&<div style={{background:"#1a0d18",border:"1px solid #ec489944",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#ec4899",fontSize:11,textTransform:"uppercase",marginBottom:4}}>📍 Cliente final</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:14}}>{m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"Desconocido"}</div></div>}
         {garantiaInfo(m)&&(()=>{const g=garantiaInfo(m);
           if(g.estado==="pendiente") return (
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
+              <div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
               <div style={{color:"#f59e0b",fontWeight:800,fontSize:13,marginBottom:6}}>Falta fecha de instalación</div>
               <button onClick={()=>{setFechaInstalacionForm(today());setModalInstalacion(true);}} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:7,padding:"4px 9px",color:"#f59e0b",fontWeight:700,cursor:"pointer",fontSize:11}}>Establecer fecha</button>
             </div>
           );
           return (
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
+              <div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Garantía (1 año)</div>
               <div style={{color:g.estado==="vigente"?"#10b981":"#dc2626",fontWeight:800,fontSize:16}}>{g.estado==="vigente"?`${g.restantes} días restantes`:`Vencida hace ${Math.abs(g.restantes)} días`}</div>
-              <div style={{color:"#9aa8c5",fontSize:10,marginTop:2}}>Instalada: {fmtFecha(m.fechaInstalacion)}</div>
+              <div style={{color:"#c5cee8",fontSize:10,marginTop:2}}>Instalada: {fmtFecha(m.fechaInstalacion)}</div>
             </div>
           );
         })()}
       </div>
       {m.foto&&<div style={{marginBottom:16}}><img src={m.foto} alt="" style={{maxWidth:220,borderRadius:10,border:"1px solid #2a3550"}}/></div>}
-      {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13}}>{m.notas}</div></div>}
-      <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial ({historial.length})</div>
+      {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#c2cbe3",fontSize:13}}>{m.notas}</div></div>}
+      <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial ({historial.length})</div>
       <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
-        {historial.length===0&&<div style={{padding:"24px",textAlign:"center",color:"#9aa8c5",fontSize:13}}>Sin avisos ni partes registrados para esta máquina</div>}
+        {historial.length===0&&<div style={{padding:"24px",textAlign:"center",color:"#c5cee8",fontSize:13}}>Sin avisos ni partes registrados para esta máquina</div>}
         {historial.map((h,i)=>{
           const esAvisoClicable = h.tipo==="Aviso" && irAAviso;
           const esParteClicable = h.tipo==="Parte" && irAParte;
@@ -2151,10 +2151,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800}}>{h.tipo}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
-              <div style={{color:"#9aa8c5",fontSize:11}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
+              <div style={{color:"#c5cee8",fontSize:11}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
             </div>
-            {esParteClicable&&<span style={{color:"#9aa8c5",fontSize:11,display:"flex",alignItems:"center",gap:3}}><Icon name="parts" size={12}/>PDF</span>}
-            {esClicable&&<span style={{color:"#9aa8c5",fontSize:13}}>→</span>}
+            {esParteClicable&&<span style={{color:"#c5cee8",fontSize:11,display:"flex",alignItems:"center",gap:3}}><Icon name="parts" size={12}/>PDF</span>}
+            {esClicable&&<span style={{color:"#c5cee8",fontSize:13}}>→</span>}
           </div>
           );
         })}
@@ -2174,7 +2174,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         {cliente.revendedor && (
           <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
             <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
               <Field label="Cliente final (nombre)"><Input value={form.clienteFinalNombre||""} onChange={f("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
               <Field label="Localidad / lugar"><Input value={form.clienteFinalLugar||""} onChange={f("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
@@ -2228,17 +2228,17 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
 
   return (<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Máquinas</h2><p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Ficha de cada máquina de cliente: datos, código interno e historial completo</p></div>
+      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Máquinas</h2><p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Ficha de cada máquina de cliente: datos, código interno e historial completo</p></div>
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={abrirNuevaMaquina} style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva máquina</button>
         <div style={{display:"flex",gap:3,background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:3}}>
-          <button onClick={()=>setModoVista("lista")} style={{background:modoVista==="lista"?"#0ea5e9":"transparent",color:modoVista==="lista"?"#fff":"#9aa8c5",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="maquina" size={13}/>Lista</button>
-          <button onClick={()=>setModoVista("mapa")} style={{background:modoVista==="mapa"?"#0ea5e9":"transparent",color:modoVista==="mapa"?"#fff":"#9aa8c5",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="pin" size={13}/>Mapa</button>
+          <button onClick={()=>setModoVista("lista")} style={{background:modoVista==="lista"?"#0ea5e9":"transparent",color:modoVista==="lista"?"#fff":"#c5cee8",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="maquina" size={13}/>Lista</button>
+          <button onClick={()=>setModoVista("mapa")} style={{background:modoVista==="mapa"?"#0ea5e9":"transparent",color:modoVista==="mapa"?"#fff":"#c5cee8",border:"none",borderRadius:7,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="pin" size={13}/>Mapa</button>
         </div>
       </div>
     </div>
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-      <div style={{position:"relative",flex:"1 1 220px",minWidth:200}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={13}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por código, marca, modelo, cliente..." style={{...inputStyle,paddingLeft:30}}/></div>
+      <div style={{position:"relative",flex:"1 1 220px",minWidth:200}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={13}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por código, marca, modelo, cliente..." style={{...inputStyle,paddingLeft:30}}/></div>
       <select value={filtroCliente} onChange={e=>setFiltroCliente(e.target.value)} style={{...inputStyle,width:190}}>
         <option value="">Todos los clientes</option>
         {data.clientes.filter(c=>(c.maquinas||[]).length>0).map(c=><option key={c.id} value={c.id}>{c.nombreEmpresa}</option>)}
@@ -2250,7 +2250,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     </div>
     {modoVista==="lista"?(
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:12}}>
-      {filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5",gridColumn:"1/-1"}}>No hay máquinas {busq||filtroCliente||filtroModelo?"con ese filtro":"registradas (añádelas desde la ficha del cliente)"}</div>}
+      {filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8",gridColumn:"1/-1"}}>No hay máquinas {busq||filtroCliente||filtroModelo?"con ese filtro":"registradas (añádelas desde la ficha del cliente)"}</div>}
       {filtradas.map(m=>(
         <div key={m._clienteId+"-"+m.id} onClick={()=>setVista({clienteId:m._clienteId,maquinaId:m.id})} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"14px 16px",cursor:"pointer"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,gap:6}}>
@@ -2260,16 +2260,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             </div>
             {m.codigo&&<span style={{color:"#0ea5e9",fontSize:10,fontWeight:700,fontFamily:"monospace",whiteSpace:"nowrap"}}>{m.codigo}</span>}
           </div>
-          <div style={{color:"#9aa8c5",fontSize:12,marginBottom:4}}>🏢 {m._clienteNombre}</div>
+          <div style={{color:"#c5cee8",fontSize:12,marginBottom:4}}>🏢 {m._clienteNombre}</div>
           {m._clienteRevendedor&&<div style={{color:"#ec4899",fontSize:11,marginBottom:4,fontWeight:700}}>📍 Cliente final: {m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"desconocido"}</div>}
-          <div style={{color:"#9aa8c5",fontSize:11}}>{[m.marca,m.modelo,m.serie,m.anyo].filter(Boolean).join(" · ")||"Sin datos técnicos"}</div>
+          <div style={{color:"#c5cee8",fontSize:11}}>{[m.marca,m.modelo,m.serie,m.anyo].filter(Boolean).join(" · ")||"Sin datos técnicos"}</div>
         </div>
       ))}
     </div>
     ):(
     <div style={{height:540,borderRadius:14,overflow:"hidden",border:"1px solid #2a3550",position:"relative"}}>
       {geocodificando&&<div style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#0ea5e9",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7}}>Localizando direcciones...</div>}
-      {puntosMapa.length===0&&!geocodificando&&<div style={{position:"absolute",top:8,left:8,zIndex:500,background:"#0d1117cc",color:"#9aa8c5",fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:7}}>Sin máquinas localizables (revisa que el cliente tenga dirección; las de revendedores sólo se ubican si se conoce el lugar del cliente final)</div>}
+      {puntosMapa.length===0&&!geocodificando&&<div style={{position:"absolute",top:8,left:8,zIndex:500,background:"#0d1117cc",color:"#c5cee8",fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:7}}>Sin máquinas localizables (revisa que el cliente tenga dirección; las de revendedores sólo se ubican si se conoce el lugar del cliente final)</div>}
       {!geocodificando&&clientesConErrorGeo>0&&(
         <button onClick={reintentarGeocodificacion} style={{position:"absolute",top:8,right:8,zIndex:500,background:"#0d1117cc",color:"#f59e0b",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:7,border:"1px solid #f59e0b44",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
           <Icon name="search" size={11}/>No se pudo localizar {clientesConErrorGeo} dirección{clientesConErrorGeo>1?"es":""} · Reintentar
@@ -2329,7 +2329,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {data.clientes.find(c=>c.id===parseInt(formNueva.clienteId))?.revendedor && (
         <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
           <div style={{fontSize:11,fontWeight:700,color:"#ec4899",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>📍 Cliente final (revendedor — la máquina no está en sus instalaciones)</div>
-          <div style={{color:"#9aa8c5",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
+          <div style={{color:"#c5cee8",fontSize:11,marginBottom:8}}>Indica dónde está realmente la máquina, si se sabe. Muchas veces no se conocerá el cliente final — déjalo en blanco si es el caso.</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
             <Field label="Cliente final (nombre)"><Input value={formNueva.clienteFinalNombre||""} onChange={fN("clienteFinalNombre")} placeholder="Si se conoce..."/></Field>
             <Field label="Localidad / lugar"><Input value={formNueva.clienteFinalLugar||""} onChange={fN("clienteFinalLugar")} placeholder="Ciudad, polígono..."/></Field>
@@ -2338,8 +2338,8 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       )}
       <Field label="Foto"><input type="file" accept="image/*" onChange={handleFotoNueva}/></Field>
       <Field label="Documentación (opcional)">
-        <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#9aa8c5",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
-        {archivosNueva.length>0&&<div style={{marginTop:6}}>{archivosNueva.map((a,i)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#9aa3b8",fontSize:12}}>📎 {a.nombre}</span><button onClick={()=>setArchivosNueva(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
+        <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#c5cee8",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
+        {archivosNueva.length>0&&<div style={{marginTop:6}}>{archivosNueva.map((a,i)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#c2cbe3",fontSize:12}}>📎 {a.nombre}</span><button onClick={()=>setArchivosNueva(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
       </Field>
       <Field label="Notas"><textarea value={formNueva.notas||""} onChange={fN("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
@@ -2436,7 +2436,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:900,fontSize:22,margin:0}}>Avisos</h2>
-          <p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Incidencias · Reparaciones · Montajes · Consultas</p>
+          <p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Incidencias · Reparaciones · Montajes · Consultas</p>
         </div>
         <button onClick={openNewAv} style={{background:"linear-gradient(135deg,#ef4444,#f59e0b)",color:"#fff",border:"none",borderRadius:10,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
           <Icon name="plus" size={14} />Nuevo aviso
@@ -2454,7 +2454,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <span>🔴</span>
                 <div>
                   <div style={{color:"#ef4444",fontWeight:800,fontSize:12}}>{crit.length} ACCIÓN INMEDIATA</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>Prioridad alta · toca para filtrar</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>Prioridad alta · toca para filtrar</div>
                 </div>
               </div>
               <span style={{color:"#ef4444",fontSize:13,fontWeight:700}}>→</span>
@@ -2469,7 +2469,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <span>⚠️</span>
                 <div>
                   <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>{sinA.length} sin asignar</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>{soloSinAsignar ? "Filtrando ahora · toca para quitar" : "Sin técnico · toca para ver"}</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>{soloSinAsignar ? "Filtrando ahora · toca para quitar" : "Sin técnico · toca para ver"}</div>
                 </div>
               </div>
               <span style={{color:"#f59e0b",fontSize:13,fontWeight:700}}>{soloSinAsignar ? "✕" : "→"}</span>
@@ -2484,7 +2484,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <span>📅</span>
                 <div>
                   <div style={{color:"#3b82f6",fontWeight:800,fontSize:12}}>{ant.length} con +7 días</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>{soloAntiguos?"Filtrando ahora · toca para quitar":"Sin resolver · toca para ver"}</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>{soloAntiguos?"Filtrando ahora · toca para quitar":"Sin resolver · toca para ver"}</div>
                 </div>
               </div>
               <span style={{color:"#3b82f6",fontSize:13,fontWeight:700}}>{soloAntiguos?"✕":"→"}</span>
@@ -2499,7 +2499,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             <span style={{fontSize:18}}>🚨</span>
             <div>
               <div style={{color:"#dc2626",fontWeight:900,fontSize:13}}>ALERTA AUTOMÁTICA — {urgentes14.length} aviso{urgentes14.length!==1?"s":""} crítico{urgentes14.length!==1?"s":""}</div>
-              <div style={{color:"#94a3b8",fontSize:11}}>Prioridad Alta con más de 14 días sin resolver · requieren atención inmediata</div>
+              <div style={{color:"#bfc8e0",fontSize:11}}>Prioridad Alta con más de 14 días sin resolver · requieren atención inmediata</div>
             </div>
           </div>
           <button onClick={()=>{setSoloAntiguos(false);setSoloSinAsignar(false);setFe("Activos");setFp("Alta");setFt("Todos");setS("");}}
@@ -2511,22 +2511,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       {/* Filtros */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center",maxWidth:"100%"}}>
         {["Activos", "Resueltos", "Cancelados", "Todos"].map(e => (
-          <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#9aa8c5",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{e}</button>
+          <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#c5cee8",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{e}</button>
         ))}
         <div style={{width:1,height:20,background:"#2a3550"}} />
         {["Todos", ...PRIORIDADES].map(p => (
-          <button key={p} onClick={() => setFp(p)} style={{background:fp === p ? (PCOLOR[p] || "#3b82f6") + "22" :"transparent",color:fp === p ? (PCOLOR[p] || "#3b82f6") :"#9aa8c5",border:"1px solid " + (fp === p ? (PCOLOR[p] || "#3b82f6") + "66" :"#2a3550"),borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{p}</button>
+          <button key={p} onClick={() => setFp(p)} style={{background:fp === p ? (PCOLOR[p] || "#3b82f6") + "22" :"transparent",color:fp === p ? (PCOLOR[p] || "#3b82f6") :"#c5cee8",border:"1px solid " + (fp === p ? (PCOLOR[p] || "#3b82f6") + "66" :"#2a3550"),borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{p}</button>
         ))}
         <div style={{width:1,height:20,background:"#2a3550"}} />
         {["Todos", ...TIPOS_AVISO].map(t => (
-          <button key={t} onClick={() => setFt(t)} style={{background:ft === t ? "#2a3550" :"transparent",color:ft === t ? "#f1f3f9" :"#9aa8c5",border:"1px solid " + (ft === t ? "#3a4560" :"#2a3550"),borderRadius:7,padding:"4px 9px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{t}</button>
+          <button key={t} onClick={() => setFt(t)} style={{background:ft === t ? "#2a3550" :"transparent",color:ft === t ? "#f1f3f9" :"#c5cee8",border:"1px solid " + (ft === t ? "#3a4560" :"#2a3550"),borderRadius:7,padding:"4px 9px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{t}</button>
         ))}
         <div style={{position:"relative",marginLeft:"auto",flex:"1 1 140px",maxWidth:220,minWidth:120}}>
-          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={12} /></span>
+          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={12} /></span>
           <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}} />
         </div>
       </div>
-        <div style={{color:"#9aa8c5",fontSize:11,marginBottom:7,display:"flex",alignItems:"center",gap:8}}>
+        <div style={{color:"#c5cee8",fontSize:11,marginBottom:7,display:"flex",alignItems:"center",gap:8}}>
           {avs.length} aviso{avs.length !== 1 ? "s" : ""}
           {soloSinAsignar && (
             <span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
@@ -2543,9 +2543,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       {/* Lista */}
       <div style={{display:"grid",gap:7}}>
-        {avs.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5"}}>No hay avisos</div>}
+        {avs.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8"}}>No hay avisos</div>}
         {avs.map(av => {
-          const pc = PCOLOR[av.prioridad] || "#9aa8c5";
+          const pc = PCOLOR[av.prioridad] || "#c5cee8";
           const isCrit = av.prioridad === "Alta" && av.estado !== "Resuelto";
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
@@ -2564,17 +2564,17 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <span style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {cN(av.clienteId)}</span>
                   {(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>CLIENTE</span>}</>;})()}
                 </div>
-                <div style={{color:"#9aa3b8",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
+                <div style={{color:"#c2cbe3",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                   {(av.marca||av.modelo||av.matricula) && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>}
-                  <span style={{color:"#9aa8c5",fontSize:11}}>👤 {av.dadoPor}</span>
-                  <span style={{color:"#9aa8c5",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
+                  <span style={{color:"#c5cee8",fontSize:11}}>👤 {av.dadoPor}</span>
+                  <span style={{color:"#c5cee8",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
                   {av.fechaUltimaIntervencion && (
                     <span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>
                       🔧 Última intervención: {av.fechaUltimaIntervencion}
                     </span>
                   )}
-                  {listaNombres(av,"asignados","asignado").length>0 && <span style={{color:"#9aa8c5",fontSize:11}}>🔧 {fmtNombres(av,"asignados","asignado")}</span>}
+                  {listaNombres(av,"asignados","asignado").length>0 && <span style={{color:"#c5cee8",fontSize:11}}>🔧 {fmtNombres(av,"asignados","asignado")}</span>}
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
@@ -2591,7 +2591,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#a3acc0")}><Icon name="edit" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#cad2e9")}><Icon name="edit" size={12} /></button>
                   <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
@@ -2617,25 +2617,25 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9,marginBottom:11}}>
           {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>], ["Teléfono cliente", telD], ["Dirección", dirD], ["Máquina", maqD], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []), ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
             <div key={l} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
-              <div style={{fontSize:11,color:"#9aa8c5",textTransform:"uppercase",marginBottom:2}}>{l}</div>
+              <div style={{fontSize:11,color:"#c5cee8",textTransform:"uppercase",marginBottom:2}}>{l}</div>
               <div style={{color:"#f1f3f9",fontWeight:700}}>{v}</div>
             </div>
           ))}
         </div>
         <div style={{background:"#0d1117",borderRadius:8,padding:"11px 13px",marginBottom:9}}>
-          <div style={{fontSize:11,color:"#9aa8c5",textTransform:"uppercase",marginBottom:4}}>Descripción</div>
-          <div style={{color:"#c4cad8",fontSize:13,lineHeight:1.6}}>{detalle.descripcion}</div>
+          <div style={{fontSize:11,color:"#c5cee8",textTransform:"uppercase",marginBottom:4}}>Descripción</div>
+          <div style={{color:"#dde2ee",fontSize:13,lineHeight:1.6}}>{detalle.descripcion}</div>
         </div>
         {detalle.notas && (
           <div style={{background:"#f59e0b0d",border:"1px solid #f59e0b33",borderRadius:8,padding:"10px 12px",marginBottom:11}}>
             <div style={{fontSize:11,color:"#f59e0b",textTransform:"uppercase",marginBottom:3}}>Notas</div>
-            <div style={{color:"#c4cad8",fontSize:12}}>{detalle.notas}</div>
+            <div style={{color:"#dde2ee",fontSize:12}}>{detalle.notas}</div>
           </div>
         )}
         {detalle.estado === "Cancelado" && detalle.motivoCancelacion && (
           <div style={{background:"#dc26260d",border:"1px solid #dc262633",borderRadius:8,padding:"10px 12px",marginBottom:11}}>
             <div style={{fontSize:11,color:"#dc2626",textTransform:"uppercase",marginBottom:3}}>Motivo de cancelación{detalle.fechaCancelacion?" · "+detalle.fechaCancelacion:""}</div>
-            <div style={{color:"#c4cad8",fontSize:12}}>{detalle.motivoCancelacion}</div>
+            <div style={{color:"#dde2ee",fontSize:12}}>{detalle.motivoCancelacion}</div>
           </div>
         )}
         <div style={{display:"flex",gap:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
@@ -2687,7 +2687,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           if(!maquinas.length) return (
             <div style={{background:"#ef444412",border:"2px solid #ef444433",borderRadius:9,padding:"14px 16px"}}>
               <div style={{color:"#ef4444",fontWeight:800,fontSize:13,marginBottom:4}}>⛔ {cl?.nombreEmpresa} no tiene maquinas registradas</div>
-              <div style={{color:"#9aa3b8",fontSize:12,marginBottom:6}}>No se puede crear un aviso sin maquina. Primero registra la maquina en la ficha del cliente.</div>
+              <div style={{color:"#c2cbe3",fontSize:12,marginBottom:6}}>No se puede crear un aviso sin maquina. Primero registra la maquina en la ficha del cliente.</div>
               <div style={{background:"#0d1117",borderRadius:6,padding:"7px 10px",color:"#f59e0b",fontSize:11,fontWeight:700}}>
                 Clientes → {cl?.nombreEmpresa} → pestaña Maquinas → Añadir maquina
               </div>
@@ -2711,7 +2711,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {maq?.marca&&<span style={{background:"#10b98115",color:"#10b981",borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:700}}>{maq.marca}</span>}
                     {(maq?.modelo||maq?.nombre)&&<span style={{background:"#3b82f615",color:"#3b82f6",borderRadius:5,padding:"2px 8px",fontSize:11}}>{maq.modelo||maq.nombre}</span>}
-                    {maq?.serie&&<span style={{color:"#9aa8c5",fontSize:11}}>Matr: {maq.serie}</span>}
+                    {maq?.serie&&<span style={{color:"#c5cee8",fontSize:11}}>Matr: {maq.serie}</span>}
                   </div>
                 );
               })()}
@@ -2747,7 +2747,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <div style={{display:"flex",gap:6}}>
                   {[["Mañana","🌅"],["Tarde","🌆"],["Todo el dia","📅"]].map(([v,ico])=>(
                     <button key={v} type="button" onClick={()=>setFormAv(p=>({...p,horaResolucion:v}))}
-                      style={{flex:1,padding:"8px 4px",borderRadius:8,border:"2px solid "+(formAv.horaResolucion===v?"#3b82f6":"#2a3550"),background:formAv.horaResolucion===v?"#3b82f615":"#0d1117",color:formAv.horaResolucion===v?"#3b82f6":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:11,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                      style={{flex:1,padding:"8px 4px",borderRadius:8,border:"2px solid "+(formAv.horaResolucion===v?"#3b82f6":"#2a3550"),background:formAv.horaResolucion===v?"#3b82f615":"#0d1117",color:formAv.horaResolucion===v?"#3b82f6":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:11,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                       <span style={{fontSize:14}}>{ico}</span>{v}
                     </button>
                   ))}
@@ -2788,7 +2788,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
 };
 const ESTADOS_VENTA_ABIERTOS = ["Prospecto","Oferta enviada","Negociación"];
 const ESTADOS_VENTA_CERRADOS = ["Ganada","Perdida","Cancelada"];
-const PIPELINE_COLOR = { "Prospecto":"#9aa3b8","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Ganada":"#16a34a","Perdida":"#dc2626","Cancelada":"#9aa3b8" };
+const PIPELINE_COLOR = { "Prospecto":"#c2cbe3","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Ganada":"#16a34a","Perdida":"#dc2626","Cancelada":"#c2cbe3" };
 const PIPELINE_ICON  = { "Prospecto":"🔍","Oferta enviada":"📄","Negociación":"🤝","Ganada":"✅","Perdida":"❌","Cancelada":"🚫" };
 const diasHastaFecha = f => { const d = Math.ceil((new Date(f) - new Date(today())) / 86400000); return d; };
 const Ventas = ({ data, setData, userActual }) => {
@@ -2905,7 +2905,7 @@ const Ventas = ({ data, setData, userActual }) => {
       <Field label="Fecha exacta">
         <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} />
       </Field>
-      <div style={{textAlign:"center",color:"#9aa8c5",fontSize:11,margin:"10px 0",fontWeight:700}}>— O —</div>
+      <div style={{textAlign:"center",color:"#c5cee8",fontSize:11,margin:"10px 0",fontWeight:700}}>— O —</div>
       <Field label="Dentro de (días)">
         <Input type="number" value={formSeguimiento.dias || ""} onChange={e => { const dias = e.target.value; setFormSeguimiento(p => ({ ...p,dias,fecha: dias ? fechaDesdeDias(dias) : "" })); }} placeholder="Ej: 7" />
       </Field>
@@ -2930,7 +2930,7 @@ const Ventas = ({ data, setData, userActual }) => {
           cliente, cada uno con su propio precio — por eso es una lista en vez de
           un único campo. */}
       <div style={{marginTop:4,marginBottom:13}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>Máquinas ofertadas</div>
+        <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>Máquinas ofertadas</div>
         {(form.ofertas || []).map((o, i) => (
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 130px 32px",gap:6,marginBottom:6}}>
             <input value={o.maquina || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,maquina: e.target.value } : x) }))} placeholder={`Máquina ofertada ${i + 1}`} style={inputStyle} />
@@ -2938,14 +2938,14 @@ const Ventas = ({ data, setData, userActual }) => {
             <button onClick={() => setForm(p => ({ ...p,ofertas: p.ofertas.filter((_, j) => j !== i) }))} disabled={(form.ofertas || []).length === 1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626"}}><Icon name="trash" size={12} /></button>
           </div>
         ))}
-        <button onClick={() => setForm(p => ({ ...p,ofertas: [...(p.ofertas || []),{ maquina: "",importe: "" }] }))} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#9aa8c5",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir máquina ofertada</button>
+        <button onClick={() => setForm(p => ({ ...p,ofertas: [...(p.ofertas || []),{ maquina: "",importe: "" }] }))} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#c5cee8",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir máquina ofertada</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
         <Field label="Estado"><Select value={form.estado} onChange={f("estado")} options={ESTADOS_VENTA} /></Field>
         <Field label="Oferta económica entregada">
           <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",paddingTop:8}}>
             <input type="checkbox" checked={!!form.ofertaEntregada} onChange={e => setForm(p => ({ ...p,ofertaEntregada: e.target.checked,metodoEntrega: e.target.checked ? p.metodoEntrega : "" }))} style={{width:16,height:16}} />
-            <span style={{color:"#9aa3b8",fontSize:13}}>Sí, oferta entregada al cliente</span>
+            <span style={{color:"#c2cbe3",fontSize:13}}>Sí, oferta entregada al cliente</span>
           </label>
         </Field>
         {form.ofertaEntregada && <Field label="Cómo se entregó"><Select value={form.metodoEntrega || "Email"} onChange={f("metodoEntrega")} options={METODOS_ENTREGA_OFERTA} /></Field>}
@@ -2962,7 +2962,7 @@ const Ventas = ({ data, setData, userActual }) => {
       <Field label="Ofertas de la competencia"><Input value={form.competencia} onChange={f("competencia")} placeholder="Marca, modelo, precio estimado..." /></Field>
       <Field label="Percepción fecha de cierre">
         <Input type="date" value={form.percepcionCierre} onChange={f("percepcionCierre")} />
-        <div style={{fontSize:11,color:"#9aa8c5",marginTop:4}}>Tu estimación de cuándo se cerrará la operación</div>
+        <div style={{fontSize:11,color:"#c5cee8",marginTop:4}}>Tu estimación de cuándo se cerrará la operación</div>
       </Field>
       <Field label="Notas"><Textarea value={form.notas} onChange={f("notas")} /></Field>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
@@ -2978,7 +2978,7 @@ const Ventas = ({ data, setData, userActual }) => {
     setModalCierre(null);
   };
   const venta = vista ? data.ventas.find(v => v.id === vista) : null;
-  const CierreColor = estado => ESTADOS_VENTA_CERRADOS.includes(estado) ? (estado === "Ganada" ? "#16a34a" : "#dc2626") : "#9aa8c5";
+  const CierreColor = estado => ESTADOS_VENTA_CERRADOS.includes(estado) ? (estado === "Ganada" ? "#16a34a" : "#dc2626") : "#c5cee8";
   const diasCierre = percepcion => {
     if (!percepcion) return null;
     const d = diasHastaFecha(percepcion);
@@ -2990,7 +2990,7 @@ const Ventas = ({ data, setData, userActual }) => {
     if (d === 0) return { txt: "Cierre hoy",c: "#f59e0b" };
     if (d <= 7) return { txt: `Cierre en ${d}d`,c: "#f59e0b" };
     if (d <= 30) return { txt: `Cierre ~${d}d`,c: "#10b981" };
-    return { txt: `Cierre en ${d}d`,c: "#9aa8c5" };
+    return { txt: `Cierre en ${d}d`,c: "#c5cee8" };
   };
   if (vista && venta) {
     const cl = data.clientes.find(c => c.id === venta.clienteId);
@@ -3000,13 +3000,13 @@ const Ventas = ({ data, setData, userActual }) => {
     return (
       <div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex",flexShrink:0}}><Icon name="back" size={15} /></button>
+          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex",flexShrink:0}}><Icon name="back" size={15} /></button>
           <div style={{flex:"1 1 200px",minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{venta.maquina}</h2>
               <Badge text={venta.estado} />
             </div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>🏢 {cN(venta.clienteId)} · 📅 {venta.fecha}</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>🏢 {cN(venta.clienteId)} · 📅 {venta.fecha}</div>
           </div>
           {!cerrada && <>
             <button onClick={() => { setModalCierre(venta.id); setFormCierre({ estado: "Ganada",motivoCierre: venta.motivoCierre || "" }); }} style={{background:"#16a34a20",border:"1px solid #16a34a44",borderRadius:8,padding:"7px 13px",color:"#16a34a",fontWeight:700,cursor:"pointer",fontSize:13}}>✅ Cerrar ganada</button>
@@ -3020,7 +3020,7 @@ const Ventas = ({ data, setData, userActual }) => {
           <div style={{display:"grid",gap:10}}>
             {/* Operación */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Operación</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Operación</div>
               {[
                 ["Máquina demandada", venta.maquina],
                 ["Cliente", cN(venta.clienteId)],
@@ -3028,81 +3028,81 @@ const Ventas = ({ data, setData, userActual }) => {
                 ["Oferta entregada", venta.ofertaEntregada ? `✅ Sí — ${venta.metodoEntrega || "método sin especificar"}` : "⏳ Pendiente"],
               ].map(([l, v]) => (
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
-                  <span style={{color:"#9aa8c5",fontSize:12}}>{l}</span>
+                  <span style={{color:"#c5cee8",fontSize:12}}>{l}</span>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
                 </div>
               ))}
             </div>
             {/* Máquinas ofertadas (puede haber varios modelos, cada uno con su precio) */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Máquinas ofertadas</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Máquinas ofertadas</div>
               {ofertasDe(venta).filter(o => o.maquina || o.importe).map((o, i) => (
                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>Oferta {i + 1}: {o.maquina || "—"}</span>
                   <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</span>
                 </div>
               ))}
-              <div style={{color:"#9aa8c5",fontSize:10.5,marginTop:7,fontStyle:"italic"}}>El cliente comprará como mucho una de estas opciones, no se suman.</div>
+              <div style={{color:"#c5cee8",fontSize:10.5,marginTop:7,fontStyle:"italic"}}>El cliente comprará como mucho una de estas opciones, no se suman.</div>
             </div>
             {/* Contacto */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Contacto</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Contacto</div>
               {[
                 ["Persona de contacto", venta.personaContacto || "—"],
                 ["Último contacto", venta.ultimoContacto || "Sin registrar"],
                 ["Próximo contacto", venta.proximoContacto || "Sin programar"],
               ].map(([l, v]) => (
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
-                  <span style={{color:"#9aa8c5",fontSize:12}}>{l}</span>
+                  <span style={{color:"#c5cee8",fontSize:12}}>{l}</span>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
                 </div>
               ))}
-              {venta.ultimoContactoNota && <div style={{color:"#9aa3b8",fontSize:12,marginTop:7,fontStyle:"italic"}}>"{venta.ultimoContactoNota}"</div>}
+              {venta.ultimoContactoNota && <div style={{color:"#c2cbe3",fontSize:12,marginTop:7,fontStyle:"italic"}}>"{venta.ultimoContactoNota}"</div>}
             </div>
             {/* Máquina a retirar */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Máquina a retirar</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Máquina a retirar</div>
               {venta.maquinaRetirar ? <>
                 <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginBottom:5}}>{venta.maquinaRetirar}</div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{color:"#9aa8c5",fontSize:12}}>Valoración:</span>
+                  <span style={{color:"#c5cee8",fontSize:12}}>Valoración:</span>
                   <span style={{color:"#10b981",fontWeight:800,fontSize:14}}>€{(venta.valoracionRetirada || 0).toLocaleString()}</span>
                 </div>
-              </> : <div style={{color:"#9aa8c5",fontSize:12}}>Sin máquina a retirar</div>}
+              </> : <div style={{color:"#c5cee8",fontSize:12}}>Sin máquina a retirar</div>}
             </div>
             {/* Competencia */}
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Ofertas competencia</div>
-              {venta.competencia ? <div style={{color:"#f59e0b",fontSize:13}}>⚔️ {venta.competencia}</div> : <div style={{color:"#9aa8c5",fontSize:12}}>Sin información de competencia</div>}
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Ofertas competencia</div>
+              {venta.competencia ? <div style={{color:"#f59e0b",fontSize:13}}>⚔️ {venta.competencia}</div> : <div style={{color:"#c5cee8",fontSize:12}}>Sin información de competencia</div>}
             </div>
           </div>
           {/* Columna derecha */}
           <div style={{display:"grid",gap:10,alignContent:"start"}}>
             {/* Percepción de cierre */}
             {!cerrada && <div style={{background:cl_label ? cl_label.c + "12" :"#151b2a",border:`1px solid ${cl_label ? cl_label.c + "44" :"#2a3550"}`,borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>📅 Percepción de cierre</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>📅 Percepción de cierre</div>
               {venta.percepcionCierre ? <>
                 <div style={{color:"#f1f3f9",fontSize:16,fontWeight:800}}>{venta.percepcionCierre}</div>
                 {cl_label && <div style={{color:cl_label.c,fontWeight:700,fontSize:13,marginTop:4}}>{cl_label.txt}</div>}
-              </> : <div style={{color:"#9aa8c5",fontSize:12}}>Sin fecha estimada</div>}
+              </> : <div style={{color:"#c5cee8",fontSize:12}}>Sin fecha estimada</div>}
             </div>}
             {/* Resultado cierre */}
             {cerrada && <div style={{background:CierreColor(venta.estado) + "12",border:`1px solid ${CierreColor(venta.estado)}44`,borderRadius:12,padding:"15px 17px"}}>
               <div style={{fontSize:11,fontWeight:700,color:CierreColor(venta.estado),textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>{PIPELINE_ICON[venta.estado]} Operación {venta.estado}</div>
-              <div style={{color:"#c4cad8",fontSize:13,lineHeight:1.6}}>{venta.motivoCierre || "Sin motivo registrado"}</div>
+              <div style={{color:"#dde2ee",fontSize:13,lineHeight:1.6}}>{venta.motivoCierre || "Sin motivo registrado"}</div>
             </div>}
             {/* Notas */}
             {venta.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Notas</div>
-              <div style={{color:"#9aa3b8",fontSize:13,lineHeight:1.6}}>{venta.notas}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Notas</div>
+              <div style={{color:"#c2cbe3",fontSize:13,lineHeight:1.6}}>{venta.notas}</div>
             </div>}
             {/* Contacto cliente */}
             {cl && cl.contactos.length > 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Contacto cliente</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Contacto cliente</div>
               {(cl.contactos.find(c => c.principal) || cl.contactos[0]) && (() => { const ct = cl.contactos.find(c => c.principal) || cl.contactos[0]; return (
                 <div style={{display:"flex",alignItems:"center",gap:9}}>
                   <div style={{width:32,height:32,borderRadius:8,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6",fontWeight:800,fontSize:13}}>{ct.nombre.charAt(0)}</div>
-                  <div><div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{ct.nombre} <span style={{color:"#9aa8c5",fontWeight:400}}>· {ct.puesto}</span></div>{ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#9aa3b8",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}{ct.email&&<a href={"mailto:"+ct.email} style={{color:"#3b82f6",fontSize:12,textDecoration:"none",display:"block"}}>{ct.email}</a>}</div>
+                  <div><div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{ct.nombre} <span style={{color:"#c5cee8",fontWeight:400}}>· {ct.puesto}</span></div>{ct.tel&&<a href={"tel:"+ct.tel.replace(/\s+/g,"")} style={{color:"#c2cbe3",fontSize:12,textDecoration:"none",display:"block"}}>📞 {ct.tel}</a>}{ct.email&&<a href={"mailto:"+ct.email} style={{color:"#3b82f6",fontSize:12,textDecoration:"none",display:"block"}}>{ct.email}</a>}</div>
                 </div>
               ); })()}
             </div>}
@@ -3134,7 +3134,7 @@ const Ventas = ({ data, setData, userActual }) => {
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>{filtroComercial === "todos" ? "Operaciones de venta — Todos" : "Mis operaciones de venta"}</h2>
           {filtroComercial !== "todos" && <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
             <Avatar u={filtroComercial === "propias" ? userActual : (data.usuarios.find(u=>u.id===parseInt(filtroComercial)) || userActual)} size={22} fontSize={9}/>
-            <span style={{color:"#9aa8c5",fontSize:13}}>{filtroComercial === "propias" ? userActual.nombre : (data.usuarios.find(u=>u.id===parseInt(filtroComercial))?.nombre || userActual.nombre)}</span>
+            <span style={{color:"#c5cee8",fontSize:13}}>{filtroComercial === "propias" ? userActual.nombre : (data.usuarios.find(u=>u.id===parseInt(filtroComercial))?.nombre || userActual.nombre)}</span>
           </div>}
           {/* Ventas es privado por comercial: solo el manager puede mirar las de otros */}
           {esManager && <div style={{marginTop:8}}>
@@ -3160,17 +3160,17 @@ const Ventas = ({ data, setData, userActual }) => {
         ].map(([l, v, c]) => (
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
             <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:3}}>{l}</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:3}}>{l}</div>
           </div>
         ))}
       </div>
       {/* Filtros */}
       <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:3}}>
-          {["Activas", "Cerradas", "Todas"].map(e => <button key={e} onClick={() => setFiltroEstado(e)} style={{background:filtroEstado === e ? "#10b981" :"#151b2a",color:filtroEstado === e ? "#fff" :"#9aa8c5",border:"1px solid " + (filtroEstado === e ? "#10b981" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{e}</button>)}
+          {["Activas", "Cerradas", "Todas"].map(e => <button key={e} onClick={() => setFiltroEstado(e)} style={{background:filtroEstado === e ? "#10b981" :"#151b2a",color:filtroEstado === e ? "#fff" :"#c5cee8",border:"1px solid " + (filtroEstado === e ? "#10b981" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{e}</button>)}
         </div>
         <div style={{position:"relative",marginLeft:"auto"}}>
-          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={12} /></span>
+          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={12} /></span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cliente o máquina..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:170}} />
         </div>
       </div>
@@ -3192,7 +3192,7 @@ const Ventas = ({ data, setData, userActual }) => {
       })}
       {/* Lista plana para cerradas/todas */}
       {filtroEstado !== "Activas" && <div style={{display:"grid",gap:6}}>
-        {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5"}}>Sin operaciones</div>}
+        {sorted.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8"}}>Sin operaciones</div>}
         {sorted.map(v => <TarjetaVenta key={v.id} v={v} cN={cN} uN={uN} mostrarComercial={filtroComercial === "todos"} ofertasDe={ofertasDe} cierreLabel={cierreLabel} diasCierre={diasCierre} onClick={() => setVista(v.id)} onEdit={() => abrirEditar(v)} onAviso={() => { setModalSeguimiento(v.id); setFormSeguimiento({ fecha: "",dias: "" }); }} onCerrar={estado => { setModalCierre(v.id); setFormCierre({ estado,motivoCierre: "" }); }} onDel={() => { if (window.confirm("¿Eliminar esta operación de venta? Esta acción no se puede deshacer.")) setData(d => ({ ...d,ventas: d.ventas.filter(x => x.id !== v.id) })); }} />)}
       </div>}
       {modalEditarJSX}
@@ -3218,7 +3218,7 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
   const cerrada = ESTADOS_VENTA_CERRADOS.includes(v.estado);
   const dc = diasCierre(v.percepcionCierre);
   const cl_label = cierreLabel(dc);
-  const pc = PIPELINE_COLOR[v.estado] || "#9aa8c5";
+  const pc = PIPELINE_COLOR[v.estado] || "#c5cee8";
   // Cada máquina ofertada es una alternativa, no algo que se suma: el cliente
   // comprará como mucho una de ellas. Por eso se listan por separado (Oferta 1,
   // Oferta 2...) en vez de mostrar un total combinado.
@@ -3232,32 +3232,32 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
           <Badge text={v.estado} />
           {v.ofertaEntregada && <span style={{background:"#0ea5e918",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:5,padding:"1px 6px",fontSize:10,fontWeight:700}}>📄 Oferta enviada{v.metodoEntrega ? ` (${v.metodoEntrega})` :""}</span>}
         </div>
-        <div style={{color:"#9aa3b8",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}{mostrarComercial && uN ? ` · 💼 ${uN(v.comercialId)}` : ""}</div>
+        <div style={{color:"#c2cbe3",fontSize:12,marginBottom:7}}>🏢 {cN(v.clienteId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}{mostrarComercial && uN ? ` · 💼 ${uN(v.comercialId)}` : ""}</div>
         {/* Columnas tipo tabla: cada oferta por separado, último contacto y aviso */}
         <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"stretch"}}>
           {ofertas.map((o, i) => (
             <div key={i} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100}}>
-              <div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Oferta {i + 1}</div>
+              <div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Oferta {i + 1}</div>
               <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.maquina || "—"}</div>
               <div style={{color:"#10b981",fontSize:11.5,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</div>
             </div>
           ))}
           <div title={v.ultimoContactoNota || ""} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100,maxWidth:180}}>
-            <div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Último contacto</div>
+            <div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Último contacto</div>
             <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600}}>{v.ultimoContacto || "Sin registrar"}</div>
-            {v.ultimoContactoNota && <div style={{color:"#9aa3b8",fontSize:10.5,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.ultimoContactoNota}</div>}
+            {v.ultimoContactoNota && <div style={{color:"#c2cbe3",fontSize:10.5,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.ultimoContactoNota}</div>}
           </div>
           <div onClick={e => { e.stopPropagation(); onAviso && onAviso(); }} title="Programar aviso para volver a contactar"
             style={{background:v.proximoContacto ? "#3b82f618" :"#0d1117",border:`1px solid ${v.proximoContacto ? "#3b82f655" :"#2a3550"}`,borderRadius:7,padding:"5px 10px",minWidth:100,cursor:"pointer"}}>
             <div style={{color:"#3b82f6",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>📅 Aviso</div>
-            <div style={{color:v.proximoContacto ? "#3b82f6" :"#9aa8c5",fontSize:11.5,fontWeight:600}}>{v.proximoContacto || "Programar"}</div>
+            <div style={{color:v.proximoContacto ? "#3b82f6" :"#c5cee8",fontSize:11.5,fontWeight:600}}>{v.proximoContacto || "Programar"}</div>
           </div>
         </div>
         <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:7}}>
-          {v.maquinaRetirar && <span style={{color:"#9aa8c5",fontSize:11}}>↩️ Retirada: {v.maquinaRetirar}</span>}
+          {v.maquinaRetirar && <span style={{color:"#c5cee8",fontSize:11}}>↩️ Retirada: {v.maquinaRetirar}</span>}
           {v.competencia && <span style={{color:"#f59e0b",fontSize:11}}>⚔️ {v.competencia.length > 35 ? v.competencia.slice(0, 35) + "…" : v.competencia}</span>}
         </div>
-        {cerrada && v.motivoCierre && <div style={{color:"#9aa8c5",fontSize:11,marginTop:4,fontStyle:"italic"}}>"{v.motivoCierre.slice(0, 80)}{v.motivoCierre.length > 80 ? "…" : ""}"</div>}
+        {cerrada && v.motivoCierre && <div style={{color:"#c5cee8",fontSize:11,marginTop:4,fontStyle:"italic"}}>"{v.motivoCierre.slice(0, 80)}{v.motivoCierre.length > 80 ? "…" : ""}"</div>}
       </div>
       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
         {cl_label && !cerrada && <span style={{background:cl_label.c + "18",color:cl_label.c,border:`1px solid ${cl_label.c}44`,borderRadius:20,padding:"3px 9px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>📅 {cl_label.txt}</span>}
@@ -3266,7 +3266,7 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
             <button onClick={() => onCerrar("Ganada")} style={{...btnSm("#16a34a18","#16a34a"),border:"1px solid #16a34a44",fontSize:10}} title="Cerrar ganada">✅</button>
             <button onClick={() => onCerrar("Perdida")} style={{...btnSm("#dc262618","#dc2626"),border:"1px solid #dc262644",fontSize:10}} title="Cerrar perdida">❌</button>
           </>}
-          <button onClick={onEdit} style={btnSm("#2a3550", "#a3acc0")}><Icon name="edit" size={11} /></button>
+          <button onClick={onEdit} style={btnSm("#2a3550", "#cad2e9")}><Icon name="edit" size={11} /></button>
           <button onClick={onDel} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
         </div>
       </div>
@@ -3473,15 +3473,15 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:6}}>
           <div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13.5}}>🏢 {cN(v.clienteId)}</div>
-            <div style={{color:"#9aa8c5",fontSize:11.5,marginTop:2}}>📅 {v.fecha} · 💼 {uN(v.usuarioId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
+            <div style={{color:"#c5cee8",fontSize:11.5,marginTop:2}}>📅 {v.fecha} · 💼 {uN(v.usuarioId)}{v.personaContacto ? ` · 👤 ${v.personaContacto}` : ""}</div>
           </div>
           {editable && <button onClick={e => { e.stopPropagation(); delVisita(v.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>}
         </div>
-        {v.notas && <div style={{color:"#9aa3b8",fontSize:12.5,whiteSpace:"pre-wrap",marginBottom:6}}>{v.notas}</div>}
+        {v.notas && <div style={{color:"#c2cbe3",fontSize:12.5,whiteSpace:"pre-wrap",marginBottom:6}}>{v.notas}</div>}
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {v.interesMaquina && <span style={{background:"#10b98118",color:"#10b981",border:"1px solid #10b98144",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🛠️ Interesado en máquina</span>}
           {v.interesAsistencia && <span style={{background:"#3b82f618",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>🔧 Interesado en asistencia</span>}
-          {v.sinInteres && <span style={{background:"#9aa8c518",color:"#9aa3b8",border:"1px solid #9aa8c544",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>➖ Sin interés concreto</span>}
+          {v.sinInteres && <span style={{background:"#c5cee818",color:"#c2cbe3",border:"1px solid #c5cee844",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>➖ Sin interés concreto</span>}
         </div>
       </div>
     );
@@ -3505,10 +3505,10 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
             {fechaSel && <button onClick={() => setFechaSel("")} style={btnOutline}>Ver todas</button>}
           </div>
         </Field>
-        {visitasDelDia.length === 0 && <div style={{color:"#9aa8c5",fontSize:13,padding:"20px 0",textAlign:"center"}}>{fechaSel ? "Sin visitas registradas ese día." : "Sin visitas registradas."}</div>}
+        {visitasDelDia.length === 0 && <div style={{color:"#c5cee8",fontSize:13,padding:"20px 0",textAlign:"center"}}>{fechaSel ? "Sin visitas registradas ese día." : "Sin visitas registradas."}</div>}
         {gruposPorFecha.map(g => (
           <div key={g.fecha} style={{marginBottom:18}}>
-            <div style={{color:"#9aa3b8",fontSize:12.5,fontWeight:700,textTransform:"capitalize",borderBottom:"1px solid #2a3550",paddingBottom:6,marginBottom:10}}>{fmtFechaLarga(g.fecha)} · {g.visitas.length} visita{g.visitas.length !== 1 ? "s" : ""}</div>
+            <div style={{color:"#c2cbe3",fontSize:12.5,fontWeight:700,textTransform:"capitalize",borderBottom:"1px solid #2a3550",paddingBottom:6,marginBottom:10}}>{fmtFechaLarga(g.fecha)} · {g.visitas.length} visita{g.visitas.length !== 1 ? "s" : ""}</div>
             {g.visitas.map(v => <TarjetaVisita key={v.id} v={v} />)}
           </div>
         ))}
@@ -3518,7 +3518,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
         <Field label="Cliente">
           <ClientePicker clientes={data.clientes} value={clienteVistaId} onChange={id => setClienteVistaId(id)} />
         </Field>
-        {clienteVistaId && visitasDeCliente.length === 0 && <div style={{color:"#9aa8c5",fontSize:13,padding:"20px 0",textAlign:"center"}}>Sin visitas registradas a este cliente.</div>}
+        {clienteVistaId && visitasDeCliente.length === 0 && <div style={{color:"#c5cee8",fontSize:13,padding:"20px 0",textAlign:"center"}}>Sin visitas registradas a este cliente.</div>}
         {visitasDeCliente.map(v => <TarjetaVisita key={v.id} v={v} />)}
       </>}
 
@@ -3540,27 +3540,27 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
             <Textarea value={form.notas} onChange={f("notas")} placeholder="¿De qué se ha hablado?" rows={4} />
           </Field>
           <div style={{display:"flex",gap:16,marginBottom:14}}>
-            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#c2cbe3",fontSize:13,cursor:"pointer"}}>
               <input type="checkbox" checked={!!form.interesMaquina} onChange={e => setForm(p => ({ ...p, interesMaquina: e.target.checked, sinInteres: e.target.checked ? false : p.sinInteres }))} /> Interesado en máquina
             </label>
-            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#c2cbe3",fontSize:13,cursor:"pointer"}}>
               <input type="checkbox" checked={!!form.interesAsistencia} onChange={e => setForm(p => ({ ...p, interesAsistencia: e.target.checked, sinInteres: e.target.checked ? false : p.sinInteres }))} /> Interesado en asistencia
             </label>
-            <label style={{display:"flex",alignItems:"center",gap:6,color:"#9aa3b8",fontSize:13,cursor:"pointer"}}>
+            <label style={{display:"flex",alignItems:"center",gap:6,color:"#c2cbe3",fontSize:13,cursor:"pointer"}}>
               <input type="checkbox" checked={!!form.sinInteres} onChange={e => setForm(p => ({ ...p, sinInteres: e.target.checked, interesMaquina: e.target.checked ? false : p.interesMaquina, interesAsistencia: e.target.checked ? false : p.interesAsistencia }))} /> Sin interés concreto
             </label>
           </div>
 
           {clienteForm && (
             <div style={{marginBottom:14}}>
-              <div style={{color:"#9aa8c5",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",marginBottom:7}}>📌 Sugerencias de visita (cercanos, sin visitar hoy)</div>
-              {clienteForm.lat == null && <div style={{color:"#9aa8c5",fontSize:12}}>Geocodificando dirección del cliente para calcular cercanía…</div>}
-              {clienteForm.lat != null && sugerenciasVisita.length === 0 && <div style={{color:"#9aa8c5",fontSize:12}}>Sin sugerencias disponibles (faltan clientes geocodificados cercanos).</div>}
+              <div style={{color:"#c5cee8",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".8px",marginBottom:7}}>📌 Sugerencias de visita (cercanos, sin visitar hoy)</div>
+              {clienteForm.lat == null && <div style={{color:"#c5cee8",fontSize:12}}>Geocodificando dirección del cliente para calcular cercanía…</div>}
+              {clienteForm.lat != null && sugerenciasVisita.length === 0 && <div style={{color:"#c5cee8",fontSize:12}}>Sin sugerencias disponibles (faltan clientes geocodificados cercanos).</div>}
               {sugerenciasVisita.map(s => (
                 <div key={s.cliente.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",marginBottom:6}}>
                   <div>
                     <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12.5}}>{s.cliente.nombreEmpresa}</div>
-                    <div style={{color:"#9aa8c5",fontSize:11}}>{s.cliente.localidad || ""} · {s.distancia.toFixed(1)} km</div>
+                    <div style={{color:"#c5cee8",fontSize:11}}>{s.cliente.localidad || ""} · {s.distancia.toFixed(1)} km</div>
                   </div>
                   <button onClick={() => { save(); openNew(s.cliente); }} style={{...btnSm("#3b82f618", "#3b82f6"),fontSize:11,fontWeight:700,padding:"5px 10px"}}>Visitar</button>
                 </div>
@@ -3594,14 +3594,14 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       {modalEscanerVisita && <EscanearTarjetaModal onClose={() => setModalEscanerVisita(false)} onResultado={crearClienteDesdeTarjetaVisita}/>}
       {resumenEscaneoVisita && (
         <Modal title="Tarjeta escaneada" onClose={() => setResumenEscaneoVisita(null)}>
-          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:14}}>
+          <div style={{color:"#c2cbe3",fontSize:13,marginBottom:14}}>
             He creado la empresa <b style={{color:"#f1f3f9"}}>{resumenEscaneoVisita.nombreEmpresa}</b>
             {resumenEscaneoVisita.nombreContacto && <> y el contacto <b style={{color:"#f1f3f9"}}>{resumenEscaneoVisita.nombreContacto}</b></>} a partir de la tarjeta, y la he seleccionado para esta visita.
           </div>
           {resumenEscaneoVisita.faltan.length > 0 && (
             <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
               <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Revisa y completa (en Clientes)</div>
-              <ul style={{margin:0,paddingLeft:18,color:"#9aa3b8",fontSize:13}}>
+              <ul style={{margin:0,paddingLeft:18,color:"#c2cbe3",fontSize:13}}>
                 {resumenEscaneoVisita.faltan.map(f => <li key={f}>{f}</li>)}
               </ul>
             </div>
@@ -3609,7 +3609,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
           {resumenEscaneoVisita.textoOcr && resumenEscaneoVisita.textoOcr.trim() && (
             <details style={{marginBottom:14}}>
               <summary style={{cursor:"pointer",color:"#3b82f6",fontSize:12,fontWeight:700}}>Ver texto leído en la tarjeta (sin procesar)</summary>
-              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#9aa8c5",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneoVisita.textoOcr.trim()}</div>
+              <div style={{background:"#0d1117",borderRadius:10,padding:"10px 12px",marginTop:8,color:"#c5cee8",fontSize:12,whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{resumenEscaneoVisita.textoOcr.trim()}</div>
             </details>
           )}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
@@ -4120,7 +4120,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (d < 0) return "#dc2626";
     if (d === 0) return "#f59e0b";
     if (d <= 2) return "#f97316";
-    return "#9aa8c5";
+    return "#c5cee8";
   };
   const venceLabel = vence => {
     const d = diasVence(vence);
@@ -4137,7 +4137,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Tareas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
             <Avatar u={userActual} size={24} fontSize={10}/>
-            <span style={{color:"#9aa8c5",fontSize:13}}>{userActual.nombre} · <span style={{color:"#8b5cf6",fontWeight:700}}>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span></span>
+            <span style={{color:"#c5cee8",fontSize:13}}>{userActual.nombre} · <span style={{color:"#8b5cf6",fontWeight:700}}>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span></span>
           </div>
         </div>
         <button onClick={() => { abrirNueva(); setModal(true); }} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
@@ -4154,14 +4154,14 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ].map(([l, v, c]) => (
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:8,height:8,borderRadius:4,background:c,flexShrink:0}} />
-            <div><div style={{color:c,fontWeight:800,fontSize:16,lineHeight:1}}>{v}</div><div style={{color:"#9aa8c5",fontSize:11,marginTop:1}}>{l}</div></div>
+            <div><div style={{color:c,fontWeight:800,fontSize:16,lineHeight:1}}>{v}</div><div style={{color:"#c5cee8",fontSize:11,marginTop:1}}>{l}</div></div>
           </div>
         ))}
       </div>
       {/* Toggle completadas */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{color:"#9aa8c5",fontSize:12}}>{sorted.length} tarea{sorted.length !== 1 ? "s" : ""}</div>
-        <button onClick={() => setVerCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#9aa8c5",fontSize:12,cursor:"pointer",fontWeight:600}}>
+        <div style={{color:"#c5cee8",fontSize:12}}>{sorted.length} tarea{sorted.length !== 1 ? "s" : ""}</div>
+        <button onClick={() => setVerCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#c5cee8",fontSize:12,cursor:"pointer",fontWeight:600}}>
           {verCompletadas ? "Ocultar completadas" : `Ver completadas (${completadas.length})`}
         </button>
       </div>
@@ -4171,7 +4171,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"36px",textAlign:"center"}}>
             <div style={{color:"#8b5cf6",fontSize:28,marginBottom:8}}>✓</div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>Sin tareas pendientes</div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>¡Todo al día!</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>¡Todo al día!</div>
           </div>
         )}
         {sorted.map(t => {
@@ -4194,10 +4194,10 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                   {t.esEmpresa ? (
                     <span style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>Tarea de empresa{t.creadoPor && t.creadoPor !== userActual.id && <> · de <b style={{color:"#fff"}}>{uN(t.creadoPor)}</b></>}</span>
                   ) : (
-                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#9aa8c5",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
+                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#c5cee8",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
                   )}
                   {t.estado === "Completada" && t.esEmpresa && t.completadoPor && <span style={{color:"#10b981",fontSize:11}}>Completada por <b style={{color:"#fff"}}>{uN(t.completadoPor)}</b></span>}
-                  {t.notas && <span style={{color:"#9aa8c5",fontSize:11}}>📝 {t.notas}</span>}
+                  {t.notas && <span style={{color:"#c5cee8",fontSize:11}}>📝 {t.notas}</span>}
                   {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
               </div>
@@ -4206,7 +4206,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                 <Badge text={t.estado} />
                 {/* Solo editar/borrar si la creé yo o soy manager/admin */}
                 {(creadoPorMi || userActual.rol === "manager" || userActual.rol === "admin") && <>
-                  <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#a3acc0")}><Icon name="edit" size={11} /></button>
+                  <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#cad2e9")}><Icon name="edit" size={11} /></button>
                   <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                 </>}
               </div>
@@ -4220,9 +4220,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"22px 0 10px"}}>
             <div>
               <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>Tareas que he asignado</div>
-              <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}><span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span> de que las complete la persona asignada</div>
+              <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}><span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span> de que las complete la persona asignada</div>
             </div>
-            <button onClick={() => setVerAsigCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#9aa8c5",fontSize:12,cursor:"pointer",fontWeight:600}}>
+            <button onClick={() => setVerAsigCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#c5cee8",fontSize:12,cursor:"pointer",fontWeight:600}}>
               {verAsigCompletadas ? "Ocultar completadas" : `Ver completadas (${asigCompletadas.length})`}
             </button>
           </div>
@@ -4238,15 +4238,15 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                     <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
                       <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
-                      <span style={{color:"#9aa8c5",fontSize:11}}>Asignada a <b style={{color:"#f1f3f9"}}>{uN(t.asignadoId)}</b></span>
-                      {t.notas && <span style={{color:"#9aa8c5",fontSize:11}}>📝 {t.notas}</span>}
+                      <span style={{color:"#c5cee8",fontSize:11}}>Asignada a <b style={{color:"#f1f3f9"}}>{uN(t.asignadoId)}</b></span>
+                      {t.notas && <span style={{color:"#c5cee8",fontSize:11}}>📝 {t.notas}</span>}
                       {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                     </div>
                   </div>
                   <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
                     <Badge text={t.prioridad} />
                     <Badge text={t.estado} />
-                    <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#a3acc0")}><Icon name="edit" size={11} /></button>
+                    <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#cad2e9")}><Icon name="edit" size={11} /></button>
                     <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                   </div>
                 </div>
@@ -4273,15 +4273,15 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             </div>
             {imagenes.length > 0 && <div style={{marginBottom:14}}><FotosCarousel fotos={imagenes} /></div>}
             <div style={{display:"grid",gap:9,marginBottom:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#9aa8c5",fontSize:12}}>Vencimiento</span><b style={{color:vc,fontSize:12}}>{venceLabel(t.vence)} ({fmtFecha(t.vence)})</b></div>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#9aa8c5",fontSize:12}}>{t.esEmpresa ? "Tipo" : "Asignada a"}</span><b style={{color:"#f1f3f9",fontSize:12}}>{t.esEmpresa ? "Tarea de empresa (todos)" : uN(t.asignadoId)}</b></div>
-              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#9aa8c5",fontSize:12}}>Creada por</span><b style={{color:"#f1f3f9",fontSize:12}}>{uN(t.creadoPor)}</b></div>
-              {t.estado === "Completada" && t.completadoPor && <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#9aa8c5",fontSize:12}}>Completada por</span><b style={{color:"#10b981",fontSize:12}}>{uN(t.completadoPor)}</b></div>}
-              {t.notas && <div><span style={{color:"#9aa8c5",fontSize:12,display:"block",marginBottom:3}}>Notas</span><span style={{color:"#f1f3f9",fontSize:13}}>{t.notas}</span></div>}
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#c5cee8",fontSize:12}}>Vencimiento</span><b style={{color:vc,fontSize:12}}>{venceLabel(t.vence)} ({fmtFecha(t.vence)})</b></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#c5cee8",fontSize:12}}>{t.esEmpresa ? "Tipo" : "Asignada a"}</span><b style={{color:"#f1f3f9",fontSize:12}}>{t.esEmpresa ? "Tarea de empresa (todos)" : uN(t.asignadoId)}</b></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#c5cee8",fontSize:12}}>Creada por</span><b style={{color:"#f1f3f9",fontSize:12}}>{uN(t.creadoPor)}</b></div>
+              {t.estado === "Completada" && t.completadoPor && <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span style={{color:"#c5cee8",fontSize:12}}>Completada por</span><b style={{color:"#10b981",fontSize:12}}>{uN(t.completadoPor)}</b></div>}
+              {t.notas && <div><span style={{color:"#c5cee8",fontSize:12,display:"block",marginBottom:3}}>Notas</span><span style={{color:"#f1f3f9",fontSize:13}}>{t.notas}</span></div>}
             </div>
             {otros.length > 0 && (
               <div style={{marginBottom:14}}>
-                <div style={{color:"#9aa8c5",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Archivos adjuntos</div>
+                <div style={{color:"#c5cee8",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Archivos adjuntos</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                   {otros.map((a, i) => (
                     <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:6,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"6px 10px",color:"#0ea5e9",fontSize:12,fontWeight:600,textDecoration:"none"}}>
@@ -4306,7 +4306,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         <Field label="Tipo de tarea">
           <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"2px 0"}}>
             <input type="checkbox" checked={!!form.esEmpresa} onChange={e => setForm(p => ({ ...p,esEmpresa: e.target.checked }))} style={{width:16,height:16,accentColor:"#f59e0b"}} />
-            <span style={{color:"#9aa3b8",fontSize:13}}>🏢 Tarea de empresa (visible para todos, cualquiera puede completarla)</span>
+            <span style={{color:"#c2cbe3",fontSize:13}}>🏢 Tarea de empresa (visible para todos, cualquiera puede completarla)</span>
           </label>
         </Field>
         {!form.esEmpresa && (form.id ? (
@@ -4328,7 +4328,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                     const cur = Array.isArray(form.asignadosIds) ? form.asignadosIds : [];
                     const next = cur.includes(u.id) ? cur.filter(x => x !== u.id) : [...cur, u.id];
                     setForm(p => ({ ...p,asignadosIds: next }));
-                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#8b5cf6":"#2a3550"),background:on?"#8b5cf615":"#0d1117",color:on?"#8b5cf6":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#8b5cf6":"#2a3550"),background:on?"#8b5cf615":"#0d1117",color:on?"#8b5cf6":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
                     {on && <Icon name="check" size={11} />}{u.nombre}{u.id === userActual.id ? " (yo)" : ""}
                   </button>
                 );
@@ -4439,8 +4439,8 @@ const SignaturePad = ({ onSave, onClear, canvasRef }) => {
           onTouchStart={start} onTouchMove={move} onTouchEnd={end}/>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5}}>
-        <span style={{color:"#9aa8c5",fontSize:11}}>Firma del cliente en el recuadro</span>
-        <button onClick={clear} style={{background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"3px 10px",color:"#a3acc0",fontSize:12,cursor:"pointer"}}>Limpiar firma</button>
+        <span style={{color:"#c5cee8",fontSize:11}}>Firma del cliente en el recuadro</span>
+        <button onClick={clear} style={{background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"3px 10px",color:"#cad2e9",fontSize:12,cursor:"pointer"}}>Limpiar firma</button>
       </div>
     </div>
   );
@@ -5008,18 +5008,18 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Partes de Trabajo</h2><p style={{color:"#9aa8c5",fontSize:12,margin:"2px 0 0"}}>Genera PDFs firmados y envíalos al cliente por email</p></div>
+        <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Partes de Trabajo</h2><p style={{color:"#c5cee8",fontSize:12,margin:"2px 0 0"}}>Genera PDFs firmados y envíalos al cliente por email</p></div>
         <div style={{display:"flex",gap:8}}>
           {partesRetomables.length>0&&<button onClick={()=>setModalRetomar(true)} style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={14} />Retomar parte continuado</button>}
           <button onClick={abrirNuevo} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14} />Nuevo</button>
         </div>
       </div>
       <div style={{position:"relative",marginBottom:14}}>
-        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={14}/></span>
+        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={14}/></span>
         <input value={buscarParte} onChange={e=>setBuscarParte(e.target.value)} placeholder="Buscar por nº de parte, cliente o fecha..." style={{...inputStyle,paddingLeft:34}} />
       </div>
       {buscarParte.trim()&&gruposPartesFiltrados.length===0&&(
-        <div style={{color:"#9aa8c5",fontSize:13,padding:"14px 4px"}}>No se han encontrado partes para "{buscarParte}".</div>
+        <div style={{color:"#c5cee8",fontSize:13,padding:"14px 4px"}}>No se han encontrado partes para "{buscarParte}".</div>
       )}
       <div style={{display:"grid",gap:12}}>
         {gruposPartesFiltrados.map(grupo => {
@@ -5031,32 +5031,32 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             return (
               <div key={p.id} onClick={()=>verPreviaParte(p)} style={{background:"#151b2a",border:"1px solid "+(dentroDeCadena?"#f59e0b33":"#2a3550"),borderRadius:11,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer"}}>
                 <div style={{flex:1}}>
-                  <div style={{color:"#9aa8c5",fontWeight:700,fontSize:11,marginBottom:3,fontFamily:"monospace",letterSpacing:".3px"}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</div>
+                  <div style={{color:"#c5cee8",fontWeight:700,fontSize:11,marginBottom:3,fontFamily:"monospace",letterSpacing:".3px"}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</div>
                   <div style={{color:"#0ea5e9",fontWeight:800,fontSize:14,marginBottom:2}}>
                     {dentroDeCadena&&<span style={{color:"#f59e0b",marginRight:6}}>{p.numContinuacion>0?("CONT"+p.numContinuacion):"Inicio"}</span>}
-                    {fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#9aa8c5",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span>
+                    {fmtNombres(p,"tecnicos","tecnico")} <span style={{color:"#c5cee8",fontWeight:400,fontSize:12}}>· {fmtFecha(p.fecha)}</span>
                   </div>
                   {(p.marca||p.modelo||p.matricula)&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:3}}>
                     {p.marca&&<span style={{background:"#0ea5e915",color:"#0ea5e9",border:"1px solid #0ea5e933",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>{p.marca}</span>}
                     {p.modelo&&<span style={{background:"#0ea5e910",color:"#0ea5e9",borderRadius:4,padding:"1px 7px",fontSize:11}}>{p.modelo}</span>}
-                    {p.matricula&&<span style={{color:"#9aa8c5",fontSize:11}}>Matr. {p.matricula}</span>}
+                    {p.matricula&&<span style={{color:"#c5cee8",fontSize:11}}>Matr. {p.matricula}</span>}
                   </div>}
                   <div style={{color:"#f1f3f9",fontSize:13,marginBottom:3}}>{p.descripcion}</div>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    {cl && <span style={{color:"#9aa3b8",fontSize:12,fontWeight:600}}>🏢 {cl.nombreEmpresa}</span>}
-                    {p.reparacionId && <span style={{color:"#9aa8c5",fontSize:12}}>{rL(p.reparacionId)}</span>}
-                    {p.materiales && <span style={{color:"#9aa8c5",fontSize:12}}>🔩 {p.materiales}</span>}
+                    {cl && <span style={{color:"#c2cbe3",fontSize:12,fontWeight:600}}>🏢 {cl.nombreEmpresa}</span>}
+                    {p.reparacionId && <span style={{color:"#c5cee8",fontSize:12}}>{rL(p.reparacionId)}</span>}
+                    {p.materiales && <span style={{color:"#c5cee8",fontSize:12}}>🔩 {p.materiales}</span>}
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0,marginLeft:14}}>
                   <div style={{color:"#f1f3f9",fontWeight:800,fontSize:20}}>{p.horasT}h</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>{(p.km>0||p.desplazamiento==="si")?"Con desplazamiento":"Sin desplazamiento"}</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>{(p.km>0||p.desplazamiento==="si")?"Con desplazamiento":"Sin desplazamiento"}</div>
                   {p.estadoParte && (
                     <div style={{display:"inline-block",marginTop:5,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.estadoParte==="Continuado"?"#f59e0b20":"#10b98120",color:p.estadoParte==="Continuado"?"#f59e0b":"#10b981",border:"1px solid "+(p.estadoParte==="Continuado"?"#f59e0b44":"#10b98144")}}>
                       {p.estadoParte==="Continuado"?"🔄 Continuado":"✅ Finalizado"}
                     </div>
                   )}
-                  <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#9aa8c520",color:p.emailEnviado?"#10b981":"#9aa8c5",border:"1px solid "+(p.emailEnviado?"#10b98144":"#9aa8c544")}}>
+                  <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#c5cee820",color:p.emailEnviado?"#10b981":"#c5cee8",border:"1px solid "+(p.emailEnviado?"#10b98144":"#c5cee844")}}>
                     {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
                   </div>
                   {(p.conforme===true||p.conforme===false)&&(
@@ -5074,7 +5074,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     <button onClick={() => abrirPDF(p)} title={p.firmaNombre?"Volver a firmar / corregir firma":"Firmar parte"} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       ✍️ Firmar
                     </button>
-                    <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#a3acc0")}><Icon name="edit" size={11} /></button>
+                    <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#cad2e9")}><Icon name="edit" size={11} /></button>
                     <button onClick={() => {if(window.confirm("¿Eliminar este parte? Esta acción no se puede deshacer.")) setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }));}} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                   </div>
                 </div>
@@ -5170,7 +5170,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                 <Field label="Telefono contacto"><Input value={form.contactoTel||""} onChange={f("contactoTel")} placeholder="600..."/></Field>
                 <Field label="Email contacto"><Input value={form.contactoEmail||""} onChange={f("contactoEmail")} placeholder="email@..."/></Field>
               </div>
-              {(cn||ce) && <div style={{color:"#9aa8c5",fontSize:11,marginTop:-4,marginBottom:8}}>
+              {(cn||ce) && <div style={{color:"#c5cee8",fontSize:11,marginTop:-4,marginBottom:8}}>
                 {yaExiste ? "Contacto existente de la ficha del cliente." : "Persona nueva — al guardar se pedira su puesto y se añadira a la ficha del cliente."}
               </div>}
             </>
@@ -5234,13 +5234,13 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                 return(
                   <div style={{marginTop:6,background:"#10b98112",border:"1px solid #10b98133",borderRadius:7,padding:"8px 11px"}}>
                     <div style={{color:"#10b981",fontSize:11,fontWeight:700,marginBottom:2}}>Aviso vinculado · se cerrará si el parte es finalizado</div>
-                    {(maq||av?.marca||av?.modelo)&&<div style={{color:"#9aa3b8",fontSize:11}}>Máquina: {maq?.nombre||[av?.marca,av?.modelo].filter(Boolean).join(" ")||"—"}{(maq?.serie||av?.matricula)?` (${maq?.serie||av?.matricula})`:""}</div>}
-                    {cl&&<div style={{color:"#9aa3b8",fontSize:11}}>Cliente: {cl.nombreEmpresa}</div>}
+                    {(maq||av?.marca||av?.modelo)&&<div style={{color:"#c2cbe3",fontSize:11}}>Máquina: {maq?.nombre||[av?.marca,av?.modelo].filter(Boolean).join(" ")||"—"}{(maq?.serie||av?.matricula)?` (${maq?.serie||av?.matricula})`:""}</div>}
+                    {cl&&<div style={{color:"#c2cbe3",fontSize:11}}>Cliente: {cl.nombreEmpresa}</div>}
                   </div>
                 );
               })()}
-              {!form.avisoId&&filtraMaquina&&avisosDisp.length>0&&<div style={{color:"#9aa8c5",fontSize:11,marginTop:4}}>Solo se muestran avisos de esta máquina</div>}
-              {!form.avisoId&&!filtraMaquina&&<div style={{color:"#9aa8c5",fontSize:11,marginTop:4}}>Selecciona cliente y máquina para filtrar los avisos</div>}
+              {!form.avisoId&&filtraMaquina&&avisosDisp.length>0&&<div style={{color:"#c5cee8",fontSize:11,marginTop:4}}>Solo se muestran avisos de esta máquina</div>}
+              {!form.avisoId&&!filtraMaquina&&<div style={{color:"#c5cee8",fontSize:11,marginTop:4}}>Selecciona cliente y máquina para filtrar los avisos</div>}
             </Field>
           );
         })()}
@@ -5252,13 +5252,13 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             <input type="number" value={form.horasT} onChange={f("horasT")}
               step="0.5" min="0" placeholder="0.0"
               style={{...inputStyle}}/>
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:3}}>Incrementos de 0.5h — ej: 1.5, 2, 3.5...</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:3}}>Incrementos de 0.5h — ej: 1.5, 2, 3.5...</div>
           </Field>
           <Field label="Desplazamiento">
             <div style={{display:"flex",gap:8}}>
               {["si","no"].map(v=>(
                 <button key={v} type="button" onClick={()=>setForm(p=>({...p,desplazamiento:v}))}
-                  style={{flex:1,padding:"9px",borderRadius:8,border:"2px solid "+(form.desplazamiento===v?(v==="si"?"#10b981":"#9aa8c5"):"#2a3550"),background:form.desplazamiento===v?(v==="si"?"#10b98115":"#9aa8c515"):"#0d1117",color:form.desplazamiento===v?(v==="si"?"#10b981":"#9aa3b8"):"#9aa8c5",fontWeight:800,cursor:"pointer",fontSize:13}}>
+                  style={{flex:1,padding:"9px",borderRadius:8,border:"2px solid "+(form.desplazamiento===v?(v==="si"?"#10b981":"#c5cee8"):"#2a3550"),background:form.desplazamiento===v?(v==="si"?"#10b98115":"#c5cee815"):"#0d1117",color:form.desplazamiento===v?(v==="si"?"#10b981":"#c2cbe3"):"#c5cee8",fontWeight:800,cursor:"pointer",fontSize:13}}>
                   {v==="si"?"Si — me desplace":"No"}
                 </button>
               ))}
@@ -5271,9 +5271,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         <Field label="Materiales utilizados">
           <div style={{display:"flex",gap:6,marginBottom:8}}>
             <button type="button" onClick={()=>{setModoMaterial("manual");setBuscarArt("");}}
-              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="manual"?"#10b981":"#2a3550"),background:modoMaterial==="manual"?"#10b98115":"transparent",color:modoMaterial==="manual"?"#10b981":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:12}}>✏️ Manual</button>
+              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="manual"?"#10b981":"#2a3550"),background:modoMaterial==="manual"?"#10b98115":"transparent",color:modoMaterial==="manual"?"#10b981":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:12}}>✏️ Manual</button>
             <button type="button" onClick={()=>setModoMaterial("inventario")}
-              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="inventario"?"#0ea5e9":"#2a3550"),background:modoMaterial==="inventario"?"#0ea5e915":"transparent",color:modoMaterial==="inventario"?"#0ea5e9":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:12}}>📦 Desde inventario</button>
+              style={{flex:1,padding:"7px",borderRadius:7,border:"2px solid "+(modoMaterial==="inventario"?"#0ea5e9":"#2a3550"),background:modoMaterial==="inventario"?"#0ea5e915":"transparent",color:modoMaterial==="inventario"?"#0ea5e9":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:12}}>📦 Desde inventario</button>
           </div>
 
           {modoMaterial==="manual" ? (
@@ -5296,13 +5296,13 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               </div>
               {buscarArt.trim().length>0&&(
                 <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,marginTop:4,maxHeight:180,overflowY:"auto"}}>
-                  {articulosFiltrados.length===0&&<div style={{padding:"8px 10px",color:"#9aa8c5",fontSize:12}}>Sin resultados</div>}
+                  {articulosFiltrados.length===0&&<div style={{padding:"8px 10px",color:"#c5cee8",fontSize:12}}>Sin resultados</div>}
                   {articulosFiltrados.map(it=>(
                     <div key={it.id} onClick={()=>añadirMaterialInventario(it)}
                       style={{padding:"8px 10px",borderTop:"1px solid #1a2236",cursor:"pointer",display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}>
                       <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{it.nombre}</span>
                       <span style={{display:"flex",gap:7,alignItems:"center",flexShrink:0}}>
-                        <span style={{color:(it.stock||0)<=0?"#ef4444":"#9aa8c5",fontSize:10}}>Stock: {it.stock||0}</span>
+                        <span style={{color:(it.stock||0)<=0?"#ef4444":"#c5cee8",fontSize:10}}>Stock: {it.stock||0}</span>
                         <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{it.codigo}</span>
                       </span>
                     </div>
@@ -5317,7 +5317,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               <div style={{color:"#10b981",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>✏️ Material utilizado</div>
               <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",padding:"5px 10px",background:"#0a0f1a"}}>
-                {["Material","Cant.",""].map(h=><div key={h} style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                {["Material","Cant.",""].map(h=><div key={h} style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
               </div>
               {listaMaterialesManual.map((m)=>(
                 <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 32px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
@@ -5335,7 +5335,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               <div style={{color:"#0ea5e9",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>📦 Material de inventario</div>
               <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #0ea5e944",overflow:"hidden"}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 90px 70px 32px",padding:"5px 10px",background:"#0a0f1a"}}>
-                  {["Artículo","Código","Cant.",""].map(h=><div key={h} style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                  {["Artículo","Código","Cant.",""].map(h=><div key={h} style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
                 </div>
                 {listaMaterialesInv.map((m)=>(
                   <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 90px 70px 32px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
@@ -5351,21 +5351,21 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             </div>
           )}
 
-          {listaMateriales.length===0&&<div style={{color:"#9aa8c5",fontSize:11,fontStyle:"italic",marginTop:4}}>Sin materiales añadidos</div>}
+          {listaMateriales.length===0&&<div style={{color:"#c5cee8",fontSize:11,fontStyle:"italic",marginTop:4}}>Sin materiales añadidos</div>}
         </Field>
 
         {/* Estado del parte: Finalizado o Continuado */}
         <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:11,padding:"14px 16px",marginTop:4}}>
-          <div style={{color:"#9aa3b8",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Estado del parte al guardar</div>
+          <div style={{color:"#c2cbe3",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",marginBottom:10}}>Estado del parte al guardar</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
             <button type="button" onClick={()=>setParteContinuado(false)}
-              style={{padding:"13px 10px",borderRadius:10,border:"2px solid "+(parteContinuado===false?"#10b981":"#2a3550"),background:parteContinuado===false?"#10b98115":"transparent",color:parteContinuado===false?"#10b981":"#9aa8c5",fontWeight:800,cursor:"pointer",fontSize:13,textAlign:"center"}}>
+              style={{padding:"13px 10px",borderRadius:10,border:"2px solid "+(parteContinuado===false?"#10b981":"#2a3550"),background:parteContinuado===false?"#10b98115":"transparent",color:parteContinuado===false?"#10b981":"#c5cee8",fontWeight:800,cursor:"pointer",fontSize:13,textAlign:"center"}}>
               <div style={{fontSize:22,marginBottom:4}}>✅</div>
               <div>Parte finalizado</div>
               <div style={{fontSize:10,fontWeight:400,marginTop:3,opacity:.8}}>El trabajo está completo{form.avisoId?" · el aviso se cierra":""}</div>
             </button>
             <button type="button" onClick={()=>setParteContinuado(true)}
-              style={{padding:"13px 10px",borderRadius:10,border:"2px solid "+(parteContinuado===true?"#f59e0b":"#2a3550"),background:parteContinuado===true?"#f59e0b15":"transparent",color:parteContinuado===true?"#f59e0b":"#9aa8c5",fontWeight:800,cursor:"pointer",fontSize:13,textAlign:"center"}}>
+              style={{padding:"13px 10px",borderRadius:10,border:"2px solid "+(parteContinuado===true?"#f59e0b":"#2a3550"),background:parteContinuado===true?"#f59e0b15":"transparent",color:parteContinuado===true?"#f59e0b":"#c5cee8",fontWeight:800,cursor:"pointer",fontSize:13,textAlign:"center"}}>
               <div style={{fontSize:22,marginBottom:4}}>🔄</div>
               <div>Parte continuado</div>
               <div style={{fontSize:10,fontWeight:400,marginTop:3,opacity:.8}}>Se retoma otro día{form.avisoId?" · el aviso sigue activo":""}</div>
@@ -5438,11 +5438,11 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       </Modal>}
       {/* Modal: elegir parte continuado a retomar */}
       {modalRetomar && <Modal title="Retomar parte continuado" onClose={() => setModalRetomar(false)}>
-        <div style={{color:"#9aa8c5",fontSize:12,marginBottom:12}}>
+        <div style={{color:"#c5cee8",fontSize:12,marginBottom:12}}>
           Selecciona el parte que vas a continuar. El nuevo parte se asociará al mismo trabajo y heredará su numeración (CONT1, CONT2...).
         </div>
         {partesRetomables.length===0 ? (
-          <div style={{color:"#9aa8c5",fontSize:13,padding:"10px 0"}}>No hay partes marcados como "Continuado" pendientes de retomar.</div>
+          <div style={{color:"#c5cee8",fontSize:13,padding:"10px 0"}}>No hay partes marcados como "Continuado" pendientes de retomar.</div>
         ) : (
           <div style={{display:"grid",gap:8,maxHeight:"55vh",overflow:"auto"}}>
             {partesRetomables.map(po=>{
@@ -5454,8 +5454,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     <span style={{fontWeight:700,color:"#f1f3f9",fontSize:13}}>{po.numeroParte}</span>
                     <span style={{fontSize:11,color:"#f59e0b",fontWeight:700}}>{cadena.length} visita{cadena.length>1?"s":""} hasta ahora</span>
                   </div>
-                  <div style={{color:"#9aa3b8",fontSize:12,marginTop:3}}>{cl?.nombreEmpresa||"Sin cliente"} · {fmtFecha(po.fecha)}</div>
-                  <div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>{po.descripcion}</div>
+                  <div style={{color:"#c2cbe3",fontSize:12,marginTop:3}}>{cl?.nombreEmpresa||"Sin cliente"} · {fmtFecha(po.fecha)}</div>
+                  <div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>{po.descripcion}</div>
                 </button>
               );
             })}
@@ -5477,9 +5477,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 24px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
                 <div>
                   <span style={{fontWeight:800,fontSize:17,color:"#f1f3f9"}}>Parte de Trabajo — PDF{esMultiplePrev?" (cadena completa)":""}</span>
-                  <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
+                  <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
                 </div>
-                <button onClick={()=>setModalPDF(null)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#a3acc0",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
+                <button onClick={()=>setModalPDF(null)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#cad2e9",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
               </div>
               <div style={{padding:"20px 24px"}}>
                 {/* Vista previa */}
@@ -5487,11 +5487,11 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,paddingBottom:12,borderBottom:"2px solid #f59e0b"}}>
                     <div>
                       <div style={{fontWeight:900,fontSize:14,color:"#f1f3f9"}}>EUROPEA DE MAQUINARIA PMM SL</div>
-                      <div style={{fontSize:10,color:"#9aa8c5"}}>Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583</div>
+                      <div style={{fontSize:10,color:"#c5cee8"}}>Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583</div>
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>{esMultiplePrev?"PARTE DE TRABAJO (CONTINUADO)":"PARTE DE TRABAJO"}</div>
-                      <div style={{color:"#9aa8c5",fontSize:11}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
+                      <div style={{color:"#c5cee8",fontSize:11}}>{numeroMostradoPrev}{esMultiplePrev?" · "+piezasPrev.length+" visitas":" · "+fmtFecha(p.fecha)}</div>
                     </div>
                   </div>
                   {/* Datos cliente */}
@@ -5500,10 +5500,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     {cl ? (
                       <div style={{display:"grid",gap:"3px"}}>
                         <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{cl.nombreEmpresa}</div>
-                        {cl.nombreFiscal&&<div style={{color:"#9aa3b8",fontSize:11}}>{cl.nombreFiscal}</div>}
-                        {cl.cif&&<div style={{color:"#9aa3b8",fontSize:11}}>CIF: {cl.cif}</div>}
-                        {dirFiscal&&<div style={{color:"#9aa3b8",fontSize:11}}>Dir: {dirFiscal}</div>}
-                        {contactoPpal&&<div style={{color:"#9aa3b8",fontSize:11}}>Contacto: {contactoPpal.nombre} {contactoPpal.tel?"· "+contactoPpal.tel:""}</div>}
+                        {cl.nombreFiscal&&<div style={{color:"#c2cbe3",fontSize:11}}>{cl.nombreFiscal}</div>}
+                        {cl.cif&&<div style={{color:"#c2cbe3",fontSize:11}}>CIF: {cl.cif}</div>}
+                        {dirFiscal&&<div style={{color:"#c2cbe3",fontSize:11}}>Dir: {dirFiscal}</div>}
+                        {contactoPpal&&<div style={{color:"#c2cbe3",fontSize:11}}>Contacto: {contactoPpal.nombre} {contactoPpal.tel?"· "+contactoPpal.tel:""}</div>}
                       </div>
                     ) : (
                       <div style={{color:"#ef4444",fontSize:12}}>Sin cliente vinculado</div>
@@ -5527,15 +5527,15 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                             ["Horas",pz.horasT+" h"],
                             ["Desplazamiento",pz.km>0||pz.desplazamiento==="si"?"Si":"No"],
                           ].map(([l,v])=>(
-                            <div key={l}><span style={{color:"#9aa8c5",fontSize:11}}>{l}: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span></div>
+                            <div key={l}><span style={{color:"#c5cee8",fontSize:11}}>{l}: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span></div>
                           ))}
                         </div>
                         {pz.materialesList?.length>0&&(
                           <div style={{marginTop:8,background:"#0f172a",borderRadius:6,padding:"8px 10px",border:"1px solid #334155"}}>
                             <div style={{fontSize:10,fontWeight:700,color:"#10b981",marginBottom:6,textTransform:"uppercase",letterSpacing:".6px"}}>Materiales utilizados</div>
                             <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:"2px 8px"}}>
-                              <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3}}>Material</div>
-                              <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3,textAlign:"right"}}>Cant.</div>
+                              <div style={{fontSize:9,fontWeight:700,color:"#bfc8e0",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3}}>Material</div>
+                              <div style={{fontSize:9,fontWeight:700,color:"#bfc8e0",borderBottom:"1px solid #334155",paddingBottom:3,marginBottom:3,textAlign:"right"}}>Cant.</div>
                               {pz.materialesList.map((m,i)=>(
                                 <div key={i} style={{display:"contents"}}>
                                   <div style={{fontSize:11,color:"#e2e8f0",padding:"2px 0"}}>{m.material}</div>
@@ -5557,9 +5557,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       <div style={{marginTop:10,background:"#151b2a",borderRadius:8,padding:"10px 12px",border:"1px solid #2a3550"}}>
                         <div style={{fontSize:10,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",marginBottom:6}}>Resumen del trabajo (cadena completa)</div>
                         <div style={{display:"grid",gap:"3px"}}>
-                          <div><span style={{color:"#9aa8c5",fontSize:11}}>Total horas trabajadas: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{totalHorasPrev} h</span></div>
-                          <div><span style={{color:"#9aa8c5",fontSize:11}}>Total visitas con desplazamiento: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{visitasDesplazPrev} de {piezasPrev.length}{totalKmPrev>0?" ("+totalKmPrev+" km)":""}</span></div>
-                          <div><span style={{color:"#9aa8c5",fontSize:11}}>Tecnicos que han intervenido: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{tecnicosUnicosPrev.join(", ")||"—"}</span></div>
+                          <div><span style={{color:"#c5cee8",fontSize:11}}>Total horas trabajadas: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{totalHorasPrev} h</span></div>
+                          <div><span style={{color:"#c5cee8",fontSize:11}}>Total visitas con desplazamiento: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{visitasDesplazPrev} de {piezasPrev.length}{totalKmPrev>0?" ("+totalKmPrev+" km)":""}</span></div>
+                          <div><span style={{color:"#c5cee8",fontSize:11}}>Tecnicos que han intervenido: </span><span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{tecnicosUnicosPrev.join(", ")||"—"}</span></div>
                         </div>
                       </div>
                     );
@@ -5567,7 +5567,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                 </div>
                 {/* Firma */}
                 <div style={{marginBottom:18}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".8px",marginBottom:8}}>
                     Firma del cliente {firmada&&<span style={{color:"#10b981"}}>· Capturada ✓</span>}
                   </div>
                   <Field label="Nombre completo de quien firma *">
@@ -5581,12 +5581,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   </Field>
                   <SignaturePad canvasRef={canvasRef} onSave={()=>setFirmada(true)} onClear={()=>setFirmada(false)}/>
                   <div style={{marginTop:12}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".8px",marginBottom:6}}>Conformidad del cliente</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".8px",marginBottom:6}}>Conformidad del cliente</div>
                     <div style={{display:"flex",gap:8,marginBottom:8}}>
-                      <button type="button" onClick={()=>setConforme(true)} style={{flex:1,background:conforme===true?"#16a34a":"transparent",color:conforme===true?"#fff":"#9aa3b8",border:"1px solid "+(conforme===true?"#16a34a":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <button type="button" onClick={()=>setConforme(true)} style={{flex:1,background:conforme===true?"#16a34a":"transparent",color:conforme===true?"#fff":"#c2cbe3",border:"1px solid "+(conforme===true?"#16a34a":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         <Icon name="check" size={14}/>Conforme
                       </button>
-                      <button type="button" onClick={()=>setConforme(false)} style={{flex:1,background:conforme===false?"#dc2626":"transparent",color:conforme===false?"#fff":"#9aa3b8",border:"1px solid "+(conforme===false?"#dc2626":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <button type="button" onClick={()=>setConforme(false)} style={{flex:1,background:conforme===false?"#dc2626":"transparent",color:conforme===false?"#fff":"#c2cbe3",border:"1px solid "+(conforme===false?"#dc2626":"#2a3550"),borderRadius:8,padding:"9px 10px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                         <Icon name="close" size={14}/>No conforme
                       </button>
                     </div>
@@ -5613,8 +5613,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   {!emailCliente&&!contactoPpal?.email&&(
                     <div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>El cliente no tiene email — introducelo manualmente</div>
                   )}
-                  <div style={{fontSize:11,color:"#9aa8c5",marginTop:4}}>
-                    Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
+                  <div style={{fontSize:11,color:"#c5cee8",marginTop:4}}>
+                    Copia a: <span style={{color:"#c2cbe3"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
                   </div>
                 </div>
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"10px 14px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
@@ -5682,21 +5682,21 @@ const Usuarios = ({ data, setData, userActual }) => {
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const save=()=>{if(!form.id)setData(d=>({...d,usuarios:[...d.usuarios,{...form,id:Date.now(),avatar:form.nombre[0]?.toUpperCase()||"U"}]}));else setData(d=>({...d,usuarios:d.usuarios.map(u=>u.id===form.id?form:u)}));setModal(null);};
   return (<div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#9aa8c5",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:"",telefono:"",puesto:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Usuarios</h2><p style={{color:"#c5cee8",fontSize:13,margin:"2px 0 0"}}>Gestión de accesos y roles</p></div><button onClick={()=>{setForm({nombre:"",password:"",rol:"tecnico",activo:true,email:"",telefono:"",puesto:""});setModal(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo usuario</button></div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,marginBottom:12,padding:"14px 16px"}}>
-      <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Permisos por rol</div>
+      <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Permisos por rol</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:9}}>
-        {ROLES.map(rol=><div key={rol} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}><div style={{marginBottom:5}}><RolBadge rol={rol}/></div>{ROL_MODULOS[rol].filter(m=>m!=="dashboard").map(m=><div key={m} style={{fontSize:11,color:"#9aa8c5",padding:"1px 0"}}>✓ {m.charAt(0).toUpperCase()+m.slice(1)}</div>)}</div>)}
+        {ROLES.map(rol=><div key={rol} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}><div style={{marginBottom:5}}><RolBadge rol={rol}/></div>{ROL_MODULOS[rol].filter(m=>m!=="dashboard").map(m=><div key={m} style={{fontSize:11,color:"#c5cee8",padding:"1px 0"}}>✓ {m.charAt(0).toUpperCase()+m.slice(1)}</div>)}</div>)}
       </div>
     </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
-      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
       <tbody>{data.usuarios.map(u=>(
         <tr key={u.id} style={{borderBottom:"1px solid #1a2236"}}>
           <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar u={u} size={30} fontSize={12}/><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
           <td style={{padding:"11px 14px"}}><RolBadge rol={u.rol}/></td>
           <td style={{padding:"11px 14px"}}><span style={{color:u.activo?"#16a34a":"#dc2626",fontSize:12,fontWeight:700}}>{u.activo?"● Activo":"● Inactivo"}</span></td>
-          <td style={{padding:"11px 14px"}}><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#a3acc0")}><Icon name="edit" size={12}/></button>{u.id!==userActual.id&&<button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button>}</div></td>
+          <td style={{padding:"11px 14px"}}><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#cad2e9")}><Icon name="edit" size={12}/></button>{u.id!==userActual.id&&<button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button>}</div></td>
         </tr>
       ))}</tbody></table>
     </div>
@@ -5746,7 +5746,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   };
   return (<div>
     <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,marginBottom:3}}>Ajustes</h2>
-    <p style={{color:"#9aa8c5",fontSize:13,marginBottom:20}}>Configuración de correo y notificaciones</p>
+    <p style={{color:"#c5cee8",fontSize:13,marginBottom:20}}>Configuración de correo y notificaciones</p>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Configuración SMTP</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
@@ -5765,7 +5765,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes y Albaranes</div>
-      <p style={{color:"#9aa8c5",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo o albarán enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
+      <p style={{color:"#c5cee8",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo o albarán enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
       <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com"/></Field>
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
@@ -5774,18 +5774,18 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     </div>
     {esManager && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6,display:"flex",alignItems:"center",gap:6}}><Icon name="settings" size={15}/>Copias de seguridad</div>
-      <p style={{color:"#9aa8c5",fontSize:12,marginBottom:11}}>El servidor guarda automáticamente una copia de todos los datos una vez al día como máximo (se conservan 14 días). Si se pierden o se sobrescriben datos por error, puedes restaurar aquí una copia anterior.</p>
+      <p style={{color:"#c5cee8",fontSize:12,marginBottom:11}}>El servidor guarda automáticamente una copia de todos los datos una vez al día como máximo (se conservan 14 días). Si se pierden o se sobrescriben datos por error, puedes restaurar aquí una copia anterior.</p>
       <button onClick={cargarHistorial} disabled={cargandoHist} style={{...btnOutline,marginBottom:11}}>{cargandoHist?"Cargando...":"Ver copias disponibles"}</button>
       {errorHist && <div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{errorHist}</div>}
       {historial && (historial.length===0 ? (
-        <div style={{color:"#9aa8c5",fontSize:12}}>Todavía no hay ninguna copia de seguridad guardada.</div>
+        <div style={{color:"#c5cee8",fontSize:12}}>Todavía no hay ninguna copia de seguridad guardada.</div>
       ) : (
         <div style={{display:"grid",gap:7,maxHeight:320,overflowY:"auto"}}>
           {historial.map(item=>(
             <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",borderRadius:8,padding:"8px 12px",flexWrap:"wrap",gap:8}}>
               <div style={{minWidth:0}}>
                 <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{new Date(item.created_at).toLocaleString('es-ES')}</div>
-                <div style={{color:"#9aa8c5",fontSize:11}}>{item.tam?(item.tam/1024/1024).toFixed(2)+" MB":"tamaño desconocido"}</div>
+                <div style={{color:"#c5cee8",fontSize:11}}>{item.tam?(item.tam/1024/1024).toFixed(2)+" MB":"tamaño desconocido"}</div>
               </div>
               <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
                 {restaurandoId===item.id?"Restaurando...":"Restaurar"}
@@ -5797,7 +5797,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     </div>}
     <div style={{background:"#151b2a",border:"1px solid #dc262633",borderRadius:12,padding:"16px 20px"}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6}}>Datos de la aplicación</div>
-      <p style={{color:"#9aa8c5",fontSize:12,marginBottom:12}}>Los datos se guardan automáticamente en este navegador. Si algo falla o quieres empezar de cero puedes resetear.</p>
+      <p style={{color:"#c5cee8",fontSize:12,marginBottom:12}}>Los datos se guardan automáticamente en este navegador. Si algo falla o quieres empezar de cero puedes resetear.</p>
       <button onClick={resetDatos} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"8px 16px",color:"#dc2626",fontSize:13,fontWeight:700,cursor:"pointer"}}>
         Resetear todos los datos
       </button>
@@ -5821,7 +5821,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
         <h2 style={{color:"#f1f3f9",fontWeight:900,fontSize:22,margin:"0 0 2px"}}>
           Bienvenido, {userActual.nombre.split(" ")[0]}
         </h2>
-        <p style={{color:"#9aa8c5",fontSize:13,margin:0}}>
+        <p style={{color:"#c5cee8",fontSize:13,margin:0}}>
           {new Date().toLocaleDateString("es-ES", { weekday: "long",year: "numeric",month: "long",day: "numeric" })}
         </p>
       </div>
@@ -5833,10 +5833,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
           onMouseLeave={e => { e.currentTarget.style.borderColor = criticos.length > 0 ? "#ef444444" : "#2a3550"; e.currentTarget.style.transform = "none"; }}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
             <div style={{width:34,height:34,borderRadius:9,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444"}}><Icon name="bell" size={16} /></div>
-            <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+            <span style={{color:"#c5cee8",fontSize:11}}>→</span>
           </div>
           <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{activos.length}</div>
-          <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Avisos activos</div>
+          <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Avisos activos</div>
           {criticos.length > 0 && <div style={{marginTop:5,color:"#ef4444",fontSize:11,fontWeight:700}}>🔴 {criticos.length} alta prioridad</div>}
         </div>
         {/* A falta de material → va a asistencia */}
@@ -5846,10 +5846,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#f59e0b44"; e.currentTarget.style.transform = "none"; }}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div style={{width:34,height:34,borderRadius:9,background:"#f59e0b20",display:"flex",alignItems:"center",justifyContent:"center",color:"#f59e0b"}}><Icon name="parts" size={16} /></div>
-              <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+              <span style={{color:"#c5cee8",fontSize:11}}>→</span>
             </div>
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{faltaMaterial.length}</div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>A falta de material</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>A falta de material</div>
           </div>
         )}
         {/* Presupuesto enviado, en espera de aceptación → va a asistencia */}
@@ -5859,10 +5859,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#0ea5e944"; e.currentTarget.style.transform = "none"; }}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div style={{width:34,height:34,borderRadius:9,background:"#0ea5e920",display:"flex",alignItems:"center",justifyContent:"center",color:"#0ea5e9"}}><Icon name="send" size={16} /></div>
-              <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+              <span style={{color:"#c5cee8",fontSize:11}}>→</span>
             </div>
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{presupuestoEspera.length}</div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Presupuesto en espera</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Presupuesto en espera</div>
           </div>
         )}
         {/* Mis tareas pendientes → va a tareas */}
@@ -5875,10 +5875,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
               {/* Símbolo especial: marca que hay tareas de empresa (visibles para todos) entre las pendientes */}
               {misTareasEmpresa.length > 0 && <span title="Incluye tareas de empresa" style={{position:"absolute",top:-6,right:-6,fontSize:13,background:"#0a0f1a",borderRadius:"50%",lineHeight:1,padding:1}}>🏢</span>}
             </div>
-            <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+            <span style={{color:"#c5cee8",fontSize:11}}>→</span>
           </div>
           <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{misTareas.length}</div>
-          <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Mis tareas</div>
+          <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Mis tareas</div>
           {misTareasHoy.length > 0 && <div style={{marginTop:5,color:"#f59e0b",fontSize:11,fontWeight:700}}>⚠️ {misTareasHoy.length} vencida{misTareasHoy.length > 1 ? "s" : ""}</div>}
           {misTareasEmpresa.length > 0 && <div style={{marginTop:3,color:"#f59e0b",fontSize:11,fontWeight:700}}>🏢 {misTareasEmpresa.length} de empresa</div>}
         </div>
@@ -5889,10 +5889,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a3550"; e.currentTarget.style.transform = "none"; }}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div style={{width:34,height:34,borderRadius:9,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6"}}><Icon name="clients" size={16} /></div>
-              <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+              <span style={{color:"#c5cee8",fontSize:11}}>→</span>
             </div>
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{data.clientes.length}</div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Clientes</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Clientes</div>
           </div>
         )}
         {/* Ventas pipeline */}
@@ -5902,12 +5902,12 @@ const Dashboard = ({ data, setActive, userActual }) => {
             onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a3550"; e.currentTarget.style.transform = "none"; }}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div style={{width:34,height:34,borderRadius:9,background:"#10b98120",display:"flex",alignItems:"center",justifyContent:"center",color:"#10b981"}}><Icon name="sales" size={16} /></div>
-              <span style={{color:"#9aa8c5",fontSize:11}}>→</span>
+              <span style={{color:"#c5cee8",fontSize:11}}>→</span>
             </div>
             <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>
               {data.ventas.filter(v => v.comercialId === userActual.id && ["Prospecto","Oferta enviada","Negociación"].includes(v.estado)).length}
             </div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:3}}>Operaciones activas</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:3}}>Operaciones activas</div>
           </div>
         )}
       </div>
@@ -5920,7 +5920,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
           </div>
           {criticos.map(a => (
             <div key={a.id} onClick={() => setActive("asistencia")} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #dc262620",cursor:"pointer"}}>
-              <div><div style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{a.titulo}</div><div style={{color:"#9aa8c5",fontSize:11}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div></div>
+              <div><div style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{a.titulo}</div><div style={{color:"#c5cee8",fontSize:11}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div></div>
               <DiasBadge fecha={a.fechaAviso} estado={a.estado} />
             </div>
           ))}
@@ -5930,18 +5930,18 @@ const Dashboard = ({ data, setActive, userActual }) => {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:11}}>
         {/* Avisos pendientes → clicable */}
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:14}}>
-          <div style={{fontWeight:700,fontSize:11,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
+          <div style={{fontWeight:700,fontSize:11,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
             Avisos pendientes
             <button onClick={() => setActive("asistencia")} style={{fontSize:11,color:"#ef4444",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Ver todos →</button>
           </div>
-          {activos.length === 0 && <div style={{color:"#9aa8c5",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin avisos activos ✓</div>}
+          {activos.length === 0 && <div style={{color:"#c5cee8",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin avisos activos ✓</div>}
           {activos.slice(0, 5).map(a => (
             <div key={a.id} onClick={() => setActive("asistencia")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1a2236",cursor:"pointer"}}
               onMouseEnter={e => e.currentTarget.style.background = "#1a2236"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
-                <div style={{color:"#9aa8c5",fontSize:11}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div>
+                <div style={{color:"#c5cee8",fontSize:11}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div>
               </div>
               <DiasBadge fecha={a.fechaAviso} estado={a.estado} />
             </div>
@@ -5949,14 +5949,14 @@ const Dashboard = ({ data, setActive, userActual }) => {
         </div>
         {/* Mis tareas pendientes → clicable */}
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:14}}>
-          <div style={{fontWeight:700,fontSize:11,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
+          <div style={{fontWeight:700,fontSize:11,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
             Mis tareas
             <button onClick={() => setActive("tareas")} style={{fontSize:11,color:"#8b5cf6",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Ver todas →</button>
           </div>
-          {misTareas.length === 0 && <div style={{color:"#9aa8c5",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin tareas pendientes ✓</div>}
+          {misTareas.length === 0 && <div style={{color:"#c5cee8",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin tareas pendientes ✓</div>}
           {misTareas.slice(0, 5).map(t => {
             const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
-            const vc = d < 0 ? "#dc2626" : d === 0 ? "#f59e0b" : d <= 2 ? "#f97316" : "#9aa8c5";
+            const vc = d < 0 ? "#dc2626" : d === 0 ? "#f59e0b" : d <= 2 ? "#f97316" : "#c5cee8";
             return (
               <div key={t.id} onClick={() => setActive("tareas")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1a2236",cursor:"pointer"}}
                 onMouseEnter={e => e.currentTarget.style.background = "#1a2236"}
@@ -6206,13 +6206,13 @@ const Albaran = ({ data, setData, userActual }) => {
     return (
       <div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex",flexShrink:0}}><Icon name="back" size={15}/></button>
+          <button onClick={() => setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex",flexShrink:0}}><Icon name="back" size={15}/></button>
           <div style={{flex:"1 1 200px",minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{alb.numero}</h2>
               <span style={{background:alb.firmada ? "#16a34a20":"#f59e0b20",color:alb.firmada?"#16a34a":"#f59e0b",border:`1px solid ${alb.firmada?"#16a34a44":"#f59e0b44"}`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{alb.firmada ? "✅ Firmado":"⏳ Pendiente firma"}</span>
             </div>
-            <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>📅 {alb.fecha} · 👤 {emisor?.nombre || "—"}</div>
+            <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>📅 {alb.fecha} · 👤 {emisor?.nombre || "—"}</div>
           </div>
           <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
           <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
@@ -6222,29 +6222,29 @@ const Albaran = ({ data, setData, userActual }) => {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:12}}>
           <div style={{display:"grid",gap:10}}>
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Receptor</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Receptor</div>
               {[["Empresa/receptor", alb.receptorNombre], ["Email", alb.receptorEmail||"—"], ["Dirección", alb.receptorDireccion||"—"], ["Entregado por", emisor?.nombre||"—"]].map(([l,v]) => (
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
-                  <span style={{color:"#9aa8c5",fontSize:12}}>{l}</span>
+                  <span style={{color:"#c5cee8",fontSize:12}}>{l}</span>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
                 </div>
               ))}
             </div>
             {alb.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:7}}>Observaciones</div>
-              <div style={{color:"#9aa3b8",fontSize:13}}>{alb.notas}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:7}}>Observaciones</div>
+              <div style={{color:"#c2cbe3",fontSize:13}}>{alb.notas}</div>
             </div>}
             {alb.firmada && <div style={{background:"#16a34a12",border:"1px solid #16a34a33",borderRadius:12,padding:"14px 16px"}}>
               <div style={{fontSize:11,fontWeight:700,color:"#16a34a",textTransform:"uppercase",letterSpacing:".7px",marginBottom:5}}>✅ Firmado el {alb.fechaFirma}</div>
-              <div style={{color:"#9aa8c5",fontSize:12}}>{alb.emailEnviado?("Email enviado a "+(alb.emailEnviadoA||alb.receptorEmail||"—")+", con copia a "+(alb.emailEnviadoCC||"—")):"Firmado, sin envío de email registrado"}</div>
+              <div style={{color:"#c5cee8",fontSize:12}}>{alb.emailEnviado?("Email enviado a "+(alb.emailEnviadoA||alb.receptorEmail||"—")+", con copia a "+(alb.emailEnviadoCC||"—")):"Firmado, sin envío de email registrado"}</div>
             </div>}
           </div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Mercancía entregada</div>
+            <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Mercancía entregada</div>
             {alb.lineas.map((l, i) => (
               <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid #1a2236",alignItems:"flex-start"}}>
                 <div style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 7px",fontWeight:800,fontSize:12,minWidth:28,textAlign:"center",flexShrink:0}}>{l.cant}</div>
-                <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{l.desc}</div><div style={{color:"#9aa8c5",fontSize:11}}>{l.unidad}</div></div>
+                <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{l.desc}</div><div style={{color:"#c5cee8",fontSize:11}}>{l.unidad}</div></div>
               </div>
             ))}
           </div>
@@ -6257,7 +6257,7 @@ const Albaran = ({ data, setData, userActual }) => {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Albaranes de Entrega</h2>
-          <p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Genera albaranes firmados y envíalos al receptor por email</p>
+          <p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Genera albaranes firmados y envíalos al receptor por email</p>
         </div>
         <button onClick={openNew} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
           <Icon name="plus" size={14}/>Nuevo albarán
@@ -6268,12 +6268,12 @@ const Albaran = ({ data, setData, userActual }) => {
         {[["Total", data.albaranes.length, "#f97316"], ["Firmados", data.albaranes.filter(a=>a.firmada).length, "#16a34a"], ["Pendientes", data.albaranes.filter(a=>!a.firmada).length, "#f59e0b"]].map(([l,v,c]) => (
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:10,padding:"11px 14px"}}>
             <div style={{color:c,fontWeight:800,fontSize:20,lineHeight:1}}>{v}</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>{l}</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>{l}</div>
           </div>
         ))}
       </div>
       <div style={{display:"grid",gap:7}}>
-        {data.albaranes.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5"}}>Sin albaranes creados</div>}
+        {data.albaranes.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8"}}>Sin albaranes creados</div>}
         {[...data.albaranes].reverse().map(alb => {
           const emisor = data.usuarios.find(u => u.id === alb.emisorId);
           return (
@@ -6286,18 +6286,18 @@ const Albaran = ({ data, setData, userActual }) => {
                 </div>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:3}}>{alb.receptorNombre}</div>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  <span style={{color:"#9aa8c5",fontSize:11}}>📅 {alb.fecha}</span>
-                  <span style={{color:"#9aa8c5",fontSize:11}}>👤 {emisor?.nombre||"—"}</span>
-                  <span style={{color:"#9aa8c5",fontSize:11}}>📦 {alb.lineas.length} artículo{alb.lineas.length!==1?"s":""}</span>
-                  {alb.receptorEmail && <span style={{color:"#9aa8c5",fontSize:11}}>✉️ {alb.receptorEmail}</span>}
-                  <span title={alb.emailEnviado?("Enviado a "+(alb.emailEnviadoA||"—")+" · Copia a "+(alb.emailEnviadoCC||"—")):"Aún no se ha enviado por email"} style={{color:alb.emailEnviado?"#10b981":"#9aa8c5",fontSize:11,fontWeight:700}}>{alb.emailEnviado?"✅ Enviado a cliente y copia":"✉️ No enviado"}</span>
+                  <span style={{color:"#c5cee8",fontSize:11}}>📅 {alb.fecha}</span>
+                  <span style={{color:"#c5cee8",fontSize:11}}>👤 {emisor?.nombre||"—"}</span>
+                  <span style={{color:"#c5cee8",fontSize:11}}>📦 {alb.lineas.length} artículo{alb.lineas.length!==1?"s":""}</span>
+                  {alb.receptorEmail && <span style={{color:"#c5cee8",fontSize:11}}>✉️ {alb.receptorEmail}</span>}
+                  <span title={alb.emailEnviado?("Enviado a "+(alb.emailEnviadoA||"—")+" · Copia a "+(alb.emailEnviadoCC||"—")):"Aún no se ha enviado por email"} style={{color:alb.emailEnviado?"#10b981":"#c5cee8",fontSize:11,fontWeight:700}}>{alb.emailEnviado?"✅ Enviado a cliente y copia":"✉️ No enviado"}</span>
                 </div>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                 {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",fontWeight:700,fontSize:11}}>✍️ Firmar</button>}
                 <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
                 <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
-                <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#a3acc0")}><Icon name="edit" size={11}/></button>
+                <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#cad2e9")}><Icon name="edit" size={11}/></button>
                 <button onClick={() => { if (window.confirm("¿Eliminar este albarán? Esta acción no se puede deshacer.")) setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)})); }} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
             </div>
@@ -6325,7 +6325,7 @@ const Albaran = ({ data, setData, userActual }) => {
         </div>
         {/* Líneas de productos */}
         <div style={{marginTop:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
           {lineas.map((l, i) => (
             <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<lineas.length-1?"1px solid #1a2236":"none"}}>
               {/* Solo los consumibles recurrentes (clave) aparecen en este desplegable: con el
@@ -6349,7 +6349,7 @@ const Albaran = ({ data, setData, userActual }) => {
               </div>
             </div>
           ))}
-          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#9aa8c5",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
+          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#c5cee8",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
         </div>
         <Field label="Observaciones"><Textarea value={form.notas} onChange={f("notas")} placeholder="Instrucciones, condiciones de entrega..."/></Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
@@ -6367,15 +6367,15 @@ const Albaran = ({ data, setData, userActual }) => {
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 22px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
                 <div>
                   <div style={{fontWeight:800,fontSize:17,color:"#f1f3f9"}}>Firmar albarán</div>
-                  <div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>{alb.numero} · {alb.receptorNombre}</div>
+                  <div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>{alb.numero} · {alb.receptorNombre}</div>
                 </div>
-                <button onClick={() => setModalFirma(null)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#a3acc0",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
+                <button onClick={() => setModalFirma(null)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#cad2e9",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
               </div>
               <div style={{padding:"18px 22px"}}>
                 {/* Resumen mercancía */}
                 <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
                   <div style={{fontSize:11,fontWeight:700,color:"#f97316",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Mercancía a confirmar</div>
-                  {alb.lineas.map((l,i) => <div key={i} style={{color:"#c4cad8",fontSize:12,padding:"3px 0"}}><span style={{color:"#f97316",fontWeight:800}}>{l.cant} {l.unidad}</span> · {l.desc}</div>)}
+                  {alb.lineas.map((l,i) => <div key={i} style={{color:"#dde2ee",fontSize:12,padding:"3px 0"}}><span style={{color:"#f97316",fontWeight:800}}>{l.cant} {l.unidad}</span> · {l.desc}</div>)}
                 </div>
                 {/* Nombre receptor */}
                 <Field label="Nombre completo del receptor">
@@ -6383,7 +6383,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 </Field>
                 {/* Firma */}
                 <div style={{marginBottom:16}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
                     ✍️ Firma del receptor {firmada && <span style={{color:"#10b981"}}>· Capturada ✓</span>}
                   </div>
                   <SignaturePad canvasRef={canvasRef} onSave={() => setFirmada(true)} onClear={() => setFirmada(false)}/>
@@ -6392,8 +6392,8 @@ const Albaran = ({ data, setData, userActual }) => {
                 <Field label="📧 Email receptor (para envío del albarán)">
                   <input value={firmEmail} onChange={e => setFirmEmail(e.target.value)} type="email" placeholder="email@cliente.es" style={inputStyle}/>
                 </Field>
-                <div style={{fontSize:11,color:"#9aa8c5",marginBottom:16}}>
-                  Copia a: <span style={{color:"#9aa3b8"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
+                <div style={{fontSize:11,color:"#c5cee8",marginBottom:16}}>
+                  Copia a: <span style={{color:"#c2cbe3"}}>{data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}</span>
                 </div>
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"9px 13px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}><Icon name="check" size={14}/>{(firmEmail||alb.receptorEmail)?("Email enviado a "+(firmEmail||alb.receptorEmail)+", con copia a "+(data.smtp?.ccPartes||"gestion@europeademaquinaria.com")):"Albarán generado y descargado (sin email de receptor, no se envió copia)"}</div>}
                 <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
@@ -6529,14 +6529,14 @@ if(vista&&data.stock.find(x=>x.id===vista)){
 const m=data.stock.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;
 return(<div>
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-<button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex"}}><Icon name="back" size={15}/></button>
+<button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex"}}><Icon name="back" size={15}/></button>
 <div style={{flex:1}}>
 <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
 <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.marca} {m.modelo}</h2>
 {m.codigo&&<span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
 <span style={{background:m.estado==="Nueva"?"#10b98120":"#f59e0b20",color:m.estado==="Nueva"?"#10b981":"#f59e0b",border:"1px solid "+(m.estado==="Nueva"?"#10b98144":"#f59e0b44"),borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{m.estado}</span>
 </div>
-<div style={{color:"#9aa8c5",fontSize:12,marginTop:2}}>Stock maquinaria nueva · pendiente de venta</div>
+<div style={{color:"#c5cee8",fontSize:12,marginTop:2}}>Stock maquinaria nueva · pendiente de venta</div>
 </div>
 {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
@@ -6544,39 +6544,39 @@ return(<div>
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.matricula||"—"}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
-{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#9aa8c5",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.matricula||"—"}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
+<div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
+{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
+{puedeVerCompra && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#c5cee8",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
 </div>
-<div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
+<div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",background:"#0a0f1a",padding:"9px 16px",gap:12}}>
-{["Codigo","Descripcion","Valor EUR"].map(h=><div key={h} style={{color:"#9aa8c5",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+{["Codigo","Descripcion","Valor EUR"].map(h=><div key={h} style={{color:"#c5cee8",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
 </div>
-{(m.codigos||[]).length===0&&<div style={{padding:"20px 16px",color:"#9aa8c5",textAlign:"center",fontSize:12}}>Sin codigos</div>}
+{(m.codigos||[]).length===0&&<div style={{padding:"20px 16px",color:"#c5cee8",textAlign:"center",fontSize:12}}>Sin codigos</div>}
 {(m.codigos||[]).map((c,i)=>(
 <div key={c.id} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
 <div style={{color:"#3b82f6",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
-<div style={{color:"#c4cad8",fontSize:13}}>{c.descripcion}</div>
+<div style={{color:"#dde2ee",fontSize:13}}>{c.descripcion}</div>
 <div style={{color:"#10b981",fontWeight:700,fontSize:13,textAlign:"right"}}>EUR{(parseFloat(c.valor)||0).toLocaleString()}</div>
 </div>))}
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550",background:"#0a0f1a"}}>
-<div style={{color:"#9aa8c5",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
+<div style={{color:"#c5cee8",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
 <div style={{color:"#3b82f6",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
 </div>
 </div>
 {(m.fotos||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-<div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
+<div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
 <FotosCarousel fotos={m.fotos}/>
 </div>}
 {(m.pdfs||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
-<div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:10}}>Documentos</div>
-{m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#9aa8c5",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
+<div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:10}}>Documentos</div>
+{m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#c5cee8",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
 </div>}
-{m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13}}>{m.notas}</div></div>}
+{m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#c2cbe3",fontSize:13}}>{m.notas}</div></div>}
 {puedeEliminar && <button onClick={()=>{if(window.confirm("Eliminar esta maquina?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
 </div>);}
 const disponibles=data.stock.filter(m=>!m.vendida).length;
@@ -6585,22 +6585,22 @@ const valorVentaTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFlo
 const valorCompraTotal=data.stock.filter(m=>!m.vendida).reduce((s,m)=>s+(parseFloat(m.precioCompra)||0),0);
 return(<div>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria</h2><p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Codigos de configuracion - Valor tarifa - Precio de venta</p></div>
+<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria</h2><p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Codigos de configuracion - Valor tarifa - Precio de venta</p></div>
 <button onClick={openNew} style={{background:"linear-gradient(135deg,#10b981,#3b82f6)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Anadir maquina</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:9,marginBottom:16}}>
-{[["Disponibles",disponibles,"#10b981"],["Vendidas",data.stock.filter(m=>m.vendida).length,"#9aa8c5"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeVerCompra?[["Precio compra total","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
+{[["Disponibles",disponibles,"#10b981"],["Vendidas",data.stock.filter(m=>m.vendida).length,"#c5cee8"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeVerCompra?[["Precio compra total","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
 <div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}>
 <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
-<div style={{color:"#9aa8c5",fontSize:11,marginTop:3}}>{l}</div>
+<div style={{color:"#c5cee8",fontSize:11,marginTop:3}}>{l}</div>
 </div>))}
 </div>
 <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
-<div style={{display:"flex",gap:3}}>{["Disponible","Vendida","Todas"].map(fi=><button key={fi} onClick={()=>setFiltro(fi)} style={{background:filtro===fi?"#10b981":"#151b2a",color:filtro===fi?"#fff":"#9aa8c5",border:"1px solid "+(filtro===fi?"#10b981":"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{fi}</button>)}</div>
-<div style={{position:"relative",marginLeft:"auto"}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={12}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Marca, modelo..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:170}}/></div>
+<div style={{display:"flex",gap:3}}>{["Disponible","Vendida","Todas"].map(fi=><button key={fi} onClick={()=>setFiltro(fi)} style={{background:filtro===fi?"#10b981":"#151b2a",color:filtro===fi?"#fff":"#c5cee8",border:"1px solid "+(filtro===fi?"#10b981":"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{fi}</button>)}</div>
+<div style={{position:"relative",marginLeft:"auto"}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={12}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Marca, modelo..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:170}}/></div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:12}}>
-{filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5",gridColumn:"1/-1"}}>Sin maquinas en stock</div>}
+{filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8",gridColumn:"1/-1"}}>Sin maquinas en stock</div>}
 {filtradas.map(m=>{const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;return(
 <div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid "+(m.vendida?"#2a3550":"#10b98133"),borderRadius:14,overflow:"hidden",cursor:"pointer",opacity:m.vendida?0.65:1}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
 <div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
@@ -6612,10 +6612,10 @@ return(<div>
 </div>
 <div style={{padding:"13px 15px"}}>
 <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,marginBottom:1}}>{m.marca} <span style={{fontWeight:400}}>{m.modelo}</span></div>
-<div style={{color:"#9aa8c5",fontSize:11,marginBottom:10}}>Matr. {m.matricula} - {m.anyo} - {(m.codigos||[]).length} codigos</div>
+<div style={{color:"#c5cee8",fontSize:11,marginBottom:10}}>Matr. {m.matricula} - {m.anyo} - {(m.codigos||[]).length} codigos</div>
 <div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
-<div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#9aa8c5",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#9aa8c5",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
+<div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#c5cee8",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
+{puedeVerCompra && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#c5cee8",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
 </div>
 </div>
 </div>);})}
@@ -6629,11 +6629,11 @@ return(<div>
 </div>
 <div style={{marginBottom:4}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-<div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase"}}>Codigos de configuracion</div>
+<div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase"}}>Codigos de configuracion</div>
 <div style={{color:"#10b981",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,padding:"5px 0",borderBottom:"1px solid #2a3550",marginBottom:4}}>
-{["Codigo","Descripcion","Valor EUR",""].map(h=><div key={h} style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+{["Codigo","Descripcion","Valor EUR",""].map(h=><div key={h} style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
 </div>
 {codigos.map((c,i)=>(
 <div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
@@ -6642,20 +6642,20 @@ return(<div>
 <input type="number" value={c.valor} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:e.target.value}:x))} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
 <button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
 </div>))}
-<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#9aa8c5",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Anadir codigo</button>
+<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#c5cee8",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Anadir codigo</button>
 <div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeVerCompra?"1fr 1fr":"1fr",gap:8}}>
-<div style={{background:"#0d1117",border:"1px solid #3b82f633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#9aa8c5",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeVerCompra && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#9aa8c5",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+<div style={{background:"#0d1117",border:"1px solid #3b82f633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#c5cee8",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
+{puedeVerCompra && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#c5cee8",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
 </div>
 </div>
 {puedeVerCompra && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
 {puedeVerCompra && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#9aa8c5",fontSize:12}}>Anadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
-{(form.fotos||[]).length>0&&<div style={{color:"#9aa8c5",fontSize:11,marginTop:6}}>Pulsa ★ en una foto para marcarla como principal (se usa como portada).</div>}
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#c5cee8",fontSize:12}}>Anadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+{(form.fotos||[]).length>0&&<div style={{color:"#c5cee8",fontSize:11,marginTop:6}}>Pulsa ★ en una foto para marcarla como principal (se usa como portada).</div>}
 {(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f59e0b":"2px solid transparent"}}/><button type="button" title="Marcar como foto principal" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f59e0b":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
-<Field label="PDF (fichas tecnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#9aa8c5",fontSize:12}}>Anadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
-{(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#9aa3b8",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
+<Field label="PDF (fichas tecnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#c5cee8",fontSize:12}}>Anadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
+{(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#c2cbe3",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
 </Field>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#10b981"}}>{form.id?"Guardar":"Anadir al stock"}</button></div>
@@ -6889,7 +6889,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Inventario</h2>
-          <p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Materiales y repuestos · Codigos · Etiquetas</p>
+          <p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Materiales y repuestos · Codigos · Etiquetas</p>
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>setVistaQR("elegir")} style={{background:"#1a2236",color:"#a855f7",border:"1px solid #a855f755",borderRadius:9,padding:"9px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
@@ -6914,7 +6914,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         ].map(([l,v,c])=>(
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
             <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:3}}>{l}</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:3}}>{l}</div>
           </div>
         ))}
       </div>
@@ -6922,7 +6922,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {/* Recuadros de stock de consumibles clave (colas muy recurrentes) */}
       {data.inventario.some(i=>i.consumibleClave) && (
         <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Consumibles clave</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Consumibles clave</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10}}>
             {data.inventario.filter(i=>i.consumibleClave).map(item=>{
               const sinStock = !item.stock || item.stock<=0;
@@ -6933,7 +6933,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:6}}>{item.nombre}</div>
                   <div style={{display:"flex",alignItems:"baseline",gap:5,marginBottom:10}}>
                     <span style={{color:c,fontWeight:800,fontSize:24,lineHeight:1}}>{item.stock||0}</span>
-                    <span style={{color:"#9aa8c5",fontSize:12}}>{item.unidad||"ud"}</span>
+                    <span style={{color:"#c5cee8",fontSize:12}}>{item.unidad||"ud"}</span>
                   </div>
                   <div style={{display:"flex",gap:6}}>
                     <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{flex:1,background:"#10b98120",border:"1px solid #10b98133",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#10b981",fontSize:12,fontWeight:700}}>+ Añadir unidades</button>
@@ -6952,7 +6952,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <span style={{fontSize:18}}>⚠️</span>
           <div>
             <div style={{color:"#ef4444",fontWeight:800,fontSize:12}}>{bajos.length} artículo{bajos.length>1?"s":""} con stock bajo o agotado</div>
-            <div style={{color:"#9aa8c5",fontSize:11}}>{bajos.map(i=>i.nombre).join(" · ")}</div>
+            <div style={{color:"#c5cee8",fontSize:11}}>{bajos.map(i=>i.nombre).join(" · ")}</div>
           </div>
         </div>
       )}
@@ -6961,11 +6961,11 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
           {["Todas",...categorias].map(c=>(
-            <button key={c} onClick={()=>setFiltroCategoria(c)} style={{background:filtroCategoria===c?"#a855f7":"#151b2a",color:filtroCategoria===c?"#fff":"#9aa8c5",border:`1px solid ${filtroCategoria===c?"#a855f7":"#2a3550"}`,borderRadius:7,padding:"5px 11px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{c}</button>
+            <button key={c} onClick={()=>setFiltroCategoria(c)} style={{background:filtroCategoria===c?"#a855f7":"#151b2a",color:filtroCategoria===c?"#fff":"#c5cee8",border:`1px solid ${filtroCategoria===c?"#a855f7":"#2a3550"}`,borderRadius:7,padding:"5px 11px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{c}</button>
           ))}
         </div>
         <div style={{position:"relative",marginLeft:"auto"}}>
-          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={12}/></span>
+          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={12}/></span>
           <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Código, nombre, proveedor..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:190}}/>
         </div>
       </div>
@@ -6973,7 +6973,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {/* Tabla / lista */}
       {isMobile ? (
         <div style={{display:"flex",flexDirection:"column",gap:9}}>
-          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#9aa8c5",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin artículos</div>}
+          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#c5cee8",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin artículos</div>}
           {filtrados.map(item=>{
             const sinStock = !item.stock || item.stock <= 0;
             return (
@@ -6985,16 +6985,16 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                       <div style={{color:"#a855f7",fontWeight:700,fontSize:11,fontFamily:"monospace"}}>{item.codigo}</div>
                       <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
                         <span style={{color:sinStock?"#ef4444":"#10b981",fontWeight:800,fontSize:14}}>{item.stock}</span>
-                        <span style={{color:"#9aa8c5",fontSize:10}}>{item.unidad}</span>
+                        <span style={{color:"#c5cee8",fontSize:10}}>{item.unidad}</span>
                         {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
                       </div>
                     </div>
                     <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginTop:2}}>{item.consumibleClave && <span title="Consumible clave" style={{color:"#f59e0b"}}>★ </span>}{item.nombre}</div>
-                    {item.descripcion && <div style={{color:"#9aa8c5",fontSize:11,marginTop:1}}>{item.descripcion}</div>}
+                    {item.descripcion && <div style={{color:"#c5cee8",fontSize:11,marginTop:1}}>{item.descripcion}</div>}
                     <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
-                      {puedeVerCompra && <div style={{color:"#9aa8c5",fontSize:11}}>Compra: EUR{(item.precioCompra||0).toFixed(2)}</div>}
+                      {puedeVerCompra && <div style={{color:"#c5cee8",fontSize:11}}>Compra: EUR{(item.precioCompra||0).toFixed(2)}</div>}
                       <div style={{color:"#10b981",fontWeight:700,fontSize:11}}>Venta: EUR{(item.precioVenta||0).toFixed(2)}</div>
-                      {item.categoria && <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>}
+                      {item.categoria && <div style={{color:"#c2cbe3",fontSize:11}}>{item.categoria}</div>}
                     </div>
                   </div>
                 </div>
@@ -7013,10 +7013,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
           <div style={{display:"grid",gridTemplateColumns:puedeVerCompra?"120px 1fr 90px 80px 80px 80px 210px":"120px 1fr 90px 80px 80px 210px",background:"#0a0f1a",padding:"9px 14px",gap:8}}>
             {(puedeVerCompra?["Código","Artículo","Stock","P. Compra","P. Venta","Categoría",""]:["Código","Artículo","Stock","P. Venta","Categoría",""]).map(h=>(
-              <div key={h} style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>
+              <div key={h} style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>
             ))}
           </div>
-          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#9aa8c5"}}>Sin artículos</div>}
+          {filtrados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#c5cee8"}}>Sin artículos</div>}
           {filtrados.map((item,idx)=>{
             const sinStock = !item.stock || item.stock <= 0;
             return (
@@ -7026,22 +7026,22 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                   {item.foto && <img src={item.foto} alt={item.nombre} style={{width:32,height:32,objectFit:"cover",borderRadius:6,border:"1px solid #2a3550",flexShrink:0}}/>}
                   <div style={{minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13}}>{item.consumibleClave && <span title="Consumible clave" style={{color:"#f59e0b"}}>★ </span>}{item.nombre}</div>
-                    {item.descripcion && <div style={{color:"#9aa8c5",fontSize:11}}>{item.descripcion}</div>}
+                    {item.descripcion && <div style={{color:"#c5cee8",fontSize:11}}>{item.descripcion}</div>}
                   </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   <span style={{color:sinStock?"#ef4444":"#10b981",fontWeight:800,fontSize:14}}>{item.stock}</span>
-                  <span style={{color:"#9aa8c5",fontSize:10}}>{item.unidad}</span>
+                  <span style={{color:"#c5cee8",fontSize:10}}>{item.unidad}</span>
                   {sinStock && <span style={{color:"#ef4444",fontSize:10}}>⚠️</span>}
                 </div>
-                {puedeVerCompra && <div style={{color:"#9aa8c5",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>}
+                {puedeVerCompra && <div style={{color:"#c5cee8",fontSize:12}}>EUR{(item.precioCompra||0).toFixed(2)}</div>}
                 <div style={{color:"#10b981",fontWeight:700,fontSize:12}}>EUR{(item.precioVenta||0).toFixed(2)}</div>
-                <div style={{color:"#9aa3b8",fontSize:11}}>{item.categoria}</div>
+                <div style={{color:"#c2cbe3",fontSize:11}}>{item.categoria}</div>
                 <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end"}}>
                   <button onClick={()=>{setModalMovimiento(item.id);setCantMovimiento("");}} style={{background:"#10b98120",border:"1px solid #10b98133",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#10b981",fontSize:10,fontWeight:700}}>+/-</button>
                   <button onClick={()=>setModalHistorial(item.id)} style={{background:"#3b82f620",border:"1px solid #3b82f633",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#3b82f6",fontSize:10,fontWeight:700}}>📋</button>
                   <button onClick={()=>imprimirEtiqueta(item)} style={{background:"#a855f720",border:"1px solid #a855f733",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a855f7",fontSize:10,fontWeight:700}}>🏷️</button>
-                  <button onClick={()=>{setForm({...item});setModal(true);}} style={{background:"#2a3550",border:"1px solid #3b4566",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#a3acc0",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="edit" size={11}/>Editar</button>
+                  <button onClick={()=>{setForm({...item});setModal(true);}} style={{background:"#2a3550",border:"1px solid #3b4566",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#cad2e9",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="edit" size={11}/>Editar</button>
                   <button onClick={()=>eliminarArticulo(item)} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:6,padding:"4px 7px",cursor:"pointer",color:"#dc2626",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="trash" size={11}/>Eliminar</button>
                 </div>
               </div>
@@ -7057,7 +7057,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         return (
           <Modal title={`Ajustar stock — ${item.nombre}`} onClose={()=>setModalMovimiento(null)}>
             <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-between"}}>
-              <span style={{color:"#9aa8c5",fontSize:13}}>Stock actual</span>
+              <span style={{color:"#c5cee8",fontSize:13}}>Stock actual</span>
               <span style={{color:"#f1f3f9",fontWeight:800,fontSize:18}}>{item.stock} {item.unidad}</span>
             </div>
             <Field label="Cantidad"><input type="number" value={cantMovimiento} onChange={e=>setCantMovimiento(e.target.value)} min="1" placeholder="Unidades" style={{...inputStyle}}/></Field>
@@ -7091,19 +7091,19 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         return (
           <Modal title={`Historial de movimientos — ${item.nombre}`} onClose={()=>setModalHistorial(null)}>
             <div style={{background:"#0d1117",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between"}}>
-              <span style={{color:"#9aa8c5",fontSize:12}}>Código interno</span>
+              <span style={{color:"#c5cee8",fontSize:12}}>Código interno</span>
               <span style={{color:"#a855f7",fontWeight:700,fontSize:13,fontFamily:"monospace"}}>{item.codigo}</span>
             </div>
             {historial.length===0 ? (
-              <div style={{color:"#9aa8c5",fontSize:12,fontStyle:"italic",textAlign:"center",padding:"14px 0"}}>Este artículo aún no registra entradas ni salidas.</div>
+              <div style={{color:"#c5cee8",fontSize:12,fontStyle:"italic",textAlign:"center",padding:"14px 0"}}>Este artículo aún no registra entradas ni salidas.</div>
             ) : (
               <div style={{background:"#0d1117",borderRadius:8,border:"1px solid #2a3550",overflow:"hidden"}}>
                 <div style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"5px 10px",background:"#0a0f1a"}}>
-                  {["Fecha","Detalle","Doc./User","Cant."].map(h=><div key={h} style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+                  {["Fecha","Detalle","Doc./User","Cant."].map(h=><div key={h} style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
                 </div>
                 {historial.map(h=>(
                   <div key={h.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 90px 60px",padding:"7px 10px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
-                    <span style={{color:"#9aa8c5",fontSize:11}}>{fmtFecha(h.fecha)}</span>
+                    <span style={{color:"#c5cee8",fontSize:11}}>{fmtFecha(h.fecha)}</span>
                     <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{h.detalle}</span>
                     <span style={{color:"#0ea5e9",fontSize:11,fontWeight:700}}>{h.doc}</span>
                     <span style={{color:h.tipo==="entrada"?"#10b981":"#ef4444",fontWeight:700,fontSize:12,textAlign:"center"}}>{h.tipo==="entrada"?"+":"-"}{h.cantidad}</span>
@@ -7123,12 +7123,12 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Modal title={form.id?"Editar artículo":"Nuevo artículo"} onClose={()=>setModal(false)} wide>
           <div style={{background:"#a855f712",border:"1px solid #a855f733",borderRadius:8,padding:"8px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             <span style={{color:"#a855f7",fontWeight:800,fontSize:14}}>{form.codigo}</span>
-            <span style={{color:"#9aa8c5",fontSize:12}}>— Código asignado automáticamente</span>
+            <span style={{color:"#c5cee8",fontSize:12}}>— Código asignado automáticamente</span>
           </div>
           <Field label="Foto del artículo">
             <div style={{display:"flex",gap:10,alignItems:"center"}}>
               {form.foto && <img src={form.foto} alt="preview" style={{width:64,height:64,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
-              <label style={{background:"#2a3550",color:"#9aa3b8",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
+              <label style={{background:"#2a3550",color:"#c2cbe3",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
                 <Icon name="image" size={13}/>{form.foto?"Cambiar foto":"Subir foto"}
                 <input type="file" accept="image/*" onChange={handleFotoArt} style={{display:"none"}}/>
               </label>
@@ -7183,15 +7183,15 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       {/* Modal Lector QR — elegir método */}
       {vistaQR === "elegir" && (
         <Modal title="Leer QR — Inventario" onClose={cerrarLectorQR}>
-          <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>¿Cómo quieres identificar el artículo?</div>
+          <div style={{color:"#c2cbe3",fontSize:13,marginBottom:16}}>¿Cómo quieres identificar el artículo?</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <button onClick={()=>setVistaQR("camara")} style={{background:"#151b2a",border:"1px solid #a855f755",borderRadius:10,padding:"14px 16px",color:"#f1f3f9",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:12,fontSize:14,textAlign:"left"}}>
               <span style={{fontSize:24}}>📷</span>
-              <span>Abrir cámara<div style={{color:"#9aa8c5",fontSize:11,fontWeight:400,marginTop:2}}>Enfoca el QR del artículo y se abrirá su ficha</div></span>
+              <span>Abrir cámara<div style={{color:"#c5cee8",fontSize:11,fontWeight:400,marginTop:2}}>Enfoca el QR del artículo y se abrirá su ficha</div></span>
             </button>
             <button onClick={()=>setVistaQR("manual")} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"14px 16px",color:"#f1f3f9",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:12,fontSize:14,textAlign:"left"}}>
               <span style={{fontSize:24}}>⌨️</span>
-              <span>Introducir código manualmente<div style={{color:"#9aa8c5",fontSize:11,fontWeight:400,marginTop:2}}>Escribe el código o usa un lector USB/Bluetooth</div></span>
+              <span>Introducir código manualmente<div style={{color:"#c5cee8",fontSize:11,fontWeight:400,marginTop:2}}>Escribe el código o usa un lector USB/Bluetooth</div></span>
             </button>
           </div>
           <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
@@ -7205,7 +7205,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Modal title="Introducir código — Inventario" onClose={cerrarLectorQR}>
           <div style={{background:"#0d1117",borderRadius:10,padding:"14px",marginBottom:14,textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:8}}>⌨️</div>
-            <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>Pega aquí el contenido del QR o escanéalo con un lector USB/Bluetooth</div>
+            <div style={{color:"#c2cbe3",fontSize:13,marginBottom:16}}>Pega aquí el contenido del QR o escanéalo con un lector USB/Bluetooth</div>
             <textarea
               autoFocus
               value={qrInput}
@@ -7214,7 +7214,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               placeholder="El lector QR escribirá aquí automáticamente..."
               style={{width:"100%",background:"#151b2a",border:"1px solid #a855f755",borderRadius:8,padding:"10px 12px",color:"#f1f3f9",fontSize:13,resize:"vertical",minHeight:80,outline:"none",boxSizing:"border-box"}}
             />
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:6}}>También puedes escribir el código del artículo (ej: INV0001) y pulsar Enter</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:6}}>También puedes escribir el código del artículo (ej: INV0001) y pulsar Enter</div>
           </div>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={()=>setVistaQR("elegir")} style={btnOutline}>Atrás</button>
@@ -7228,7 +7228,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <Modal title="Lector de código de barras" onClose={cerrarLectorBarras}>
           <div style={{background:"#0d1117",borderRadius:10,padding:"14px",marginBottom:14,textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:8}}>🔫</div>
-            <div style={{color:"#9aa3b8",fontSize:13,marginBottom:16}}>Escanea con la pistola de código de barras o escribe el código del fabricante/proveedor (ej: 0000740104G)</div>
+            <div style={{color:"#c2cbe3",fontSize:13,marginBottom:16}}>Escanea con la pistola de código de barras o escribe el código del fabricante/proveedor (ej: 0000740104G)</div>
             <input
               autoFocus
               value={codigoBarrasInput}
@@ -7237,7 +7237,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               placeholder="El lector escribirá aquí automáticamente..."
               style={{width:"100%",background:"#151b2a",border:"1px solid #3b82f655",borderRadius:8,padding:"10px 12px",color:"#f1f3f9",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",fontFamily:"monospace"}}
             />
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:6}}>Busca el código en código interno, código externo 1 y código externo 2</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:6}}>Busca el código en código interno, código externo 1 y código externo 2</div>
           </div>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={cerrarLectorBarras} style={btnOutline}>Cancelar</button>
@@ -7257,7 +7257,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             )}
             <canvas ref={canvasScanRef} style={{display:"none"}}/>
           </div>
-          <div style={{color:"#9aa8c5",fontSize:11,marginBottom:14,textAlign:"center"}}>Enfoca el QR del artículo con la cámara; se abrirá automáticamente</div>
+          <div style={{color:"#c5cee8",fontSize:11,marginBottom:14,textAlign:"center"}}>Enfoca el QR del artículo con la cámara; se abrirá automáticamente</div>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={()=>setVistaQR("elegir")} style={btnOutline}>Atrás</button>
             <button onClick={()=>setVistaQR("manual")} style={btnOutline}>Introducir manualmente</button>
@@ -7279,29 +7279,29 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
                   {[
                     ["Código",item.codigo,"#a855f7"],
                     ["Nombre",item.nombre,"#f1f3f9"],
-                    ["Categoría",item.categoria||"—","#9aa3b8"],
-                    ["Ubicación",item.ubicacion||"—","#9aa3b8"],
-                    ["Unidad",item.unidad||"ud","#9aa3b8"],
+                    ["Categoría",item.categoria||"—","#c2cbe3"],
+                    ["Ubicación",item.ubicacion||"—","#c2cbe3"],
+                    ["Unidad",item.unidad||"ud","#c2cbe3"],
                     ["Stock actual",`${item.stock} ${item.unidad||"ud"}`,item.stock<=0?"#ef4444":"#10b981"],
                     ["Precio venta",`EUR ${(item.precioVenta||0).toFixed(2)}`,"#10b981"],
-                    ...(puedeVerCompra ? [["Precio compra",`EUR ${(item.precioCompra||0).toFixed(2)}`,"#9aa8c5"]] : []),
+                    ...(puedeVerCompra ? [["Precio compra",`EUR ${(item.precioCompra||0).toFixed(2)}`,"#c5cee8"]] : []),
                   ].map(([lbl,val,col])=>(
                     <div key={lbl} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
-                      <div style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
+                      <div style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{lbl}</div>
                       <div style={{color:col,fontWeight:700,fontSize:14}}>{val}</div>
                     </div>
                   ))}
                 </div>
                 {item.descripcion && (
                   <div style={{background:"#0d1117",borderRadius:8,padding:"10px 12px",marginBottom:10}}>
-                    <div style={{color:"#9aa8c5",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Descripción</div>
-                    <div style={{color:"#9aa3b8",fontSize:13}}>{item.descripcion}</div>
+                    <div style={{color:"#c5cee8",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Descripción</div>
+                    <div style={{color:"#c2cbe3",fontSize:13}}>{item.descripcion}</div>
                   </div>
                 )}
               </div>
               <div style={{textAlign:"center",flexShrink:0}}>
                 <img src={qrUrl} width="140" height="140" style={{border:"2px solid #2a3550",borderRadius:8,display:"block"}} alt="QR"/>
-                <div style={{color:"#9aa8c5",fontSize:9,marginTop:6}}>QR del producto</div>
+                <div style={{color:"#c5cee8",fontSize:9,marginTop:6}}>QR del producto</div>
                 <button onClick={()=>imprimirEtiqueta(item)} style={{...btnPrimary,background:"#a855f7",marginTop:10,fontSize:11,padding:"7px 12px"}}>🏷️ Imprimir etiqueta</button>
               </div>
             </div>
@@ -7444,7 +7444,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     if (tipo?.includes("hidraulico")) return "#06b6d4";
     if (tipo?.includes("neumatico")) return "#a855f7";
     if (tipo?.includes("repuestos")) return "#10b981";
-    return "#9aa8c5";
+    return "#c5cee8";
   };
 
   const formatBytes = b => b > 1048576 ? (b/1048576).toFixed(1)+" MB" : (b/1024).toFixed(0)+" KB";
@@ -7521,15 +7521,15 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     return (
       <div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#a3acc0",display:"flex"}}><Icon name="back" size={15}/></button>
+          <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#cad2e9",display:"flex"}}><Icon name="back" size={15}/></button>
           <div style={{flex:1}}>
             <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{doc.marca} {doc.modelo}</h2>
             <div style={{display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
-              {doc.matricula && <span style={{color:"#9aa8c5",fontSize:12}}>Matr. {doc.matricula}</span>}
-              {doc.anyo && <span style={{color:"#9aa8c5",fontSize:12}}>Año {doc.anyo}</span>}
+              {doc.matricula && <span style={{color:"#c5cee8",fontSize:12}}>Matr. {doc.matricula}</span>}
+              {doc.anyo && <span style={{color:"#c5cee8",fontSize:12}}>Año {doc.anyo}</span>}
               {propietario && <span style={{background:"#faff00",color:"#1a1a00",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:900}}>✓ PROPIETARIO: {propietario.nombreEmpresa}</span>}
-              {!propietario && <span style={{background:"#9aa8c520",color:"#9aa8c5",borderRadius:5,padding:"2px 8px",fontSize:10}}>Sin propietario asignado</span>}
-              {doc.descripcion && <span style={{color:"#9aa3b8",fontSize:12}}>· {doc.descripcion}</span>}
+              {!propietario && <span style={{background:"#c5cee820",color:"#c5cee8",borderRadius:5,padding:"2px 8px",fontSize:10}}>Sin propietario asignado</span>}
+              {doc.descripcion && <span style={{color:"#c2cbe3",fontSize:12}}>· {doc.descripcion}</span>}
             </div>
           </div>
           <button onClick={()=>setModalPropietario(true)} style={{background:"#faff0015",border:"1px solid #faff0044",borderRadius:8,padding:"7px 11px",color:"#faff00",fontSize:11,fontWeight:700,cursor:"pointer"}}>
@@ -7543,7 +7543,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         {modalPropietario && (
           <Modal title="Cambiar propietario de la maquina" onClose={()=>setModalPropietario(false)}>
             <div style={{background:"#0d1117",borderRadius:9,padding:"12px 14px",marginBottom:12}}>
-              <div style={{fontSize:11,color:"#9aa8c5",marginBottom:4}}>Propietario actual</div>
+              <div style={{fontSize:11,color:"#c5cee8",marginBottom:4}}>Propietario actual</div>
               <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{propietario?.nombreEmpresa||"Sin propietario"}</div>
             </div>
             <Field label="Nuevo propietario">
@@ -7565,7 +7565,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:10,marginBottom:16}}>
           {[["Marca",doc.marca,"#e2b714"],["Modelo",doc.modelo,"#3b82f6"],["Matricula",doc.matricula||"—","#10b981"],["Año",doc.anyo||"—","#f59e0b"]].map(([l,v,c])=>(
             <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
-              <div style={{color:"#9aa8c5",fontSize:10,textTransform:"uppercase",marginBottom:3}}>{l}</div>
+              <div style={{color:"#c5cee8",fontSize:10,textTransform:"uppercase",marginBottom:3}}>{l}</div>
               <div style={{color:c,fontWeight:800,fontSize:16}}>{v}</div>
             </div>
           ))}
@@ -7583,16 +7583,16 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                     <div style={{flex:1}}>
                       <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:2}}>
                         <span style={{color:"#0ea5e9",fontWeight:700,fontSize:12}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</span>
-                        <span style={{color:"#9aa8c5",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
-                        <span style={{color:"#9aa3b8",fontSize:11}}>· {fmtNombres(p,"tecnicos","tecnico")}</span>
+                        <span style={{color:"#c5cee8",fontSize:11}}>· {fmtFecha(p.fecha)}</span>
+                        <span style={{color:"#c2cbe3",fontSize:11}}>· {fmtNombres(p,"tecnicos","tecnico")}</span>
                         {cl&&<span style={{background:"#faff0015",color:"#faff00",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:700}}>{cl.nombreEmpresa}</span>}
                       </div>
-                      <div style={{color:"#c4cad8",fontSize:12}}>{p.descripcion}</div>
-                      {p.materialesList?.length>0&&<div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>Materiales: {p.materialesList.map(m=>m.cantidad+"x "+m.material).join(", ")}</div>}
+                      <div style={{color:"#dde2ee",fontSize:12}}>{p.descripcion}</div>
+                      {p.materialesList?.length>0&&<div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>Materiales: {p.materialesList.map(m=>m.cantidad+"x "+m.material).join(", ")}</div>}
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
                       <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{p.horasT}h</div>
-                      <div style={{color:p.km>0||p.desplazamiento==="si"?"#10b981":"#9aa8c5",fontSize:10}}>{p.km>0||p.desplazamiento==="si"?"Con desplaz.":"Sin desplaz."}</div>
+                      <div style={{color:p.km>0||p.desplazamiento==="si"?"#10b981":"#c5cee8",fontSize:10}}>{p.km>0||p.desplazamiento==="si"?"Con desplaz.":"Sin desplaz."}</div>
                     </div>
                   </div>
                 );
@@ -7610,7 +7610,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
               <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={e=>handleArchivosRapido(e,doc.id)} style={{display:"none"}}/>
             </label>
           </div>
-          {(doc.archivos||[]).length === 0 && <div style={{padding:"28px",textAlign:"center",color:"#9aa8c5"}}>Sin archivos adjuntos</div>}
+          {(doc.archivos||[]).length === 0 && <div style={{padding:"28px",textAlign:"center",color:"#c5cee8"}}>Sin archivos adjuntos</div>}
           {(doc.archivos||[]).map((a,i) => {
             // Compatible con archivos nuevos (guardados en disco, con url+mime) y con
             // archivos antiguos ya persistidos como base64 inline (campo data).
@@ -7635,18 +7635,18 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                           <Input value={editandoArchivo.tipoLibre||""} onChange={e=>setEditandoArchivo(p=>({...p,tipoLibre:e.target.value}))} placeholder="Especifica el tipo" style={{padding:"3px 7px",fontSize:11,width:160}}/>
                         )}
                         <button onClick={guardarTipoArchivo} style={{background:"#10b981",border:"none",borderRadius:5,padding:"3px 9px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
-                        <button onClick={()=>setEditandoArchivo(null)} style={{background:"#2a3550",border:"none",borderRadius:5,padding:"3px 9px",color:"#a3acc0",fontSize:11,cursor:"pointer"}}>Cancelar</button>
+                        <button onClick={()=>setEditandoArchivo(null)} style={{background:"#2a3550",border:"none",borderRadius:5,padding:"3px 9px",color:"#cad2e9",fontSize:11,cursor:"pointer"}}>Cancelar</button>
                       </div>
                     ) : (
                       <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
                         <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
-                        <span style={{color:"#9aa8c5",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
-                        <button onClick={()=>setEditandoArchivo({docId:doc.id,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#9aa8c5",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>
+                        <span style={{color:"#c5cee8",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
+                        <button onClick={()=>setEditandoArchivo({docId:doc.id,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#c5cee8",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>
                       </div>
                     )}
                   </div>
                   <div style={{display:"flex",gap:6,flexShrink:0}}>
-                    <a href={urlArchivo} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#a3acc0",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
+                    <a href={urlArchivo} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#cad2e9",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
                     {(esPDF||esImagen)&&(
                       <button onClick={()=>setArchivosAbiertos(p=>({...p,[doc.id+"-"+i]:!p[doc.id+"-"+i]}))}
                         style={{background:abierto?"#e2b714":"#e2b71420",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 11px",color:abierto?"#000":"#e2b714",fontSize:12,fontWeight:700,cursor:"pointer"}}>
@@ -7670,7 +7670,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
             );
           })}
         </div>
-        {doc.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#9aa3b8",fontSize:13,lineHeight:1.6}}>{doc.notas}</div></div>}
+        {doc.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#c2cbe3",fontSize:13,lineHeight:1.6}}>{doc.notas}</div></div>}
 
         {modalConfirmarTipos}
 
@@ -7688,14 +7688,14 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
             {/* Subida de archivos */}
             <div style={{marginBottom:4}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
                 Documentos ({archivos.length})
               </div>
               <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #e2b71444",borderRadius:8,padding:"12px 14px",cursor:"pointer",marginBottom:8}}>
                 <span style={{fontSize:20}}>📎</span>
                 <div>
                   <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
                 </div>
                 <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
               </label>
@@ -7707,7 +7707,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                       <span style={{fontSize:16,flexShrink:0}}>{iconoTipo(a.tipo)}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
-                        <div style={{color:"#9aa8c5",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
+                        <div style={{color:"#c5cee8",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
                       </div>
                       <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
                       <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
@@ -7733,7 +7733,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Documentacion</h2>
-          <p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0"}}>Manuales · Despiece · Esquemas · Repuestos</p>
+          <p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0"}}>Manuales · Despiece · Esquemas · Repuestos</p>
         </div>
         <button onClick={()=>{setForm({marca:"",modelo:"",matricula:"",anyo:"",descripcion:"",notas:""});setArchivos([]);setModal(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
           <Icon name="plus" size={14}/>Nueva maquina
@@ -7746,16 +7746,16 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:10}}>
           {[["Marca",busqMarca,setBusqMarca,"Ej: Casadei"],["Modelo",busqModelo,setBusqModelo,"Ej: SC3"],["Matricula",busqMatricula,setBusqMatricula,"Nro serie"],["Año",busqAnyo,setBusqAnyo,"Ej: 2022"]].map(([label,val,setVal,ph])=>(
             <div key={label}>
-              <div style={{fontSize:10,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",marginBottom:4}}>{label}</div>
+              <div style={{fontSize:10,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",marginBottom:4}}>{label}</div>
               <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={11}/></span>
+                <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={11}/></span>
                 <input value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} style={{...inputStyle,paddingLeft:26,width:"100%",boxSizing:"border-box"}}/>
               </div>
             </div>
           ))}
         </div>
         {(busqMarca||busqModelo||busqMatricula||busqAnyo) && (
-          <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#9aa8c5",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
+          <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#c5cee8",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
         )}
       </div>
 
@@ -7768,7 +7768,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
         ].map(([l,v,c])=>(
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
             <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
-            <div style={{color:"#9aa8c5",fontSize:11,marginTop:3}}>{l}</div>
+            <div style={{color:"#c5cee8",fontSize:11,marginTop:3}}>{l}</div>
           </div>
         ))}
       </div>
@@ -7776,7 +7776,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
       {/* Lista */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:10}}>
         {filtrados.length===0 && (
-          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#9aa8c5",gridColumn:"1/-1"}}>
+          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#c5cee8",gridColumn:"1/-1"}}>
             <div style={{fontSize:28,marginBottom:8}}>📂</div>
             <div style={{fontWeight:700,fontSize:14,color:"#f1f3f9",marginBottom:4}}>{(data.documentacion||[]).length===0?"Sin maquinas registradas":"Sin resultados para esta busqueda"}</div>
             <div style={{fontSize:12}}>Añade la primera maquina con sus documentos</div>
@@ -7793,20 +7793,20 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 <div>
                   <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{doc.marca} <span style={{fontWeight:400}}>{doc.modelo}</span></div>
                   <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
-                    {doc.matricula && <span style={{color:"#9aa8c5",fontSize:11}}>Matr. {doc.matricula}</span>}
-                    {doc.anyo && <span style={{color:"#9aa8c5",fontSize:11}}>Año {doc.anyo}</span>}
+                    {doc.matricula && <span style={{color:"#c5cee8",fontSize:11}}>Matr. {doc.matricula}</span>}
+                    {doc.anyo && <span style={{color:"#c5cee8",fontSize:11}}>Año {doc.anyo}</span>}
                   </div>
                 </div>
                 <div style={{background:"#e2b71420",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0}}>{nArchivos} doc{nArchivos!==1?"s":""}</div>
               </div>
-              {doc.descripcion && <div style={{color:"#9aa3b8",fontSize:12,marginBottom:8}}>{doc.descripcion}</div>}
+              {doc.descripcion && <div style={{color:"#c2cbe3",fontSize:12,marginBottom:8}}>{doc.descripcion}</div>}
               <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                 {tiposUnicos.slice(0,4).map(t=>(
                   <span key={t} style={{background:colorTipo(t)+"18",color:colorTipo(t),border:`1px solid ${colorTipo(t)}33`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:600}}>{iconoTipo(t)} {t}</span>
                 ))}
-                {tiposUnicos.length>4 && <span style={{color:"#9aa8c5",fontSize:10}}>+{tiposUnicos.length-4} mas</span>}
+                {tiposUnicos.length>4 && <span style={{color:"#c5cee8",fontSize:10}}>+{tiposUnicos.length-4} mas</span>}
               </div>
-              {nArchivos===0 && <div style={{color:"#9aa8c5",fontSize:11,fontStyle:"italic"}}>Sin documentos todavia</div>}
+              {nArchivos===0 && <div style={{color:"#c5cee8",fontSize:11,fontStyle:"italic"}}>Sin documentos todavia</div>}
             </div>
           );
         })}
@@ -7826,14 +7826,14 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
           {/* Subida de archivos */}
           <div style={{marginBottom:4}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
               Documentos ({archivos.length})
             </div>
             <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #e2b71444",borderRadius:8,padding:"12px 14px",cursor:"pointer",marginBottom:8}}>
               <span style={{fontSize:20}}>📎</span>
               <div>
                 <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                <div style={{color:"#9aa8c5",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
+                <div style={{color:"#c5cee8",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
               </div>
               <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
             </label>
@@ -7845,7 +7845,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                     <span style={{fontSize:16,flexShrink:0}}>{iconoTipo(a.tipo)}</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
-                      <div style={{color:"#9aa8c5",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
+                      <div style={{color:"#c5cee8",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
                     </div>
                     <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
                     <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
@@ -7869,7 +7869,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
 // ── CALENDARIO ─────────────────────────────────────────────
 const TIPOS_EVENTO = ["Aviso","Visita","Feria","Medico","Vacaciones","Formacion","Otro"];
-const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#10b981",Vacaciones:"#a855f7",Formacion:"#06b6d4",Otro:"#9aa8c5"};
+const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#10b981",Vacaciones:"#a855f7",Formacion:"#06b6d4",Otro:"#c5cee8"};
 
 const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
@@ -8042,7 +8042,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Calendario</h2>
-          <p style={{color:"#9aa8c5",fontSize:13,margin:"3px 0 0",textTransform:"capitalize"}}>{mesActual}</p>
+          <p style={{color:"#c5cee8",fontSize:13,margin:"3px 0 0",textTransform:"capitalize"}}>{mesActual}</p>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           {esAdmin&&(
@@ -8053,8 +8053,8 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             </select>
           )}
           <div style={{display:"flex",gap:4,background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:2}}>
-            <button onClick={()=>cambiarVista("semana")} style={{background:vista==="semana"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="semana"?"#fff":"#9aa3b8",cursor:"pointer",fontSize:12,fontWeight:700}}>Semana</button>
-            <button onClick={()=>cambiarVista("mes")} style={{background:vista==="mes"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="mes"?"#fff":"#9aa3b8",cursor:"pointer",fontSize:12,fontWeight:700}}>Mes</button>
+            <button onClick={()=>cambiarVista("semana")} style={{background:vista==="semana"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="semana"?"#fff":"#c2cbe3",cursor:"pointer",fontSize:12,fontWeight:700}}>Semana</button>
+            <button onClick={()=>cambiarVista("mes")} style={{background:vista==="mes"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="mes"?"#fff":"#c2cbe3",cursor:"pointer",fontSize:12,fontWeight:700}}>Mes</button>
           </div>
           <div style={{display:"flex",gap:4}}>
             <button onClick={()=>setOffset(p=>p-1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>‹</button>
@@ -8070,7 +8070,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       {/* Leyenda */}
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
         {Object.entries(COLOR_EVENTO).map(([t,c])=>(
-          <span key={t} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#9aa3b8"}}>
+          <span key={t} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#c2cbe3"}}>
             <span style={{width:8,height:8,borderRadius:2,background:c,display:"inline-block"}}/>
             {t}
           </span>
@@ -8092,7 +8092,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                     <div style={{width:28,height:28,borderRadius:14,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:13,flexShrink:0}}>
                       {fmtNum(dia)}
                     </div>
-                    <span style={{color:"#9aa3b8",fontSize:12,textTransform:"capitalize"}}>{dia.toLocaleDateString("es-ES",{weekday:"long"})}</span>
+                    <span style={{color:"#c2cbe3",fontSize:12,textTransform:"capitalize"}}>{dia.toLocaleDateString("es-ES",{weekday:"long"})}</span>
                   </div>
                   {evsDia.length>0&&<span style={{background:"#f97316",color:"#fff",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:800,minWidth:16,textAlign:"center"}}>{evsDia.length}</span>}
                 </div>
@@ -8105,8 +8105,8 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                           style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:6,padding:"6px 8px",cursor:ev.readOnly?"default":"pointer"}}>
                           <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                           <div style={{color:"#e2e8f0",fontSize:12,fontWeight:600}}>{ev.titulo}</div>
-                          {ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:10}}>{ev.clienteNombre}</div>}
-                          {nombres&&<div style={{color:"#9aa8c5",fontSize:10}}>{nombres}</div>}
+                          {ev.clienteNombre&&<div style={{color:"#bfc8e0",fontSize:10}}>{ev.clienteNombre}</div>}
+                          {nombres&&<div style={{color:"#c5cee8",fontSize:10}}>{nombres}</div>}
                           {ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:10,fontWeight:700}}>{ev.prioridad}</div>}
                         </div>
                       );
@@ -8136,7 +8136,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
               {/* Cabecera dia */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <div style={{textAlign:"center",flex:1}}>
-                  {!esVistaMes&&<div style={{color:esFinSemana?"#9aa8c5":"#9aa3b8",fontSize:10,textTransform:"uppercase",letterSpacing:".5px"}}>{fmtDia(dia)}</div>}
+                  {!esVistaMes&&<div style={{color:esFinSemana?"#c5cee8":"#c2cbe3",fontSize:10,textTransform:"uppercase",letterSpacing:".5px"}}>{fmtDia(dia)}</div>}
                   <div style={{width:26,height:26,borderRadius:13,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:esVistaMes?"0 auto":"2px auto 0",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:14}}>
                     {fmtNum(dia)}
                   </div>
@@ -8151,13 +8151,13 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                       style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:5,padding:"3px 5px",cursor:ev.readOnly?"default":"pointer"}}>
                       <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                       <div style={{color:"#e2e8f0",fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.titulo}</div>
-                      {!esVistaMes&&ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
-                      {!esVistaMes&&(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#9aa8c5",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
+                      {!esVistaMes&&ev.clienteNombre&&<div style={{color:"#bfc8e0",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
+                      {!esVistaMes&&(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#c5cee8",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
                       {!esVistaMes&&ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:9,fontWeight:700}}>{ev.prioridad}</div>}
                     </div>
                   );
                 })}
-                {evsDia.length>maxEv&&<div style={{color:"#9aa8c5",fontSize:10,textAlign:"center"}}>+{evsDia.length-maxEv} mas</div>}
+                {evsDia.length>maxEv&&<div style={{color:"#c5cee8",fontSize:10,textAlign:"center"}}>+{evsDia.length-maxEv} mas</div>}
               </div>
             </div>
           );
@@ -8192,12 +8192,12 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                       <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,flex:1}}>{av.titulo}</div>
                       <span style={{background:av.prioridad==="Alta"?"#ef444420":av.prioridad==="Media"?"#f59e0b20":"#10b98120",color:av.prioridad==="Alta"?"#ef4444":av.prioridad==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{av.prioridad}</span>
                     </div>
-                    <div style={{color:"#9aa8c5",fontSize:11}}>
+                    <div style={{color:"#c5cee8",fontSize:11}}>
                       📅 Aviso: {av.fechaAviso}
                       {av.fechaResolucion&&<span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                     </div>
-                    {cl&&<div style={{color:"#9aa8c5",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
-                    {maq&&<div style={{color:"#9aa8c5",fontSize:11}}>🔧 {maq.nombre}</div>}
+                    {cl&&<div style={{color:"#c5cee8",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
+                    {maq&&<div style={{color:"#c5cee8",fontSize:11}}>🔧 {maq.nombre}</div>}
                     {esAdmin&&nombresAsig&&<div style={{color:"#3b82f6",fontSize:11}}>👤 {nombresAsig}</div>}
                   </div>
                 );
@@ -8237,7 +8237,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                     const cur = Array.isArray(form.usuarioIds)?form.usuarioIds:(form.usuarioId?[form.usuarioId]:[]);
                     const next = cur.includes(u.id) ? cur.filter(x=>x!==u.id) : [...cur,u.id];
                     setForm(p=>({...p,usuarioIds:next}));
-                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#f97316":"#2a3550"),background:on?"#f9731615":"#0d1117",color:on?"#f97316":"#9aa8c5",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+                  }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#f97316":"#2a3550"),background:on?"#f9731615":"#0d1117",color:on?"#f97316":"#c5cee8",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
                     {on&&<Icon name="check" size={11}/>}{u.nombre}
                   </button>
                 );
@@ -8503,7 +8503,7 @@ const Fichaje = ({ data, setData, userActual }) => {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Control de Fichaje</h2>
-          <p style={{color:"#9aa8c5",fontSize:12,margin:"2px 0 0"}}>{userActual.nombre} · {fmtFecha(hoy)}</p>
+          <p style={{color:"#c5cee8",fontSize:12,margin:"2px 0 0"}}>{userActual.nombre} · {fmtFecha(hoy)}</p>
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{
@@ -8524,25 +8524,25 @@ const Fichaje = ({ data, setData, userActual }) => {
           <div style={{fontWeight:800,fontSize:16,color:"#f1f3f9"}}>Hoy — {fmtFecha(hoy)}</div>
           {estadoHoy==="completo"&&<span style={{background:"#14b8a620",color:"#14b8a6",borderRadius:7,padding:"3px 10px",fontSize:12,fontWeight:700}}>✓ Completado</span>}
           {estadoHoy==="fichado_entrada"&&<span style={{background:"#f59e0b20",color:"#f59e0b",borderRadius:7,padding:"3px 10px",fontSize:12,fontWeight:700}}>⏱ En curso</span>}
-          {estadoHoy==="sin_fichar"&&<span style={{background:"#9aa8c520",color:"#9aa8c5",borderRadius:7,padding:"3px 10px",fontSize:12,fontWeight:700}}>Sin fichar</span>}
+          {estadoHoy==="sin_fichar"&&<span style={{background:"#c5cee820",color:"#c5cee8",borderRadius:7,padding:"3px 10px",fontSize:12,fontWeight:700}}>Sin fichar</span>}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
           <div style={{background:"#0d1117",borderRadius:10,padding:"11px 12px",textAlign:"center"}}>
-            <div style={{color:"#9aa8c5",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Entrada</div>
+            <div style={{color:"#c5cee8",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Entrada</div>
             <div style={{color:fichajeHoy?.entrada?"#10b981":"#2a3550",fontSize:20,fontWeight:900}}>{fichajeHoy?.entrada||"--:--"}</div>
           </div>
           <div style={{background:"#0d1117",borderRadius:10,padding:"11px 12px",textAlign:"center"}}>
-            <div style={{color:"#9aa8c5",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Salida</div>
+            <div style={{color:"#c5cee8",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Salida</div>
             <div style={{color:fichajeHoy?.salida?"#ef4444":"#2a3550",fontSize:20,fontWeight:900}}>{fichajeHoy?.salida||"--:--"}</div>
           </div>
           <div style={{background:"#0d1117",borderRadius:10,padding:"11px 12px",textAlign:"center"}}>
-            <div style={{color:"#9aa8c5",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Pausa</div>
+            <div style={{color:"#c5cee8",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Pausa</div>
             <div style={{color:fichajeHoy?.pausaIni&&fichajeHoy?.pausaFin?"#f59e0b":"#2a3550",fontSize:13,fontWeight:900,lineHeight:1.3}}>
               {fichajeHoy?.pausaIni&&fichajeHoy?.pausaFin?<>{fichajeHoy.pausaIni}<br/>{fichajeHoy.pausaFin}</>:"—"}
             </div>
           </div>
           <div style={{background:"#0d1117",borderRadius:10,padding:"11px 12px",textAlign:"center"}}>
-            <div style={{color:"#9aa8c5",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>H. Netas</div>
+            <div style={{color:"#c5cee8",fontSize:9,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>H. Netas</div>
             <div style={{color:fichajeHoy?.salida?"#14b8a6":"#2a3550",fontSize:20,fontWeight:900}}>
               {fichajeHoy?.entrada&&fichajeHoy?.salida?calcHorasNetas(fichajeHoy.entrada,fichajeHoy.salida,fichajeHoy.pausaIni,fichajeHoy.pausaFin):"--"}
             </div>
@@ -8551,21 +8551,21 @@ const Fichaje = ({ data, setData, userActual }) => {
         <div style={{display:"flex",gap:10}}>
           {estadoHoy==="sin_fichar"&&<button onClick={ficharEntrada} style={{flex:1,background:"#10b981",border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><Icon name="clock" size={18}/>Fichar Entrada</button>}
           {estadoHoy==="fichado_entrada"&&<button onClick={ficharSalida} style={{flex:1,background:"#ef4444",border:"none",borderRadius:10,padding:"12px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><Icon name="clock" size={18}/>Fichar Salida</button>}
-          {estadoHoy!=="sin_fichar"&&<button onClick={()=>abrirEditar(fichajeHoy)} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:10,padding:"12px 16px",color:"#94a3b8",fontWeight:700,cursor:"pointer",fontSize:13}}>✏️ Editar</button>}
+          {estadoHoy!=="sin_fichar"&&<button onClick={()=>abrirEditar(fichajeHoy)} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:10,padding:"12px 16px",color:"#bfc8e0",fontWeight:700,cursor:"pointer",fontSize:13}}>✏️ Editar</button>}
         </div>
       </div>
 
       {/* Resumen semana y mes */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{color:"#9aa8c5",fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Esta semana</div>
+          <div style={{color:"#c5cee8",fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Esta semana</div>
           <div style={{color:"#14b8a6",fontSize:26,fontWeight:900}}>{totalHSem}h {totalMSem.toString().padStart(2,"0")}m</div>
-          <div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>{registrosSemana.length} día{registrosSemana.length!==1?"s":""} fichado{registrosSemana.length!==1?"s":""}</div>
+          <div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>{registrosSemana.length} día{registrosSemana.length!==1?"s":""} fichado{registrosSemana.length!==1?"s":""}</div>
         </div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{color:"#9aa8c5",fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Este mes</div>
+          <div style={{color:"#c5cee8",fontSize:11,fontWeight:700,textTransform:"uppercase",marginBottom:6}}>Este mes</div>
           <div style={{color:"#f59e0b",fontSize:26,fontWeight:900}}>{totalHMes}h {totalMMes.toString().padStart(2,"0")}m</div>
-          <div style={{color:"#9aa8c5",fontSize:11,marginTop:2}}>{registrosMes.length} día{registrosMes.length!==1?"s":""} fichado{registrosMes.length!==1?"s":""}</div>
+          <div style={{color:"#c5cee8",fontSize:11,marginTop:2}}>{registrosMes.length} día{registrosMes.length!==1?"s":""} fichado{registrosMes.length!==1?"s":""}</div>
         </div>
       </div>
 
@@ -8577,17 +8577,17 @@ const Fichaje = ({ data, setData, userActual }) => {
             {meses.map(m=>{const [y,mo]=m.split("-");const nom=new Date(parseInt(y),parseInt(mo)-1,1).toLocaleDateString("es-ES",{month:"long",year:"numeric"});return <option key={m} value={m}>{nom.charAt(0).toUpperCase()+nom.slice(1)}</option>;})}
           </select>
         </div>
-        {registrosMes.length===0&&<div style={{color:"#9aa8c5",fontSize:13,textAlign:"center",padding:"20px 0"}}>No hay registros este mes</div>}
+        {registrosMes.length===0&&<div style={{color:"#c5cee8",fontSize:13,textAlign:"center",padding:"20px 0"}}>No hay registros este mes</div>}
         {registrosMes.map(r=>(
           <div key={r.id} style={{display:"grid",gridTemplateColumns:"100px 60px 60px 55px 70px 1fr auto",gap:6,alignItems:"center",padding:"9px 10px",borderRadius:8,marginBottom:4,background:r.fecha===hoy?"#14b8a610":"#0d1117",border:`1px solid ${r.fecha===hoy?"#14b8a630":"#1a2236"}`}}>
             <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{fmtFecha(r.fecha)}</div>
-            <div style={{textAlign:"center"}}><div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase"}}>Entrada</div><div style={{color:"#10b981",fontWeight:700,fontSize:13}}>{r.entrada||"--:--"}</div></div>
-            <div style={{textAlign:"center"}}><div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase"}}>Salida</div><div style={{color:r.salida?"#ef4444":"#9aa8c5",fontWeight:700,fontSize:13}}>{r.salida||"--:--"}</div></div>
-            <div style={{textAlign:"center"}}><div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase"}}>Pausa</div><div style={{color:r.pausaIni&&r.pausaFin?"#f59e0b":"#9aa8c5",fontWeight:700,fontSize:11}}>{r.pausaIni&&r.pausaFin?`${r.pausaIni}-${r.pausaFin}`:"—"}</div></div>
-            <div style={{textAlign:"center"}}><div style={{color:"#9aa8c5",fontSize:9,textTransform:"uppercase"}}>Netas</div><div style={{color:r.salida?"#14b8a6":"#9aa8c5",fontWeight:700,fontSize:13}}>{r.salida?calcHorasNetas(r.entrada,r.salida,r.pausaIni,r.pausaFin):"—"}</div></div>
-            <div style={{color:"#9aa8c5",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.notas||""}</div>
+            <div style={{textAlign:"center"}}><div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase"}}>Entrada</div><div style={{color:"#10b981",fontWeight:700,fontSize:13}}>{r.entrada||"--:--"}</div></div>
+            <div style={{textAlign:"center"}}><div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase"}}>Salida</div><div style={{color:r.salida?"#ef4444":"#c5cee8",fontWeight:700,fontSize:13}}>{r.salida||"--:--"}</div></div>
+            <div style={{textAlign:"center"}}><div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase"}}>Pausa</div><div style={{color:r.pausaIni&&r.pausaFin?"#f59e0b":"#c5cee8",fontWeight:700,fontSize:11}}>{r.pausaIni&&r.pausaFin?`${r.pausaIni}-${r.pausaFin}`:"—"}</div></div>
+            <div style={{textAlign:"center"}}><div style={{color:"#c5cee8",fontSize:9,textTransform:"uppercase"}}>Netas</div><div style={{color:r.salida?"#14b8a6":"#c5cee8",fontWeight:700,fontSize:13}}>{r.salida?calcHorasNetas(r.entrada,r.salida,r.pausaIni,r.pausaFin):"—"}</div></div>
+            <div style={{color:"#c5cee8",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.notas||""}</div>
             <div style={{display:"flex",gap:5}}>
-              <button onClick={()=>abrirEditar(r)} style={{background:"#2a3550",border:"none",borderRadius:6,padding:"4px 8px",color:"#94a3b8",cursor:"pointer",fontSize:11}}>✏️</button>
+              <button onClick={()=>abrirEditar(r)} style={{background:"#2a3550",border:"none",borderRadius:6,padding:"4px 8px",color:"#bfc8e0",cursor:"pointer",fontSize:11}}>✏️</button>
               <button onClick={()=>borrar(r.id)} style={{background:"#dc262615",border:"none",borderRadius:6,padding:"4px 8px",color:"#dc2626",cursor:"pointer",fontSize:11}}>✕</button>
             </div>
           </div>
@@ -8610,7 +8610,7 @@ const Fichaje = ({ data, setData, userActual }) => {
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{color:"#14b8a6",fontWeight:800,fontSize:15}}>{h}h {m.toString().padStart(2,"0")}m</div>
-                  <div style={{color:"#9aa8c5",fontSize:11}}>{regs.length} días</div>
+                  <div style={{color:"#c5cee8",fontSize:11}}>{regs.length} días</div>
                 </div>
               </div>
             );
@@ -8641,12 +8641,12 @@ const Fichaje = ({ data, setData, userActual }) => {
           </div>
           {form.entrada&&form.salida&&(
             <div style={{background:"#14b8a615",border:"1px solid #14b8a630",borderRadius:8,padding:"10px 14px",marginBottom:4}}>
-              <div style={{display:"flex",justifyContent:"space-between",color:"#94a3b8",fontSize:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",color:"#bfc8e0",fontSize:12}}>
                 <span>Horas brutas:</span>
                 <span style={{fontWeight:700,color:"#f1f3f9"}}>{(()=>{const[eh,em]=form.entrada.split(":").map(Number);const[sh,sm]=form.salida.split(":").map(Number);const b=(sh*60+sm)-(eh*60+em);if(b<=0)return"—";return`${Math.floor(b/60)}h ${(b%60).toString().padStart(2,"0")}m`;})()}</span>
               </div>
-              {form.pausaIni&&form.pausaFin&&(()=>{const mins=calcPausaMins(form.pausaIni,form.pausaFin);return mins>0?<div style={{display:"flex",justifyContent:"space-between",color:"#94a3b8",fontSize:12,marginTop:4}}><span>Pausa:</span><span style={{color:"#f59e0b",fontWeight:700}}>-{mins} min ({form.pausaIni} - {form.pausaFin})</span></div>:null;})()}
-              <div style={{display:"flex",justifyContent:"space-between",color:"#94a3b8",fontSize:12,marginTop:4}}>
+              {form.pausaIni&&form.pausaFin&&(()=>{const mins=calcPausaMins(form.pausaIni,form.pausaFin);return mins>0?<div style={{display:"flex",justifyContent:"space-between",color:"#bfc8e0",fontSize:12,marginTop:4}}><span>Pausa:</span><span style={{color:"#f59e0b",fontWeight:700}}>-{mins} min ({form.pausaIni} - {form.pausaFin})</span></div>:null;})()}
+              <div style={{display:"flex",justifyContent:"space-between",color:"#bfc8e0",fontSize:12,marginTop:4}}>
                 <span>Horas netas:</span>
                 <span style={{fontWeight:800,color:"#14b8a6",fontSize:14}}>{calcHorasNetas(form.entrada,form.salida,form.pausaIni,form.pausaFin)||"Hora de salida anterior a entrada"}</span>
               </div>
@@ -8750,25 +8750,25 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
   const TIPOS_CONTROL_SUG = ["Siemens","Syntec","Fanuc","Beckhoff","Delta","OSAI","PC Industrial"];
   return (<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Passwords</h2><p style={{color:"#9aa8c5",fontSize:13,margin:"2px 0 0"}}>Contraseñas de acceso de las máquinas instaladas y mantenidas</p></div>
+      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Passwords</h2><p style={{color:"#c5cee8",fontSize:13,margin:"2px 0 0"}}>Contraseñas de acceso de las máquinas instaladas y mantenidas</p></div>
       <button onClick={abrirNuevo} style={{background:"#eab308",color:"#1a1a1a",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>Nuevo registro</button>
     </div>
     <div style={{position:"relative",marginBottom:14,maxWidth:360}}>
-      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#9aa8c5"}}><Icon name="search" size={13}/></span>
+      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#c5cee8"}}><Icon name="search" size={13}/></span>
       <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Buscar por máquina, fabricante, contraseña, notas..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:"9px 12px 9px 32px",color:"#f1f3f9",fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"}}/>
     </div>
     {isMobile ? (
       <div style={{display:"flex",flexDirection:"column",gap:9}}>
-        {ordenados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#9aa8c5",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin registros</div>}
+        {ordenados.length===0 && <div style={{padding:"28px",textAlign:"center",color:"#c5cee8",background:"#151b2a",border:"1px solid #2a3550",borderRadius:12}}>Sin registros</div>}
         {ordenados.map(item=>(
           <div key={item.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"12px 14px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
               <div style={{minWidth:0}}>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{item.maquina}</div>
-                <div style={{color:"#9aa8c5",fontSize:12,marginTop:1}}>{[item.fabricante,item.tipoControl].filter(Boolean).join(" · ")}</div>
+                <div style={{color:"#c5cee8",fontSize:12,marginTop:1}}>{[item.fabricante,item.tipoControl].filter(Boolean).join(" · ")}</div>
               </div>
               <div style={{display:"flex",gap:5,flexShrink:0}}>
-                <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#a3acc0")}><Icon name="edit" size={12}/></button>
+                <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#cad2e9")}><Icon name="edit" size={12}/></button>
                 {puedeEliminar && <button onClick={()=>eliminar(item)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
               </div>
             </div>
@@ -8777,7 +8777,7 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
               {item.password2 && <div style={{background:"#0d1117",borderRadius:7,padding:"4px 9px",fontSize:12,color:"#f1f3f9",fontFamily:"monospace"}}>2: {item.password2}</div>}
               {item.password3 && <div style={{background:"#0d1117",borderRadius:7,padding:"4px 9px",fontSize:12,color:"#f1f3f9",fontFamily:"monospace"}}>3: {item.password3}</div>}
             </div>
-            {item.notas && <div style={{color:"#9aa3b8",fontSize:12,marginTop:8}}>{item.notas}</div>}
+            {item.notas && <div style={{color:"#c2cbe3",fontSize:12,marginTop:8}}>{item.notas}</div>}
           </div>
         ))}
       </div>
@@ -8786,7 +8786,7 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
         <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
           <thead><tr style={{borderBottom:"1px solid #2a3550"}}>
             {COLS.map(c=>(
-              <th key={c.key} onClick={()=>toggleSort(c.key)} style={{position:"relative",width:colWidths[c.key],padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",overflow:"hidden"}}>
+              <th key={c.key} onClick={()=>toggleSort(c.key)} style={{position:"relative",width:colWidths[c.key],padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",cursor:"pointer",userSelect:"none",whiteSpace:"nowrap",overflow:"hidden"}}>
                 {c.label}{sortCol===c.key && <span style={{marginLeft:4}}>{sortDir==="asc"?"▲":"▼"}</span>}
                 <ResizeHandle col={c.key}/>
               </th>
@@ -8794,7 +8794,7 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
             <th style={{width:70,padding:"10px 14px"}}></th>
           </tr></thead>
           <tbody>
-            {ordenados.length===0 && <tr><td colSpan={COLS.length+1} style={{padding:"28px",textAlign:"center",color:"#9aa8c5"}}>Sin registros</td></tr>}
+            {ordenados.length===0 && <tr><td colSpan={COLS.length+1} style={{padding:"28px",textAlign:"center",color:"#c5cee8"}}>Sin registros</td></tr>}
             {ordenados.map(item=>(
               <tr key={item.id} style={{borderBottom:"1px solid #1a2236"}}>
                 {COLS.map(c=>(
@@ -8802,7 +8802,7 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
                 ))}
                 <td style={{padding:"10px 14px"}}>
                   <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#a3acc0")}><Icon name="edit" size={12}/></button>
+                    <button onClick={()=>abrirEditar(item)} style={btnSm("#2a3550","#cad2e9")}><Icon name="edit" size={12}/></button>
                     {puedeEliminar && <button onClick={()=>eliminar(item)} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>}
                   </div>
                 </td>
@@ -8848,11 +8848,11 @@ const NAV_ITEMS = [
   {id:"fichaje",label:"Fichaje",icon:"clock",color:"#14b8a6"},
   {id:"passwords",label:"Passwords",icon:"lock",color:"#eab308"},
   {id:"usuarios",label:"Usuarios",icon:"users",color:"#8b5cf6"},
-  {id:"ajustes",label:"Ajustes",icon:"settings",color:"#9aa8c5"},
+  {id:"ajustes",label:"Ajustes",icon:"settings",color:"#c5cee8"},
 ];
 // ─── Sincronización con servidor (todos los usuarios comparten los mismos datos) ──
 const SYNC_LABELS = { cargando:"Cargando datos...", ok:"Sincronizado con el servidor", guardando:"Guardando...", error:"Error al guardar", offline:"Sin conexión con el servidor (usando copia local)" };
-const SYNC_COLORS = { cargando:"#9aa8c5", ok:"#10b981", guardando:"#f59e0b", error:"#ef4444", offline:"#ef4444" };
+const SYNC_COLORS = { cargando:"#c5cee8", ok:"#10b981", guardando:"#f59e0b", error:"#ef4444", offline:"#ef4444" };
 const API_URL = "/api/data.php";
 const API_KEY = import.meta.env.VITE_API_KEY || "";
 
@@ -9078,10 +9078,10 @@ const FotoCropModal = ({ source, onCancel, onSave }) => {
           )}
         </div>
         <div style={{ width: "100%", maxWidth: 280 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#9aa8c5", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 6, textAlign: "center" }}>Zoom</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#c5cee8", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 6, textAlign: "center" }}>Zoom</div>
           <input type="range" min={minZoom} max="3" step="0.01" value={zoom} onChange={handleZoom} style={{ width: "100%" }} />
         </div>
-        <div style={{ color: "#9aa8c5", fontSize: 11.5, textAlign: "center" }}>Arrastra la foto para encuadrarla y usa el deslizador para hacer zoom.</div>
+        <div style={{ color: "#c5cee8", fontSize: 11.5, textAlign: "center" }}>Arrastra la foto para encuadrarla y usa el deslizador para hacer zoom.</div>
       </div>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 18 }}>
         <button onClick={onCancel} style={btnOutline}>Cancelar</button>
@@ -9126,26 +9126,26 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
           <div style={{ color: "#f1f3f9", fontWeight: 700, fontSize: 15 }}>{userActual.nombre}</div>
           <div style={{ margin: "4px 0 8px" }}><RolBadge rol={userActual.rol} /></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2a3550", color: "#9aa3b8", border: "1px solid #3a4560", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2a3550", color: "#c2cbe3", border: "1px solid #3a4560", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
               <Icon name="image" size={13} />{foto ? "Cambiar foto" : "Subir foto"}
               <input type="file" accept="image/*" onChange={handleFoto} style={{ display: "none" }} />
             </label>
-            {foto && <button onClick={() => setCropSource(foto)} style={{ ...btnSm("#2a3550", "#9aa3b8"), fontSize: 11 }}>Editar encuadre</button>}
+            {foto && <button onClick={() => setCropSource(foto)} style={{ ...btnSm("#2a3550", "#c2cbe3"), fontSize: 11 }}>Editar encuadre</button>}
             {foto && <button onClick={() => setFoto(null)} style={{ ...btnSm("#3b1c1c", "#dc2626"), fontSize: 11 }}>Quitar foto</button>}
           </div>
         </div>
       </div>
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14, marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#9aa8c5", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Contacto</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#c5cee8", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Contacto</div>
         <Field label="Email (para recibir avisos de tareas)"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@europeademaquinaria.com" /></Field>
-        <div style={{ color: "#9aa8c5", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
+        <div style={{ color: "#c5cee8", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Si lo rellenas, recibirás un email cada vez que se te asigne una tarea nueva.</div>
         <Field label="Teléfono (opcional)"><Input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="600 000 000" /></Field>
-        <div style={{ color: "#9aa8c5", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Aparecerá en la firma de los emails de tareas que envíes o reenvíes.</div>
+        <div style={{ color: "#c5cee8", fontSize: 11.5, marginTop: 5, marginBottom: 14 }}>Aparecerá en la firma de los emails de tareas que envíes o reenvíes.</div>
         <Field label="Puesto (opcional)"><Input value={puesto} onChange={e => setPuesto(e.target.value)} placeholder="Ej: Director comercial" /></Field>
-        <div style={{ color: "#9aa8c5", fontSize: 11.5, marginTop: 5 }}>También aparecerá en la firma de tus emails, debajo de tu nombre.</div>
+        <div style={{ color: "#c5cee8", fontSize: 11.5, marginTop: 5 }}>También aparecerá en la firma de tus emails, debajo de tu nombre.</div>
       </div>
       <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#9aa8c5", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#c5cee8", textTransform: "uppercase", letterSpacing: ".7px", marginBottom: 10 }}>Cambiar contraseña</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(220px,100%),1fr))", gap: 11 }}>
           <Field label="Nueva contraseña"><Input type="password" value={pass1} onChange={e => setPass1(e.target.value)} placeholder="Dejar en blanco para no cambiar" /></Field>
           <Field label="Confirmar contraseña"><Input type="password" value={pass2} onChange={e => setPass2(e.target.value)} /></Field>
@@ -9170,11 +9170,11 @@ const FichaPublicaArticulo = ({ codigo, data, cargando }) => {
     <div style={{minHeight:"100vh",background:"#0d1117",color:"#f1f3f9",fontFamily:"Arial,sans-serif",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 30px"}}>
       <div style={{width:"100%",background:"#151b2a",borderBottom:"2px solid #a855f733",padding:"20px 16px 16px",textAlign:"center"}}>
         <div style={{fontSize:10,color:"#a855f7",letterSpacing:2,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Europea de Maquinaria PMM SL</div>
-        <div style={{fontSize:13,color:"#9aa8c5"}}>Ficha de artículo</div>
+        <div style={{fontSize:13,color:"#c5cee8"}}>Ficha de artículo</div>
       </div>
       <div style={{width:"100%",maxWidth:420,padding:"20px 16px"}}>
         {!item ? (
-          <div style={{textAlign:"center",color:"#9aa8c5",padding:"40px 10px"}}>
+          <div style={{textAlign:"center",color:"#c5cee8",padding:"40px 10px"}}>
             {cargando ? "Cargando artículo..." : (
               <>
                 <div style={{fontSize:36,marginBottom:10}}>❓</div>
@@ -9192,28 +9192,28 @@ const FichaPublicaArticulo = ({ codigo, data, cargando }) => {
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio venta</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio venta</div>
                 <div style={{fontSize:20,fontWeight:900,color:"#10b981"}}>EUR {(item.precioVenta||0).toFixed(2)}</div>
               </div>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Stock actual</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Stock actual</div>
                 <div style={{fontSize:20,fontWeight:900,color:item.stock>0?"#a855f7":"#ef4444"}}>{item.stock||0} {item.unidad||"ud"}</div>
               </div>
               {item.categoria && (
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Categoría</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{item.categoria}</div>
+                  <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Categoría</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#c2cbe3"}}>{item.categoria}</div>
                 </div>
               )}
               {item.ubicacion && (
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Ubicación</div>
-                  <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{item.ubicacion}</div>
+                  <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Ubicación</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#c2cbe3"}}>{item.ubicacion}</div>
                 </div>
               )}
             </div>
             {item.descripcion && (
-              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#9aa3b8",lineHeight:1.6}}>
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#c2cbe3",lineHeight:1.6}}>
                 {item.descripcion}
               </div>
             )}
@@ -9420,7 +9420,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       <div style={{width:"100%",background:"#151b2a",borderBottom:"2px solid #0ea5e933",padding:"calc(16px + env(safe-area-inset-top, 0px)) 16px 16px",textAlign:"center",position:"relative"}}>
         <button onClick={cerrarFicha} aria-label="Cerrar" style={{position:"absolute",top:"calc(10px + env(safe-area-inset-top, 0px))",right:12,background:"#2a3550",border:"none",borderRadius:8,padding:7,color:"#f1f3f9",cursor:"pointer",display:"flex"}}><Icon name="close" size={16}/></button>
         <div style={{fontSize:10,color:"#0ea5e9",letterSpacing:2,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Europea de Maquinaria PMM SL</div>
-        <div style={{fontSize:13,color:"#9aa8c5"}}>Ficha de máquina</div>
+        <div style={{fontSize:13,color:"#c5cee8"}}>Ficha de máquina</div>
         {m && (
           <button onClick={generarPDFMaquina} style={{marginTop:10,background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
             <Icon name="print" size={13}/>Generar PDF
@@ -9429,7 +9429,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       </div>
       <div style={{width:"100%",maxWidth:420,padding:"20px 16px"}}>
         {!m ? (
-          <div style={{textAlign:"center",color:"#9aa8c5",padding:"40px 10px"}}>
+          <div style={{textAlign:"center",color:"#c5cee8",padding:"40px 10px"}}>
             {cargando ? "Cargando máquina..." : (
               <>
                 <div style={{fontSize:36,marginBottom:10}}>❓</div>
@@ -9445,56 +9445,56 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               <div style={{fontSize:22,fontWeight:900,letterSpacing:2,color:"#0ea5e9",fontFamily:"monospace"}}>{m.codigo}</div>
               <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</div>
               {esStock ? (
-                <div style={{fontSize:12,color:"#9aa8c5",marginTop:2}}>Stock maquinaria nueva · {m.vendida?"vendida":"pendiente de venta"}</div>
+                <div style={{fontSize:12,color:"#c5cee8",marginTop:2}}>Stock maquinaria nueva · {m.vendida?"vendida":"pendiente de venta"}</div>
               ) : (
-                <div style={{fontSize:12,color:"#9aa8c5",marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
+                <div style={{fontSize:12,color:"#c5cee8",marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
               )}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Matrícula / Serie</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Matrícula / Serie</div>
                 <div style={{fontSize:16,fontWeight:800}}>{m.serie||m.matricula||"—"}</div>
               </div>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Año</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Año</div>
                 <div style={{fontSize:16,fontWeight:800}}>{m.anyo||"—"}</div>
               </div>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Marca</div>
-                <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{m.marca||"—"}</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Marca</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#c2cbe3"}}>{m.marca||"—"}</div>
               </div>
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px"}}>
-                <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Modelo</div>
-                <div style={{fontSize:14,fontWeight:700,color:"#9aa3b8"}}>{m.modelo||"—"}</div>
+                <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Modelo</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#c2cbe3"}}>{m.modelo||"—"}</div>
               </div>
               {esStock && (()=>{ const tar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0); const ven=parseFloat(m.precioVentaObj)||0; return (<>
                 <div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de tarifa</div>
+                  <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de tarifa</div>
                   <div style={{fontSize:16,fontWeight:800,color:"#3b82f6"}}>€{tar.toLocaleString()}</div>
                 </div>
                 <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio estimado</div>
+                  <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio estimado</div>
                   <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>{ven>0?"€"+ven.toLocaleString():"—"}</div>
                 </div>
               </>); })()}
               {esPropia && m.precioVenta && (
                 <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px",gridColumn:"1/-1"}}>
-                  <div style={{fontSize:10,color:"#9aa8c5",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de venta</div>
+                  <div style={{fontSize:10,color:"#c5cee8",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de venta</div>
                   <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>€{parseFloat(m.precioVenta).toLocaleString()}</div>
                 </div>
               )}
             </div>
-            {m.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#9aa3b8",lineHeight:1.6,marginBottom:12}}>{m.notas}</div>}
+            {m.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#c2cbe3",lineHeight:1.6,marginBottom:12}}>{m.notas}</div>}
             {esStock ? (
               <>
-                <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
+                <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
-                  {(m.codigos||[]).length===0 && <div style={{padding:"18px",textAlign:"center",color:"#9aa8c5",fontSize:12}}>Sin códigos registrados</div>}
+                  {(m.codigos||[]).length===0 && <div style={{padding:"18px",textAlign:"center",color:"#c5cee8",fontSize:12}}>Sin códigos registrados</div>}
                   {(m.codigos||[]).map((c,i)=>(
                     <div key={c.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.codigo||"—"}</div>
-                        <div style={{color:"#9aa8c5",fontSize:10}}>{c.descripcion||"—"}</div>
+                        <div style={{color:"#c5cee8",fontSize:10}}>{c.descripcion||"—"}</div>
                       </div>
                       <div style={{color:"#3b82f6",fontWeight:800,fontSize:12}}>€{(parseFloat(c.valor)||0).toLocaleString()}</div>
                     </div>
@@ -9503,15 +9503,15 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               </>
             ) : (
               <>
-                <div style={{fontSize:11,fontWeight:700,color:"#9aa8c5",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
+                <div style={{fontSize:11,fontWeight:700,color:"#c5cee8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
-                  {historial.length===0 && <div style={{padding:"18px",textAlign:"center",color:"#9aa8c5",fontSize:12}}>Sin avisos ni partes registrados</div>}
+                  {historial.length===0 && <div style={{padding:"18px",textAlign:"center",color:"#c5cee8",fontSize:12}}>Sin avisos ni partes registrados</div>}
                   {historial.map((h,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
                       <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 7px",fontSize:9,fontWeight:800}}>{h.tipo}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
-                        <div style={{color:"#9aa8c5",fontSize:10}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
+                        <div style={{color:"#c5cee8",fontSize:10}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
                       </div>
                     </div>
                   ))}
@@ -10180,11 +10180,11 @@ export default function App() {
           {/* Notifs + avatar */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <div title={syncStatus==="error" && lastSaveError ? `Error al guardar: ${lastSaveError} (reintentando)` : SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
-            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#9aa8c5",display:"flex",alignItems:"center",padding:3,opacity:actualizando?0.5:1}}>
+            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#c5cee8",display:"flex",alignItems:"center",padding:3,opacity:actualizando?0.5:1}}>
               <Icon name="refresh" size={14}/>
             </button>
             <div ref={notifRef} style={{position:"relative"}}>
-              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:"#9aa8c5",display:"flex",alignItems:"center",gap:3}}>
+              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:"#c5cee8",display:"flex",alignItems:"center",gap:3}}>
                 <Icon name="bell" size={16}/>
               </button>
               {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
@@ -10199,11 +10199,11 @@ export default function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
-          <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#9aa8c5",display:"flex",alignItems:"center",padding:4,opacity:actualizando?0.5:1}}>
+          <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#c5cee8",display:"flex",alignItems:"center",padding:4,opacity:actualizando?0.5:1}}>
             <Icon name="refresh" size={15}/>
           </button>
           <div ref={notifRef} style={{position:"relative"}}>
-            <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:"#9aa8c5",display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:"#c5cee8",display:"flex",alignItems:"center",gap:4}}>
               <Icon name="bell" size={16}/>
             </button>
             {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
@@ -10218,7 +10218,7 @@ export default function App() {
       {/* Logo */}
       <div style={{padding:isTablet?"12px 8px":"14px 13px 11px",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"flex-start",gap:8}}>
         <img src={LOGO_URL} style={{width:30,height:30,borderRadius:8,objectFit:"contain",flexShrink:0}} alt="EM"/>
-        {!isTablet&&<div><div style={{fontWeight:900,fontSize:11,color:"#f1f3f9",letterSpacing:".4px"}}>EUROPEA</div><div style={{fontSize:9,color:"#9aa8c5",letterSpacing:".9px"}}>DE MAQUINARIA</div></div>}
+        {!isTablet&&<div><div style={{fontWeight:900,fontSize:11,color:"#f1f3f9",letterSpacing:".4px"}}>EUROPEA</div><div style={{fontSize:9,color:"#c5cee8",letterSpacing:".9px"}}>DE MAQUINARIA</div></div>}
       </div>
       {/* Nav */}
       <nav style={{padding:"7px 5px",flex:1,overflow:"auto"}}>
@@ -10226,7 +10226,7 @@ export default function App() {
           const badge=navBadge(n.id);
           return(
             <button key={n.id} onClick={()=>handleNav(n.id)} title={isTablet?n.label:""}
-              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"9px":"7px 9px",borderRadius:7,border:"none",cursor:"pointer",marginBottom:1,background:active===n.id?n.color+"20":"transparent",color:active===n.id?n.color:"#9aa8c5",fontWeight:active===n.id?700:400,fontSize:12,position:"relative"}}>
+              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"9px":"7px 9px",borderRadius:7,border:"none",cursor:"pointer",marginBottom:1,background:active===n.id?n.color+"20":"transparent",color:active===n.id?n.color:"#c5cee8",fontWeight:active===n.id?700:400,fontSize:12,position:"relative"}}>
               <span style={{display:"flex",alignItems:"center",gap:isTablet?0:7}}>
                 <Icon name={n.icon} size={isTablet?18:14}/>
                 {!isTablet&&n.label}
@@ -10240,15 +10240,15 @@ export default function App() {
       {/* Usuario */}
       <div style={{padding:isTablet?"8px 5px":"9px 11px",borderTop:"1px solid #1a2236"}}>
         {isTablet?(
-          <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"#1a2236",border:"none",borderRadius:6,padding:"8px",color:"#9aa8c5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="logout" size={14}/></button>
+          <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"#1a2236",border:"none",borderRadius:6,padding:"8px",color:"#c5cee8",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="logout" size={14}/></button>
         ):(
           <>
             <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,cursor:"pointer"}}>
               <Avatar u={user} size={26} fontSize={11}/>
               <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
             </div>
-            <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#9aa8c5",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
-            <div style={{marginTop:8,textAlign:"center",color:"#9aa8c5",fontSize:10,lineHeight:1.5,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
+            <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#c5cee8",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
+            <div style={{marginTop:8,textAlign:"center",color:"#c5cee8",fontSize:10,lineHeight:1.5,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
           </>
         )}
       </div>
@@ -10261,7 +10261,7 @@ export default function App() {
         const isActive=active===n.id&&!menuOpen;
         return(
           <button key={n.id} onClick={()=>handleNav(n.id)}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?n.color:"#9aa8c5",cursor:"pointer",gap:3,position:"relative",padding:"6px 0"}}>
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?n.color:"#c5cee8",cursor:"pointer",gap:3,position:"relative",padding:"6px 0"}}>
             <div style={{position:"relative"}}>
               <Icon name={n.icon} size={20}/>
               {badge&&<span style={{position:"absolute",top:-5,right:-7,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800,minWidth:15,textAlign:"center"}}>{badge}</span>}
@@ -10274,10 +10274,10 @@ export default function App() {
       {/* Botón "Más" para el resto */}
       {moreNav.length>0&&(
         <button onClick={()=>setMenuOpen(p=>!p)}
-          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#9aa8c5",cursor:"pointer",gap:3,padding:"6px 0",position:"relative"}}>
+          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#c5cee8",cursor:"pointer",gap:3,padding:"6px 0",position:"relative"}}>
           {moreNav.some(n=>n.id===active)&&!menuOpen&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:28,height:3,borderRadius:"0 0 3px 3px",background:"#f59e0b"}}/>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:2,width:18,height:18}}>
-            {[0,1,2,3].map(i=><div key={i} style={{background:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#9aa8c5",borderRadius:2}}/>)}
+            {[0,1,2,3].map(i=><div key={i} style={{background:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#c5cee8",borderRadius:2}}/>)}
           </div>
           <span style={{fontSize:9,fontWeight:700,letterSpacing:".2px"}}>Más</span>
         </button>
@@ -10294,7 +10294,7 @@ export default function App() {
             const badge=navBadge(n.id);
             return(
               <button key={n.id} onClick={()=>handleNav(n.id)}
-                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 4px",borderRadius:10,border:"none",background:active===n.id?n.color+"20":"#151b2a",color:active===n.id?n.color:"#9aa8c5",cursor:"pointer",position:"relative"}}>
+                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 4px",borderRadius:10,border:"none",background:active===n.id?n.color+"20":"#151b2a",color:active===n.id?n.color:"#c5cee8",cursor:"pointer",position:"relative"}}>
                 <div style={{position:"relative"}}><Icon name={n.icon} size={22}/>{badge&&<span style={{position:"absolute",top:-5,right:-7,background:"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800}}>{badge}</span>}</div>
                 <span style={{fontSize:10,fontWeight:active===n.id?700:400,textAlign:"center",lineHeight:1.2}}>{n.label}</span>
               </button>
@@ -10307,7 +10307,7 @@ export default function App() {
             <Avatar u={user} size={32} fontSize={13}/>
             <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
           </div>
-          <button onClick={()=>setUser(null)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:8,padding:"7px 12px",color:"#9aa8c5",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:600}}><Icon name="logout" size={12}/>Salir</button>
+          <button onClick={()=>setUser(null)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:8,padding:"7px 12px",color:"#c5cee8",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:600}}><Icon name="logout" size={12}/>Salir</button>
         </div>
       </div>
     </>
@@ -10356,7 +10356,7 @@ export default function App() {
                 <div style={{marginBottom:(p.vence||p.lista)?6:18}}>
                   <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4}}>{fraseMayus(p.linea)}</div>
                   <div style={{color:"#fff",fontSize:14,fontWeight:700,lineHeight:1.4}}>{p.cliente.toUpperCase()}</div>
-                  {p.municipio&&<div style={{color:"#8b96ad",fontSize:12,fontWeight:600,lineHeight:1.4}}>{capitalizaNombre(p.municipio)}</div>}
+                  {p.municipio&&<div style={{color:"#b8c2dc",fontSize:12,fontWeight:600,lineHeight:1.4}}>{capitalizaNombre(p.municipio)}</div>}
                 </div>
               ) : (
                 <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
@@ -10364,7 +10364,7 @@ export default function App() {
                 </div>
               )
             )}
-            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#9aa8c5",fontSize:12,fontWeight:700,marginBottom:18}}>{conPunto(p.vence)}</div>}
+            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#c5cee8",fontSize:12,fontWeight:700,marginBottom:18}}>{conPunto(p.vence)}</div>}
             {p.lista&&(
               <div style={{marginBottom:18}}>
                 {p.lista.map((l,i)=>(
@@ -10373,15 +10373,15 @@ export default function App() {
                     <div>
                       <div>{fraseMayus(l.texto)}</div>
                       {l.cliente&&<div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>}
-                      {l.municipio&&<div style={{color:"#8b96ad",fontSize:12,fontWeight:600}}>{capitalizaNombre(l.municipio)}</div>}
-                      {l.vence&&<div style={{color:l.vence.startsWith("vencida")?"#ef4444":"#8b96ad",fontSize:12,fontWeight:600}}>{conPunto(l.vence)}</div>}
+                      {l.municipio&&<div style={{color:"#b8c2dc",fontSize:12,fontWeight:600}}>{capitalizaNombre(l.municipio)}</div>}
+                      {l.vence&&<div style={{color:l.vence.startsWith("vencida")?"#ef4444":"#b8c2dc",fontSize:12,fontWeight:600}}>{conPunto(l.vence)}</div>}
                     </div>
                   </div>
                 ))}
               </div>
             )}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-              <span style={{color:"#9aa8c5",fontSize:12,fontWeight:800}}>{pos}/{totalPopups}</span>
+              <span style={{color:"#c5cee8",fontSize:12,fontWeight:800}}>{pos}/{totalPopups}</span>
               <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>CERRAR</button>
             </div>
           </div>
