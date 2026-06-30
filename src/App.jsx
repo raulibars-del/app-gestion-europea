@@ -7852,26 +7852,52 @@ const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#
 
 const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
-  const [semanaOffset, setSemanaOffset] = useState(0);
+  // Vista: "semana" (la de siempre) o "mes" (cuadricula del mes completo, tipo Google Calendar).
+  const [vista, setVista] = useState("semana");
+  const [offset, setOffset] = useState(0); // en "semana": numero de semanas; en "mes": numero de meses
+  const cambiarVista = v => { setVista(v); setOffset(0); };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [usuarioFiltro, setUsuarioFiltro] = useState(esAdmin?"todos":userActual.id);
 
   // Calcular dias de la semana actual + offset
-  const getLunes = (offset) => {
+  const getLunes = (offsetSemanas) => {
     const hoy = new Date();
     const dia = hoy.getDay()||7;
     const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() - dia + 1 + offset*7);
+    lunes.setDate(hoy.getDate() - dia + 1 + offsetSemanas*7);
     return lunes;
   };
-  const lunes = getLunes(semanaOffset);
+  const lunes = getLunes(vista==="semana"?offset:0);
   const diasSemana = Array.from({length:7},(_,i)=>{
     const d = new Date(lunes);
     d.setDate(lunes.getDate()+i);
     return d;
   });
+  // Mes actual + offset, y cuadricula completa (de lunes a domingo) que lo contiene,
+  // incluyendo dias del mes anterior/siguiente para rellenar la primera y ultima semana.
+  const getPrimerDiaMes = (offsetMeses) => {
+    const hoy = new Date();
+    return new Date(hoy.getFullYear(), hoy.getMonth()+offsetMeses, 1);
+  };
+  const primerDiaMes = getPrimerDiaMes(vista==="mes"?offset:0);
+  const ultimoDiaMes = new Date(primerDiaMes.getFullYear(), primerDiaMes.getMonth()+1, 0);
+  const diaSemanaPrimero = primerDiaMes.getDay()||7;
+  const inicioGridMes = new Date(primerDiaMes);
+  inicioGridMes.setDate(primerDiaMes.getDate()-diaSemanaPrimero+1);
+  const diaSemanaUltimo = ultimoDiaMes.getDay()||7;
+  const finGridMes = new Date(ultimoDiaMes);
+  finGridMes.setDate(ultimoDiaMes.getDate()+(7-diaSemanaUltimo));
+  const totalDiasMes = Math.round((finGridMes-inicioGridMes)/86400000)+1;
+  const diasMes = Array.from({length:totalDiasMes},(_,i)=>{
+    const d = new Date(inicioGridMes);
+    d.setDate(inicioGridMes.getDate()+i);
+    return d;
+  });
+  const diasGrid = vista==="semana" ? diasSemana : diasMes;
+  // En movil, en vista de mes solo se listan los dias del propio mes (sin relleno) para no alargar la agenda.
+  const diasAgenda = vista==="semana" ? diasSemana : diasMes.filter(d=>d.getMonth()===primerDiaMes.getMonth());
   const fmtDate = d => d.toISOString().split("T")[0];
   const fmtDia = d => d.toLocaleDateString("es-ES",{weekday:"short"}).replace(".","");
   const fmtNum = d => d.getDate();
@@ -7987,7 +8013,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
     setData(d=>({...d,calendario:(d.calendario||[]).filter(e=>e.id!==id)}));
   };
 
-  const mesActual = fmtMes(lunes)+" "+lunes.getFullYear();
+  const mesActual = vista==="semana" ? (fmtMes(lunes)+" "+lunes.getFullYear()) : (fmtMes(primerDiaMes)+" "+primerDiaMes.getFullYear());
 
   return (
     <div>
@@ -8005,10 +8031,14 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
               {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           )}
+          <div style={{display:"flex",gap:4,background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:2}}>
+            <button onClick={()=>cambiarVista("semana")} style={{background:vista==="semana"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="semana"?"#fff":"#9aa3b8",cursor:"pointer",fontSize:12,fontWeight:700}}>Semana</button>
+            <button onClick={()=>cambiarVista("mes")} style={{background:vista==="mes"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="mes"?"#fff":"#9aa3b8",cursor:"pointer",fontSize:12,fontWeight:700}}>Mes</button>
+          </div>
           <div style={{display:"flex",gap:4}}>
-            <button onClick={()=>setSemanaOffset(p=>p-1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>‹</button>
-            <button onClick={()=>setSemanaOffset(0)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:12}}>Hoy</button>
-            <button onClick={()=>setSemanaOffset(p=>p+1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>›</button>
+            <button onClick={()=>setOffset(p=>p-1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>‹</button>
+            <button onClick={()=>setOffset(0)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:12}}>Hoy</button>
+            <button onClick={()=>setOffset(p=>p+1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>›</button>
           </div>
           <button onClick={()=>abrirNuevo(today())} style={{background:"linear-gradient(135deg,#f97316,#ea580c)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Icon name="plus" size={14}/>Nuevo evento
@@ -8030,7 +8060,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           para que no se corte cuando hay varios eventos en un dia */}
       {isMobile ? (
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {diasSemana.map(dia=>{
+          {diasAgenda.map(dia=>{
             const fecha = fmtDate(dia);
             const evsDia = eventosDia(fecha, usuarioFiltro);
             const hoy = esHoy(dia);
@@ -8068,21 +8098,25 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
         </div>
       ) : (
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6}}>
-        {diasSemana.map(dia=>{
+        {diasGrid.map(dia=>{
           const fecha = fmtDate(dia);
           const evsDia = eventosDia(fecha, usuarioFiltro);
           const hoy = esHoy(dia);
           const esFinSemana = dia.getDay()===0||dia.getDay()===6;
+          const esVistaMes = vista==="mes";
+          const fueraDeMes = esVistaMes && dia.getMonth()!==primerDiaMes.getMonth();
+          const minH = esVistaMes ? 86 : 160;
+          const maxEv = esVistaMes ? 2 : 4;
           return(
-            <div key={fecha} style={{background:hoy?"#1e293b":"#151b2a",border:`1px solid ${hoy?"#f97316":"#2a3550"}`,borderRadius:10,padding:"8px 6px",minHeight:160,cursor:"pointer",transition:"border-color .15s"}}
+            <div key={fecha} style={{background:hoy?"#1e293b":"#151b2a",border:`1px solid ${hoy?"#f97316":"#2a3550"}`,borderRadius:10,padding:"8px 6px",minHeight:minH,cursor:"pointer",transition:"border-color .15s",opacity:fueraDeMes?0.4:1}}
               onClick={()=>abrirNuevo(fecha)}
               onMouseEnter={e=>e.currentTarget.style.borderColor=hoy?"#f97316":"#3b82f6"}
               onMouseLeave={e=>e.currentTarget.style.borderColor=hoy?"#f97316":"#2a3550"}>
               {/* Cabecera dia */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <div style={{textAlign:"center",flex:1}}>
-                  <div style={{color:esFinSemana?"#6b7a99":"#9aa3b8",fontSize:10,textTransform:"uppercase",letterSpacing:".5px"}}>{fmtDia(dia)}</div>
-                  <div style={{width:26,height:26,borderRadius:13,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto 0",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:14}}>
+                  {!esVistaMes&&<div style={{color:esFinSemana?"#6b7a99":"#9aa3b8",fontSize:10,textTransform:"uppercase",letterSpacing:".5px"}}>{fmtDia(dia)}</div>}
+                  <div style={{width:26,height:26,borderRadius:13,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:esVistaMes?"0 auto":"2px auto 0",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:14}}>
                     {fmtNum(dia)}
                   </div>
                 </div>
@@ -8090,19 +8124,19 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
               </div>
               {/* Eventos del dia */}
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                {evsDia.slice(0,4).map(ev=>{
+                {evsDia.slice(0,maxEv).map(ev=>{
                   return(
                     <div key={ev.id} onClick={e=>{e.stopPropagation();abrirEditar(ev);}}
                       style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:5,padding:"3px 5px",cursor:ev.readOnly?"default":"pointer"}}>
                       <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                       <div style={{color:"#e2e8f0",fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.titulo}</div>
-                      {ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
-                      {(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#6b7a99",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
-                      {ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:9,fontWeight:700}}>{ev.prioridad}</div>}
+                      {!esVistaMes&&ev.clienteNombre&&<div style={{color:"#94a3b8",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
+                      {!esVistaMes&&(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#6b7a99",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
+                      {!esVistaMes&&ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:9,fontWeight:700}}>{ev.prioridad}</div>}
                     </div>
                   );
                 })}
-                {evsDia.length>4&&<div style={{color:"#6b7a99",fontSize:10,textAlign:"center"}}>+{evsDia.length-4} mas</div>}
+                {evsDia.length>maxEv&&<div style={{color:"#6b7a99",fontSize:10,textAlign:"center"}}>+{evsDia.length-maxEv} mas</div>}
               </div>
             </div>
           );
