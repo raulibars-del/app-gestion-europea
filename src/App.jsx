@@ -4126,7 +4126,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     return d;
   };
   const abrirNueva = () => setForm({
-    titulo: "",asignadoId: userActual.id,asignadosIds: [userActual.id],creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
+    titulo: "",asignadoId: null,asignadosIds: [],creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
   });
   const save = () => {
     // No guardar mientras un adjunto se está subiendo: si no, la tarea se crea sin
@@ -4139,7 +4139,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       // por cada persona elegida (cada una se podrá completar/editar por separado).
       const idsAsignados = esEmpresa
         ? [null]
-        : (Array.isArray(form.asignadosIds) && form.asignadosIds.length ? form.asignadosIds : [parseInt(form.asignadoId)]);
+        : (Array.isArray(form.asignadosIds) && form.asignadosIds.length ? form.asignadosIds : []);
       if (!esEmpresa && idsAsignados.length === 0) { alert("Selecciona al menos una persona para asignar la tarea."); return; }
       const nuevas = idsAsignados.map((aid, idx) => ({ ...form,esEmpresa,asignadoId: esEmpresa ? null : aid,id: Date.now() + idx }));
       setData(d => {
