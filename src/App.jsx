@@ -100,7 +100,7 @@ const CLIENTE_STOCK_ID = -1;
 // Se compara normalizado (sin tildes, minúsculas) para mayor tolerancia.
 const _USUARIOS_PRECIO_CONF = ["raul ibars","cristina tarin","geles tarin","manuel tarin"];
 const _normNombre = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-const puedeVerPrecioConf = u => _USUARIOS_PRECIO_CONF.includes(_normNombre(u?.nombre));
+const puedeVerPrecioConf = u => u?.rol==="manager"||u?.rol==="admin"||_USUARIOS_PRECIO_CONF.includes(_normNombre(u?.nombre));
 
 // Código interno único de máquina, compartido entre Stock (máquinas en venta) y
 // las máquinas de cada cliente — para que nunca se repita un código entre ambos.
@@ -6894,6 +6894,48 @@ return(<div>
 </div>}
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
 {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina del stock?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+{modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina en stock"} onClose={()=>setModal(false)} wide>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:11}}>
+<Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
+<Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
+<Field label="Matrícula / Nº serie"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+<Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+</div>
+<div style={{marginBottom:4}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+<div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>Códigos de configuración</div>
+<div style={{color:"#f97316",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,padding:"5px 0",borderBottom:"1px solid #2a3550",marginBottom:4}}>
+{["Código","Descripción","Valor EUR",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+</div>
+{codigos.map((c,i)=>(
+<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
+<input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
+<input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
+<input type="number" value={c.valor} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:e.target.value}:x))} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
+<button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
+</div>))}
+<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
+<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
+<div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+</div>
+</div>
+{puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
+{puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
+{puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+{(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
+{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
+</Field>
+<Field label="PDF (fichas técnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
+{(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
+</Field>
+<Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
+</Modal>}
 {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
 <Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
