@@ -1584,13 +1584,23 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           {c.maquinas.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#e4e9f6",fontSize:13}}>Sin máquinas registradas</div>}
           {c.maquinas.length>0&&
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:10,padding:"14px 17px"}}>
-              {c.maquinas.map(m=>{const mFoto=(m.fotos&&m.fotos.length>0)?(m.fotos.find(x=>x.principal)||m.fotos[0]):null;return(
+              {c.maquinas.map(m=>{
+                const mFoto=(m.fotos&&m.fotos.length>0)?(m.fotos.find(x=>x.principal)||m.fotos[0]):null;
+                const mesesGar=(()=>{
+                  if(!m.origenStock||!m.fechaInstalacion) return null;
+                  const fin=new Date(m.fechaInstalacion);fin.setFullYear(fin.getFullYear()+1);
+                  const diff=fin-new Date();
+                  if(diff<=0) return null;
+                  return Math.max(1,Math.round(diff/(30.44*24*3600*1000)));
+                })();
+                return(
                 <button key={m.id} onClick={()=>setTabM(m.id)}
-                  style={{aspectRatio:"1",background:"#0d1117",border:"1px solid "+(c.esStockInterno?"#f9731644":"#2a3550"),borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:0,cursor:"pointer",textAlign:"center",overflow:"hidden",position:"relative"}}>
+                  style={{aspectRatio:"1",background:"#0d1117",border:"1px solid "+(mesesGar?"#10b98166":c.esStockInterno?"#f9731644":"#2a3550"),borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:0,cursor:"pointer",textAlign:"center",overflow:"hidden",position:"relative"}}>
                   {mFoto
                     ?<img src={mFoto.data} alt="" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0,borderRadius:10,opacity:0.85}}/>
                     :(m.origenStock||c.esStockInterno||c.id===0)&&<span style={{fontSize:22,position:"relative"}}>{(m.origenStock||c.esStockInterno)?"🆕":"♻️"}</span>}
                   <span style={{color:"#f1f3f9",fontSize:11,fontWeight:700,lineHeight:1.2,wordBreak:"break-word",padding:"0 5px",position:"relative",textShadow:mFoto?"0 1px 4px #000":undefined,background:mFoto?"rgba(0,0,0,.45)":undefined,borderRadius:4,maxWidth:"100%",textAlign:"center"}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`.trim()||"—"}</span>
+                  {mesesGar&&<span style={{position:"absolute",bottom:0,left:0,right:0,background:"#10b981dd",color:"#fff",fontSize:9,fontWeight:800,padding:"2px 3px",lineHeight:1.3,textAlign:"center"}}>🛡 GARANTÍA {mesesGar} {mesesGar===1?"MES":"MESES"}</span>}
                 </button>
               );})}
 
@@ -6707,6 +6717,7 @@ const venderMaquina=()=>{
   const m=maquinas.find(x=>x.id===modalVender);
   if(!m) return;
   if(!ventaClienteId){alert("Selecciona un cliente.");return;}
+  if(!ventaFechaInstalacion){alert("Indica la fecha de montaje/instalación para calcular la garantía.");return;}
   const clienteId=parseInt(ventaClienteId);
   const maqId=Date.now();
   const maqFinal={
@@ -6842,7 +6853,7 @@ return(<div>
 </div>
 {m.codigo&&<button onClick={()=>imprimirQR(m)} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>QR</button>}
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
-<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Vendida</button>
+<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Confirmar venta</button>
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
@@ -6963,13 +6974,16 @@ return(<div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
-<Modal title={`Marcar como vendida: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
+<Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
-<Field label="Fecha de instalación (si ya se conoce)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
-<div style={{background:"#f9731612",border:"1px solid #f9731633",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#f97316",fontSize:12}}>
-🆕 La máquina se trasladará a la ficha del cliente (código {m.codigo||"—"}) y dejará de aparecer en Stock. Desde ese momento comienza el periodo de garantía.
+<Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
+✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}
+</div>}
+<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>
+🆕 La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.
 </div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#f97316"}}>Confirmar venta</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
 </Modal>
 );})()}
 </div>);
