@@ -2824,7 +2824,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               {av.estado === "Resuelto" && (
                 <div style={{flex:"1 1 100%",background:"#16a34a1f",border:"1px solid #16a34a55",borderRadius:8,padding:"7px 12px",marginTop:2}}>
                   <span style={{color:"#22c55e",fontWeight:900,fontSize:14,letterSpacing:0.2,overflowWrap:"anywhere"}}>
-                    {(()=>{const parte=(data.reparaciones||[]).find(r=>r.avisoId===av.id);const quien=av.resueltoPor||(parte?.tecnicos?.length?parte.tecnicos.join(", "):"—");const fRaw=av.fechaResuelto||av.fechaUltimaIntervencion||"";const fecha=fRaw?(([y,m,d])=>d+"/"+m+"/"+y.slice(2))(fRaw.split("-")):"—";return `✅ AVISO CERRADO POR ${quien} EN FECHA ${fecha}`;})()}
+                    {(()=>{
+                      const fRaw=av.fechaResuelto||av.fechaUltimaIntervencion||"";
+                      const fecha=fRaw?(([y,m,d])=>d+"/"+m+"/"+y.slice(2))(fRaw.split("-")):"—";
+                      let quien=av.resueltoPor||"";
+                      if(!quien){
+                        const reps=data.reparaciones||[];
+                        // 1) buscar por avisoId exacto
+                        let parte=reps.find(r=>r.avisoId===av.id||r.avisoId===String(av.id));
+                        // 2) fallback: parte finalizado del mismo cliente+maquina en la misma fecha
+                        if(!parte) parte=reps.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&String(r.maquinaId||"")===String(av.maquinaId||"")&&r.fecha===fRaw);
+                        // 3) fallback más amplio: mismo cliente y misma fecha
+                        if(!parte) parte=reps.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&r.fecha===fRaw);
+                        if(parte) quien=listaNombres(parte,"tecnicos","tecnico").join(", ")||"";
+                      }
+                      return `✅ AVISO CERRADO POR ${quien||"—"} EN FECHA ${fecha}`;
+                    })()}
                   </span>
                 </div>
               )}
