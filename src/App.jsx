@@ -9278,7 +9278,7 @@ const UPLOAD_API_URL = "/api/upload.php";
 // un máximo de 1024px y la convertimos a JPEG ligero; si no puede (algunos
 // navegadores no decodifican HEIC), devolvemos el archivo original tal cual
 // y será el servidor quien decida si lo admite.
-async function comprimirImagen(file, maxDim = 1024, calidad = 0.72) {
+async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
   if (!file || !file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
   let url;
   try {
