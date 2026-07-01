@@ -2672,7 +2672,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               {av.estado === "Resuelto" && (
                 <div style={{flex:"1 1 100%",background:"#16a34a1f",border:"1px solid #16a34a55",borderRadius:8,padding:"7px 12px",marginTop:2}}>
                   <span style={{color:"#22c55e",fontWeight:900,fontSize:14,letterSpacing:0.2,overflowWrap:"anywhere"}}>
-                    ✅ AVISO CERRADO POR {av.resueltoPor || "—"} EN FECHA {av.fechaResuelto || "—"}
+                    ✅ AVISO CERRADO POR {av.resueltoPor || (av.tecnicos&&av.tecnicos.length?av.tecnicos.join(", "):"—")} EN FECHA {av.fechaResuelto || av.fechaUltimaIntervencion || "—"}
                   </span>
                 </div>
               )}
