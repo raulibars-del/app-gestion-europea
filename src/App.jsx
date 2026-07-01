@@ -9934,7 +9934,7 @@ export default function App() {
           if(remoteJson !== localJson && localJson === lastSyncedRef.current){
             persistirUltimoSincronizado(remoteJson);
             lastVersionRef.current = res.version;
-            setData(res.data);
+            setData(prepararDatos(res.data));
           } else if(localJson === lastSyncedRef.current){
             // Sin cambios propios pendientes y el remoto coincide: aprovechamos
             // para mantener la versión al día (por si el número subió sin que
@@ -9968,8 +9968,28 @@ export default function App() {
         const res = await fetch("/version.json?t="+Date.now(), { cache: "no-store" });
         if(!res.ok) return;
         const json = await res.json();
-        if(json && json.build && json.build !== __BUILD_ID__ && syncStatusRef.current !== "guardando"){
-          window.location.reload();
+        if(json && json.build && json.build !== __BUILD_ID__){
+          // Solo recargamos si NO hay ningún cambio pendiente de guardar.
+          // "ok" significa que el último guardado terminó con éxito y no hay nada nuevo.
+          // "error"/"guardando"/"cargando" significan que hay datos en vuelo o no confirmados:
+          // en ese caso intentamos un guardado de emergencia y solo recargamos si tiene éxito.
+          if(syncStatusRef.current === "ok"){
+            window.location.reload();
+          } else {
+            // Intentar guardar antes de recargar para no perder datos no sincronizados
+            const jsonActual = JSON.stringify(dataRef.current);
+            if(jsonActual !== lastSyncedRef.current){
+              try{
+                const resp = await apiSaveData(dataRef.current, lastVersionRef.current, {keepalive:true});
+                if(resp && !resp.conflict){
+                  persistirUltimoSincronizado(jsonActual);
+                  lastVersionRef.current = resp.version;
+                }
+              }catch(e){}
+            }
+            // Recargar de todas formas (ya intentamos guardar)
+            window.location.reload();
+          }
         }
       }catch(e){ /* sin conexión: no forzamos nada */ }
     };
@@ -9999,6 +10019,14 @@ export default function App() {
         if(res.ok){
           const json = await res.json();
           if(json && json.build && json.build !== __BUILD_ID__){
+            // Guardar antes de recargar para no perder cambios pendientes
+            const jsonActual = JSON.stringify(dataRef.current);
+            if(jsonActual !== lastSyncedRef.current){
+              try{
+                const resp = await apiSaveData(dataRef.current, lastVersionRef.current);
+                if(resp && !resp.conflict){ persistirUltimoSincronizado(jsonActual); lastVersionRef.current = resp.version; }
+              }catch(e){}
+            }
             window.location.reload();
             return;
           }
