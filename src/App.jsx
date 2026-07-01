@@ -6892,6 +6892,19 @@ return(<div>
 </div>}
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
 {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina del stock?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+{modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
+<Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
+✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}
+</div>}
+<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>
+🆕 La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.
+</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
+</Modal>
+);})()}
 </div>);}
 const disponibles=maquinas.length;
 const valorTarTotal=maquinas.reduce((s,m)=>s+vT(m),0);
