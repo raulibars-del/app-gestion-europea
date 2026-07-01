@@ -8432,10 +8432,13 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             <button onClick={()=>cambiarVista("semana")} style={{background:vista==="semana"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="semana"?"#fff":"#e1e6f2",cursor:"pointer",fontSize:12,fontWeight:700}}>Semana</button>
             <button onClick={()=>cambiarVista("mes")} style={{background:vista==="mes"?"#f97316":"transparent",border:"none",borderRadius:6,padding:"6px 12px",color:vista==="mes"?"#fff":"#e1e6f2",cursor:"pointer",fontSize:12,fontWeight:700}}>Mes</button>
           </div>
-          <div style={{display:"flex",gap:4}}>
-            <button onClick={()=>setOffset(p=>p-1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>‹</button>
-            <button onClick={()=>setOffset(0)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:12}}>Hoy</button>
-            <button onClick={()=>setOffset(p=>p+1)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>›</button>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            <button onClick={()=>{setOffset(p=>p-1);setDiaSeleccionado(null);}} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>‹</button>
+            {isMobile&&vista==="mes"
+              ? <span style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 14px",color:"#f1f3f9",fontSize:12,fontWeight:700,textTransform:"capitalize",minWidth:90,textAlign:"center"}}>{fmtMes(primerDiaMes)}</span>
+              : <button onClick={()=>setOffset(0)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:12}}>Hoy</button>
+            }
+            <button onClick={()=>{setOffset(p=>p+1);setDiaSeleccionado(null);}} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"7px 11px",color:"#f1f3f9",cursor:"pointer",fontSize:14}}>›</button>
           </div>
           <button onClick={()=>abrirNuevo(today())} style={{background:"linear-gradient(135deg,#f97316,#ea580c)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
             <Icon name="plus" size={14}/>Nuevo evento
@@ -8455,7 +8458,68 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
 
       {/* Vista semana: grid de 7 columnas en escritorio, lista vertical (agenda) en movil
           para que no se corte cuando hay varios eventos en un dia */}
-      {isMobile ? (
+      {isMobile && vista==="mes" ? (
+        <>
+          {/* Cabecera días semana */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+            {["L","M","X","J","V","S","D"].map(d=><div key={d} style={{textAlign:"center",color:"#e4e9f6",fontSize:10,fontWeight:700,padding:"4px 0"}}>{d}</div>)}
+          </div>
+          {/* Cuadrícula compacta mes */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:10}}>
+            {diasMes.map(dia=>{
+              const fecha = fmtDate(dia);
+              const evsDia = eventosDia(fecha, usuarioFiltro);
+              const hoy = esHoy(dia);
+              const fueraMes = dia.getMonth()!==primerDiaMes.getMonth();
+              const sel = diaSeleccionado===fecha;
+              return(
+                <div key={fecha} onClick={()=>setDiaSeleccionado(sel?null:fecha)}
+                  style={{background:sel?"#f9731618":hoy?"#1e293b":"#151b2a",border:`1px solid ${sel?"#f97316":hoy?"#f9731680":"#2a3550"}`,borderRadius:6,padding:"5px 2px",textAlign:"center",cursor:"pointer",opacity:fueraMes?0.3:1,minHeight:40}}>
+                  <div style={{width:22,height:22,borderRadius:11,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:12}}>
+                    {dia.getDate()}
+                  </div>
+                  {evsDia.length>0&&(
+                    <div style={{display:"flex",justifyContent:"center",gap:2,marginTop:3,flexWrap:"wrap",padding:"0 2px"}}>
+                      {evsDia.slice(0,3).map((ev,i)=><span key={i} style={{width:5,height:5,borderRadius:3,background:COLOR_EVENTO[ev.tipo]||"#f97316",display:"inline-block",flexShrink:0}}/>)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* Panel del día seleccionado */}
+          {diaSeleccionado&&(()=>{
+            const evsDia=eventosDia(diaSeleccionado,usuarioFiltro);
+            const diaObj=new Date(diaSeleccionado+"T12:00:00");
+            return(
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textTransform:"capitalize"}}>
+                    {diaObj.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}
+                  </div>
+                  <button onClick={()=>abrirNuevo(diaSeleccionado)} style={{background:"#f97316",border:"none",borderRadius:7,padding:"5px 10px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Evento</button>
+                </div>
+                {evsDia.length===0&&<div style={{color:"#e4e9f6",fontSize:12,textAlign:"center",padding:"10px 0"}}>Sin eventos este día</div>}
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {evsDia.map(ev=>{
+                    const nombres=nombresEvento(ev).join(", ");
+                    return(
+                      <div key={ev.id} onClick={()=>abrirEditar(ev)}
+                        style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:6,padding:"6px 8px",cursor:ev.readOnly?"default":"pointer"}}>
+                        <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
+                        <div style={{color:"#e2e8f0",fontSize:12,fontWeight:600}}>{ev.titulo}</div>
+                        {ev.clienteNombre&&<div style={{color:"#dfe4f1",fontSize:10}}>{ev.clienteNombre}</div>}
+                        {nombres&&<div style={{color:"#e4e9f6",fontSize:10}}>{nombres}</div>}
+                        {ev.prioridad&&<div style={{color:ev.prioridad==="Alta"?"#ef4444":ev.prioridad==="Media"?"#f59e0b":"#10b981",fontSize:10,fontWeight:700}}>{ev.prioridad}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </>
+      ) : isMobile ? (
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {diasAgenda.map(dia=>{
             const fecha = fmtDate(dia);
