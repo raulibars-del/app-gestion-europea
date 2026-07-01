@@ -6849,25 +6849,25 @@ return(<div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / Matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-<div style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#f97316",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
-{puedeConf && <div style={{background:"#151b2a",border:"1px solid #ef444433",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
-{puedeConf && <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
+<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
 </div>
 {(m.codigos||[]).length>0&&<>
 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
-<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
-<div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",background:"#0a0f1a",padding:"9px 16px",gap:12}}>
-{["Código","Descripción","Valor EUR"].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+<div style={{border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
+<div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"9px 16px",gap:12,borderBottom:"1px solid #2a3550"}}>
+{["Código","Descripción","Valor EUR"].map(h=><div key={h} style={{color:"#3b82f6",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
 </div>
 {(m.codigos||[]).map((c,i)=>(
 <div key={c.id||i} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
-<div style={{color:"#f97316",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
-<div style={{color:"#ecf0f6",fontSize:13}}>{c.descripcion}</div>
-<div style={{color:"#10b981",fontWeight:700,fontSize:13,textAlign:"right"}}>EUR{(parseFloat(c.valor)||0).toLocaleString()}</div>
+<div style={{color:"#3b82f6",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
+<div style={{color:"#e4e9f6",fontSize:13}}>{c.descripcion}</div>
+<div style={{color:"#3b82f6",fontWeight:700,fontSize:13,textAlign:"right"}}>EUR{(parseFloat(c.valor)||0).toLocaleString()}</div>
 </div>))}
-<div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550",background:"#0a0f1a"}}>
-<div style={{color:"#e4e9f6",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
-<div style={{color:"#f97316",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
+<div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550"}}>
+<div style={{color:"#3b82f6",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
+<div style={{color:"#3b82f6",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
 </div>
 </div>
 </>}
@@ -6946,8 +6946,8 @@ return(<div>
 </div>))}
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
 <div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
-<div style={{background:"#0d1117",border:"1px solid #f9731633",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#f97316",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeConf && <div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+<div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
 </div>
 </div>
 {puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
