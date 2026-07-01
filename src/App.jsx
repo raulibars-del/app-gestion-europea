@@ -8303,7 +8303,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const diasGrid = vista==="semana" ? diasSemana : diasMes;
   // En movil, en vista de mes solo se listan los dias del propio mes (sin relleno) para no alargar la agenda.
   const diasAgenda = vista==="semana" ? diasSemana : diasMes.filter(d=>d.getMonth()===primerDiaMes.getMonth());
-  const fmtDate = d => d.toISOString().split("T")[0];
+  const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const fmtDia = d => d.toLocaleDateString("es-ES",{weekday:"short"}).replace(".","");
   const fmtNum = d => d.getDate();
   const fmtMes = d => d.toLocaleDateString("es-ES",{month:"long"});
