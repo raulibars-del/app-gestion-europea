@@ -527,7 +527,15 @@ const Field = ({ label, children }) => (
     {children}
   </div>
 );
-const Input = ({ value, onChange, type="text", placeholder="" }) => <input type={type} value={value||""} onChange={onChange} placeholder={placeholder} style={inputStyle}/>;
+const Input = ({ value, onChange, type="text", placeholder="" }) => {
+  if(type==="number"){
+    return <input type="text" inputMode="decimal" value={value||""} onChange={e=>{
+      const v=e.target.value.replace(/,/g,".");
+      onChange({...e,target:{...e.target,value:v}});
+    }} placeholder={placeholder} style={inputStyle}/>;
+  }
+  return <input type={type} value={value||""} onChange={onChange} placeholder={placeholder} style={inputStyle}/>;
+};
 const Select = ({ value, onChange, options }) => <select value={value} onChange={onChange} style={{...inputStyle}}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
 // Selector de varios tecnicos a la vez (chips toggle) — para avisos/partes que realizan 2+ personas
 const SelectorTecnicos = ({ value, onChange, usuarios }) => {
@@ -3185,7 +3193,7 @@ const Ventas = ({ data, setData, userActual }) => {
         {(form.ofertas || []).map((o, i) => (
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 130px 32px",gap:6,marginBottom:6}}>
             <input value={o.maquina || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,maquina: e.target.value } : x) }))} placeholder={`Máquina ofertada ${i + 1}`} style={inputStyle} />
-            <input type="number" value={o.importe || ""} onChange={e => setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,importe: e.target.value } : x) }))} placeholder="Precio €" style={inputStyle} />
+            <input type="text" inputMode="decimal" value={o.importe || ""} onChange={e => { const v=e.target.value.replace(/,/g,"."); setForm(p => ({ ...p,ofertas: p.ofertas.map((x, j) => j === i ? { ...x,importe: v } : x) })); }} placeholder="Precio €" style={inputStyle} />
             <button onClick={() => setForm(p => ({ ...p,ofertas: p.ofertas.filter((_, j) => j !== i) }))} disabled={(form.ofertas || []).length === 1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626"}}><Icon name="trash" size={12} /></button>
           </div>
         ))}
@@ -6913,7 +6921,7 @@ return(<div>
 <div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
 <input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
 <input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
-<input type="number" value={c.valor} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:e.target.value}:x))} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
+<input type="text" inputMode="decimal" value={c.valor} onChange={e=>{const v=e.target.value.replace(/,/g,".");setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:v}:x));}} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
 <button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
 </div>))}
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
@@ -7009,7 +7017,7 @@ return(<div>
 <div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
 <input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
 <input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
-<input type="number" value={c.valor} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:e.target.value}:x))} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
+<input type="text" inputMode="decimal" value={c.valor} onChange={e=>{const v=e.target.value.replace(/,/g,".");setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:v}:x));}} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
 <button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
 </div>))}
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
