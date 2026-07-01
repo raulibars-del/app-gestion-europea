@@ -1432,13 +1432,16 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           {c.maquinas.length===0&&<div style={{padding:"28px",textAlign:"center",color:"#e4e9f6",fontSize:13}}>Sin máquinas registradas</div>}
           {c.maquinas.length>0&&
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:10,padding:"14px 17px"}}>
-              {c.maquinas.map(m=>(
+              {c.maquinas.map(m=>{const mFoto=(m.fotos&&m.fotos.length>0)?(m.fotos.find(x=>x.principal)||m.fotos[0]):null;return(
                 <button key={m.id} onClick={()=>setTabM(m.id)}
-                  style={{aspectRatio:"1",background:"#0d1117",border:"1px solid #2a3550",borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,padding:8,cursor:"pointer",textAlign:"center"}}>
-                  {(m.origenStock||c.id===0)&&<span style={{fontSize:22}}>{m.origenStock?"🆕":"♻️"}</span>}
-                  <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700,lineHeight:1.25,wordBreak:"break-word"}}>{m.nombre}</span>
+                  style={{aspectRatio:"1",background:"#0d1117",border:"1px solid "+(c.esStockInterno?"#f9731644":"#2a3550"),borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:0,cursor:"pointer",textAlign:"center",overflow:"hidden",position:"relative"}}>
+                  {mFoto
+                    ?<img src={mFoto.data} alt="" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0,borderRadius:10,opacity:0.85}}/>
+                    :(m.origenStock||c.esStockInterno||c.id===0)&&<span style={{fontSize:22,position:"relative"}}>{(m.origenStock||c.esStockInterno)?"🆕":"♻️"}</span>}
+                  <span style={{color:"#f1f3f9",fontSize:11,fontWeight:700,lineHeight:1.2,wordBreak:"break-word",padding:"0 5px",position:"relative",textShadow:mFoto?"0 1px 4px #000":undefined,background:mFoto?"rgba(0,0,0,.45)":undefined,borderRadius:4,maxWidth:"100%",textAlign:"center"}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`.trim()||"—"}</span>
                 </button>
-              ))}
+              );})}
+
             </div>
           }
         </div>
@@ -6523,7 +6526,7 @@ const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.to
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[{id:Date.now(),codigo:"",descripcion:"",valor:""}])]);setModal(true);};
 const save=()=>{
-  const item={...form,precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
@@ -6573,35 +6576,84 @@ const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
+// ── Cabecera ────────────────────────────────────────────────
 doc.setFillColor(15,23,42);doc.rect(0,0,W,40,"F");doc.setFillColor(249,115,22);doc.rect(0,37,W,3,"F");
-doc.setTextColor(241,243,249);doc.setFontSize(15);doc.setFont("helvetica","bold");doc.text("EUROPEA DE MAQUINARIA PMM SL",mg,14);
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(160,170,190);doc.text("Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583",mg,21);
-doc.setTextColor(249,115,22);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("FICHA DE MÁQUINA",W-mg,15,{align:"right"});
-doc.setTextColor(160,170,190);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Ref: "+(m.serie||"—"),W-mg,22,{align:"right"});doc.text("Fecha: "+today(),W-mg,28,{align:"right"});
+// Logo circular
+try{doc.addImage(LOGO_CIRCULO,"JPEG",mg,8,22,22);}catch(e){}
+// Nombre empresa (blanco) + dirección
+doc.setTextColor(241,243,249);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+26,15);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(180,190,210);doc.text("Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583 · europeademaquinaria.com",mg+26,21.5);
+// Lado derecho: título, código interno, fecha (todos en blanco/naranja)
+doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("FICHA MAQUINARIA NUEVA STOCK",W-mg,12,{align:"right"});
+doc.setTextColor(249,115,22);doc.setFontSize(14);doc.setFont("helvetica","bold");doc.text(m.codigo||"—",W-mg,22,{align:"right"});
+doc.setTextColor(241,243,249);doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.text(today(),W-mg,30,{align:"right"});
 let y=50;
-doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MÁQUINA",mg+4,y+5);y+=12;
-[["Marca",m.marca],["Modelo",m.modelo],["Nº Serie / Matrícula",m.serie],["Año",m.anyo]].forEach(([l,v])=>{if(!v) return;doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);doc.setTextColor(40,50,80);doc.setFont("helvetica","bold");doc.text(String(v||"—"),mg+55,y);y+=6;});y+=4;
+// ── Datos de la máquina ─────────────────────────────────────
+doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MÁQUINA",mg+4,y+5);y+=12;
+[["Marca",m.marca],["Modelo",m.modelo],["Nº Serie / Matrícula",m.serie],["Año",m.anyo]].forEach(([l,v])=>{
+  if(!v) return;
+  doc.setTextColor(130,145,170);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);
+  doc.setTextColor(20,30,55);doc.setFont("helvetica","bold");doc.text(String(v||"—"),mg+55,y);y+=6;
+});y+=4;
+// ── Configuración y valoración ──────────────────────────────
 if((m.codigos||[]).length>0){
-doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CONFIGURACIÓN Y VALORACIÓN",mg+4,y+5);y+=10;
-doc.setFillColor(10,15,26);doc.rect(mg,y,W-mg*2,6,"F");doc.setTextColor(150,162,180);doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.text("CÓDIGO",mg+3,y+4.5);doc.text("DESCRIPCIÓN",mg+38,y+4.5);doc.text("VALOR",W-mg-3,y+4.5,{align:"right"});y+=7;
-(m.codigos||[]).forEach((c,i)=>{if(i%2===0){doc.setFillColor(20,26,40);doc.rect(mg,y-1,W-mg*2,7,"F");}doc.setTextColor(40,50,80);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo||"",mg+3,y+4);doc.setFont("helvetica","normal");doc.setTextColor(60,70,90);const ls=doc.splitTextToSize(c.descripcion||"",W-mg*2-60);doc.text(ls,mg+38,y+4);doc.setFont("helvetica","bold");doc.setTextColor(20,80,50);doc.text(""+Math.round(parseFloat(c.valor)||0),W-mg-3,y+4,{align:"right"});y+=Math.max(ls.length*5,7);});y+=4;
-const tar=vT(m);
-doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,9,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TARIFA TOTAL",mg+4,y+6);doc.setTextColor(241,243,249);doc.setFontSize(11);doc.text("EUR "+tar.toLocaleString(),W-mg-4,y+6.5,{align:"right"});y+=14;
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CONFIGURACIÓN Y VALORACIÓN",mg+4,y+5);y+=10;
+  // Cabecera tabla (fondo naranja, texto blanco)
+  doc.setFillColor(249,115,22);doc.rect(mg,y,W-mg*2,6.5,"F");
+  doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
+  doc.text("CÓDIGO",mg+3,y+4.5);doc.text("DESCRIPCIÓN",mg+45,y+4.5);doc.text("VALOR EUR",W-mg-3,y+4.5,{align:"right"});y+=7.5;
+  // Filas de datos (sin fondo oscuro — blanco, texto legible)
+  (m.codigos||[]).forEach((c,i)=>{
+    if(i>0){doc.setDrawColor(220,225,235);doc.line(mg,y-0.5,W-mg,y-0.5);}
+    doc.setTextColor(200,100,20);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo||"",mg+3,y+4);
+    doc.setFont("helvetica","normal");doc.setTextColor(30,40,65);
+    const ls=doc.splitTextToSize(c.descripcion||"",W-mg*2-65);doc.text(ls,mg+45,y+4);
+    doc.setFont("helvetica","bold");doc.setTextColor(15,100,60);doc.text(Math.round(parseFloat(c.valor)||0).toLocaleString(),W-mg-3,y+4,{align:"right"});
+    y+=Math.max(ls.length*5,7);
+  });y+=4;
+  // Total
+  const tar=vT(m);
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,9,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TARIFA TOTAL",mg+4,y+6);
+  doc.setTextColor(249,115,22);doc.setFontSize(12);doc.text("EUR "+tar.toLocaleString(),W-mg-4,y+6.5,{align:"right"});y+=14;
 }
-if(m.notas){doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("NOTAS",mg+4,y+5);y+=10;doc.setTextColor(40,50,80);doc.setFontSize(9);doc.setFont("helvetica","normal");const nl=doc.splitTextToSize(m.notas,W-mg*2-8);doc.text(nl,mg+4,y);y+=nl.length*5+6;}
+// ── Notas ───────────────────────────────────────────────────
+if(m.notas){
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("NOTAS",mg+4,y+5);y+=10;
+  doc.setTextColor(30,40,65);doc.setFontSize(9);doc.setFont("helvetica","normal");
+  const nl=doc.splitTextToSize(m.notas,W-mg*2-8);doc.text(nl,mg+4,y);y+=nl.length*5+6;
+}
+// ── Fotografías: principal centrada y grande, resto miniaturas ─
 if((m.fotos||[]).length>0){
-  let fyStart=y;
-  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");doc.setTextColor(150,162,180);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("FOTOGRAFÍAS",mg+4,y+5);y+=10;
-  const fotosSorted=[...(m.fotos||[])].sort((a,b)=>b.principal?1:-1);
-  const fW=55;const fH=42;const cols=3;let fx=mg;let fy=y;
-  for(let i=0;i<Math.min(fotosSorted.length,6);i++){
-    try{if(y+fH>280){doc.addPage();y=20;fy=y;fx=mg;}doc.addImage(fotosSorted[i].data,"JPEG",fx,fy,fW,fH);}catch(e){}
-    fx+=fW+3;if((i+1)%cols===0){fx=mg;fy+=fH+3;y=fy;}
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("FOTOGRAFÍAS",mg+4,y+5);y+=12;
+  const fotosSorted=[...(m.fotos||[])].sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
+  // Foto principal: centrada, grande, con marco naranja
+  const fW=130;const fH=97;const fx=(W-fW)/2;
+  if(y+fH+8>280){doc.addPage();y=20;}
+  doc.setFillColor(30,40,60);doc.roundedRect(fx-4,y-4,fW+8,fH+8,3,3,"F");
+  doc.setDrawColor(249,115,22);doc.setLineWidth(0.8);doc.roundedRect(fx-2,y-2,fW+4,fH+4,2,2,"D");doc.setLineWidth(0.2);
+  try{doc.addImage(fotosSorted[0].data,"JPEG",fx,y,fW,fH);}catch(e){}
+  y+=fH+10;
+  // Miniaturas adicionales (hasta 4)
+  if(fotosSorted.length>1){
+    const tw=42;const th=32;let fx2=mg;
+    for(let i=1;i<Math.min(fotosSorted.length,5);i++){
+      if(y+th>280){doc.addPage();y=20;fx2=mg;}
+      doc.setFillColor(25,35,55);doc.roundedRect(fx2-1,y-1,tw+2,th+2,1.5,1.5,"F");
+      try{doc.addImage(fotosSorted[i].data,"JPEG",fx2,y,tw,th);}catch(e){}
+      fx2+=tw+4;
+    }
+    y+=th+8;
   }
-  y=fy+fH+6;
 }
-doc.setFillColor(249,115,22);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");doc.setTextColor(150,162,180);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583 · europeademaquinaria.com",W/2,291,{align:"center"});
-doc.save(`maquina-${m.marca||""}-${m.modelo||""}.pdf`);};
+// ── Pie de página ───────────────────────────────────────────
+doc.setFillColor(249,115,22);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");
+doc.setTextColor(150,162,180);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583 · europeademaquinaria.com",W/2,291,{align:"center"});
+doc.save((`${m.marca||""} ${m.modelo||""} ${m.codigo||""}`).trim().replace(/\s+/g,"-")+".pdf");};
 const imprimirQR=(m)=>{
 const urlMaquina = `${window.location.origin}/?maquina=${encodeURIComponent(m.codigo)}`;
 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${encodeURIComponent(urlMaquina)}`;
