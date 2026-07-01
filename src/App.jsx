@@ -2829,13 +2829,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                       const fecha=fRaw?(([y,m,d])=>d+"/"+m+"/"+y.slice(2))(fRaw.split("-")):"—";
                       let quien=av.resueltoPor||"";
                       if(!quien){
-                        const reps=data.reparaciones||[];
-                        // 1) buscar por avisoId exacto
-                        let parte=reps.find(r=>r.avisoId===av.id||r.avisoId===String(av.id));
-                        // 2) fallback: parte finalizado del mismo cliente+maquina en la misma fecha
-                        if(!parte) parte=reps.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&String(r.maquinaId||"")===String(av.maquinaId||"")&&r.fecha===fRaw);
-                        // 3) fallback más amplio: mismo cliente y misma fecha
-                        if(!parte) parte=reps.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&r.fecha===fRaw);
+                        const partes=data.partes||[];
+                        // 1) buscar parte con avisoId exacto
+                        let parte=partes.find(r=>r.avisoId===av.id||r.avisoId===String(av.id));
+                        // 2) fallback: parte finalizado mismo cliente+maquina+fecha
+                        if(!parte) parte=partes.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&String(r.maquinaId||"")===String(av.maquinaId||"")&&r.fecha===fRaw);
+                        // 3) fallback: parte finalizado mismo cliente+fecha
+                        if(!parte) parte=partes.find(r=>r.estadoParte==="Finalizado"&&String(r.clienteDirectoId)===String(av.clienteId)&&r.fecha===fRaw);
                         if(parte) quien=listaNombres(parte,"tecnicos","tecnico").join(", ")||"";
                       }
                       return `✅ AVISO CERRADO POR ${quien||"—"} EN FECHA ${fecha}`;
@@ -4865,7 +4865,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           if (!continuado) {
             // Parte finalizado → cerrar aviso y registrar fecha última intervención
             // (también como fecha de resolución, para ordenar la lista de Resueltos)
-            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha, resueltoPorId: null, resueltoPor: (item.tecnicos||[]).join(" y ") || userActual.nombre };
+            return { ...a, estado: "Resuelto", fechaUltimaIntervencion: item.fecha, fechaResuelto: item.fecha, resueltoPorId: userActual.id, resueltoPor: listaNombres(item,"tecnicos","tecnico").join(" y ") || userActual.nombre };
           } else {
             // Parte continuado → aviso sigue activo, actualizar fecha última intervención
             return { ...a, estado: "En curso", fechaUltimaIntervencion: item.fecha };
