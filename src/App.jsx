@@ -945,6 +945,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const [modalC,setModalC]=useState(null); const [modalM,setModalM]=useState(null); const [modalCo,setModalCo]=useState(null);
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
   const [modalEscaner,setModalEscaner]=useState(false); const [resumenEscaneo,setResumenEscaneo]=useState(null);
+  const [modalExportar,setModalExportar]=useState(false);
+  const [exportFiltro,setExportFiltro]=useState("todos");
+  const [exportValor,setExportValor]=useState("");
   const fc=k=>e=>setFormC(p=>({...p,[k]:e.target.value}));
   const fm=k=>e=>setFormM(p=>({...p,[k]:e.target.value}));
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
@@ -973,6 +976,113 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       }
     }catch(e){ /* el usuario cerró el panel de compartir */ }
   };
+  // Clientes exportables: excluir cuentas internas (PMM SL y Stock)
+  const clientesExportables = data.clientes.filter(c=>c.id!==0&&c.id!==CLIENTE_STOCK_ID);
+  const provinciasUnicas = [...new Set(clientesExportables.map(c=>c.provinciaFiscal||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const localidadesUnicas = [...new Set(clientesExportables.map(c=>c.localidad||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+
+  const exportarListadoPDF = () => {
+    let lista = [...clientesExportables];
+    let subtitulo = "Todos los clientes";
+    if(exportFiltro==="provincia"&&exportValor){ lista=lista.filter(c=>(c.provinciaFiscal||"")===exportValor); subtitulo="Provincia: "+exportValor; }
+    else if(exportFiltro==="localidad"&&exportValor){ lista=lista.filter(c=>(c.localidad||"")===exportValor); subtitulo="Localidad: "+exportValor; }
+    else if(exportFiltro==="maquinas"){ lista=lista.filter(c=>c.maquinas&&c.maquinas.length>0); subtitulo="Con máquinas registradas"; }
+    lista.sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'}));
+    if(!lista.length){ alert("No hay clientes con ese filtro."); return; }
+
+    const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const W=210; const mg=14;
+    const dibujarCabecera=()=>{
+      doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+      doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+      try{doc.addImage(LOGO_CIRCULO,"JPEG",mg,3,26,26);}catch(e){}
+      doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+      doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+      doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+      doc.text("Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)  ·  CIF: B98527583",mg+30,18);
+      doc.text("europeademaquinaria.com  ·  info@europeademaquinaria.com  ·  Tel: 961550707",mg+30,24);
+      doc.setTextColor(245,158,11); doc.setFontSize(13); doc.setFont("helvetica","bold");
+      doc.text("LISTADO DE CLIENTES",W-mg,12,{align:"right"});
+      doc.setTextColor(200,210,230); doc.setFontSize(8); doc.setFont("helvetica","normal");
+      doc.text(subtitulo,W-mg,20,{align:"right"});
+      doc.text("Fecha: "+fmtFecha(today())+" · "+lista.length+" registros",W-mg,27,{align:"right"});
+      doc.setFillColor(255,255,255); doc.rect(0,34.5,W,263,"F");
+    };
+    dibujarCabecera();
+    let y=42;
+
+    // Columnas: Nº(8) Empresa(62) Localidad(30) Provincia(26) Cliente(16) Contacto(32)  total=174
+    const cols=[
+      {label:"Nº",w:8,align:"center"},
+      {label:"EMPRESA",w:62,align:"left"},
+      {label:"LOCALIDAD",w:30,align:"left"},
+      {label:"PROVINCIA",w:26,align:"left"},
+      {label:"CLIENTE",w:16,align:"center"},
+      {label:"CONTACTO PRINCIPAL",w:32,align:"left"},
+    ];
+    const totalW=cols.reduce((s,c)=>s+c.w,0);
+    // Cabecera de tabla
+    doc.setFillColor(15,23,42); doc.rect(mg,y,totalW,6.5,"F");
+    doc.setFillColor(245,158,11); doc.rect(mg,y+6.5,totalW,0.7,"F");
+    doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","bold");
+    let cx=mg;
+    cols.forEach(col=>{
+      const tx=col.align==="center"?cx+col.w/2:col.align==="right"?cx+col.w-1:cx+1.5;
+      doc.text(col.label,tx,y+4.5,{align:col.align==="center"?"center":col.align==="right"?"right":"left"});
+      cx+=col.w;
+    });
+    y+=7.5;
+
+    lista.forEach((c,i)=>{
+      if(y>272){ doc.addPage(); dibujarCabecera(); y=42;
+        // repetir cabecera de tabla
+        doc.setFillColor(15,23,42); doc.rect(mg,y,totalW,6.5,"F");
+        doc.setFillColor(245,158,11); doc.rect(mg,y+6.5,totalW,0.7,"F");
+        doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","bold");
+        let cx2=mg; cols.forEach(col=>{const tx=col.align==="center"?cx2+col.w/2:cx2+1.5;doc.text(col.label,tx,y+4.5,{align:col.align==="center"?"center":"left"});cx2+=col.w;});
+        y+=7.5;
+      }
+      const par=(i%2===0);
+      if(par){doc.setFillColor(245,247,252);doc.rect(mg,y,totalW,6,"F");}
+      doc.setDrawColor(220,225,235);doc.line(mg,y+6,mg+totalW,y+6);
+      const pc=c.contactos?.find(x=>x.principal)||c.contactos?.[0];
+      const vals=[
+        String(i+1),
+        c.nombreEmpresa||"—",
+        c.localidad||"—",
+        c.provinciaFiscal||"—",
+        c.esCliente?"Sí":"No",
+        pc?pc.nombre+(pc.tel?" · "+pc.tel:""):"—",
+      ];
+      doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(20,30,55);
+      let vx=mg;
+      vals.forEach((v,vi)=>{
+        const col=cols[vi];
+        const trunc=doc.splitTextToSize(v,col.w-2)[0]||"";
+        const tx=col.align==="center"?vx+col.w/2:vx+1.5;
+        if(vi===4){if(c.esCliente){doc.setTextColor(22,163,74);}else{doc.setTextColor(180,30,30);}doc.setFont("helvetica","bold");}
+        else{doc.setTextColor(20,30,55);doc.setFont("helvetica","normal");}
+        doc.text(trunc,tx,y+4.2,{align:col.align==="center"?"center":"left"});
+        vx+=col.w;
+      });
+      y+=6;
+    });
+
+    // Footer todas las páginas
+    const totalPaginas=doc.getNumberOfPages();
+    for(let pg=1;pg<=totalPaginas;pg++){
+      doc.setPage(pg);
+      doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+      doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+      doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+      doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
+      if(totalPaginas>1) doc.text("Página "+pg+"/"+totalPaginas,W-mg,291,{align:"right"});
+    }
+    const nombre="Listado-Clientes"+(exportValor?"-"+exportValor:"")+".pdf";
+    doc.save(nombre);
+    setModalExportar(false);
+  };
+
   // Genera un PDF con todos los datos del cliente (fiscales, direccion de fabrica,
   // contactos y maquinas), con la misma estetica (header/footer/colores) que los
   // PDF de Partes y Albaranes, y lo muestra en una vista previa solo lectura.
@@ -1203,7 +1313,10 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
-        <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{setExportFiltro("todos");setExportValor("");setModalExportar(true);}} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📋 Exportar</button>
+          <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
+        </div>
       </div>
       <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
       <div style={{display:"grid",gap:9}}>
@@ -1247,6 +1360,45 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           </div>
         );})}
       </div>
+      {modalExportar&&<Modal title="Exportar listado de clientes" onClose={()=>setModalExportar(false)}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{color:"#e4e9f6",fontSize:13,marginBottom:2}}>Selecciona cómo filtrar el listado:</div>
+          {[
+            {id:"todos",label:"📋 Todos los clientes"},
+            {id:"provincia",label:"🗺️ Por provincia"},
+            {id:"localidad",label:"📍 Por localidad"},
+            {id:"maquinas",label:"🔧 Con máquinas registradas"},
+          ].map(op=>(
+            <button key={op.id} onClick={()=>{setExportFiltro(op.id);setExportValor("");}}
+              style={{background:exportFiltro===op.id?"#3b82f620":"#151b2a",border:"1px solid "+(exportFiltro===op.id?"#3b82f6":"#2a3550"),borderRadius:9,padding:"12px 16px",color:exportFiltro===op.id?"#f1f3f9":"#e4e9f6",fontWeight:exportFiltro===op.id?700:400,cursor:"pointer",textAlign:"left",fontSize:14,transition:"all .15s"}}>
+              {op.label}
+            </button>
+          ))}
+          {exportFiltro==="provincia"&&(
+            <div>
+              <div style={{color:"#e4e9f6",fontSize:12,marginBottom:6}}>Provincia:</div>
+              <select value={exportValor} onChange={e=>setExportValor(e.target.value)} style={{...inputStyle,width:"100%"}}>
+                <option value="">— Elige provincia —</option>
+                {provinciasUnicas.map(p=><option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          )}
+          {exportFiltro==="localidad"&&(
+            <div>
+              <div style={{color:"#e4e9f6",fontSize:12,marginBottom:6}}>Localidad:</div>
+              <select value={exportValor} onChange={e=>setExportValor(e.target.value)} style={{...inputStyle,width:"100%"}}>
+                <option value="">— Elige localidad —</option>
+                {localidadesUnicas.map(l=><option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          )}
+          <button onClick={exportarListadoPDF}
+            disabled={(exportFiltro==="provincia"||exportFiltro==="localidad")&&!exportValor}
+            style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"12px",fontWeight:800,cursor:"pointer",fontSize:14,opacity:((exportFiltro==="provincia"||exportFiltro==="localidad")&&!exportValor)?0.4:1}}>
+            📥 Generar PDF
+          </button>
+        </div>
+      </Modal>}
       {modalC&&<Modal title={formC.id?"Editar cliente":(
         <span style={{display:"inline-flex",alignItems:"center",gap:10}}>
           Nuevo Cliente
