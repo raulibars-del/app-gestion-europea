@@ -6703,7 +6703,7 @@ const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.to
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[{id:Date.now(),codigo:"",descripcion:"",valor:""}])]);setModal(true);};
 const save=()=>{
-  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,costeTransporte:parseFloat(form.costeTransporte)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
@@ -6840,7 +6840,7 @@ w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style
 w.document.close();
 };
 if(vista&&maquinas.find(x=>x.id===vista)){
-const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;
+const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;const transporte=parseFloat(m.costeTransporte)||0;const compraTotal=compra+transporte;
 return(<div>
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
 <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
@@ -6862,6 +6862,8 @@ return(<div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
 <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
 {puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Coste de transporte</div><div style={{color:"#f97316",fontWeight:800,fontSize:16}}>{transporte>0?"EUR"+transporte.toLocaleString():"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #f9731633",borderRadius:12,padding:"14px 16px",background:"#f9731608"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:16}}>{compraTotal>0?"EUR"+compraTotal.toLocaleString():"—"}</div></div>}
 {puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
 </div>
 {(m.codigos||[]).length>0&&<>
@@ -6975,6 +6977,8 @@ return(<div>
 </div>
 </div>
 {puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
+{puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
 {puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 <Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
 {(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
