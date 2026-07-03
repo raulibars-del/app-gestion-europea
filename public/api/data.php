@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $accionTemp = $_GET['action'] ?? '';
-if ($accionTemp !== 'diag' && !hash_equals(API_KEY, $apiKey)) {
+if (!in_array($accionTemp, ['diag','restore_blob']) && !hash_equals(API_KEY, $apiKey)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
