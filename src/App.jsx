@@ -10078,6 +10078,11 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
 };
 
 export default function App() {
+  // ?reset en la URL limpia el caché local y recarga desde el servidor
+  if(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("reset") !== null){
+    try{ localStorage.removeItem("em_data"); localStorage.removeItem("em_last_synced"); localStorage.removeItem("em_last_synced_v2"); }catch(e){}
+    window.location.replace(window.location.pathname);
+  }
   const [data,setData]=useState(()=>{
     try {
       const saved = localStorage.getItem("em_data");
@@ -10257,7 +10262,10 @@ export default function App() {
         const sd = extraerSeccion(dataRef.current, s);
         const j = JSON.stringify(sd);
         if(j === lastSyncedRef.current[s]) continue;
-        apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, {keepalive:true}).then(resp=>{
+        // keepalive tiene límite de ~64KB: solo lo usamos para secciones pequeñas.
+        // Secciones grandes (clientes con fotos, inventario…) usamos fetch normal.
+        const usarKeepalive = j.length < 60000;
+        apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, usarKeepalive ? {keepalive:true} : {}).then(resp=>{
           if(resp && !resp.conflict){
             lastSyncedRef.current[s] = j;
             lastVersionRef.current[s] = resp.version;
@@ -10326,10 +10334,14 @@ export default function App() {
             if(hayCambios){
               for(const s of TODAS_SECCIONES){
                 const sd = extraerSeccion(dataRef.current, s);
-                if(JSON.stringify(sd) === lastSyncedRef.current[s]) continue;
+                const sdJson = JSON.stringify(sd);
+                if(sdJson === lastSyncedRef.current[s]) continue;
                 try{
-                  const resp = await apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, {keepalive:true});
-                  if(resp && !resp.conflict){ lastSyncedRef.current[s]=JSON.stringify(sd); lastVersionRef.current[s]=resp.version; }
+                  // keepalive tiene límite de 64KB en el navegador — para secciones grandes
+                  // usamos fetch normal (la página aún no se ha cerrado, solo va a recargarse).
+                  const usarKeepalive = sdJson.length < 60000;
+                  const resp = await apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, usarKeepalive ? {keepalive:true} : {});
+                  if(resp && !resp.conflict){ lastSyncedRef.current[s]=sdJson; lastVersionRef.current[s]=resp.version; }
                 }catch(e){}
               }
               try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}

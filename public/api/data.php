@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $accionTemp = $_GET['action'] ?? '';
-if (!in_array($accionTemp, ['diag','restore_blob']) && !hash_equals(API_KEY, $apiKey)) {
+if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64']) && !hash_equals(API_KEY, $apiKey)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
@@ -184,36 +184,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
     exit;
 }
 
-// ─── GET ?action=diag (temporal, solo para diagnóstico) ─────────────────────
+// ─── GET ?action=diag ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'diag') {
     $out = [];
-    // app_data (blob legacy) — incluye conteo de avisos y clientes
     $r = $pdo->query("SELECT data, LENGTH(data) as bytes, updated_at FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
     if ($r) {
         $blob = json_decode($r['data'], true);
         $out['app_data'] = [
-            'bytes' => (int)$r['bytes'],
-            'updated_at' => $r['updated_at'],
+            'bytes' => (int)$r['bytes'], 'updated_at' => $r['updated_at'],
             'clientes' => is_array($blob['clientes'] ?? null) ? count($blob['clientes']) : '?',
             'avisos'   => is_array($blob['avisos']   ?? null) ? count($blob['avisos'])   : '?',
-            'ultimo_aviso' => isset($blob['avisos']) && count($blob['avisos']) > 0
-                ? ($blob['avisos'][count($blob['avisos'])-1]['fechaAviso'] ?? '?') : '?',
         ];
     } else { $out['app_data'] = null; }
-    // app_sections
     $stmt = $pdo->query("SELECT section, version, updated_at, LENGTH(data) as bytes FROM app_sections ORDER BY section");
     $out['app_sections'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    // app_data_history (últimas 10 entradas)
     try {
-        $hist = $pdo->query("SELECT id, LENGTH(data) as bytes, created_at FROM app_data_history ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
-        $out['app_data_history'] = $hist;
-    } catch(Throwable $e) { $out['app_data_history'] = 'no existe o error: '.$e->getMessage(); }
+        $out['app_data_history'] = $pdo->query("SELECT id, LENGTH(data) as bytes, created_at FROM app_data_history ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+    } catch(Throwable $e) { $out['app_data_history'] = $e->getMessage(); }
     echo json_encode($out, JSON_PRETTY_PRINT);
     exit;
 }
 
-// ─── GET ?action=restore_blob (restaura app_sections desde app_data) ─────────
-// Solo accesible con API key. Trunca app_sections y re-migra desde el blob legacy.
+// ─── GET ?action=restore_blob ─────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'restore_blob') {
     $r = $pdo->query("SELECT data FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
     if (!$r) { http_response_code(404); echo json_encode(['error'=>'no hay blob']); exit; }
@@ -223,6 +215,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'restore_blob') {
     migrarBlobASecciones($pdo, $blob);
     $stmt = $pdo->query("SELECT section, version, LENGTH(data) as bytes FROM app_sections ORDER BY section");
     echo json_encode(['ok'=>true, 'sections'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
+    exit;
+}
+
+// ─── GET ?action=migrate_base64 ───────────────────────────────────────────────
+// Migra todas las fotos base64 incrustadas en app_sections a archivos del servidor.
+// Reduce clientes de ~10MB a ~300KB e inventario de ~4MB a ~100KB.
+// Es seguro ejecutar varias veces (las URLs ya migradas se ignoran).
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'migrate_base64') {
+    set_time_limit(300); // hasta 5 min — hay muchas fotos
+    $uploadsDir = __DIR__ . '/uploads';
+    if (!is_dir($uploadsDir)) mkdir($uploadsDir, 0755, true);
+    $htaccess = $uploadsDir . '/.htaccess';
+    if (!file_exists($htaccess)) file_put_contents($htaccess, "<FilesMatch \"\\.(php|phtml|php\\d)$\">\nRequire all denied\n</FilesMatch>\n");
+    $mimeToExt = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif','image/heic'=>'heic'];
+    $totalFotos = 0;
+
+    function migrateBase64Deep(&$val, $uploadsDir, $mimeToExt, &$count) {
+        if (is_string($val) && strlen($val) > 500 && strpos($val, 'data:image/') === 0) {
+            if (preg_match('/^data:(image\/[a-z+]+);base64,(.+)$/s', $val, $m)) {
+                $data = base64_decode($m[2]);
+                if ($data !== false && strlen($data) > 100) {
+                    $ext = $mimeToExt[$m[1]] ?? 'jpg';
+                    $nombre = 'b64mig_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                    if (file_put_contents($uploadsDir . '/' . $nombre, $data) !== false) {
+                        $val = '/api/uploads/' . $nombre;
+                        $count++;
+                    }
+                }
+            }
+        } elseif (is_array($val)) {
+            foreach ($val as &$v) migrateBase64Deep($v, $uploadsDir, $mimeToExt, $count);
+        }
+    }
+
+    $rows = $pdo->query("SELECT section, data FROM app_sections")->fetchAll(PDO::FETCH_ASSOC);
+    $resultados = [];
+    foreach ($rows as $row) {
+        $antesMB = round(strlen($row['data']) / 1048576, 2);
+        $data = json_decode($row['data'], true);
+        $migradas = 0;
+        migrateBase64Deep($data, $uploadsDir, $mimeToExt, $migradas);
+        $totalFotos += $migradas;
+        $newJson = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $despuesMB = round(strlen($newJson) / 1048576, 2);
+        if ($migradas > 0) {
+            $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = :s")
+                ->execute(['d' => $newJson, 's' => $row['section']]);
+        }
+        $resultados[$row['section']] = ['fotos' => $migradas, 'antes_MB' => $antesMB, 'despues_MB' => $despuesMB];
+    }
+    // Actualizar app_data con los datos ya migrados
+    $blobActualizado = leerBlobDeSecciones($pdo);
+    if ($blobActualizado) {
+        $bj = json_encode($blobActualizado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $pdo->prepare("INSERT INTO app_data (id,data,version) VALUES (1,:d,1) ON DUPLICATE KEY UPDATE data=:d2,version=version+1")
+            ->execute(['d'=>$bj,'d2'=>$bj]);
+    }
+    echo json_encode(['ok'=>true, 'total_fotos_migradas'=>$totalFotos, 'secciones'=>$resultados], JSON_PRETTY_PRINT);
     exit;
 }
 
@@ -295,15 +345,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
         $upsert->execute(['s' => $section, 'd' => $raw, 'd2' => $raw]);
     }
 
-    // Copia de seguridad diaria: combinar todas las secciones en un blob y
-    // guardarlo en app_data_history (max. una vez al día, se conservan 14 días).
+    // Copia de seguridad diaria: combinar secciones en blob, guardar en
+    // app_data_history Y actualizar app_data (para que restore_blob sea siempre reciente).
     try {
         $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         if (!$ultima || strtotime($ultima['created_at']) < time() - 86400) {
             $blob = leerBlobDeSecciones($pdo);
             if ($blob) {
-                $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
-                $insHist->execute(['data' => json_encode($blob)]);
+                $blobJson = json_encode($blob, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                // Actualizar app_data legacy para mantener restore_blob al día
+                $pdo->prepare("INSERT INTO app_data (id,data,version) VALUES (1,:d,1) ON DUPLICATE KEY UPDATE data=:d2,version=version+1")
+                    ->execute(['d'=>$blobJson,'d2'=>$blobJson]);
+                // Guardar snapshot en historial
+                $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)")
+                    ->execute(['data' => $blobJson]);
                 $pdo->exec("DELETE FROM app_data_history WHERE created_at < (NOW() - INTERVAL 14 DAY)");
             }
         }
