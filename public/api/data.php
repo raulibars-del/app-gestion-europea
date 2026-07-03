@@ -187,9 +187,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
 // ─── GET ?action=diag (temporal, solo para diagnóstico) ─────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'diag') {
     $out = [];
-    // app_data (blob legacy)
-    $r = $pdo->query("SELECT LENGTH(data) as bytes, updated_at FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
-    $out['app_data'] = $r ?: null;
+    // app_data (blob legacy) — incluye conteo de avisos y clientes
+    $r = $pdo->query("SELECT data, LENGTH(data) as bytes, updated_at FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
+    if ($r) {
+        $blob = json_decode($r['data'], true);
+        $out['app_data'] = [
+            'bytes' => (int)$r['bytes'],
+            'updated_at' => $r['updated_at'],
+            'clientes' => is_array($blob['clientes'] ?? null) ? count($blob['clientes']) : '?',
+            'avisos'   => is_array($blob['avisos']   ?? null) ? count($blob['avisos'])   : '?',
+            'ultimo_aviso' => isset($blob['avisos']) && count($blob['avisos']) > 0
+                ? ($blob['avisos'][count($blob['avisos'])-1]['fechaAviso'] ?? '?') : '?',
+        ];
+    } else { $out['app_data'] = null; }
     // app_sections
     $stmt = $pdo->query("SELECT section, version, updated_at, LENGTH(data) as bytes FROM app_sections ORDER BY section");
     $out['app_sections'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
