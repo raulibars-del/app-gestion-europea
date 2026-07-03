@@ -212,6 +212,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'diag') {
     exit;
 }
 
+// ─── GET ?action=restore_blob (restaura app_sections desde app_data) ─────────
+// Solo accesible con API key. Trunca app_sections y re-migra desde el blob legacy.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'restore_blob') {
+    $r = $pdo->query("SELECT data FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
+    if (!$r) { http_response_code(404); echo json_encode(['error'=>'no hay blob']); exit; }
+    $blob = json_decode($r['data'], true);
+    if (!$blob) { http_response_code(500); echo json_encode(['error'=>'blob inválido']); exit; }
+    $pdo->exec("DELETE FROM app_sections");
+    migrarBlobASecciones($pdo, $blob);
+    $stmt = $pdo->query("SELECT section, version, LENGTH(data) as bytes FROM app_sections ORDER BY section");
+    echo json_encode(['ok'=>true, 'sections'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
+    exit;
+}
+
 // ─── GET ?action=sections ────────────────────────────────────────────────────
 // Nuevo endpoint: devuelve cada sección con su versión independiente.
 // Si app_sections está vacía, migra automáticamente desde el blob legacy.
