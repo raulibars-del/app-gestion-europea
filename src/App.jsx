@@ -10512,14 +10512,6 @@ export default function App() {
         titulo:n.titulo,mensaje:n.mensaje
       });
     });
-    // Movimientos de consumibles clave: mismo trato que un aviso nuevo (una sola vez).
-    const stockNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="stock_consumible");
-    stockNuevos.forEach(n=>{
-      cola.push({
-        id:"stn_"+n.id,notifId:n.id,color:COLOR_AVISO,categoria:"STOCK",
-        linea:n.mensaje,titulo:n.titulo,mensaje:n.mensaje
-      });
-    });
     // 2) TAREAS: un único pop-up con TODAS las tareas pendientes (de empresa o propia)
     // que no estén completadas, en formato lista (mismo formato que el resumen de
     // avisos: punto de color a la izquierda, título en mayúsculas y debajo el
