@@ -2633,6 +2633,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   const [fp, setFp] = useState("Todos");
   const [ft, setFt] = useState("Todos");
   const [s, setS] = useState("");
+  const [filtroAsignado, setFiltroAsignado] = useState("todos");
   const [soloSinAsignar, setSoloSinAsignar] = useState(false);
   const [soloAntiguos, setSoloAntiguos] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -2647,6 +2648,11 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     if (fe === "Activos") l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
     else if (fe === "Resueltos") l = l.filter(a => a.estado === "Resuelto");
     else if (fe === "Cancelados") l = l.filter(a => a.estado === "Cancelado");
+    if (filtroAsignado !== "todos") {
+      const uId = parseInt(filtroAsignado);
+      const uNombre = data.usuarios.find(u=>u.id===uId)?.nombre||"";
+      l = l.filter(a => listaNombres(a,"asignados","asignado").some(n=>n===uNombre));
+    }
     if (soloSinAsignar) l = l.filter(a => listaNombres(a,"asignados","asignado").length===0 || a.estado === "Sin asignar");
     if (soloAntiguos) l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
     if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
@@ -2671,7 +2677,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       if (ra !== rb) return ra ? -1 : 1;
       return diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso);
     });
-  }, [data.avisos, data.clientes, fe, fp, ft, s, soloSinAsignar, soloAntiguos]);
+  }, [data.avisos, data.clientes, data.usuarios, fe, fp, ft, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
   const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignados:[],fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
   const openEditAv = item => { setFormAv({ ...item, asignados: listaNombres(item,"asignados","asignado") }); setModalAv("form"); };
   const saveAv = () => {
@@ -2779,18 +2785,26 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       )}
       {/* Filtros */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10,alignItems:"center",maxWidth:"100%"}}>
-        {["Activos", "Resueltos", "Cancelados", "Todos"].map(e => (
-          <button key={e} onClick={() => { setFe(e); setSoloSinAsignar(false); setSoloAntiguos(false); }} style={{background:fe === e && !soloSinAsignar ? "#ef4444" :"#151b2a",color:fe === e && !soloSinAsignar ? "#fff" :"#e4e9f6",border:"1px solid " + (fe === e && !soloSinAsignar ? "#ef4444" :"#2a3550"),borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{e}</button>
-        ))}
-        <div style={{width:1,height:20,background:"#2a3550"}} />
-        {["Todos", ...PRIORIDADES].map(p => (
-          <button key={p} onClick={() => setFp(p)} style={{background:fp === p ? (PCOLOR[p] || "#3b82f6") + "22" :"transparent",color:fp === p ? (PCOLOR[p] || "#3b82f6") :"#e4e9f6",border:"1px solid " + (fp === p ? (PCOLOR[p] || "#3b82f6") + "66" :"#2a3550"),borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{p}</button>
-        ))}
-        <div style={{width:1,height:20,background:"#2a3550"}} />
-        {["Todos", ...TIPOS_AVISO].map(t => (
-          <button key={t} onClick={() => setFt(t)} style={{background:ft === t ? "#2a3550" :"transparent",color:ft === t ? "#f1f3f9" :"#e4e9f6",border:"1px solid " + (ft === t ? "#3a4560" :"#2a3550"),borderRadius:7,padding:"4px 9px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{t}</button>
-        ))}
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
+        <select value={filtroAsignado} onChange={e=>{ setFiltroAsignado(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
+          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+          <option value="todos">Todos los avisos</option>
+          {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+        </select>
+        <select value={fe} onChange={e=>{ setFe(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
+          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+          {["Activos","Resueltos","Cancelados","Todos"].map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={fp} onChange={e=>setFp(e.target.value)}
+          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+          <option value="Todos">Todas las prioridades</option>
+          {PRIORIDADES.map(p=><option key={p} value={p}>{p}</option>)}
+        </select>
+        <select value={ft} onChange={e=>setFt(e.target.value)}
+          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+          <option value="Todos">Todos los tipos</option>
+          {TIPOS_AVISO.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
         <div style={{position:"relative",marginLeft:"auto",flex:"1 1 140px",maxWidth:220,minWidth:120}}>
           <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12} /></span>
           <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}} />
