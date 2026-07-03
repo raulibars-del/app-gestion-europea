@@ -1,7 +1,7 @@
 <?php
 // API mínima para compartir los datos de la app entre todos los usuarios.
-// GET  -> devuelve el JSON guardado
-// POST -> guarda el JSON recibido (sobrescribe el anterior)
+// GET  -> devuelve el JSON guardado (blob legacy o ?action=sections)
+// POST -> guarda el JSON recibido (blob legacy o con cabecera X-Section)
 //
 // Autenticación simple por API key (cabecera X-Api-Key). No es seguridad
 // de nivel empresarial, pero evita que cualquiera en internet pueda leer
@@ -18,7 +18,7 @@ header('Content-Type: application/json; charset=utf-8');
 // CORS básico (la app se sirve desde el mismo dominio, pero por si acaso)
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, X-Expected-Version');
+header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, X-Expected-Version, X-Section');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -45,42 +45,80 @@ try {
     exit;
 }
 
-// Crear la tabla si todavía no existe (primera ejecución)
+// ─── Tablas ─────────────────────────────────────────────────────────────────
+
+// Tabla monolítica original (se mantiene para history/restore y compatibilidad)
 $pdo->exec("CREATE TABLE IF NOT EXISTS app_data (
     id INT PRIMARY KEY,
     data LONGTEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Columna de versión para guardado optimista de verdad (a nivel de base de
-// datos, no solo de comprobación previa en el cliente): cada guardado indica
-// la versión que creía vigente y el UPDATE solo se aplica si esa versión
-// sigue siendo la actual ("WHERE version = :esperada"). Si otro dispositivo
-// guardó justo antes, la versión ya cambió, 0 filas se actualizan y
-// devolvemos 409 en vez de sobrescribir su trabajo. Esto cierra el hueco que
-// quedaba entre "comprobar" y "guardar" con dos peticiones HTTP separadas,
-// que por sí solas no pueden ser atómicas. La tabla ya existía, así que se
-// añade con ALTER; si la columna ya existe, el ALTER falla y se ignora.
 try { $pdo->exec("ALTER TABLE app_data ADD COLUMN version INT NOT NULL DEFAULT 0"); } catch (Exception $e) { /* ya existe */ }
 
-// Copias de seguridad periódicas (red de seguridad ante sobrescrituras
-// accidentales, p.ej. por condiciones de carrera entre varios dispositivos).
-// Como mucho una copia al día, y se conservan 14 días.
+// Historial de copias de seguridad (comparte snapshots del blob completo)
 $pdo->exec("CREATE TABLE IF NOT EXISTS app_data_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
     data LONGTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// ─── NUEVA: tabla por sección ────────────────────────────────────────────────
+// Cada sección del JSON (clientes, avisos, partes…) tiene su propia fila con
+// su propio contador de versión. Así cada guardado solo sube la sección que
+// cambió (50-200 KB) en vez del blob entero (~10+ MB), y los conflictos de
+// concurrencia entre secciones independientes desaparecen.
+$pdo->exec("CREATE TABLE IF NOT EXISTS app_sections (
+    section VARCHAR(50) NOT NULL PRIMARY KEY,
+    data LONGTEXT NOT NULL,
+    version INT NOT NULL DEFAULT 1,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// ─── Helper: migrar blob monolítico → secciones ──────────────────────────────
+function migrarBlobASecciones($pdo, $blob) {
+    $seccionesActivas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $config = [];
+    foreach ($blob as $k => $v) {
+        if (in_array($k, $seccionesActivas)) {
+            $ins = $pdo->prepare(
+                "INSERT INTO app_sections (section, data, version) VALUES (:s, :d, 1)
+                 ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
+            );
+            $ins->execute(['s' => $k, 'd' => json_encode($v), 'd2' => json_encode($v)]);
+        } else {
+            $config[$k] = $v;
+        }
+    }
+    // La sección 'config' agrupa todo lo que no tiene sección propia
+    $ins = $pdo->prepare(
+        "INSERT INTO app_sections (section, data, version) VALUES ('config', :d, 1)
+         ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
+    );
+    $ins->execute(['d' => json_encode($config), 'd2' => json_encode($config)]);
+}
+
+// ─── Helper: leer todas las secciones y combinar en blob ─────────────────────
+function leerBlobDeSecciones($pdo) {
+    $seccionesActivas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $stmt = $pdo->query("SELECT section, data FROM app_sections");
+    $blob = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $d = json_decode($row['data'], true);
+        if ($row['section'] === 'config') {
+            if (is_array($d)) foreach ($d as $k => $v) $blob[$k] = $v;
+        } else {
+            $blob[$row['section']] = $d;
+        }
+    }
+    return $blob;
+}
+
 $accion = $_GET['action'] ?? '';
 
+// ─── GET ?action=history ─────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'history') {
     try {
-        // Lista de copias de seguridad disponibles. NO seleccionamos la columna
-        // `data` aquí (puede pesar varios MB por las fotos en base64): traerla
-        // y decodificarla 60 veces en una sola petición puede agotar la memoria
-        // de PHP en hosting compartido. Con el tamaño en bytes basta para
-        // distinguir a simple vista una copia "vacía"/incompleta de una normal.
         $stmt = $pdo->query("SELECT id, created_at, LENGTH(data) AS tam FROM app_data_history ORDER BY id DESC LIMIT 60");
         $items = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -98,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'history') {
     exit;
 }
 
+// ─── POST ?action=restore ────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
     try {
         $body = json_decode(file_get_contents('php://input'), true);
@@ -115,15 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
             echo json_encode(['error' => 'copia_no_encontrada']);
             exit;
         }
-        // Guardamos primero una copia del estado actual (antes de restaurar) por
-        // si la restauración fuese un error, sin importar el límite de 30 min.
+        // Guardar snapshot del estado actual antes de restaurar
         $actual = $pdo->query("SELECT data FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
-        if ($actual) {
+        if (!$actual) {
+            // Si no hay blob legacy, construirlo desde las secciones
+            $blobActual = leerBlobDeSecciones($pdo);
+            if ($blobActual) {
+                $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
+                $insHist->execute(['data' => json_encode($blobActual)]);
+            }
+        } else {
             $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
             $insHist->execute(['data' => $actual['data']]);
         }
+        // Restaurar al blob monolítico (para compatibilidad)
         $upd = $pdo->prepare("INSERT INTO app_data (id, data, version) VALUES (1, :data, 1) ON DUPLICATE KEY UPDATE data = :data2, version = version + 1");
         $upd->execute(['data' => $row['data'], 'data2' => $row['data']]);
+        // También dividir en secciones para que el cliente nuevo lo reciba correctamente
+        try {
+            $blob = json_decode($row['data'], true);
+            if ($blob) migrarBlobASecciones($pdo, $blob);
+        } catch (Exception $e) {}
         echo json_encode(['ok' => true]);
     } catch (Throwable $e) {
         http_response_code(500);
@@ -132,6 +183,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
     exit;
 }
 
+// ─── GET ?action=sections ────────────────────────────────────────────────────
+// Nuevo endpoint: devuelve cada sección con su versión independiente.
+// Si app_sections está vacía, migra automáticamente desde el blob legacy.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'sections') {
+    $count = (int)$pdo->query("SELECT COUNT(*) FROM app_sections")->fetchColumn();
+    if ($count === 0) {
+        // Migrar desde blob monolítico si existe
+        $viejo = $pdo->query("SELECT data FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+        if ($viejo) {
+            $blob = json_decode($viejo['data'], true);
+            if ($blob) migrarBlobASecciones($pdo, $blob);
+        }
+    }
+    $stmt = $pdo->query("SELECT section, data, version FROM app_sections");
+    $sections = []; $versions = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $sections[$row['section']] = json_decode($row['data'], true);
+        $versions[$row['section']] = (int)$row['version'];
+    }
+    echo json_encode(['sections' => $sections, 'versions' => $versions]);
+    exit;
+}
+
+// ─── POST con cabecera X-Section (guardado por sección) ─────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION'])) {
+    $section = preg_replace('/[^a-z]/', '', strtolower(trim($_SERVER['HTTP_X_SECTION'])));
+    $permitidas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','config'];
+    if (!in_array($section, $permitidas)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'seccion_no_permitida']);
+        exit;
+    }
+
+    $raw = file_get_contents('php://input');
+    if (json_decode($raw) === null && json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode(['error' => 'invalid_json']);
+        exit;
+    }
+
+    $expectedVersion = isset($_SERVER['HTTP_X_EXPECTED_VERSION']) && $_SERVER['HTTP_X_EXPECTED_VERSION'] !== ''
+        ? (int)$_SERVER['HTTP_X_EXPECTED_VERSION'] : null;
+
+    $existeStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
+    $existeStmt->execute(['s' => $section]);
+    $existe = $existeStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existe && $expectedVersion !== null) {
+        // Guardado condicional: solo actualiza si la versión que el cliente cree
+        // vigente sigue siendo la actual (comprobación atómica en una sola sentencia).
+        $upd = $pdo->prepare("UPDATE app_sections SET data = :data, version = version + 1 WHERE section = :s AND version = :expected");
+        $upd->execute(['data' => $raw, 's' => $section, 'expected' => $expectedVersion]);
+        if ($upd->rowCount() === 0) {
+            $actStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
+            $actStmt->execute(['s' => $section]);
+            $act = $actStmt->fetch(PDO::FETCH_ASSOC);
+            http_response_code(409);
+            echo json_encode(['error' => 'conflict', 'version' => $act ? (int)$act['version'] : null, 'section' => $section]);
+            exit;
+        }
+    } else {
+        // Upsert sin control de versión (primera vez o migración)
+        $upsert = $pdo->prepare(
+            "INSERT INTO app_sections (section, data, version) VALUES (:s, :d, 1)
+             ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
+        );
+        $upsert->execute(['s' => $section, 'd' => $raw, 'd2' => $raw]);
+    }
+
+    // Copia de seguridad diaria: combinar todas las secciones en un blob y
+    // guardarlo en app_data_history (max. una vez al día, se conservan 14 días).
+    try {
+        $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if (!$ultima || strtotime($ultima['created_at']) < time() - 86400) {
+            $blob = leerBlobDeSecciones($pdo);
+            if ($blob) {
+                $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
+                $insHist->execute(['data' => json_encode($blob)]);
+                $pdo->exec("DELETE FROM app_data_history WHERE created_at < (NOW() - INTERVAL 14 DAY)");
+            }
+        }
+    } catch (Exception $e) {}
+
+    $st2 = $pdo->prepare("SELECT version, updated_at FROM app_sections WHERE section = :s");
+    $st2->execute(['s' => $section]);
+    $updated = $st2->fetch(PDO::FETCH_ASSOC);
+    echo json_encode([
+        'ok' => true,
+        'section' => $section,
+        'version' => (int)($updated['version'] ?? 1),
+        'updated_at' => $updated['updated_at'] ?? null,
+    ]);
+    exit;
+}
+
+// ─── GET legacy (blob monolítico) ────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $pdo->query("SELECT data, updated_at, version FROM app_data WHERE id = 1");
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -147,6 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
+// ─── POST legacy (blob monolítico) ───────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
     $decoded = json_decode($raw);
@@ -156,18 +304,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Versión que el cliente cree vigente (la última que leyó).
     $expectedVersion = isset($_SERVER['HTTP_X_EXPECTED_VERSION']) && $_SERVER['HTTP_X_EXPECTED_VERSION'] !== ''
         ? (int)$_SERVER['HTTP_X_EXPECTED_VERSION'] : null;
 
     $existe = $pdo->query("SELECT version FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
 
     if ($existe && $expectedVersion === null) {
-        // Ya hay datos guardados pero esta petición no manda versión: viene de
-        // una pestaña con JS tan antiguo que ni siquiera sabe de este mecanismo
-        // (anterior a este fix). Antes esto se sobrescribía a ciegas sin
-        // comprobar nada, que es justo el agujero por el que se perdían datos.
-        // Ahora se rechaza: ese dispositivo no sube nada hasta que actualice.
         http_response_code(426);
         echo json_encode(['error' => 'upgrade_required', 'version' => (int)$existe['version']]);
         exit;
@@ -177,16 +319,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $upd = $pdo->prepare("UPDATE app_data SET data = :data, version = version + 1 WHERE id = 1 AND version = :expected");
         $upd->execute(['data' => $raw, 'expected' => $expectedVersion]);
         if ($upd->rowCount() === 0) {
-            // Alguien guardó una versión más nueva justo antes que nosotros: no
-            // sobrescribimos su trabajo, avisamos para que el cliente recargue.
             $actual = $pdo->query("SELECT version FROM app_data WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
             http_response_code(409);
             echo json_encode(['error' => 'conflict', 'version' => $actual ? (int)$actual['version'] : null]);
             exit;
         }
     } else {
-        // Primera vez que se guarda algo (fila todavía no existe): no hay nada
-        // que proteger, se crea sin más.
         $stmt = $pdo->prepare(
             "INSERT INTO app_data (id, data, version) VALUES (1, :data, 1)
              ON DUPLICATE KEY UPDATE data = :data2, version = version + 1"
@@ -194,9 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute(['data' => $raw, 'data2' => $raw]);
     }
 
-    // Copia de seguridad: como máximo una vez al día, para no acumular una
-    // fila por cada guardado (que puede ser cada pocos segundos mientras
-    // alguien está trabajando).
     try {
         $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 86400);
@@ -205,9 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $insHist->execute(['data' => $raw]);
             $pdo->exec("DELETE FROM app_data_history WHERE created_at < (NOW() - INTERVAL 14 DAY)");
         }
-    } catch (Exception $e) {
-        // La copia de seguridad nunca debe impedir que el guardado principal funcione.
-    }
+    } catch (Exception $e) {}
 
     $stmt2 = $pdo->query("SELECT updated_at, version FROM app_data WHERE id = 1");
     $updated = $stmt2->fetch(PDO::FETCH_ASSOC);

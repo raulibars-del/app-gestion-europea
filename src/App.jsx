@@ -94,6 +94,31 @@ const coincideTexto = (item, query, campos) => {
   const texto = sinAcentos(campos.map(c => String(item?.[c] ?? "")).join(" ")).toLowerCase();
   return palabras.every(p => texto.includes(p));
 };
+// ─── Secciones de datos (guardado por sección, no como blob único) ───────────
+// Cada clave de 'data' listada aquí tiene su propia fila en la BD con su propio
+// version counter. Cambiar clientes no entra en conflicto con cambiar avisos.
+// Las claves no listadas van a la sección 'config' (usuarios, smtp, passwords…).
+const SECCIONES_ACTIVAS = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+const TODAS_SECCIONES = [...SECCIONES_ACTIVAS, 'config'];
+
+// Extrae los datos de una sección desde el objeto data completo.
+// Para secciones activas devuelve el array/objeto de esa clave.
+// Para 'config' devuelve un objeto con todas las claves que no tienen sección propia.
+function extraerSeccion(d, s) {
+  if(s === 'config'){
+    const c={};
+    Object.keys(d).forEach(k=>{ if(!SECCIONES_ACTIVAS.includes(k)) c[k]=d[k]; });
+    return c;
+  }
+  return d[s] ?? (Array.isArray((initialData||{})[s]) ? [] : {});
+}
+
+// Aplica los datos de una sección sobre el objeto data completo.
+function aplicarSeccion(d, s, sd) {
+  if(s === 'config') return {...d, ...sd};
+  return {...d, [s]: sd};
+}
+
 // ID del cliente interno "Europea de Maquinaria – Maquinaria Nueva" (stock de máquinas nuevas)
 const CLIENTE_STOCK_ID = -1;
 // Usuarios con acceso a información económica confidencial (precio de compra y precio de venta objetivo).
@@ -9349,6 +9374,30 @@ async function apiRestoreHistory(historyId){
   if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
   return json;
 }
+// ─── API por secciones ───────────────────────────────────────────────────────
+// GET ?action=sections → {sections:{clientes:[…], avisos:[…], config:{…}}, versions:{clientes:5,…}}
+async function apiGetSecciones(){
+  const res = await fetch(API_URL+"?action=sections", { headers:{"X-Api-Key":API_KEY} });
+  if(!res.ok) throw new Error("GET sections "+res.status);
+  return res.json();
+}
+// POST con X-Section: guarda solo la sección indicada con control de versión atómico.
+async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
+  const res = await fetch(API_URL, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "X-Api-Key":API_KEY,
+      "X-Section":seccion,
+      ...(typeof versionEsperada==="number" ? {"X-Expected-Version":String(versionEsperada)} : {}),
+    },
+    body:JSON.stringify(datos),
+    ...(opts.keepalive ? {keepalive:true} : {}),
+  });
+  if(res.status===409){const j=await res.json().catch(()=>({}));return{conflict:true,version:j.version,section:seccion};}
+  if(!res.ok) throw new Error("POST section "+res.status);
+  return res.json(); // {ok:true, section, version}
+}
 const ESCANEAR_TARJETA_API_URL = "/api/escanear-tarjeta.php";
 // Envía la foto de la tarjeta (data URL) al backend, que la pasa a Gemini y
 // devuelve los campos ya extraídos: { ok, campos, textoCrudo }.
@@ -10037,72 +10086,76 @@ export default function App() {
   useEffect(()=>{ syncStatusRef.current = syncStatus; },[syncStatus]);
   const [lastSaveError,setLastSaveError]=useState(null); // motivo real del último fallo de guardado, para no quedarnos solo con el punto rojo sin explicación
   const saveFailCountRef = useRef(0); // fallos consecutivos de guardado; si se acumulan, avisamos en vez de fallar en silencio para siempre
-  const lastSyncedRef = useRef(null); // JSON de los datos que sabemos están en el servidor
-  const lastVersionRef = useRef(null); // versión de BD que creemos vigente (guardado optimista atómico)
+  const lastSyncedRef = useRef({}); // {clientes:"[…]", avisos:"[…]", config:"{…}"} — JSON por sección
+  const lastVersionRef = useRef({}); // {clientes:5, avisos:3, config:1} — versión BD por sección
   const dataRef = useRef(data);
   const saveTimerRef = useRef(null);
   useEffect(()=>{ dataRef.current = data; },[data]);
-  // lastSyncedRef vive solo en memoria: si la pestaña se recarga (build nuevo,
-  // quedarse sin batería, el sistema mata la app en segundo plano...) justo
-  // cuando había una edición local que el guardado seguía reintentando sin éxito
-  // (p.ej. "Failed to fetch" repetido), se perdía esa base de comparación y la
-  // carga inicial de abajo sobrescribía sin más con lo que hubiera en el servidor,
-  // descartando para siempre un cambio que en realidad nunca llegó a guardarse.
-  // Persistirla también en localStorage permite que la carga inicial compare
-  // contra esa misma base y combine en vez de descartar (ver más abajo).
-  const persistirUltimoSincronizado = (json) => {
-    lastSyncedRef.current = json;
-    try { localStorage.setItem("em_last_synced", json); } catch(e){}
+  // lastSyncedRef y lastVersionRef se persisten en localStorage (clave v2) para
+  // sobrevivir recargas de página y recuperar cambios que aún no llegaron al servidor.
+  const persistirUltimoSincronizado = (jsonPorSeccion) => {
+    Object.assign(lastSyncedRef.current, jsonPorSeccion);
+    try { localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); } catch(e){}
   };
 
-  // Carga inicial desde el servidor: si hay datos remotos, son la fuente de verdad
-  // para que todos los usuarios vean lo mismo. Si el servidor está vacío (primera
-  // vez), sembramos con lo que tengamos en local (defaults o datos previos).
+  // ─── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(()=>{
     let cancelled=false;
-    (async ()=>{
+    (async()=>{
       try{
-        const res = await apiGetData();
+        const res = await apiGetSecciones();
         if(cancelled) return;
-        if(res.data){
-          const remoteJson = JSON.stringify(res.data);
-          // Si la base que guardamos la última vez (antes de esta recarga) sigue
-          // disponible en localStorage y nuestra copia local pendiente (la que
-          // cargamos al arrancar) es distinta de ella, es que había una edición
-          // que el guardado no había confirmado todavía cuando se recargó la
-          // página (p.ej. tras varios "Failed to fetch" seguidos). En ese caso no
-          // la descartamos sin más: la combinamos con lo remoto igual que hace el
-          // guardado periódico, para no perder ese trabajo.
-          let baseGuardada = null;
-          try { baseGuardada = localStorage.getItem("em_last_synced"); } catch(e){}
-          const localJson = JSON.stringify(dataRef.current);
-          if(baseGuardada && localJson !== baseGuardada && remoteJson !== localJson){
-            const conflictos = [];
-            const combinado = prepararDatos(combinarDatosRemotos(JSON.parse(baseGuardada), dataRef.current, res.data, "raiz", conflictos));
-            persistirUltimoSincronizado(remoteJson);
-            lastVersionRef.current = res.version;
-            setData(combinado);
-          } else {
-            // lastSyncedRef guarda lo que YA está en el servidor (sin códigos rellenados);
-            // si backfillCodigosMaquina añade códigos nuevos, el efecto de autoguardado
-            // detectará la diferencia y los subirá automáticamente.
-            persistirUltimoSincronizado(remoteJson);
-            lastVersionRef.current = res.version;
-            setData(prepararDatos(res.data));
+        if(res.sections && Object.keys(res.sections).length > 0){
+          // Cargar bases de comparación guardadas (para detectar cambios pendientes)
+          let savedSynced = {};
+          try{ savedSynced = JSON.parse(localStorage.getItem("em_last_synced_v2")||"{}"); }catch(e){}
+          // Compatibilidad con formato legacy (un único JSON blob)
+          if(Object.keys(savedSynced).length === 0){
+            try{
+              const legacyBase = localStorage.getItem("em_last_synced");
+              if(legacyBase){
+                const ld = JSON.parse(legacyBase);
+                TODAS_SECCIONES.forEach(s=>{ savedSynced[s] = JSON.stringify(extraerSeccion(ld, s)); });
+              }
+            }catch(e){}
           }
+          let mergedData = {...dataRef.current};
+          const newSynced = {};
+          const conflictos = [];
+          for(const [seccion, remoteData] of Object.entries(res.sections)){
+            const remoteJson = JSON.stringify(remoteData);
+            const localData = extraerSeccion(dataRef.current, seccion);
+            const localJson = JSON.stringify(localData);
+            const baseJson = savedSynced[seccion] || null;
+            if(baseJson && localJson !== baseJson && remoteJson !== localJson){
+              // Había cambios pendientes que no llegaron al servidor: combinar
+              const base = JSON.parse(baseJson);
+              const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
+              mergedData = aplicarSeccion(mergedData, seccion, combined);
+            } else {
+              mergedData = aplicarSeccion(mergedData, seccion, remoteData);
+            }
+            newSynced[seccion] = remoteJson;
+            lastVersionRef.current[seccion] = res.versions[seccion];
+          }
+          persistirUltimoSincronizado(newSynced);
+          setData(prepararDatos(mergedData));
         } else {
-          try {
-            const guardado = await apiSaveData(dataRef.current, res.version);
-            persistirUltimoSincronizado(JSON.stringify(dataRef.current));
-            lastVersionRef.current = guardado.version;
-          } catch(e){}
+          // Primera vez: subir todas las secciones al servidor
+          for(const s of TODAS_SECCIONES){
+            const sd = extraerSeccion(dataRef.current, s);
+            try{
+              const r = await apiGuardarSeccion(s, sd, null);
+              lastVersionRef.current[s] = r.version;
+              lastSyncedRef.current[s] = JSON.stringify(sd);
+            }catch(e){}
+          }
+          try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
         }
         setSyncStatus("ok");
-      }catch(e){
-        setSyncStatus("offline"); // sin conexión al servidor: seguimos con la copia local
-      }
+      }catch(e){ setSyncStatus("offline"); }
     })();
-    return ()=>{ cancelled=true; };
+    return()=>{ cancelled=true; };
   },[]);
 
   // Persist ALL data to localStorage on every change (caché local / modo offline)
@@ -10110,209 +10163,163 @@ export default function App() {
     try { localStorage.setItem("em_data", JSON.stringify(data)); } catch(e){}
   },[data]);
 
-  // Guardar en el servidor cuando cambian los datos (con pequeño debounce).
-  // IMPORTANTE: mientras la carga inicial (efecto anterior) no haya terminado
-  // (syncStatus==="cargando"), NO guardamos nada. Sin esta comprobación, al
-  // abrir la app este efecto se dispara en el primer render con los datos
-  // obsoletos de localStorage (posiblemente de horas antes) y, si la respuesta
-  // del servidor tarda más de los 1200ms de debounce, ese guardado obsoleto
-  // se ejecuta primero y sobrescribe todo lo que otros usuarios guardaron
-  // mientras tanto. Esta condición de carrera es la causa más probable de
-  // la pérdida de datos: con varios usuarios a la vez la respuesta del
-  // servidor puede tardar más de 1.2s perfectamente.
+  // ─── Guardado automático por secciones ─────────────────────────────────────
+  // Solo guarda las secciones que realmente cambiaron, con debounce de 1200 ms.
+  // NO guardamos nada mientras la carga inicial no haya terminado.
   useEffect(()=>{
     if(syncStatus==="cargando") return;
-    const json = JSON.stringify(data);
-    if(json === lastSyncedRef.current) return;
+    const cambiadas = TODAS_SECCIONES.filter(s => JSON.stringify(extraerSeccion(data,s)) !== lastSyncedRef.current[s]);
+    if(cambiadas.length === 0) return;
     setSyncStatus("guardando");
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(()=>{
       (async()=>{
         try{
-          let aGuardar = data; // lo que finalmente intentaremos guardar (puede combinarse con lo remoto)
-          // Comprobación previa (rápida, no atómica) antes de guardar: si una
-          // pestaña/dispositivo ha estado mucho tiempo en segundo plano (móvil
-          // bloqueado, portátil suspendido...), su copia local puede estar
-          // basada en datos de horas antes. Si vemos que el servidor ya tiene
-          // algo distinto de lo que creíamos, NO descartamos sin más nuestra
-          // edición: la combinamos con lo remoto (combinarDatosRemotos) y solo
-          // avisamos si hay un conflicto real (alguien editó exactamente lo
-          // mismo que nosotros). Esto es solo una primera red de seguridad: la
-          // garantía real (atómica, sin huecos de tiempo) la da el guardado
-          // condicionado por versión de más abajo.
-          const remoto = await apiGetData();
-          const remotoJson = remoto.data ? JSON.stringify(remoto.data) : null;
-          if(remotoJson !== null && remotoJson !== lastSyncedRef.current){
-            const base = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
-            const conflictos = [];
-            const combinado = prepararDatos(combinarDatosRemotos(base, data, remoto.data, "raiz", conflictos));
-            persistirUltimoSincronizado(remotoJson);
-            lastVersionRef.current = remoto.version;
-            setData(combinado);
-            aGuardar = combinado;
-            if(conflictos.length){
-              setSyncStatus("ok");
-              saveFailCountRef.current = 0;
-              setLastSaveError(null);
-              window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
-              return;
-            }
-            // Sin conflicto real: seguimos abajo para guardar la combinación.
-          }
-          // Guardado real: el servidor solo lo aplica si la versión que mandamos
-          // sigue siendo la vigente en la base de datos (comprobación atómica,
-          // sin el hueco de tiempo del paso anterior). Si otro dispositivo
-          // guardó justo en medio, responde "conflict" en vez de sobrescribir.
-          const resp = await apiSaveData(aGuardar, lastVersionRef.current);
-          if(resp && resp.conflict){
-            const fresco = await apiGetData();
-            if(fresco.data){
-              const base2 = lastSyncedRef.current ? JSON.parse(lastSyncedRef.current) : null;
-              const conflictos2 = [];
-              const combinado2 = prepararDatos(combinarDatosRemotos(base2, aGuardar, fresco.data, "raiz", conflictos2));
-              persistirUltimoSincronizado(JSON.stringify(fresco.data));
-              lastVersionRef.current = fresco.version;
-              setData(combinado2);
-              setSyncStatus("ok");
-              saveFailCountRef.current = 0;
-              setLastSaveError(null);
-              if(conflictos2.length){
+          let dataActual = {...data};
+          const conflictos = [];
+          // Un único GET para ver el estado remoto de todas las secciones
+          const remoto = await apiGetSecciones();
+          for(const seccion of cambiadas){
+            const localData = extraerSeccion(dataActual, seccion);
+            const remoteData = remoto.sections?.[seccion];
+            const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
+            const lastSynced = lastSyncedRef.current[seccion] || null;
+            let aGuardar = localData;
+            // Pre-merge si el remoto cambió respecto a lo que conocíamos
+            if(remoteJson !== null && remoteJson !== lastSynced){
+              const base = lastSynced ? JSON.parse(lastSynced) : null;
+              const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
+              aGuardar = combined;
+              dataActual = aplicarSeccion(dataActual, seccion, combined);
+              lastSyncedRef.current[seccion] = remoteJson;
+              lastVersionRef.current[seccion] = remoto.versions?.[seccion];
+              if(conflictos.length){
+                setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
+                setData(prepararDatos(dataActual));
                 window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
+                return;
               }
-              // Sin conflicto real: la combinación queda guardada localmente y el
-              // siguiente ciclo del propio efecto (al cambiar "data") la subirá sola.
-            } else {
-              lastSyncedRef.current = lastSyncedRef.current;
-              lastVersionRef.current = fresco.version;
-              setSyncStatus("ok");
-              saveFailCountRef.current = 0;
-              setLastSaveError(null);
             }
-            return;
+            const resp = await apiGuardarSeccion(seccion, aGuardar, lastVersionRef.current[seccion]??null);
+            if(resp && resp.conflict){
+              // 409: alguien guardó justo antes; buscar versión fresca y reintentar en el siguiente ciclo
+              const fresco = await apiGetSecciones();
+              if(fresco.sections && fresco.sections[seccion] !== undefined){
+                const frescoData = fresco.sections[seccion];
+                const base2 = lastSyncedRef.current[seccion] ? JSON.parse(lastSyncedRef.current[seccion]) : null;
+                const combined2 = combinarDatosRemotos(base2, aGuardar, frescoData, seccion, []);
+                dataActual = aplicarSeccion(dataActual, seccion, combined2);
+                lastSyncedRef.current[seccion] = JSON.stringify(frescoData);
+                lastVersionRef.current[seccion] = fresco.versions?.[seccion];
+              }
+              continue; // La sección se reintentará en el siguiente ciclo del efecto
+            }
+            lastSyncedRef.current[seccion] = JSON.stringify(aGuardar);
+            lastVersionRef.current[seccion] = resp.version;
+            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
           }
-          persistirUltimoSincronizado(JSON.stringify(aGuardar));
-          lastVersionRef.current = resp.version;
-          if(aGuardar !== data) setData(aGuardar);
-          setSyncStatus("ok");
-          saveFailCountRef.current = 0;
-          setLastSaveError(null);
+          if(dataActual !== data) setData(prepararDatos(dataActual));
+          setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
         }catch(e){
           setSyncStatus("error");
           const motivo = (e && e.message) ? e.message : String(e);
           setLastSaveError(motivo);
           saveFailCountRef.current += 1;
-          // Si llevamos varios fallos consecutivos seguidos (no uno aislado, que
-          // puede ser solo un corte de red momentáneo), avisamos de forma visible
-          // en vez de dejar solo el punto rojo sin explicación: así, si a alguien
-          // se le quedan tareas/avisos "sin guardar" de verdad, se entera en el
-          // momento en vez de descubrirlo horas después al ver que no llegó al
-          // resto. Solo avisamos la primera vez que se cruza el umbral, para no
-          // repetir la alerta en cada reintento mientras el problema persiste.
-          // Incluimos el peso del JSON que se intentaba subir: como se sube SIEMPRE
-          // el bloque entero (no solo el cambio), un fallo de tipo "Failed to fetch"
-          // con un peso de varios MB apunta a un límite de tamaño/tiempo del
-          // servidor, no a la conexión del dispositivo concreto.
           if(saveFailCountRef.current === 3){
-            const pesoMB = (JSON.stringify(data).length/1024/1024).toFixed(1);
-            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"; peso de los datos: "+pesoMB+" MB). Sigo reintentando automáticamente, pero si esto no se resuelve solo, avisa: puede que tus últimos cambios no le lleguen a los demás. Comprueba tu conexión a internet.");
+            const sMax = TODAS_SECCIONES.reduce((a,s)=>{ const l=JSON.stringify(extraerSeccion(data,s)).length; return l>a?l:a; },0);
+            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"; sección más grande: "+(sMax/1024/1024).toFixed(1)+" MB). Sigo reintentando, pero si persiste avisa para no perder cambios.");
           }
         }
       })();
     }, 1200);
-    return ()=>clearTimeout(saveTimerRef.current);
+    return()=>clearTimeout(saveTimerRef.current);
   },[data, syncStatus]);
 
-  // Guardado de emergencia al ocultar/cerrar la pestaña (cambiar de app en el
-  // móvil, bloquear la pantalla, cerrar la pestaña...). Sin esto, un cambio
-  // hecho justo antes (completar una tarea, guardar el email en "Mi cuenta")
-  // se pierde si el debounce de 1.2s de arriba no llega a dispararse: el
-  // sistema operativo puede congelar o matar la pestaña antes de que pase ese
-  // tiempo. Usamos keepalive para que la petición sobreviva aunque la página
-  // ya se haya cerrado, y no esperamos la respuesta (no hay tiempo para eso).
+  // ─── Guardado de emergencia (app pasa a segundo plano o se cierra) ──────────
   useEffect(()=>{
     const flushUrgente = ()=>{
       if(saveTimerRef.current){ clearTimeout(saveTimerRef.current); saveTimerRef.current=null; }
-      const json = JSON.stringify(dataRef.current);
-      if(json === lastSyncedRef.current) return; // nada pendiente de guardar
-      apiSaveData(dataRef.current, lastVersionRef.current, {keepalive:true}).then(resp=>{
-        if(resp && !resp.conflict){ persistirUltimoSincronizado(json); lastVersionRef.current = resp.version; }
-      }).catch(()=>{});
+      for(const s of TODAS_SECCIONES){
+        const sd = extraerSeccion(dataRef.current, s);
+        const j = JSON.stringify(sd);
+        if(j === lastSyncedRef.current[s]) continue;
+        apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, {keepalive:true}).then(resp=>{
+          if(resp && !resp.conflict){
+            lastSyncedRef.current[s] = j;
+            lastVersionRef.current[s] = resp.version;
+            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+          }
+        }).catch(()=>{});
+      }
     };
     const onVisibility = ()=>{ if(document.visibilityState==="hidden") flushUrgente(); };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", flushUrgente);
-    return ()=>{
-      document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", flushUrgente);
-    };
+    return()=>{ document.removeEventListener("visibilitychange", onVisibility); window.removeEventListener("pagehide", flushUrgente); };
   },[]);
 
-  // Pull periódico para ver cambios hechos por otros usuarios (solo si no tenemos
-  // cambios locales propios pendientes de guardar, para no pisarlos)
+  // ─── Pull periódico por secciones ──────────────────────────────────────────
+  // Solo actualiza las secciones donde NO hay cambios locales pendientes.
   useEffect(()=>{
-    const pull = async ()=>{
+    const pull = async()=>{
       try{
-        const res = await apiGetData();
-        if(res.data){
-          const remoteJson = JSON.stringify(res.data);
-          const localJson = JSON.stringify(dataRef.current);
-          if(remoteJson !== localJson && localJson === lastSyncedRef.current){
-            persistirUltimoSincronizado(remoteJson);
-            lastVersionRef.current = res.version;
-            setData(prepararDatos(res.data));
-          } else if(localJson === lastSyncedRef.current){
-            // Sin cambios propios pendientes y el remoto coincide: aprovechamos
-            // para mantener la versión al día (por si el número subió sin que
-            // el contenido cambiara, p.ej. tras una restauración de copia).
-            lastVersionRef.current = res.version;
+        const res = await apiGetSecciones();
+        if(res.sections){
+          let dataActual = dataRef.current;
+          let changed = false;
+          for(const [seccion, remoteData] of Object.entries(res.sections)){
+            const remoteJson = JSON.stringify(remoteData);
+            const localData = extraerSeccion(dataActual, seccion);
+            const localJson = JSON.stringify(localData);
+            const lastSynced = lastSyncedRef.current[seccion];
+            if(remoteJson !== localJson && localJson === lastSynced){
+              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              lastSyncedRef.current[seccion] = remoteJson;
+              lastVersionRef.current[seccion] = res.versions?.[seccion];
+              changed = true;
+            } else if(localJson === lastSynced){
+              lastVersionRef.current[seccion] = res.versions?.[seccion];
+            }
+          }
+          if(changed){
+            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+            setData(prepararDatos(dataActual));
           }
         }
         setSyncStatus(s => s==="offline" ? "ok" : s);
-      }catch(e){
-        setSyncStatus("offline");
-      }
+      }catch(e){ setSyncStatus("offline"); }
     };
     const onVisible = ()=>{ if(document.visibilityState==="visible") pull(); };
     const interval = setInterval(pull, 20000);
     window.addEventListener("focus", pull);
     document.addEventListener("visibilitychange", onVisible);
-    return ()=>{ clearInterval(interval); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", onVisible); };
+    return()=>{ clearInterval(interval); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", onVisible); };
   },[]);
 
-  // Recarga forzada de pestañas con código antiguo. Cada build genera un
-  // public/version.json nuevo con un id distinto (ver vite.config.js); esta
-  // pestaña tiene incrustado el id de la build con la que cargó (__BUILD_ID__).
-  // Si el id que devuelve version.json ya no coincide, es que se ha desplegado
-  // una versión más nueva mientras esta pestaña seguía abierta: recargamos
-  // para que use el JS actualizado (con todas las protecciones de guardado),
-  // en vez de quedarse para siempre con la lógica antigua sin enterarse. Solo
-  // recargamos si no hay un guardado en curso, para no cortar una escritura.
+  // ─── Recarga forzada al detectar nueva versión de código ───────────────────
   useEffect(()=>{
-    const comprobar = async ()=>{
+    const comprobar = async()=>{
       try{
-        const res = await fetch("/version.json?t="+Date.now(), { cache: "no-store" });
+        const res = await fetch("/version.json?t="+Date.now(), { cache:"no-store" });
         if(!res.ok) return;
         const json = await res.json();
         if(json && json.build && json.build !== __BUILD_ID__){
-          // Solo recargamos si NO hay ningún cambio pendiente de guardar.
-          // "ok" significa que el último guardado terminó con éxito y no hay nada nuevo.
-          // "error"/"guardando"/"cargando" significan que hay datos en vuelo o no confirmados:
-          // en ese caso intentamos un guardado de emergencia y solo recargamos si tiene éxito.
           if(syncStatusRef.current === "ok"){
             window.location.reload();
           } else {
-            // Intentar guardar antes de recargar para no perder datos no sincronizados
-            const jsonActual = JSON.stringify(dataRef.current);
-            if(jsonActual !== lastSyncedRef.current){
-              try{
-                const resp = await apiSaveData(dataRef.current, lastVersionRef.current, {keepalive:true});
-                if(resp && !resp.conflict){
-                  persistirUltimoSincronizado(jsonActual);
-                  lastVersionRef.current = resp.version;
-                }
-              }catch(e){}
+            // Intentar guardar las secciones pendientes antes de recargar
+            const hayCambios = TODAS_SECCIONES.some(s => JSON.stringify(extraerSeccion(dataRef.current,s)) !== lastSyncedRef.current[s]);
+            if(hayCambios){
+              for(const s of TODAS_SECCIONES){
+                const sd = extraerSeccion(dataRef.current, s);
+                if(JSON.stringify(sd) === lastSyncedRef.current[s]) continue;
+                try{
+                  const resp = await apiGuardarSeccion(s, sd, lastVersionRef.current[s]??null, {keepalive:true});
+                  if(resp && !resp.conflict){ lastSyncedRef.current[s]=JSON.stringify(sd); lastVersionRef.current[s]=resp.version; }
+                }catch(e){}
+              }
+              try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
             }
-            // Recargar de todas formas (ya intentamos guardar)
             window.location.reload();
           }
         }
