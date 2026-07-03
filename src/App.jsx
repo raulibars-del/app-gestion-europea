@@ -1315,7 +1315,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const delM=mid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,maquinas:c.maquinas.filter(m=>m.id!==mid)})}));
   const delCo=cid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,contactos:c.contactos.filter(x=>x.id!==cid)})}));
   const delCliente=cid=>{ setData(d=>({...d,clientes:d.clientes.filter(c=>c.id!==cid)})); setVista(null); };
-  const handleFoto=async e=>{ const f0=e.target.files[0]; if(!f0)return; const f=await comprimirImagen(f0); const r=new FileReader(); r.onload=ev=>setFormM(p=>({...p,foto:ev.target.result})); r.readAsDataURL(f); };
+  const handleFoto=async e=>{ const f0=e.target.files[0]; if(!f0)return; const f=await comprimirImagen(f0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f);}); try{const up=await apiUploadFile({base64:b64,filename:f.name,mime:f.type});setFormM(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
   if(vista===null) return (
     <div>
@@ -2113,7 +2113,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
     setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==clienteId?c:{...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)})}));
     setVista(null);
   };
-  const handleFoto = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const r=new FileReader(); r.onload=ev=>setForm(p=>({...p,foto:ev.target.result})); r.readAsDataURL(file); };
+  const handleFoto = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const imprimirQR = (m) => {
     // El QR apunta a una página real de la app (https://dominio/?maquina=CODIGO).
     // Esa página pide login antes de mostrar ningún dato (igual que la ficha de
@@ -2153,7 +2153,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     setModal(false);
   };
   // Alta completa de máquina nueva desde esta pantalla: elige cliente, datos y documentación opcional.
-  const handleFotoNueva = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const r=new FileReader(); r.onload=ev=>setFormNueva(p=>({...p,foto:ev.target.result})); r.readAsDataURL(file); };
+  const handleFotoNueva = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setFormNueva(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const handleArchivosNueva = e => Array.from(e.target.files).forEach(async file0=>{ const file=await comprimirImagen(file0); const r=new FileReader(); r.onload=ev=>setArchivosNueva(p=>[...p,{id:Date.now()+Math.random(),nombre:file.name,tipo:"Otro",tamanyo:file.size,data:ev.target.result}]); r.readAsDataURL(file); });
   const abrirNuevaMaquina = () => { setFormNueva({clienteId:"",nombre:"",marca:"",modelo:"",serie:"",anyo:"",notas:"",foto:null}); setArchivosNueva([]); setModalNueva(true); };
   const saveNueva = () => {
@@ -2199,7 +2199,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       }
     }catch(e){ /* el usuario cerró el panel de compartir */ }
   };
-  const generarPDFMaquinaFicha = () => {
+  const generarPDFMaquinaFicha = async () => {
     if(!maquina || !cliente) return;
     const m = maquina;
     const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
@@ -2275,10 +2275,11 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       });
       y+=5;
     };
-    if(m.foto){
+    const fotoCliente=await cargarFotoParaPDF(m.foto||null);
+    if(fotoCliente){
       try {
         const fotoW=60, fotoH=45;
-        doc.addImage(m.foto,mg,y,fotoW,fotoH);
+        doc.addImage(fotoCliente,mg,y,fotoW,fotoH);
         doc.setDrawColor(200,205,220); doc.roundedRect(mg,y,fotoW,fotoH,1,1,"S");
         y+=fotoH+6;
       } catch(e) {}
@@ -6758,7 +6759,7 @@ const venderMaquina=()=>{
   setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
 };
 const delMaquina=id=>{setMaqStock(ms=>ms.filter(m=>m.id!==id));setVista(null);};
-const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);const r=new FileReader();r.onload=ev=>setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:ev.target.result,principal:!(p.fotos&&p.fotos.length>0)}]}));r.readAsDataURL(file);});
+const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:up.url,principal:!(p.fotos&&p.fotos.length>0)}]}));}catch(er){alert("Error al subir la foto: "+er.message);}});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
@@ -6822,7 +6823,7 @@ if((m.fotos||[]).length>0){
   if(y+fH+8>280){doc.addPage();y=20;}
   doc.setFillColor(30,40,60);doc.roundedRect(fx-4,y-4,fW+8,fH+8,3,3,"F");
   doc.setDrawColor(249,115,22);doc.setLineWidth(0.8);doc.roundedRect(fx-2,y-2,fW+4,fH+4,2,2,"D");doc.setLineWidth(0.2);
-  try{doc.addImage(fotosSorted[0].data,"JPEG",fx,y,fW,fH);}catch(e){}
+  const fd0=await cargarFotoParaPDF(fotosSorted[0].data);if(fd0)try{doc.addImage(fd0,"JPEG",fx,y,fW,fH);}catch(e){}
   y+=fH+10;
   // Miniaturas adicionales (hasta 4)
   if(fotosSorted.length>1){
@@ -6830,7 +6831,7 @@ if((m.fotos||[]).length>0){
     for(let i=1;i<Math.min(fotosSorted.length,5);i++){
       if(y+th>280){doc.addPage();y=20;fx2=mg;}
       doc.setFillColor(25,35,55);doc.roundedRect(fx2-1,y-1,tw+2,th+2,1.5,1.5,"F");
-      try{doc.addImage(fotosSorted[i].data,"JPEG",fx2,y,tw,th);}catch(e){}
+      const fdi=await cargarFotoParaPDF(fotosSorted[i].data);if(fdi)try{doc.addImage(fdi,"JPEG",fx2,y,tw,th);}catch(e){}
       fx2+=tw+4;
     }
     y+=th+8;
@@ -9390,6 +9391,18 @@ async function apiSendMail(payload){
   return json;
 }
 const UPLOAD_API_URL = "/api/upload.php";
+// Carga una foto (base64 data URI o URL de servidor) como data URI listo para jsPDF.
+// Las fotos nuevas se guardan como URL en el servidor; las antiguas siguen siendo base64.
+async function cargarFotoParaPDF(src){
+  if(!src)return null;
+  if(src.startsWith("data:"))return src;
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext("2d").drawImage(img,0,0);resolve(c.toDataURL("image/jpeg",0.85));};
+    img.onerror=()=>resolve(null);
+    img.src=src;
+  });
+}
 // Redimensiona y comprime una imagen en el navegador antes de subirla: las
 // fotos hechas con el móvil pueden pesar varios MB (o venir en HEIC, que el
 // servidor no admite). Si el navegador puede decodificarla, la reescalamos a
@@ -9606,7 +9619,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
       </div>
     </Modal>
-    {cropSource && <FotoCropModal source={cropSource} onCancel={() => setCropSource(null)} onSave={dataUrl => { setFoto(dataUrl); setCropSource(null); }} />}
+    {cropSource && <FotoCropModal source={cropSource} onCancel={() => setCropSource(null)} onSave={async dataUrl => { try{const b64=dataUrl.split(",")[1];const up=await apiUploadFile({base64:b64,filename:"avatar.jpg",mime:"image/jpeg"});setFoto(up.url);}catch(er){setFoto(dataUrl);}setCropSource(null); }} />}
     </>
   );
 };
