@@ -183,6 +183,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore') {
     exit;
 }
 
+// ─── GET ?action=diag (temporal, solo para diagnóstico) ─────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'diag') {
+    $out = [];
+    // app_data (blob legacy)
+    $r = $pdo->query("SELECT LENGTH(data) as bytes, updated_at FROM app_data WHERE id=1")->fetch(PDO::FETCH_ASSOC);
+    $out['app_data'] = $r ?: null;
+    // app_sections
+    $stmt = $pdo->query("SELECT section, version, updated_at, LENGTH(data) as bytes FROM app_sections ORDER BY section");
+    $out['app_sections'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // app_data_history (últimas 10 entradas)
+    try {
+        $hist = $pdo->query("SELECT id, LENGTH(data) as bytes, created_at FROM app_data_history ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+        $out['app_data_history'] = $hist;
+    } catch(Throwable $e) { $out['app_data_history'] = 'no existe o error: '.$e->getMessage(); }
+    echo json_encode($out, JSON_PRETTY_PRINT);
+    exit;
+}
+
 // ─── GET ?action=sections ────────────────────────────────────────────────────
 // Nuevo endpoint: devuelve cada sección con su versión independiente.
 // Si app_sections está vacía, migra automáticamente desde el blob legacy.
