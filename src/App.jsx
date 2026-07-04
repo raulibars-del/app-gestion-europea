@@ -10418,6 +10418,23 @@ export default function App() {
             lastVersionRef.current[seccion] = res.versions[seccion];
           }
           persistirUltimoSincronizado(newSynced);
+          // Al cargar, cerrar avisos que el cron ya resolvió: si un parte fue enviado
+          // (emailEnviado:true, sin envioProgFecha) y su aviso sigue en "Pendiente",
+          // es porque el cron actuó mientras nadie estaba conectado. Lo cerramos ahora.
+          const hoyStr = new Date().toISOString().slice(0,10);
+          if(Array.isArray(mergedData.partes) && Array.isArray(mergedData.avisos)){
+            let avisosActualizados = false;
+            const nuevoAviso = mergedData.avisos.map(a => {
+              if(a.estado !== "Pendiente") return a;
+              const parteEnviado = mergedData.partes.find(p =>
+                p.avisoId === a.id && p.emailEnviado && !p.envioProgFecha
+              );
+              if(!parteEnviado) return a;
+              avisosActualizados = true;
+              return { ...a, estado:"Resuelto", fechaResuelto: parteEnviado.fechaEnvio || hoyStr, fechaUltimaIntervencion: parteEnviado.fechaEnvio || hoyStr };
+            });
+            if(avisosActualizados) mergedData = { ...mergedData, avisos: nuevoAviso };
+          }
           setData(prepararDatos(mergedData));
         } else {
           // Primera vez: subir todas las secciones al servidor
