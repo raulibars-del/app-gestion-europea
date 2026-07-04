@@ -5381,6 +5381,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
 
     const pendientes = (data.partes || []).filter(p => {
       if (!p.envioProgFecha || p.emailEnviado) return false;
+      // Si tiene PDF pregenerado, lo maneja el cron del servidor — no interferir
+      if (p.envioProgPDFBase64) return false;
       if (p.envioProgFecha < hoyEspana) return true;
       if (p.envioProgFecha === hoyEspana) {
         return (p.envioProgHora || "00:00") <= ahoraEspana;
@@ -5435,6 +5437,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             envioProgConforme: null,
             envioProgNotas: null,
           } : pt),
+          // Cerrar el aviso vinculado ahora que el email ha llegado al cliente
+          avisos: p.avisoId
+            ? (d.avisos||[]).map(a => a.id === p.avisoId
+                ? { ...a, estado: "Resuelto", fechaResuelto: hoyEspana, fechaUltimaIntervencion: hoyEspana }
+                : a)
+            : d.avisos,
         }));
       } catch (e) {
         console.error("Error en envío programado parte", p.id, e);
@@ -6106,22 +6114,51 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                         onFecha={f=>setFechaProgr(f)}
                         onHora={h=>setHoraProgr(h)}
                       />
-                      <button onClick={()=>{
+                      <button onClick={async ()=>{
                         if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de programar.");return;}
                         if(!fechaProgr){alert("Selecciona una fecha en el calendario.");return;}
                         if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
                         const nuevaFirmaImg = capturarFirmaImagen();
                         const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
-                        setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{
-                          ...pt,
-                          envioProgFecha: fechaProgr,
-                          envioProgHora: horaProgr,
-                          envioProgEmail: emailCliente,
-                          envioProgFirmaNombre: form.firmaNombre,
-                          envioProgFirmaImagen: nuevaFirmaImg||pt.firmaImagen||null,
-                          envioProgConforme: conforme,
-                          envioProgNotas: notasConformidad,
-                        }:pt)}));
+                        // Pre-generar el PDF ahora (jsPDF solo corre en el navegador).
+                        // Se guarda en base64 en el parte para que el cron PHP lo envíe
+                        // a la hora exacta sin necesidad de que nadie esté conectado.
+                        let pdfBase64 = null;
+                        let emailHtml = null;
+                        try {
+                          const parteParaPDF = {
+                            ...p,
+                            firmaNombre: form.firmaNombre,
+                            firmaImagen: nuevaFirmaImg || p.firmaImagen || null,
+                            conforme: conforme,
+                            notasConformidad: notasConformidad,
+                          };
+                          const numeroMostrado = modalPDFCadena ? cadenaBaseDe(modalPDFCadena[0]) : (p.numeroParte||"");
+                          const dataUri = await generarYDescargarPDF(parteParaPDF, true, true, modalPDFCadena);
+                          pdfBase64 = dataUri.split(",")[1];
+                          const numVis = modalPDFCadena ? modalPDFCadena.length : 1;
+                          emailHtml = "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos documento relativo a la gestión de trabajo realizada, parte de trabajo <strong>"+numeroMostrado+"</strong>"+(numVis>1?" (incluye las "+numVis+" visitas realizadas)":"")+".</p><p>Esta cuenta es solo para el envío de documentación y no es una vía de contacto válida; para cualquier consulta, escríbanos usando los datos de abajo.</p>"+htmlFirmaGestion()+"</div>";
+                        } catch(e) {
+                          console.error("Error pregenerando PDF para envío programado:", e);
+                        }
+                        setData(d=>({
+                          ...d,
+                          partes: d.partes.map(pt=>idsAfectados.includes(pt.id)?{
+                            ...pt,
+                            envioProgFecha: fechaProgr,
+                            envioProgHora: horaProgr,
+                            envioProgEmail: emailCliente,
+                            envioProgFirmaNombre: form.firmaNombre,
+                            envioProgFirmaImagen: nuevaFirmaImg||pt.firmaImagen||null,
+                            envioProgConforme: conforme,
+                            envioProgNotas: notasConformidad,
+                            envioProgPDFBase64: pdfBase64,
+                            envioProgEmailHtml: emailHtml,
+                            envioProgCadenaIds: idsAfectados,
+                          }:pt),
+                          // El aviso NO se toca al programar: permanece exactamente como está.
+                          // Solo se cerrará cuando el email llegue al cliente (cron o navegador).
+                        }));
                         setModoProgr(false); setModalPDF(null);
                         alert("Programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+"h (España). El parte desaparece hasta ese momento.");
                       }} style={{width:"100%",background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"11px 0",fontWeight:700,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>

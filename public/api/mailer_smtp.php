@@ -69,8 +69,14 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
         }
     }
 
-    $from = $cfg['from'] ?: $cfg['user'];
-    $send("MAIL FROM:<$from>");
+    // El header From: usa la dirección visible configurada (puede ser avisos@...,
+    // gestion@..., etc.), pero el envelope SMTP (MAIL FROM) debe usar la cuenta
+    // autenticada ($cfg['user']) para que SPF no falle y el servidor IONOS reenvíe
+    // correctamente a destinatarios externos (el cliente). Sin esto, IONOS acepta
+    // la entrega local (gestion@) pero bloquea el relay externo → el cliente no recibe.
+    $fromHeader = $cfg['from'] ?: $cfg['user'];
+    $fromEnvelope = $cfg['user'] ?: $fromHeader; // autenticado → SPF pasa
+    $send("MAIL FROM:<$fromEnvelope>");
     $expect(250);
     $send("RCPT TO:<$to>");
     $expect([250, 251]);
@@ -88,7 +94,7 @@ function smtp_send_mail($cfg, $to, $toName, $subject, $html, $attachment = null,
     // Europea de Maquinaria"), aunque el correo siga saliendo técnicamente de la
     // cuenta $from (gestion@...). mb_encode_mimeheader por si lleva tildes/ñ.
     $fromDisplay = $fromName ?: 'Europea de Maquinaria';
-    $headers[] = "From: " . mb_encode_mimeheader($fromDisplay, 'UTF-8', 'B') . " <$from>";
+    $headers[] = "From: " . mb_encode_mimeheader($fromDisplay, 'UTF-8', 'B') . " <$fromHeader>";
     $headers[] = "To: " . ($toName ? "$toName <$to>" : $to);
     // Permite que, aunque el correo se autentique y salga de $from (la cuenta
     // gestion@...), las respuestas del destinatario lleguen directamente al email
