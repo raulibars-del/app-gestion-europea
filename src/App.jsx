@@ -1693,7 +1693,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
       })()}
       {/* Partes de trabajo de este cliente */}
       {(()=>{
-        const partesCliente=(data.partes||[]).filter(p=>p.clienteDirectoId===c.id);
+        const partesCliente=(data.partes||[]).filter(p=>p.clienteDirectoId===c.id && !p.envioProgFecha);
         if(!partesCliente.length) return null;
         return(
           <div style={{background:"#151b2a",border:"1px solid #0ea5e933",borderRadius:12,padding:"15px 17px",marginTop:14}}>
@@ -2228,7 +2228,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     if(!maquina || !cliente) return;
     const m = maquina;
     const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
-    const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id);
+    const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id && !p.envioProgFecha);
     const historial = [
       ...avisosM.map(a=>({tipo:"Aviso", fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
       ...partesM.map(p=>({tipo:"Parte", fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
@@ -2358,7 +2358,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
   if(vista && cliente && maquina){
     const m=maquina;
     const avisosM = (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id);
-    const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id);
+    const partesM = (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id && !p.envioProgFecha);
     const historial = [
       ...avisosM.map(a=>({tipo:"Aviso", id:a.id, fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
       ...partesM.map(p=>({tipo:"Parte", id:p.id, fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
@@ -5078,13 +5078,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   // Partes "Continuado" que todavia no han sido retomados por otro parte posterior
   // (es decir, son el final actual de su cadena y se puede seguir trabajando sobre ellos).
   const partesRetomables = data.partes.filter(p =>
-    p.estadoParte==="Continuado" && !data.partes.some(x => x.continuaDeId===p.id)
+    p.estadoParte==="Continuado" && !p.envioProgFecha && !data.partes.some(x => x.continuaDeId===p.id)
   );
   // Agrupa los partes por cadena (mismo trabajo, varias visitas) para mostrarlos
   // uno debajo de otro en el listado. Los grupos se ordenan por el id mas reciente.
   const gruposPartes = useMemo(() => {
     const mapa = {};
-    data.partes.forEach(p => {
+    // Los partes con envío programado se ocultan hasta que se envíen
+    data.partes.filter(p => !p.envioProgFecha).forEach(p => {
       const base = cadenaBaseDe(p);
       (mapa[base] = mapa[base]||[]).push(p);
     });
