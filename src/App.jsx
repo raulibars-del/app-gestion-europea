@@ -9765,10 +9765,17 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
     canvas.width = w; canvas.height = h;
     canvas.getContext("2d").drawImage(img, 0, 0, w, h);
     const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", calidad));
-    if (!blob) return file;
+    if (!blob) throw new Error("canvas.toBlob devolvió null");
     const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
     return new File([blob], nombre, { type: "image/jpeg" });
   } catch (e) {
+    // Si el canvas no pudo procesar la imagen (p.ej. HEIC en Chrome),
+    // intentamos devolver una versión con tipo forzado a image/jpeg para que
+    // el servidor la acepte igualmente. Si el archivo original ya es JPEG, se
+    // devuelve tal cual.
+    if (file.type === "image/jpeg" || file.type === "image/jpg") return file;
+    // Para otros formatos que no son renderizables, devolvemos el archivo original;
+    // el servidor lo rechazará con error claro si el formato no está permitido.
     return file;
   } finally {
     if (url) URL.revokeObjectURL(url);
@@ -9781,9 +9788,9 @@ async function apiUploadFile(payload){
     body: JSON.stringify(payload),
   });
   const json = await res.json().catch(()=>({}));
-  if(!res.ok || json.error){
-    const msgs = { tipo_no_permitido:"Tipo de archivo no permitido.", archivo_demasiado_grande:"El archivo pesa demasiado (máx. 25 MB)." };
-    throw new Error(msgs[json.error] || json.error || ("HTTP "+res.status));
+  if(!res.ok || json.error || !json.url){
+    const msgs = { tipo_no_permitido:"Tipo de archivo no permitido.", archivo_demasiado_grande:"El archivo pesa demasiado (máx. 25 MB).", missing_fields:"Datos incompletos al subir.", no_se_pudo_guardar:"No se pudo guardar en el servidor." };
+    throw new Error(msgs[json.error] || json.error || (!json.url ? "El servidor no devolvió URL del archivo." : "") || ("HTTP "+res.status));
   }
   return json;
 }
