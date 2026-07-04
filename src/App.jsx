@@ -4872,7 +4872,6 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [modoProgr, setModoProgr] = useState(false); // muestra datepicker en modal
   const [fechaProgr, setFechaProgr] = useState("");
   const [horaProgr, setHoraProgr] = useState("08:00");
-  const [calProgrAbierto, setCalProgrAbierto] = useState(false);
   const [busqCliente, setBusqCliente] = useState("");
   const [clienteSel, setClienteSel] = useState(null);
   const [mostrarDropCliente, setMostrarDropCliente] = useState(false);
@@ -5143,7 +5142,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setConforme(p.envioProgConforme ?? p.conforme ?? true);
     setNotasConformidad(p.envioProgNotas || p.notasConformidad || "");
     setForm(prev=>({...prev,firmaNombre:p.envioProgFirmaNombre || p.firmaNombre || ""}));
-    setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00"); setCalProgrAbierto(false);
+    setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00");
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
   // Permite que otras pantallas (p.ej. el historial de una Máquina) naveguen aquí y
@@ -6093,37 +6092,23 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"10px 14px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
                   <Icon name="check" size={15} />PDF descargado y email enviado a {p.emailEnviadoA||emailCliente}, con copia a {p.emailEnviadoCC||data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}
                 </div>}
-                {/* Firmar y enviar programado — solo manager/admin */}
+                {/* Sección programado — inline, desplegable dentro del mismo modal */}
                 {(userActual.rol==="manager"||userActual.rol==="admin") && modoProgr && (
-                  <div style={{background:"#1a2236",border:"1px solid #f97316aa",borderRadius:10,padding:"12px 14px",marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{color:"#f97316",fontWeight:700,fontSize:13}}>📅 Programar envío</div>
-                    <div style={{color:"#e4e9f6",fontSize:12}}>El parte se firmará y se enviará automáticamente en la fecha indicada, la primera vez que alguien abra la app ese día o después.</div>
-                    <div style={{position:"relative"}}>
-                      <button onClick={()=>setCalProgrAbierto(p=>!p)}
-                        style={{background:"#151b2a",border:"1px solid #f9731666",borderRadius:8,padding:"8px 14px",color:fechaProgr?"#f1f3f9":"#8b9ab8",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontWeight:fechaProgr?600:400}}>
-                        📅 {fechaProgr ? `${fmtFecha(fechaProgr)} · ${horaProgr}h` : "Seleccionar día y hora"}
-                      </button>
-                      {calProgrAbierto && (
-                        <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:200}}>
-                          <CalendarioPicker
-                            fecha={fechaProgr} hora={horaProgr}
-                            minFecha={today()}
-                            onFecha={f=>{setFechaProgr(f);}}
-                            onHora={h=>setHoraProgr(h)}
-                          />
-                          <button onClick={()=>setCalProgrAbierto(false)}
-                            style={{width:"100%",marginTop:4,background:"#8b5cf6",color:"#fff",border:"none",borderRadius:8,padding:"9px 0",fontWeight:700,cursor:"pointer",fontSize:13}}>
-                            OK
-                          </button>
-                        </div>
-                      )}
+                  <div style={{border:"1px solid #f97316aa",borderRadius:12,overflow:"hidden",marginBottom:10}}>
+                    <div style={{background:"#f9731615",padding:"10px 14px",borderBottom:"1px solid #f9731633",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{color:"#f97316",fontWeight:700,fontSize:13}}>📅 Selecciona cuándo enviar</span>
+                      <button onClick={()=>setModoProgr(false)} style={{background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:18,lineHeight:1}}>×</button>
                     </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>setModoProgr(false)} style={btnOutline}>Cancelar</button>
+                    <div style={{padding:"14px",display:"flex",flexDirection:"column",gap:12,alignItems:"flex-start"}}>
+                      <CalendarioPicker
+                        fecha={fechaProgr} hora={horaProgr}
+                        minFecha={today()}
+                        onFecha={f=>setFechaProgr(f)}
+                        onHora={h=>setHoraProgr(h)}
+                      />
                       <button onClick={()=>{
                         if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de programar.");return;}
-                        if(!fechaProgr){alert("Selecciona una fecha.");return;}
-                        if(!horaProgr){alert("Selecciona una hora.");return;}
+                        if(!fechaProgr){alert("Selecciona una fecha en el calendario.");return;}
                         if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
                         const nuevaFirmaImg = capturarFirmaImagen();
                         const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
@@ -6137,39 +6122,41 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                           envioProgConforme: conforme,
                           envioProgNotas: notasConformidad,
                         }:pt)}));
-                        setModoProgr(false); setCalProgrAbierto(false); setModalPDF(null);
-                        alert("Envío programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+" (hora de España).");
-                      }} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
-                        <Icon name="send" size={13}/>Confirmar programa
+                        setModoProgr(false); setModalPDF(null);
+                        alert("Programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+"h (España). El parte desaparece hasta ese momento.");
+                      }} style={{width:"100%",background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"11px 0",fontWeight:700,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+                        <Icon name="send" size={14}/>Confirmar envío programado
                       </button>
                     </div>
                   </div>
                 )}
                 <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
                   <button onClick={() => { setModalPDF(null); setModoProgr(false); }} style={btnOutline}>Cerrar</button>
-                  <button onClick={()=>{
-                    if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
-                    const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
-                    const nuevaFirmaImg = capturarFirmaImagen();
-                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
-                    generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true,modalPDFCadena);
-                  }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
-                    <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
-                  </button>
-                  {(userActual.rol==="manager"||userActual.rol==="admin") && !modoProgr && (
-                    <button onClick={()=>{ setModoProgr(true); setFechaProgr(""); }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:13,color:"#f97316",display:"flex",alignItems:"center",gap:6}}>
-                      📅 Firmar y enviar programado
+                  {!modoProgr && <>
+                    <button onClick={()=>{
+                      if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
+                      const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
+                      const nuevaFirmaImg = capturarFirmaImagen();
+                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
+                      generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true,modalPDFCadena);
+                    }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
+                      <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
                     </button>
-                  )}
-                  <button onClick={()=>{
-                    if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
-                    const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
-                    const nuevaFirmaImg = capturarFirmaImagen();
-                    setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
-                    enviarEmail();
-                  }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
-                    {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
-                  </button>
+                    {(userActual.rol==="manager"||userActual.rol==="admin") && (
+                      <button onClick={()=>{ setModoProgr(true); setFechaProgr(""); setHoraProgr("08:00"); }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:13,color:"#f97316",display:"flex",alignItems:"center",gap:6}}>
+                        📅 Firmar y enviar programado
+                      </button>
+                    )}
+                    <button onClick={()=>{
+                      if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
+                      const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
+                      const nuevaFirmaImg = capturarFirmaImagen();
+                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
+                      enviarEmail();
+                    }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                      {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
+                    </button>
+                  </>}
                 </div>
               </div>
             </div>
