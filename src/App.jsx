@@ -4024,6 +4024,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [filtroStats, setFiltroStats] = useState(null); // null | "pendientes" | "vencidas"
+  const [busqTarea, setBusqTarea] = useState("");
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
@@ -4331,11 +4332,23 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const vencidasTareas = pendientes.filter(t => diasVence(t.vence) < 0);
-  const mostrar = filtroStats === "pendientes"
+  const filtroBase = filtroStats === "pendientes"
     ? pendientes.filter(t => diasVence(t.vence) >= 0)
     : filtroStats === "vencidas"
       ? vencidasTareas
       : misTareas;
+  const mostrar = busqTarea.trim().length < 2
+    ? filtroBase
+    : (() => {
+        const q = busqTarea.trim().toLowerCase();
+        return filtroBase.filter(t =>
+          (t.titulo||"").toLowerCase().includes(q) ||
+          (t.notas||"").toLowerCase().includes(q) ||
+          (t.vence||"").includes(q) ||
+          (t.estado||"").toLowerCase().includes(q) ||
+          (t.prioridad||"").toLowerCase().includes(q)
+        );
+      })();
   // Activas primero por prioridad/fecha, completadas al final tachadas
   const ordenar = lista => {
     const activas = lista.filter(t => t.estado !== "Completada");
@@ -4408,7 +4421,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (!t.esEmpresa && t.asignadoId !== userActual.id && t.creadoPor !== userActual.id) return;
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
     if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
-    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null } : x) }));
+    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null } : x) }));
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
@@ -4468,10 +4481,21 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           );
         })}
       </div>
+      {/* Buscador */}
+      <div style={{position:"relative",marginBottom:10}}>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#8b5cf6",pointerEvents:"none",display:"flex"}}><Icon name="search" size={14}/></span>
+        <input
+          value={busqTarea} onChange={e=>setBusqTarea(e.target.value)}
+          placeholder="Buscar tareas por título, descripción, fecha..."
+          style={{...inputStyle,paddingLeft:32,fontSize:13}}
+        />
+        {busqTarea && <button onClick={()=>setBusqTarea("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
+      </div>
       {/* Contador */}
       <div style={{color:"#e4e9f6",fontSize:12,marginBottom:10,display:"flex",gap:10}}>
-        <span>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span>
+        <span>{mostrar.filter(t=>t.estado!=="Completada").length} pendiente{mostrar.filter(t=>t.estado!=="Completada").length !== 1 ? "s" : ""}</span>
         {completadas.length > 0 && <span style={{color:"#10b981"}}>· {completadas.length} completada{completadas.length !== 1 ? "s" : ""}</span>}
+        {busqTarea.trim().length >= 2 && <span style={{color:"#8b5cf6"}}>· {mostrar.length} resultado{mostrar.length !== 1 ? "s" : ""}</span>}
       </div>
       {/* Lista de tareas */}
       <div style={{display:"grid",gap:6}}>
@@ -4505,7 +4529,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                   ) : (
                     t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#e4e9f6",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
                   )}
-                  {t.estado === "Completada" && t.esEmpresa && t.completadoPor && <span style={{color:"#10b981",fontSize:11}}>Completada por <b style={{color:"#fff"}}>{uN(t.completadoPor)}</b></span>}
+                  {t.estado === "Completada" && t.completadoPor && <span style={{color:"#10b981",fontSize:11,fontWeight:600}}>✓ Completada por <b style={{color:"#fff"}}>{uN(t.completadoPor)}</b>{t.fechaCompletada ? <> el {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
                   {t.notas && <span style={{color:"#e4e9f6",fontSize:11}}>📝 {t.notas}</span>}
                   {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
@@ -4794,6 +4818,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [notasConformidad, setNotasConformidad] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [modoProgr, setModoProgr] = useState(false); // muestra datepicker en modal
+  const [fechaProgr, setFechaProgr] = useState("");
+  const [horaProgr, setHoraProgr] = useState("08:00");
   const [busqCliente, setBusqCliente] = useState("");
   const [clienteSel, setClienteSel] = useState(null);
   const [mostrarDropCliente, setMostrarDropCliente] = useState(false);
@@ -5057,11 +5084,13 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   };
   const abrirPDF = (p, cadena) => {
     const cl = p.clienteDirectoId ? data.clientes.find(c => c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
-    const emailPre = cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
+    const emailPre = p.envioProgEmail || cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
     setModalPDF(p); setModalPDFCadena(cadena && cadena.length>1 ? cadena : null);
     setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
-    setConforme(p.conforme??true); setNotasConformidad(p.notasConformidad||"");
-    setForm(prev=>({...prev,firmaNombre:p.firmaNombre||""}));
+    setConforme(p.envioProgConforme ?? p.conforme ?? true);
+    setNotasConformidad(p.envioProgNotas || p.notasConformidad || "");
+    setForm(prev=>({...prev,firmaNombre:p.envioProgFirmaNombre || p.firmaNombre || ""}));
+    setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00");
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
   // Permite que otras pantallas (p.ej. el historial de una Máquina) naveguen aquí y
@@ -5277,8 +5306,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const cadenaCompleta = cadena && cadena.length>1 ? cadena : null;
     const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
     const numeroMostrar = cadenaCompleta ? cadenaBaseDe(cadenaCompleta[0]) : (p.numeroParte||("PT-"+String(p.id).slice(-6)));
+    // Si ya está firmado, generar el PDF con la firma del cliente
+    const conFirma = !!(p.firmaNombre);
     try {
-      const dataUri = await generarYDescargarPDF(parteConDatos, false, false, cadenaCompleta);
+      const dataUri = await generarYDescargarPDF(parteConDatos, conFirma, false, cadenaCompleta);
       const byteString = atob(dataUri.split(",")[1]);
       const bytes = new Uint8Array(byteString.length);
       for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
@@ -5288,6 +5319,81 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       setPdfLectura({ url, nombre: "Parte "+numeroMostrar, blob });
     } catch(e) { alert("No se pudo generar el PDF de este parte."); }
   };
+  // Ejecuta envíos programados cuya fecha+hora (zona Europa/Madrid) ya ha llegado
+  useEffect(() => {
+    const hoy = today();
+    // Hora actual en España: "HH:MM"
+    const ahoraEspana = new Intl.DateTimeFormat("es-ES", {
+      timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit", hour12: false
+    }).format(new Date()).slice(0, 5);
+    const pendientes = (data.partes || []).filter(p => {
+      if (!p.envioProgFecha || p.emailEnviado) return false;
+      if (p.envioProgFecha < hoy) return true;  // fecha pasada → sí
+      if (p.envioProgFecha === hoy) {
+        const hora = p.envioProgHora || "00:00";
+        return hora <= ahoraEspana;             // misma fecha → comprobar hora
+      }
+      return false;
+    });
+    if (!pendientes.length) return;
+    (async () => {
+      for (const p of pendientes) {
+        try {
+          const cl = p.clienteDirectoId ? data.clientes.find(c=>c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
+          const cadena = obtenerCadenaPartes(data.partes, p);
+          const cadenaCompleta = cadena.length > 1 ? cadena : null;
+          const parteConFirma = {
+            ...p,
+            firmaNombre: p.envioProgFirmaNombre,
+            firmaImagen: p.envioProgFirmaImagen,
+            conforme: p.envioProgConforme,
+            notasConformidad: p.envioProgNotas || "",
+          };
+          const dataUri = await generarYDescargarPDF(parteConFirma, true, true, cadenaCompleta);
+          const base64 = dataUri.split(",")[1];
+          const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
+          const numeroMostrado = cadenaCompleta ? cadenaBaseDe(cadena[0]) : (p.numeroParte || "");
+          await apiSendMail({
+            to: p.envioProgEmail,
+            cc: ccUsada,
+            subject: "Parte de trabajo " + numeroMostrado + " — Europea de Maquinaria",
+            html: "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos documento relativo a la gestión de trabajo realizada, parte de trabajo <strong>" + numeroMostrado + "</strong>" + (cadenaCompleta ? " (incluye las " + cadena.length + " visitas realizadas)" : "") + ".</p><p>Esta cuenta es solo para el envío de documentación y no es una vía de contacto válida; para cualquier consulta, escríbanos usando los datos de abajo.</p>" + htmlFirmaGestion() + "</div>",
+            attachmentBase64: base64,
+            attachmentName: "parte-" + numeroMostrado + ".pdf",
+            attachmentMime: "application/pdf",
+          });
+          const idsAfectados = cadenaCompleta ? cadena.map(c=>c.id) : [p.id];
+          setData(d => ({
+            ...d,
+            partes: d.partes.map(pt => idsAfectados.includes(pt.id) ? {
+              ...pt,
+              firmaNombre: p.envioProgFirmaNombre,
+              firmaImagen: p.envioProgFirmaImagen,
+              conforme: p.envioProgConforme,
+              notasConformidad: p.envioProgNotas || "",
+              fechaFirma: hoy,
+              emailEnviado: true,
+              emailEnviadoA: p.envioProgEmail,
+              emailEnviadoCC: ccUsada,
+              fechaEnvio: hoy,
+              envioProgFecha: null,
+              envioProgHora: null,
+              envioProgEmail: null,
+              envioProgFirmaNombre: null,
+              envioProgFirmaImagen: null,
+              envioProgConforme: null,
+              envioProgNotas: null,
+            } : pt)
+          }));
+        } catch(e) {
+          console.error("Error en envío programado parte", p.id, e);
+        }
+      }
+    })();
+  // Solo al montar y cuando cambia la lista de partes (evitar bucle: solo dependemos de IDs+fechas)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const enviarEmail = async () => {
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
     setEnviando(true);
@@ -5378,6 +5484,11 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <div title={p.firmaNombre?("Firmado por "+p.firmaNombre):"Aún no firmado por el cliente"} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.firmaNombre?"#16a34a20":"#f59e0b20",color:p.firmaNombre?"#16a34a":"#f59e0b",border:"1px solid "+(p.firmaNombre?"#16a34a44":"#f59e0b44")}}>
                     {p.firmaNombre?"✍️ Firmado":"⏳ Sin firmar"}
                   </div>
+                  {p.envioProgFecha && (userActual.rol==="manager"||userActual.rol==="admin") && (
+                    <div title={"Envío programado para el "+fmtFecha(p.envioProgFecha)+(p.envioProgHora?" a las "+p.envioProgHora:"")+" a "+p.envioProgEmail} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:"#f9731620",color:"#f97316",border:"1px solid #f9731644"}}>
+                      📅 Programado: {fmtFecha(p.envioProgFecha)}{p.envioProgHora ? " · "+p.envioProgHora : ""}h (España)
+                    </div>
+                  )}
                   <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                     <button onClick={() => verPreviaParte(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       <Icon name="parts" size={12} />PDF
@@ -5931,11 +6042,54 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                 {enviado && <div style={{background:"#10b98118",border:"1px solid #10b98144",borderRadius:9,padding:"10px 14px",color:"#10b981",fontSize:13,fontWeight:600,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
                   <Icon name="check" size={15} />PDF descargado y email enviado a {p.emailEnviadoA||emailCliente}, con copia a {p.emailEnviadoCC||data.smtp?.ccPartes||"gestion@europeademaquinaria.com"}
                 </div>}
+                {/* Firmar y enviar programado — solo manager/admin */}
+                {(userActual.rol==="manager"||userActual.rol==="admin") && modoProgr && (
+                  <div style={{background:"#1a2236",border:"1px solid #f97316aa",borderRadius:10,padding:"12px 14px",marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{color:"#f97316",fontWeight:700,fontSize:13}}>📅 Programar envío</div>
+                    <div style={{color:"#e4e9f6",fontSize:12}}>El parte se firmará y se enviará automáticamente en la fecha indicada, la primera vez que alguien abra la app ese día o después.</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                        <div style={{color:"#e4e9f6",fontSize:11}}>Fecha</div>
+                        <input type="date" value={fechaProgr} onChange={e=>setFechaProgr(e.target.value)} min={today()}
+                          style={{...inputStyle,maxWidth:160}} />
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                        <div style={{color:"#e4e9f6",fontSize:11}}>Hora (España)</div>
+                        <input type="time" value={horaProgr} onChange={e=>setHoraProgr(e.target.value)}
+                          style={{...inputStyle,maxWidth:120}} />
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>setModoProgr(false)} style={btnOutline}>Cancelar</button>
+                      <button onClick={()=>{
+                        if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de programar.");return;}
+                        if(!fechaProgr){alert("Selecciona una fecha.");return;}
+                        if(!horaProgr){alert("Selecciona una hora.");return;}
+                        if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
+                        const nuevaFirmaImg = capturarFirmaImagen();
+                        const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
+                        setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{
+                          ...pt,
+                          envioProgFecha: fechaProgr,
+                          envioProgHora: horaProgr,
+                          envioProgEmail: emailCliente,
+                          envioProgFirmaNombre: form.firmaNombre,
+                          envioProgFirmaImagen: nuevaFirmaImg||pt.firmaImagen||null,
+                          envioProgConforme: conforme,
+                          envioProgNotas: notasConformidad,
+                        }:pt)}));
+                        setModoProgr(false); setModalPDF(null);
+                        alert("Envío programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+" (hora de España).");
+                      }} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
+                        <Icon name="send" size={13}/>Confirmar programa
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
-                  <button onClick={() => setModalPDF(null)} style={btnOutline}>Cerrar</button>
+                  <button onClick={() => { setModalPDF(null); setModoProgr(false); }} style={btnOutline}>Cerrar</button>
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
-                    // Guardar firmaNombre y conformidad en el parte (y en toda la cadena si aplica)
                     const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
                     const nuevaFirmaImg = capturarFirmaImagen();
                     setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
@@ -5943,6 +6097,11 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
                     <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
                   </button>
+                  {(userActual.rol==="manager"||userActual.rol==="admin") && !modoProgr && (
+                    <button onClick={()=>{ setModoProgr(true); setFechaProgr(""); }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:13,color:"#f97316",display:"flex",alignItems:"center",gap:6}}>
+                      📅 Firmar y enviar programado
+                    </button>
+                  )}
                   <button onClick={()=>{
                     if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
                     const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
