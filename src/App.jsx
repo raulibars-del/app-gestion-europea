@@ -4532,9 +4532,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
               const vc = venceColor(t.vence);
               return (
                 <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
-                  <div style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>
+                  <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
                     {t.estado === "Completada" && "✓"}
-                  </div>
+                  </button>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
