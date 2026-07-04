@@ -4468,14 +4468,15 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         </button>
       </div>
       {/* Resumen rápido — clicables para filtrar */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
         {[
+          ["Todas",      misTareas.length,                                    "#8b5cf6", null],
           ["Pendientes", pendientes.filter(t => diasVence(t.vence) >= 0).length, "#f59e0b", "pendientes"],
-          ["Vencidas",   vencidasTareas.length, "#dc2626", "vencidas"],
+          ["Vencidas",   vencidasTareas.length,                               "#dc2626", "vencidas"],
         ].map(([l, v, c, key]) => {
           const activo = filtroStats === key;
           return (
-            <div key={l} onClick={() => setFiltroStats(p => p === key ? null : key)}
+            <div key={l} onClick={() => setFiltroStats(key)}
               style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
               <div style={{width:8,height:8,borderRadius:4,background:c,flexShrink:0}} />
               <div style={{flex:1}}>
