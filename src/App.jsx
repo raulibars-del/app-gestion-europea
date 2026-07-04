@@ -9335,7 +9335,6 @@ const NAV_ITEMS = [
   {id:"visitas",        label:"Diario de visitas",     icon:"pin",          color:"#06b6d4"},
   {id:"fichaje",        label:"Fichaje",               icon:"clock",        color:"#14b8a6"},
   {id:"passwords",      label:"Passwords",             icon:"lock",         color:"#eab308"},
-  {id:"chat",           label:"Chat",                  icon:"chat",         color:"#06b6d4"},
   {id:"usuarios",       label:"Usuarios",              icon:"users",        color:"#8b5cf6"},
   {id:"ajustes",        label:"Ajustes",               icon:"settings",     color:"#e4e9f6"},
 ];
