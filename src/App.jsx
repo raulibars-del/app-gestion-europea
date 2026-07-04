@@ -4362,10 +4362,12 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       // Tarea nueva: se puede asignar a varias personas a la vez. Como el modelo de
       // datos de cada tarea solo admite un asignadoId, se crea una copia independiente
       // por cada persona elegida (cada una se podrá completar/editar por separado).
+      // El creador siempre recibe su propia copia de la tarea.
+      // Si además selecciona otras personas, también reciben la suya.
       const idsAsignados = esEmpresa
         ? [null]
-        : (Array.isArray(form.asignadosIds) && form.asignadosIds.length ? form.asignadosIds : []);
-      if (!esEmpresa && idsAsignados.length === 0) { alert("Selecciona al menos una persona para asignar la tarea."); return; }
+        : Array.from(new Set([userActual.id, ...(Array.isArray(form.asignadosIds) ? form.asignadosIds : [])]));
+
       const nuevas = idsAsignados.map((aid, idx) => ({ ...form,esEmpresa,asignadoId: esEmpresa ? null : aid,id: Date.now() + idx }));
       setData(d => {
         let nd = { ...d,tareas: [...d.tareas, ...nuevas] };
@@ -4619,7 +4621,10 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ) : (
           <Field label="Asignar a (puedes elegir varias personas: se crea una tarea para cada una)">
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {data.usuarios.filter(u => u.activo).map(u => {
+              <div style={{background:"#8b5cf618",border:"1px solid #8b5cf633",borderRadius:16,padding:"4px 10px",fontSize:12,color:"#8b5cf6",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+                <Icon name="check" size={11}/>{userActual.nombre} (tú, siempre incluido)
+              </div>
+              {data.usuarios.filter(u => u.activo && u.id !== userActual.id).map(u => {
                 const ids = Array.isArray(form.asignadosIds) ? form.asignadosIds : [];
                 const on = ids.includes(u.id);
                 return (
@@ -4628,7 +4633,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                     const next = cur.includes(u.id) ? cur.filter(x => x !== u.id) : [...cur, u.id];
                     setForm(p => ({ ...p,asignadosIds: next }));
                   }} style={{padding:"6px 12px",borderRadius:20,border:"2px solid "+(on?"#8b5cf6":"#2a3550"),background:on?"#8b5cf615":"#0d1117",color:on?"#8b5cf6":"#e4e9f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}>
-                    {on && <Icon name="check" size={11} />}{u.nombre}{u.id === userActual.id ? " (yo)" : ""}
+                    {on && <Icon name="check" size={11} />}{u.nombre}
                   </button>
                 );
               })}
