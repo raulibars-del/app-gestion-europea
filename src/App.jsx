@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import jsPDF from "jspdf";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -5371,80 +5371,83 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       setPdfLectura({ url, nombre: "Parte "+numeroMostrar, blob });
     } catch(e) { alert("No se pudo generar el PDF de este parte."); }
   };
-  // Ejecuta envíos programados cuya fecha+hora (zona Europa/Madrid) ya ha llegado
-  useEffect(() => {
-    const hoy = today();
-    // Hora actual en España: "HH:MM"
-    const ahoraEspana = new Intl.DateTimeFormat("es-ES", {
-      timeZone: "Europe/Madrid", hour: "2-digit", minute: "2-digit", hour12: false
-    }).format(new Date()).slice(0, 5);
+  // Ejecuta envíos programados cuya fecha+hora (zona Europa/Madrid) ya ha llegado.
+  // Se comprueba al montar y cada minuto mientras la app esté abierta.
+  const ejecutarEnviosProgramados = useCallback(async () => {
+    // sv-SE da formato ISO fiable: "2026-07-04 09:30:00" → sin ambigüedades de locale
+    const nowSpain = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" });
+    const hoyEspana   = nowSpain.slice(0, 10);   // "2026-07-04"
+    const ahoraEspana = nowSpain.slice(11, 16);  // "09:30"
+
     const pendientes = (data.partes || []).filter(p => {
       if (!p.envioProgFecha || p.emailEnviado) return false;
-      if (p.envioProgFecha < hoy) return true;  // fecha pasada → sí
-      if (p.envioProgFecha === hoy) {
-        const hora = p.envioProgHora || "00:00";
-        return hora <= ahoraEspana;             // misma fecha → comprobar hora
+      if (p.envioProgFecha < hoyEspana) return true;
+      if (p.envioProgFecha === hoyEspana) {
+        return (p.envioProgHora || "00:00") <= ahoraEspana;
       }
       return false;
     });
     if (!pendientes.length) return;
-    (async () => {
-      for (const p of pendientes) {
-        try {
-          const cl = p.clienteDirectoId ? data.clientes.find(c=>c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
-          const cadena = obtenerCadenaPartes(data.partes, p);
-          const cadenaCompleta = cadena.length > 1 ? cadena : null;
-          const parteConFirma = {
-            ...p,
+
+    for (const p of pendientes) {
+      try {
+        const cadena = obtenerCadenaPartes(data.partes, p);
+        const cadenaCompleta = cadena.length > 1 ? cadena : null;
+        const parteConFirma = {
+          ...p,
+          firmaNombre: p.envioProgFirmaNombre,
+          firmaImagen: p.envioProgFirmaImagen,
+          conforme: p.envioProgConforme,
+          notasConformidad: p.envioProgNotas || "",
+        };
+        const dataUri = await generarYDescargarPDF(parteConFirma, true, true, cadenaCompleta);
+        const base64 = dataUri.split(",")[1];
+        const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
+        const numeroMostrado = cadenaCompleta ? cadenaBaseDe(cadena[0]) : (p.numeroParte || "");
+        await apiSendMail({
+          to: p.envioProgEmail,
+          cc: ccUsada,
+          subject: "Parte de trabajo " + numeroMostrado + " — Europea de Maquinaria",
+          html: "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos documento relativo a la gestión de trabajo realizada, parte de trabajo <strong>" + numeroMostrado + "</strong>" + (cadenaCompleta ? " (incluye las " + cadena.length + " visitas realizadas)" : "") + ".</p><p>Esta cuenta es solo para el envío de documentación y no es una vía de contacto válida; para cualquier consulta, escríbanos usando los datos de abajo.</p>" + htmlFirmaGestion() + "</div>",
+          attachmentBase64: base64,
+          attachmentName: "parte-" + numeroMostrado + ".pdf",
+          attachmentMime: "application/pdf",
+        });
+        const idsAfectados = cadenaCompleta ? cadena.map(c => c.id) : [p.id];
+        setData(d => ({
+          ...d,
+          partes: d.partes.map(pt => idsAfectados.includes(pt.id) ? {
+            ...pt,
             firmaNombre: p.envioProgFirmaNombre,
             firmaImagen: p.envioProgFirmaImagen,
             conforme: p.envioProgConforme,
             notasConformidad: p.envioProgNotas || "",
-          };
-          const dataUri = await generarYDescargarPDF(parteConFirma, true, true, cadenaCompleta);
-          const base64 = dataUri.split(",")[1];
-          const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
-          const numeroMostrado = cadenaCompleta ? cadenaBaseDe(cadena[0]) : (p.numeroParte || "");
-          await apiSendMail({
-            to: p.envioProgEmail,
-            cc: ccUsada,
-            subject: "Parte de trabajo " + numeroMostrado + " — Europea de Maquinaria",
-            html: "<div style=\"font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;\"><p>Buenas,</p><p>Adjuntamos documento relativo a la gestión de trabajo realizada, parte de trabajo <strong>" + numeroMostrado + "</strong>" + (cadenaCompleta ? " (incluye las " + cadena.length + " visitas realizadas)" : "") + ".</p><p>Esta cuenta es solo para el envío de documentación y no es una vía de contacto válida; para cualquier consulta, escríbanos usando los datos de abajo.</p>" + htmlFirmaGestion() + "</div>",
-            attachmentBase64: base64,
-            attachmentName: "parte-" + numeroMostrado + ".pdf",
-            attachmentMime: "application/pdf",
-          });
-          const idsAfectados = cadenaCompleta ? cadena.map(c=>c.id) : [p.id];
-          setData(d => ({
-            ...d,
-            partes: d.partes.map(pt => idsAfectados.includes(pt.id) ? {
-              ...pt,
-              firmaNombre: p.envioProgFirmaNombre,
-              firmaImagen: p.envioProgFirmaImagen,
-              conforme: p.envioProgConforme,
-              notasConformidad: p.envioProgNotas || "",
-              fechaFirma: hoy,
-              emailEnviado: true,
-              emailEnviadoA: p.envioProgEmail,
-              emailEnviadoCC: ccUsada,
-              fechaEnvio: hoy,
-              envioProgFecha: null,
-              envioProgHora: null,
-              envioProgEmail: null,
-              envioProgFirmaNombre: null,
-              envioProgFirmaImagen: null,
-              envioProgConforme: null,
-              envioProgNotas: null,
-            } : pt)
-          }));
-        } catch(e) {
-          console.error("Error en envío programado parte", p.id, e);
-        }
+            fechaFirma: hoyEspana,
+            emailEnviado: true,
+            emailEnviadoA: p.envioProgEmail,
+            emailEnviadoCC: ccUsada,
+            fechaEnvio: hoyEspana,
+            envioProgFecha: null,
+            envioProgHora: null,
+            envioProgEmail: null,
+            envioProgFirmaNombre: null,
+            envioProgFirmaImagen: null,
+            envioProgConforme: null,
+            envioProgNotas: null,
+          } : pt),
+        }));
+      } catch (e) {
+        console.error("Error en envío programado parte", p.id, e);
       }
-    })();
-  // Solo al montar y cuando cambia la lista de partes (evitar bucle: solo dependemos de IDs+fechas)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data.partes, data.smtp]);
+
+  useEffect(() => {
+    ejecutarEnviosProgramados();                          // check inmediato al montar
+    const intervalo = setInterval(ejecutarEnviosProgramados, 60_000); // cada minuto
+    return () => clearInterval(intervalo);
+  }, [ejecutarEnviosProgramados]);
 
   const enviarEmail = async () => {
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
@@ -11065,7 +11068,7 @@ export default function App() {
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="visitas"&&puedeVer(user.rol,"visitas")&&<DiarioVisitas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user} abrirTareaId={tareaAAbrir} onAbrirTareaId={()=>setTareaAAbrir(null)}/>}
-          {active==="partes"&&puedeVer(user.rol,"partes")&&<Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/>}
+          {puedeVer(user.rol,"partes")&&<div style={{display:active==="partes"?"block":"none"}}><Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/></div>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
