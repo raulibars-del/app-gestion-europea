@@ -6156,8 +6156,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                             envioProgEmailHtml: emailHtml,
                             envioProgCadenaIds: idsAfectados,
                           }:pt),
-                          // El aviso NO se toca al programar: permanece exactamente como está.
-                          // Solo se cerrará cuando el email llegue al cliente (cron o navegador).
+                          // El aviso vuelve a "Pendiente" mientras el envío está programado:
+                          // el parte desaparece y el aviso debe parecer intacto hasta que
+                          // el email llegue al cliente (el cron lo cerrará en ese momento).
+                          avisos: p.avisoId
+                            ? (d.avisos||[]).map(a => a.id === p.avisoId
+                                ? { ...a, estado: "Pendiente", fechaResuelto: null, resueltoPorId: null, resueltoPor: null }
+                                : a)
+                            : d.avisos,
                         }));
                         setModoProgr(false); setModalPDF(null);
                         alert("Programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+"h (España). El parte desaparece hasta ese momento.");
