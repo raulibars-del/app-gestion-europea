@@ -4023,8 +4023,7 @@ const htmlFirmaGestion = () => {
 const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
-  const [verCompletadas, setVerCompletadas] = useState(false);
-  const [verAsigCompletadas, setVerAsigCompletadas] = useState(false);
+  const [filtroStats, setFiltroStats] = useState(null); // null | "pendientes" | "vencidas"
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
@@ -4327,29 +4326,33 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     } catch (e) { /* aviso de cortesía: si falla, no interrumpimos a quien completó la tarea */ }
   };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
+  const diasVence = vence => Math.ceil((new Date(vence) - new Date(today())) / 86400000);
   const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
-  const mostrar = verCompletadas ? misTareas : pendientes;
-  const ordenar = lista => [...lista].sort((a, b) => {
-    const po = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
-    if (po !== pb) return po - pb;
-    return new Date(a.vence) - new Date(b.vence);
-  });
+  const vencidasTareas = pendientes.filter(t => diasVence(t.vence) < 0);
+  const mostrar = filtroStats === "pendientes"
+    ? pendientes.filter(t => diasVence(t.vence) >= 0)
+    : filtroStats === "vencidas"
+      ? vencidasTareas
+      : misTareas;
+  // Activas primero por prioridad/fecha, completadas al final tachadas
+  const ordenar = lista => {
+    const activas = lista.filter(t => t.estado !== "Completada");
+    const comp = lista.filter(t => t.estado === "Completada");
+    const byPrioDate = arr => [...arr].sort((a, b) => {
+      const po = PRIORIDAD_ORDER[a.prioridad]??9, pb = PRIORIDAD_ORDER[b.prioridad]??9;
+      if(po !== pb) return po - pb;
+      return new Date(a.vence) - new Date(b.vence);
+    });
+    return [...byPrioDate(activas), ...byPrioDate(comp)];
+  };
   const sorted = ordenar(mostrar);
-  // Tareas que yo he asignado a otra persona: quedan en "común" — sigo viéndolas
-  // como pendientes en mi pantalla hasta que la persona asignada las marque como Completada.
-  // Las de empresa no entran aquí: ya aparecen en "misTareas" para todo el mundo.
+  // Tareas que yo he asignado a otra persona
   const asignadasPorMi = data.tareas.filter(t => t.creadoPor === userActual.id && t.asignadoId !== userActual.id && !t.esEmpresa);
   const asigPendientes = asignadasPorMi.filter(t => t.estado !== "Completada");
-  const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
-  const asigMostrar = verAsigCompletadas ? asignadasPorMi : asigPendientes;
-  const asigSorted = ordenar(asigMostrar);
+  const asigSorted = ordenar(asignadasPorMi);
   const uN = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "—";
-  const diasVence = vence => {
-    const d = Math.ceil((new Date(vence) - new Date(today())) / 86400000);
-    return d;
-  };
   const abrirNueva = () => setForm({
     titulo: "",asignadoId: null,asignadosIds: [],creadoPor: userActual.id,prioridad: "Media",vence: today(),estado: "Pendiente",notas: "",adjuntos: [],esEmpresa: false,reenviarA: null
   });
@@ -4445,26 +4448,30 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <Icon name="plus" size={14} />Nueva tarea
         </button>
       </div>
-      {/* Resumen rápido */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:16}}>
+      {/* Resumen rápido — clicables para filtrar */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:16}}>
         {[
-          ["Pendientes", pendientes.filter(t => t.estado === "Pendiente").length, "#f59e0b"],
-          ["En curso", pendientes.filter(t => t.estado === "En curso").length, "#3b82f6"],
-          ["Vencidas", pendientes.filter(t => diasVence(t.vence) < 0).length, "#dc2626"],
-          ["Completadas", completadas.length, "#10b981"],
-        ].map(([l, v, c]) => (
-          <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:8,height:8,borderRadius:4,background:c,flexShrink:0}} />
-            <div><div style={{color:c,fontWeight:800,fontSize:16,lineHeight:1}}>{v}</div><div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{l}</div></div>
-          </div>
-        ))}
+          ["Pendientes", pendientes.filter(t => diasVence(t.vence) >= 0).length, "#f59e0b", "pendientes"],
+          ["Vencidas",   vencidasTareas.length, "#dc2626", "vencidas"],
+        ].map(([l, v, c, key]) => {
+          const activo = filtroStats === key;
+          return (
+            <div key={l} onClick={() => setFiltroStats(p => p === key ? null : key)}
+              style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
+              <div style={{width:8,height:8,borderRadius:4,background:c,flexShrink:0}} />
+              <div style={{flex:1}}>
+                <div style={{color:c,fontWeight:800,fontSize:16,lineHeight:1}}>{v}</div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{l}</div>
+              </div>
+              {activo && <div style={{color:c,fontSize:11,fontWeight:700}}>✕</div>}
+            </div>
+          );
+        })}
       </div>
-      {/* Toggle completadas */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{color:"#e4e9f6",fontSize:12}}>{sorted.length} tarea{sorted.length !== 1 ? "s" : ""}</div>
-        <button onClick={() => setVerCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#e4e9f6",fontSize:12,cursor:"pointer",fontWeight:600}}>
-          {verCompletadas ? "Ocultar completadas" : `Ver completadas (${completadas.length})`}
-        </button>
+      {/* Contador */}
+      <div style={{color:"#e4e9f6",fontSize:12,marginBottom:10,display:"flex",gap:10}}>
+        <span>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span>
+        {completadas.length > 0 && <span style={{color:"#10b981"}}>· {completadas.length} completada{completadas.length !== 1 ? "s" : ""}</span>}
       </div>
       {/* Lista de tareas */}
       <div style={{display:"grid",gap:6}}>
@@ -4481,10 +4488,11 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           const creadoPorMi = t.creadoPor === userActual.id;
           return (
             <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
-              {/* Checkbox — solo yo (o cualquiera si es tarea de empresa) puedo completar */}
-              <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
-                {t.estado === "Completada" && "✓"}
-              </button>
+              {/* Checkbox — completadas: solo visual, no clicable */}
+              {t.estado === "Completada"
+                ? <div style={{width:22,height:22,borderRadius:6,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>✓</div>
+                : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}} />
+              }
               <div style={{flex:1,minWidth:0}}>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
                   {t.esEmpresa && <span title="Tarea de empresa" style={{fontSize:13}}>🏢</span>}
@@ -4518,23 +4526,22 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       {/* Tareas que he asignado a otros — quedan en común, las veo como pendientes hasta que el destinatario las complete */}
       {asignadasPorMi.length > 0 && (
         <>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"22px 0 10px"}}>
-            <div>
-              <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>Tareas que he asignado</div>
-              <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}><span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span> de que las complete la persona asignada</div>
+          <div style={{margin:"22px 0 10px"}}>
+            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>Tareas que he asignado</div>
+            <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
+              <span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span>
+              {asignadasPorMi.filter(t=>t.estado==="Completada").length > 0 && <span style={{color:"#10b981"}}> · {asignadasPorMi.filter(t=>t.estado==="Completada").length} completada{asignadasPorMi.filter(t=>t.estado==="Completada").length !== 1 ? "s" : ""}</span>}
             </div>
-            <button onClick={() => setVerAsigCompletadas(p => !p)} style={{background:"none",border:"1px solid #2a3550",borderRadius:7,padding:"4px 11px",color:"#e4e9f6",fontSize:12,cursor:"pointer",fontWeight:600}}>
-              {verAsigCompletadas ? "Ocultar completadas" : `Ver completadas (${asigCompletadas.length})`}
-            </button>
           </div>
           <div style={{display:"grid",gap:6}}>
             {asigSorted.map(t => {
               const vc = venceColor(t.vence);
               return (
                 <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
-                  <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (t.estado === "Completada" ? "#10b981" :PCOLOR[t.prioridad] || "#8b5cf6"),background:t.estado === "Completada" ? "#10b981" :"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}}>
-                    {t.estado === "Completada" && "✓"}
-                  </button>
+                  {t.estado === "Completada"
+                    ? <div style={{width:22,height:22,borderRadius:6,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>✓</div>
+                    : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}} />
+                  }
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
                     <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
