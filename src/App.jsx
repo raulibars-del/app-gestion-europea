@@ -4337,17 +4337,23 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     : filtroStats === "vencidas"
       ? vencidasTareas
       : misTareas;
+  const resolverNombreT = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "";
   const mostrar = busqTarea.trim().length < 2
     ? filtroBase
     : (() => {
         const q = busqTarea.trim().toLowerCase();
-        return filtroBase.filter(t =>
-          (t.titulo||"").toLowerCase().includes(q) ||
-          (t.notas||"").toLowerCase().includes(q) ||
-          (t.vence||"").includes(q) ||
-          (t.estado||"").toLowerCase().includes(q) ||
-          (t.prioridad||"").toLowerCase().includes(q)
-        );
+        return filtroBase.filter(t => {
+          const campos = [
+            t.titulo, t.notas, t.vence, t.estado, t.prioridad,
+            t.fechaCompletada,
+            resolverNombreT(t.asignadoId),
+            resolverNombreT(t.creadoPor),
+            resolverNombreT(t.completadoPor),
+            t.esEmpresa ? "empresa" : "",
+            ...(Array.isArray(t.adjuntos) ? t.adjuntos.map(a => a.nombre||a.url||"") : []),
+          ];
+          return campos.some(c => (c||"").toString().toLowerCase().includes(q));
+        });
       })();
   // Activas primero por prioridad/fecha, completadas al final tachadas
   const ordenar = lista => {
@@ -4529,7 +4535,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
                   ) : (
                     t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#e4e9f6",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
                   )}
-                  {t.estado === "Completada" && t.completadoPor && <span style={{color:"#10b981",fontSize:11,fontWeight:600}}>✓ Completada por <b style={{color:"#fff"}}>{uN(t.completadoPor)}</b>{t.fechaCompletada ? <> el {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
+                  {t.estado === "Completada" && <span style={{color:"#10b981",fontSize:11,fontWeight:600}}>✓ Completada{t.completadoPor ? <> por <b style={{color:"#10b981"}}>{uN(t.completadoPor)}</b></> : ""}{t.fechaCompletada ? <> · {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
                   {t.notas && <span style={{color:"#e4e9f6",fontSize:11}}>📝 {t.notas}</span>}
                   {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
                 </div>
@@ -4780,6 +4786,50 @@ const SignaturePad = ({ onSave, onClear, canvasRef }) => {
     </div>
   );
 };
+// Selector de fecha+hora para envíos programados de partes
+const CalendarioPicker = ({ fecha, hora, onFecha, onHora, minFecha }) => {
+  const hoy = new Date().toISOString().slice(0,10);
+  const inicial = fecha ? new Date(fecha+"T00:00") : new Date();
+  const [mes, setMes] = useState({ y: inicial.getFullYear(), m: inicial.getMonth() });
+  const diasEnMes = new Date(mes.y, mes.m+1, 0).getDate();
+  const primerDia = (new Date(mes.y, mes.m, 1).getDay()+6)%7; // lun=0
+  const pad2 = n => String(n).padStart(2,"0");
+  const fStr = d => `${mes.y}-${pad2(mes.m+1)}-${pad2(d)}`;
+  const nomMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const [hh, mm] = hora ? hora.split(":") : ["08","00"];
+  const celdas = Array(primerDia).fill(null).concat(Array.from({length:diasEnMes},(_,i)=>i+1));
+  return (
+    <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:12,padding:"14px",width:252,userSelect:"none"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <button onClick={()=>setMes(p=>{const d=new Date(p.y,p.m-1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 6px"}}>‹</button>
+        <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{nomMes[mes.m]} {mes.y}</span>
+        <button onClick={()=>setMes(p=>{const d=new Date(p.y,p.m+1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:20,lineHeight:1,padding:"0 6px"}}>›</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:6}}>
+        {["L","M","X","J","V","S","D"].map(d=><div key={d} style={{textAlign:"center",color:"#8b5cf6",fontSize:10,fontWeight:700,padding:"2px 0"}}>{d}</div>)}
+        {celdas.map((d,i)=>{
+          if(!d) return <div key={"_"+i}/>;
+          const str=fStr(d), sel=str===fecha, esHoy=str===hoy, pasado=minFecha&&str<minFecha;
+          return (
+            <button key={d} disabled={pasado} onClick={()=>onFecha(str)}
+              style={{background:sel?"#8b5cf6":esHoy?"#8b5cf622":"none",color:pasado?"#2a3550":sel?"#fff":esHoy?"#a78bfa":"#e4e9f6",border:esHoy&&!sel?"1px solid #8b5cf655":"1px solid transparent",borderRadius:6,padding:"5px 0",cursor:pasado?"not-allowed":"pointer",fontWeight:sel?700:400,fontSize:12,transition:"background .1s"}}>
+              {d}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{borderTop:"1px solid #1a2236",paddingTop:10,display:"flex",alignItems:"center",gap:8}}>
+        <span style={{color:"#e4e9f6",fontSize:12,flexShrink:0}}>Hora (España):</span>
+        <input type="number" min={0} max={23} value={parseInt(hh,10)} onChange={e=>onHora(pad2(Math.max(0,Math.min(23,+e.target.value||0)))+":"+mm)}
+          style={{width:48,background:"#151b2a",border:"1px solid #2a3550",borderRadius:6,padding:"5px",color:"#f1f3f9",fontSize:14,textAlign:"center",outline:"none"}}/>
+        <span style={{color:"#e4e9f6",fontWeight:700}}>:</span>
+        <input type="number" min={0} max={59} value={parseInt(mm,10)} onChange={e=>onHora(hh+":"+pad2(Math.max(0,Math.min(59,+e.target.value||0))))}
+          style={{width:48,background:"#151b2a",border:"1px solid #2a3550",borderRadius:6,padding:"5px",color:"#f1f3f9",fontSize:14,textAlign:"center",outline:"none"}}/>
+      </div>
+    </div>
+  );
+};
+
 const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -4821,6 +4871,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [modoProgr, setModoProgr] = useState(false); // muestra datepicker en modal
   const [fechaProgr, setFechaProgr] = useState("");
   const [horaProgr, setHoraProgr] = useState("08:00");
+  const [calProgrAbierto, setCalProgrAbierto] = useState(false);
   const [busqCliente, setBusqCliente] = useState("");
   const [clienteSel, setClienteSel] = useState(null);
   const [mostrarDropCliente, setMostrarDropCliente] = useState(false);
@@ -5090,7 +5141,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setConforme(p.envioProgConforme ?? p.conforme ?? true);
     setNotasConformidad(p.envioProgNotas || p.notasConformidad || "");
     setForm(prev=>({...prev,firmaNombre:p.envioProgFirmaNombre || p.firmaNombre || ""}));
-    setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00");
+    setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00"); setCalProgrAbierto(false);
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
   };
   // Permite que otras pantallas (p.ej. el historial de una Máquina) naveguen aquí y
@@ -6047,17 +6098,21 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <div style={{background:"#1a2236",border:"1px solid #f97316aa",borderRadius:10,padding:"12px 14px",marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
                     <div style={{color:"#f97316",fontWeight:700,fontSize:13}}>📅 Programar envío</div>
                     <div style={{color:"#e4e9f6",fontSize:12}}>El parte se firmará y se enviará automáticamente en la fecha indicada, la primera vez que alguien abra la app ese día o después.</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                        <div style={{color:"#e4e9f6",fontSize:11}}>Fecha</div>
-                        <input type="date" value={fechaProgr} onChange={e=>setFechaProgr(e.target.value)} min={today()}
-                          style={{...inputStyle,maxWidth:160}} />
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                        <div style={{color:"#e4e9f6",fontSize:11}}>Hora (España)</div>
-                        <input type="time" value={horaProgr} onChange={e=>setHoraProgr(e.target.value)}
-                          style={{...inputStyle,maxWidth:120}} />
-                      </div>
+                    <div style={{position:"relative"}}>
+                      <button onClick={()=>setCalProgrAbierto(p=>!p)}
+                        style={{background:"#151b2a",border:"1px solid #f9731666",borderRadius:8,padding:"8px 14px",color:fechaProgr?"#f1f3f9":"#8b9ab8",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontWeight:fechaProgr?600:400}}>
+                        📅 {fechaProgr ? `${fmtFecha(fechaProgr)} · ${horaProgr}h` : "Seleccionar día y hora"}
+                      </button>
+                      {calProgrAbierto && (
+                        <div style={{position:"absolute",top:"calc(100% + 6px)",left:0,zIndex:200}}>
+                          <CalendarioPicker
+                            fecha={fechaProgr} hora={horaProgr}
+                            minFecha={today()}
+                            onFecha={f=>{setFechaProgr(f);}}
+                            onHora={h=>setHoraProgr(h)}
+                          />
+                        </div>
+                      )}
                     </div>
                     <div style={{display:"flex",gap:8}}>
                       <button onClick={()=>setModoProgr(false)} style={btnOutline}>Cancelar</button>
@@ -6078,7 +6133,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                           envioProgConforme: conforme,
                           envioProgNotas: notasConformidad,
                         }:pt)}));
-                        setModoProgr(false); setModalPDF(null);
+                        setModoProgr(false); setCalProgrAbierto(false); setModalPDF(null);
                         alert("Envío programado para el "+fmtFecha(fechaProgr)+" a las "+horaProgr+" (hora de España).");
                       }} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
                         <Icon name="send" size={13}/>Confirmar programa
