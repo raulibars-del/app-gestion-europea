@@ -6143,7 +6143,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
                     </button>
                     {(userActual.rol==="manager"||userActual.rol==="admin") && (
-                      <button onClick={()=>{ setModoProgr(true); setFechaProgr(""); setHoraProgr("08:00"); }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:13,color:"#f97316",display:"flex",alignItems:"center",gap:6}}>
+                      <button onClick={()=>{ const nowSpain=new Date().toLocaleString("sv-SE",{timeZone:"Europe/Madrid"}); setModoProgr(true); setFechaProgr(nowSpain.slice(0,10)); setHoraProgr(nowSpain.slice(11,16)); }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:9,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontSize:13,color:"#f97316",display:"flex",alignItems:"center",gap:6}}>
                         📅 Firmar y enviar programado
                       </button>
                     )}
