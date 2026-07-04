@@ -5536,11 +5536,6 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                   <div title={p.firmaNombre?("Firmado por "+p.firmaNombre):"Aún no firmado por el cliente"} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.firmaNombre?"#16a34a20":"#f59e0b20",color:p.firmaNombre?"#16a34a":"#f59e0b",border:"1px solid "+(p.firmaNombre?"#16a34a44":"#f59e0b44")}}>
                     {p.firmaNombre?"✍️ Firmado":"⏳ Sin firmar"}
                   </div>
-                  {p.envioProgFecha && (userActual.rol==="manager"||userActual.rol==="admin") && (
-                    <div title={"Envío programado para el "+fmtFecha(p.envioProgFecha)+(p.envioProgHora?" a las "+p.envioProgHora:"")+" a "+p.envioProgEmail} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:"#f9731620",color:"#f97316",border:"1px solid #f9731644"}}>
-                      📅 Programado: {fmtFecha(p.envioProgFecha)}{p.envioProgHora ? " · "+p.envioProgHora : ""}h (España)
-                    </div>
-                  )}
                   <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
                     <button onClick={() => verPreviaParte(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       <Icon name="parts" size={12} />PDF
@@ -6112,6 +6107,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                             onFecha={f=>{setFechaProgr(f);}}
                             onHora={h=>setHoraProgr(h)}
                           />
+                          <button onClick={()=>setCalProgrAbierto(false)}
+                            style={{width:"100%",marginTop:4,background:"#8b5cf6",color:"#fff",border:"none",borderRadius:8,padding:"9px 0",fontWeight:700,cursor:"pointer",fontSize:13}}>
+                            OK
+                          </button>
                         </div>
                       )}
                     </div>
