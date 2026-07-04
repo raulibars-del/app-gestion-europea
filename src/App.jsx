@@ -4455,9 +4455,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   return (
     <div>
       {/* Cabecera */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
         <div>
-          <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Mis Tareas</h2>
+          <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Tareas</h2>
           <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
             <Avatar u={userActual} size={24} fontSize={10}/>
             <span style={{color:"#e4e9f6",fontSize:13}}>{userActual.nombre} · <span style={{color:"#8b5cf6",fontWeight:700}}>{pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}</span></span>
@@ -4467,133 +4467,146 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <Icon name="plus" size={14} />Nueva tarea
         </button>
       </div>
-      {/* Resumen rápido — clicables para filtrar */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
-        {[
-          ["Todas",      misTareas.length,                                    "#8b5cf6", null],
-          ["Pendientes", pendientes.filter(t => diasVence(t.vence) >= 0).length, "#f59e0b", "pendientes"],
-          ["Vencidas",   vencidasTareas.length,                               "#dc2626", "vencidas"],
-        ].map(([l, v, c, key]) => {
-          const activo = filtroStats === key;
-          return (
-            <div key={l} onClick={() => setFiltroStats(key)}
-              style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
-              <div style={{width:8,height:8,borderRadius:4,background:c,flexShrink:0}} />
-              <div style={{flex:1}}>
-                <div style={{color:c,fontWeight:800,fontSize:16,lineHeight:1}}>{v}</div>
-                <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{l}</div>
-              </div>
-              {activo && <div style={{color:c,fontSize:11,fontWeight:700}}>✕</div>}
-            </div>
-          );
-        })}
-      </div>
-      {/* Buscador */}
-      <div style={{position:"relative",marginBottom:10}}>
-        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#8b5cf6",pointerEvents:"none",display:"flex"}}><Icon name="search" size={14}/></span>
-        <input
-          value={busqTarea} onChange={e=>setBusqTarea(e.target.value)}
-          placeholder="Buscar tareas por título, descripción, fecha..."
-          style={{...inputStyle,paddingLeft:32,fontSize:13}}
-        />
-        {busqTarea && <button onClick={()=>setBusqTarea("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
-      </div>
-      {/* Contador */}
-      <div style={{color:"#e4e9f6",fontSize:12,marginBottom:10,display:"flex",gap:10}}>
-        <span>{mostrar.filter(t=>t.estado!=="Completada").length} pendiente{mostrar.filter(t=>t.estado!=="Completada").length !== 1 ? "s" : ""}</span>
-        {completadas.length > 0 && <span style={{color:"#10b981"}}>· {completadas.length} completada{completadas.length !== 1 ? "s" : ""}</span>}
-        {busqTarea.trim().length >= 2 && <span style={{color:"#8b5cf6"}}>· {mostrar.length} resultado{mostrar.length !== 1 ? "s" : ""}</span>}
-      </div>
-      {/* Lista de tareas */}
-      <div style={{display:"grid",gap:6}}>
-        {sorted.length === 0 && (
-          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"36px",textAlign:"center"}}>
-            <div style={{color:"#8b5cf6",fontSize:28,marginBottom:8}}>✓</div>
-            <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>Sin tareas pendientes</div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>¡Todo al día!</div>
+
+      {/* Layout dos columnas */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,alignItems:"start"}}>
+
+        {/* ── Columna izquierda: Mis tareas ── */}
+        <div style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
+          {/* Título columna */}
+          <div style={{color:"#8b5cf6",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:".6px",borderBottom:"2px solid #8b5cf633",paddingBottom:6}}>
+            Mis tareas
           </div>
-        )}
-        {sorted.map(t => {
-          const vc = venceColor(t.vence);
-          const esMia = t.asignadoId === userActual.id || t.esEmpresa || t.creadoPor === userActual.id;
-          const creadoPorMi = t.creadoPor === userActual.id;
-          return (
-            <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
-              {/* Checkbox — completadas: solo visual, no clicable */}
-              {t.estado === "Completada"
-                ? <div style={{width:22,height:22,borderRadius:6,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>✓</div>
-                : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:esMia ? "pointer" :"default",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}} />
-              }
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
-                  {t.esEmpresa && <span title="Tarea de empresa" style={{fontSize:13}}>🏢</span>}
-                  {t.titulo}
-                </div>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-                  <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
-                  {t.esEmpresa ? (
-                    <span style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>Tarea de empresa{t.creadoPor && t.creadoPor !== userActual.id && <> · de <b style={{color:"#fff"}}>{uN(t.creadoPor)}</b></>}</span>
-                  ) : (
-                    t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#e4e9f6",fontSize:11}}>Asignada por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
-                  )}
-                  {t.estado === "Completada" && <span style={{color:"#10b981",fontSize:11,fontWeight:600}}>✓ Completada{t.completadoPor ? <> por <b style={{color:"#10b981"}}>{uN(t.completadoPor)}</b></> : ""}{t.fechaCompletada ? <> · {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
-                  {t.notas && <span style={{color:"#e4e9f6",fontSize:11}}>📝 {t.notas}</span>}
-                  {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
-                </div>
-              </div>
-              <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
-                <Badge text={t.prioridad} />
-                <Badge text={t.estado} />
-                {/* Solo editar/borrar si la creé yo o soy manager/admin */}
-                {(creadoPorMi || userActual.rol === "manager" || userActual.rol === "admin") && <>
-                  <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={11} /></button>
-                  <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
-                </>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {/* Tareas que he asignado a otros — quedan en común, las veo como pendientes hasta que el destinatario las complete */}
-      {asignadasPorMi.length > 0 && (
-        <>
-          <div style={{margin:"22px 0 10px"}}>
-            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>Tareas que he asignado</div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
-              <span style={{color:"#8b5cf6",fontWeight:700}}>{asigPendientes.length} pendiente{asigPendientes.length !== 1 ? "s" : ""}</span>
-              {asignadasPorMi.filter(t=>t.estado==="Completada").length > 0 && <span style={{color:"#10b981"}}> · {asignadasPorMi.filter(t=>t.estado==="Completada").length} completada{asignadasPorMi.filter(t=>t.estado==="Completada").length !== 1 ? "s" : ""}</span>}
-            </div>
-          </div>
-          <div style={{display:"grid",gap:6}}>
-            {asigSorted.map(t => {
-              const vc = venceColor(t.vence);
+          {/* Filtros */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+            {[
+              ["Todas",      misTareas.length,                                       "#8b5cf6", null],
+              ["Pendientes", pendientes.filter(t => diasVence(t.vence) >= 0).length, "#f59e0b", "pendientes"],
+              ["Vencidas",   vencidasTareas.length,                                  "#dc2626", "vencidas"],
+            ].map(([l, v, c, key]) => {
+              const activo = filtroStats === key;
               return (
-                <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" :PCOLOR[t.prioridad] + "33"),borderRadius:11,padding:"12px 15px",display:"flex",alignItems:"center",gap:11,opacity:t.estado === "Completada" ? 0.55 :1,transition:"opacity .2s"}}>
+                <div key={l} onClick={() => setFiltroStats(key)}
+                  style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:9,padding:"8px 10px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
+                  <div style={{width:7,height:7,borderRadius:4,background:c,flexShrink:0}} />
+                  <div style={{flex:1}}>
+                    <div style={{color:c,fontWeight:800,fontSize:15,lineHeight:1}}>{v}</div>
+                    <div style={{color:"#e4e9f6",fontSize:10,marginTop:1}}>{l}</div>
+                  </div>
+                  {activo && <div style={{color:c,fontSize:10,fontWeight:700}}>✕</div>}
+                </div>
+              );
+            })}
+          </div>
+          {/* Buscador */}
+          <div style={{position:"relative"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#8b5cf6",pointerEvents:"none",display:"flex"}}><Icon name="search" size={13}/></span>
+            <input value={busqTarea} onChange={e=>setBusqTarea(e.target.value)}
+              placeholder="Buscar tareas..."
+              style={{...inputStyle,paddingLeft:30,fontSize:12}}
+            />
+            {busqTarea && <button onClick={()=>setBusqTarea("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
+          </div>
+          {/* Contador */}
+          <div style={{color:"#e4e9f6",fontSize:11,display:"flex",gap:8}}>
+            <span>{mostrar.filter(t=>t.estado!=="Completada").length} pendiente{mostrar.filter(t=>t.estado!=="Completada").length !== 1 ? "s" : ""}</span>
+            {completadas.length > 0 && <span style={{color:"#10b981"}}>· {completadas.length} completada{completadas.length !== 1 ? "s" : ""}</span>}
+            {busqTarea.trim().length >= 2 && <span style={{color:"#8b5cf6"}}>· {mostrar.length} resultado{mostrar.length !== 1 ? "s" : ""}</span>}
+          </div>
+          {/* Lista scrollable */}
+          <div style={{overflowY:"auto",maxHeight:"calc(100vh - 290px)",display:"grid",gap:5,paddingRight:2}}>
+            {sorted.length === 0 && (
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
+                <div style={{color:"#8b5cf6",fontSize:24,marginBottom:6}}>✓</div>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>Sin tareas pendientes</div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:2}}>¡Todo al día!</div>
+              </div>
+            )}
+            {sorted.map(t => {
+              const vc = venceColor(t.vence);
+              const esMia = t.asignadoId === userActual.id || t.esEmpresa || t.creadoPor === userActual.id;
+              const creadoPorMi = t.creadoPor === userActual.id;
+              return (
+                <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" : PCOLOR[t.prioridad] + "33"),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:9,opacity:t.estado === "Completada" ? 0.55 : 1,transition:"opacity .2s"}}>
                   {t.estado === "Completada"
-                    ? <div style={{width:22,height:22,borderRadius:6,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800}}>✓</div>
-                    : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:22,height:22,borderRadius:6,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:11,fontWeight:800,transition:"all .15s"}} />
+                    ? <div style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800}}>✓</div>
+                    : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:20,height:20,borderRadius:5,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:esMia ? "pointer" : "default",flexShrink:0,transition:"all .15s"}} />
                   }
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,textDecoration:t.estado === "Completada" ? "line-through" :"none",marginBottom:3}}>{t.titulo}</div>
-                    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-                      <span style={{color:vc,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:3}}><Icon name="clock" size={10} />{venceLabel(t.vence)}</span>
-                      <span style={{color:"#e4e9f6",fontSize:11}}>Asignada a <b style={{color:"#f1f3f9"}}>{uN(t.asignadoId)}</b></span>
-                      {t.notas && <span style={{color:"#e4e9f6",fontSize:11}}>📝 {t.notas}</span>}
-                      {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:11,fontWeight:600}}>📎 {t.adjuntos.length}</span>}
+                    <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,textDecoration:t.estado === "Completada" ? "line-through" : "none",marginBottom:2,display:"flex",alignItems:"center",gap:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {t.esEmpresa && <span style={{fontSize:12}}>🏢</span>}
+                      {t.titulo}
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{color:vc,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",gap:2}}><Icon name="clock" size={9}/>{venceLabel(t.vence)}</span>
+                      {t.esEmpresa
+                        ? <span style={{color:"#f59e0b",fontSize:10,fontWeight:600}}>Empresa{t.creadoPor && t.creadoPor !== userActual.id && <> · <b style={{color:"#fff"}}>{uN(t.creadoPor)}</b></>}</span>
+                        : t.creadoPor && t.creadoPor !== userActual.id && <span style={{color:"#e4e9f6",fontSize:10}}>Por <b style={{color:"#f1f3f9"}}>{uN(t.creadoPor)}</b></span>
+                      }
+                      {t.estado === "Completada" && <span style={{color:"#10b981",fontSize:10,fontWeight:600}}>✓{t.completadoPor ? <> por <b>{uN(t.completadoPor)}</b></> : ""}{t.fechaCompletada ? <> · {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
+                      {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:10}}>📎{t.adjuntos.length}</span>}
                     </div>
                   </div>
-                  <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+                  <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
                     <Badge text={t.prioridad} />
-                    <Badge text={t.estado} />
-                    <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={11} /></button>
-                    <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                    {(creadoPorMi || userActual.rol === "manager" || userActual.rol === "admin") && <>
+                      <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={10}/></button>
+                      <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={10}/></button>
+                    </>}
                   </div>
                 </div>
               );
             })}
           </div>
-        </>
-      )}
+        </div>
+
+        {/* ── Columna derecha: Tareas asignadas ── */}
+        <div style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
+          <div style={{color:"#3b82f6",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:".6px",borderBottom:"2px solid #3b82f633",paddingBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>Tareas asignadas</span>
+            <span style={{color:"#e4e9f6",fontSize:11,fontWeight:500,textTransform:"none",letterSpacing:0}}>
+              <span style={{color:"#3b82f6",fontWeight:700}}>{asigPendientes.length}</span> pendiente{asigPendientes.length !== 1 ? "s" : ""}
+              {asignadasPorMi.filter(t=>t.estado==="Completada").length > 0 && <span style={{color:"#10b981"}}> · {asignadasPorMi.filter(t=>t.estado==="Completada").length} completada{asignadasPorMi.filter(t=>t.estado==="Completada").length !== 1 ? "s" : ""}</span>}
+            </span>
+          </div>
+          {/* Lista scrollable */}
+          <div style={{overflowY:"auto",maxHeight:"calc(100vh - 230px)",display:"grid",gap:5,paddingRight:2}}>
+            {asigSorted.length === 0 && (
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
+                <div style={{color:"#3b82f6",fontSize:24,marginBottom:6}}>📋</div>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>Sin tareas asignadas</div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:2}}>Las tareas que asignes a otros aparecerán aquí</div>
+              </div>
+            )}
+            {asigSorted.map(t => {
+              const vc = venceColor(t.vence);
+              return (
+                <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : PCOLOR[t.prioridad] + "33"),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:9,opacity:t.estado === "Completada" ? 0.55 : 1,transition:"opacity .2s"}}>
+                  {t.estado === "Completada"
+                    ? <div style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800}}>✓</div>
+                    : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:20,height:20,borderRadius:5,border:"2px solid " + (PCOLOR[t.prioridad] || "#3b82f6"),background:"transparent",cursor:"pointer",flexShrink:0,transition:"all .15s"}} />
+                  }
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,textDecoration:t.estado === "Completada" ? "line-through" : "none",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.titulo}</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{color:vc,fontSize:10,fontWeight:600,display:"flex",alignItems:"center",gap:2}}><Icon name="clock" size={9}/>{venceLabel(t.vence)}</span>
+                      <span style={{color:"#3b82f6",fontSize:10,fontWeight:600}}>→ <b style={{color:"#f1f3f9"}}>{uN(t.asignadoId)}</b></span>
+                      {t.estado === "Completada" && <span style={{color:"#10b981",fontSize:10,fontWeight:600}}>✓{t.completadoPor ? <> por <b>{uN(t.completadoPor)}</b></> : ""}{t.fechaCompletada ? <> · {fmtFecha(t.fechaCompletada)}</> : ""}</span>}
+                      {t.adjuntos?.length > 0 && <span style={{color:"#8b5cf6",fontSize:10}}>📎{t.adjuntos.length}</span>}
+                    </div>
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()} style={{display:"flex",gap:4,alignItems:"center",flexShrink:0}}>
+                    <Badge text={t.prioridad} />
+                    <button onClick={() => { setForm({ ...t }); setModal(true); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={10}/></button>
+                    <button onClick={() => del(t.id, t.titulo)} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={10}/></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
       {/* Modal vista previa de tarea (clic en la lista) */}
       {vistaPrevia && (() => {
         const t = vistaPrevia;
