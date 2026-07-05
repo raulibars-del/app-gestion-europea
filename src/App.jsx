@@ -7669,7 +7669,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                 setPForm(p=>({...p, parteId:pid, km:parte?.km||0, horasObraPorPersona:parte?.horasT||0, numTecnicos:(parte?.tecnicos||[]).length||1, horasDesplazamiento:p.horasDesplazamiento }));
               }} style={inputStyle}>
                 <option value="">Seleccionar parte...</option>
-                {partesCompletados.map(p=>{const cliId=p.clienteDirectoId||(data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);const cli=data.clientes.find(c=>c.id===cliId);return <option key={p.id} value={p.id}>{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha})</option>;})}
+                {partesCompletados.map(p=>{const cliId=p.clienteDirectoId||(data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);const cli=data.clientes.find(c=>c.id===cliId);const yaFact=(cont.facturas||[]).some(f=>f.origenParteId===p.id);return <option key={p.id} value={p.id} disabled={yaFact}>{yaFact?"✓ ":""}{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha}){yaFact?" [ya facturado]":""}</option>;})}
               </select>
             </Field>
             {pForm.parteId&&(()=>{
@@ -7710,25 +7710,31 @@ const Contabilidad = ({ data, setData, userActual }) => {
             <div style={{marginTop:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e4e9f6"}}>
               {(()=>{const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1,sKm=km*(parseFloat(tarifa.precioPorKm)||0),sHD=hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0),sHO=hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0),base=sKm+sHD+sHO,iva=base*0.21;return<>{km>0&&<div>Km: {km} × {fmtEur(tarifa.precioPorKm)} = {fmtEur(sKm)}</div>}{hD>0&&<div>Desplazamiento: {hD}h × {nT} téc. × {fmtEur(tarifa.precioHoraDesplazamiento)} = {fmtEur(sHD)}</div>}{hO>0&&<div>Mano de obra: {hO}h × {nT} téc. × {fmtEur(tarifa.precioHoraManoObra)} = {fmtEur(sHO)}</div>}<div style={{marginTop:6,borderTop:"1px solid #2a3550",paddingTop:6}}>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(base)}</strong> · IVA 21%: <strong style={{color:"#f1f3f9"}}>{fmtEur(iva)}</strong> · <strong style={{color:"#16a34a"}}>Total: {fmtEur(base+iva)}</strong></div></>;})()}
             </div>
-            <button onClick={()=>{
-              const parte=partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
-              if(!parte){alert("Selecciona un parte.");return;}
-              const cliId=parte.clienteDirectoId||(data.reparaciones?.find(r=>r.id===parte.reparacionId)?.clienteId)||null;
-              if(!cliId){alert("No se puede determinar el cliente de este parte.");return;}
-              const fiscal=getClienteFiscal(cliId);
-              const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1;
-              const lns=[];
-              if(km>0) lns.push({id:1,descripcion:`Desplazamiento — ${km} km`,cantidad:km,precioUnitario:parseFloat(tarifa.precioPorKm)||0,subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2))});
-              if(hD>0) lns.push({id:2,descripcion:`Horas de desplazamiento (${nT} técnico${nT>1?"s":""})`,cantidad:hD*nT,precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0,subtotal:parseFloat((hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2))});
-              if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2))});
-              if(!lns.length){alert("Introduce al menos km, horas de desplazamiento o mano de obra.");return;}
-              const{baseImponible,cuotaIVA,total}=calcTotales(lns,21);
-              const num=nextNumContabilidad(cont.facturas,"FAC");
-              const pro={id:Date.now(),numero:num,fecha:today(),...fiscal,clienteId:cliId,tipoIVA:21,lineas:lns,baseImponible,cuotaIVA,total,notas:`Parte: ${parte.numeroParte||parte.id}`,estado:"Emitida",esProforma:false,emailEnviado:false,origenParteId:parte.id};
-              setData(d=>{const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}};return{...d,contabilidad:{...contab,facturas:[...(contab.facturas||[]),pro]}};});
-              alert("Factura "+num+" creada. Puedes verla en la pestaña Facturas.");
-              setPForm({parteId:"",km:0,horasDesplazamiento:0,horasObraPorPersona:0,numTecnicos:1});
-            }} style={{...btnPrimary,marginTop:14,background:"#16a34a"}}>Generar factura</button>
+            {(()=>{
+              const yaFactSel=pForm.parteId&&(cont.facturas||[]).some(f=>f.origenParteId===parseInt(pForm.parteId));
+              const factRef=yaFactSel&&(cont.facturas||[]).find(f=>f.origenParteId===parseInt(pForm.parteId));
+              return <><button disabled={!!yaFactSel} onClick={()=>{
+                const parte=partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
+                if(!parte){alert("Selecciona un parte.");return;}
+                if((cont.facturas||[]).some(f=>f.origenParteId===parte.id)){alert("Este parte ya tiene una factura generada.");return;}
+                const cliId=parte.clienteDirectoId||(data.reparaciones?.find(r=>r.id===parte.reparacionId)?.clienteId)||null;
+                if(!cliId){alert("No se puede determinar el cliente de este parte.");return;}
+                const fiscal=getClienteFiscal(cliId);
+                const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1;
+                const lns=[];
+                if(km>0) lns.push({id:1,descripcion:`Desplazamiento — ${km} km`,cantidad:km,precioUnitario:parseFloat(tarifa.precioPorKm)||0,subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2))});
+                if(hD>0) lns.push({id:2,descripcion:`Horas de desplazamiento (${nT} técnico${nT>1?"s":""})`,cantidad:hD*nT,precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0,subtotal:parseFloat((hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2))});
+                if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2))});
+                if(!lns.length){alert("Introduce al menos km, horas de desplazamiento o mano de obra.");return;}
+                const{baseImponible,cuotaIVA,total}=calcTotales(lns,21);
+                const num=nextNumContabilidad(cont.facturas,"FAC");
+                const pro={id:Date.now(),numero:num,fecha:today(),...fiscal,clienteId:cliId,tipoIVA:21,lineas:lns,baseImponible,cuotaIVA,total,notas:`Parte: ${parte.numeroParte||parte.id}`,estado:"Emitida",esProforma:false,emailEnviado:false,origenParteId:parte.id};
+                setData(d=>{const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}};return{...d,contabilidad:{...contab,facturas:[...(contab.facturas||[]),pro]}};});
+                alert("Factura "+num+" creada. Puedes verla en la pestaña Facturas.");
+                setPForm({parteId:"",km:0,horasDesplazamiento:0,horasObraPorPersona:0,numTecnicos:1});
+              }} style={{...btnPrimary,marginTop:14,background:yaFactSel?"#374151":"#16a34a",opacity:yaFactSel?0.7:1,cursor:yaFactSel?"not-allowed":"pointer",textDecoration:yaFactSel?"line-through":"none"}}>{yaFactSel?"✓ Ya facturado":"Generar factura"}</button>
+              {yaFactSel&&factRef&&<span style={{marginLeft:10,fontSize:11,color:"#6b7a99"}}>Factura: <strong style={{color:"#f59e0b"}}>{factRef.numero}</strong></span>}</>;
+            })()}
           </div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px 20px"}}>
             <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:10}}>Tarifas por defecto</div>
