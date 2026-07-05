@@ -6460,12 +6460,12 @@ async function generarPDFFacturaDoc(factura, empresa) {
   cliLines.forEach((l, i) => doc.text(l, mg + 4, y + 18 + i * 4));
   y += 38;
   // ── Tabla de líneas ──
-  const colDesc = mg; const colCant = mg + 95; const colPU = mg + 118; const colSub = mg + 149;
+  const colDesc = mg; const colCant = mg + 85; const colPU = mg + 104; const colDto = mg + 127; const colSub = mg + 147;
   const tableW = W - mg * 2;
   doc.setFillColor(...colorOsc); doc.rect(colDesc, y, tableW, 7, "F");
   doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...colorAc);
   doc.text("Descripción", colDesc + 3, y + 5);
-  doc.text("Cant.", colCant, y + 5); doc.text("Precio/ud", colPU, y + 5); doc.text("Subtotal", colSub, y + 5);
+  doc.text("Cant.", colCant, y + 5); doc.text("P.Unit.", colPU, y + 5); doc.text("Dto%", colDto, y + 5); doc.text("Subtotal", colSub, y + 5);
   y += 7;
   doc.setFont("helvetica","normal"); doc.setFontSize(8);
   let alt = false;
@@ -6473,10 +6473,11 @@ async function generarPDFFacturaDoc(factura, empresa) {
     const lh = 7;
     if (alt) { doc.setFillColor(20, 30, 48); doc.rect(colDesc, y, tableW, lh, "F"); }
     doc.setTextColor(230, 235, 246);
-    const descLines = doc.splitTextToSize(ln.descripcion || "", 88);
+    const descLines = doc.splitTextToSize(ln.descripcion || "", 80);
     descLines.forEach((dl, di) => doc.text(dl, colDesc + 3, y + 5 + di * 4));
     doc.text(String(ln.cantidad ?? 1), colCant + 8, y + 5, { align:"right" });
-    doc.text(fmtEur(ln.precioUnitario), colPU + 20, y + 5, { align:"right" });
+    doc.text(fmtEur(ln.precioUnitario), colPU + 18, y + 5, { align:"right" });
+    if (ln.descuento > 0) doc.text((ln.descuento||0)+"%", colDto + 10, y + 5, { align:"right" });
     doc.text(fmtEur(ln.subtotal), colSub + 28, y + 5, { align:"right" });
     y += Math.max(lh, descLines.length * 4 + 3);
     alt = !alt;
@@ -6513,6 +6514,16 @@ async function generarPDFFacturaDoc(factura, empresa) {
   return doc.output("datauristring");
 }
 function fmtEur(n) { return (parseFloat(n)||0).toFixed(2).replace(".",",")+" €"; }
+// Parsea números en formato español: "94.000" → 94000, "94,50" → 94.5, "1.234,56" → 1234.56
+function parseNum(v) {
+  if (typeof v === "number") return v;
+  const s = String(v||"").trim();
+  if (!s) return 0;
+  if (s.includes(",")) return parseFloat(s.replace(/\./g,"").replace(",",".")) || 0;
+  if ((s.match(/\./g)||[]).length === 1 && s.split(".")[1].length === 3)
+    return parseFloat(s.replace(/\./g,"")) || 0;
+  return parseFloat(s) || 0;
+}
 
 const MESES_ES_CONT=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const Contabilidad = ({ data, setData, userActual }) => {
@@ -6557,13 +6568,19 @@ const Contabilidad = ({ data, setData, userActual }) => {
     setLineas(prev => prev.map((l,idx) => {
       if (idx !== i) return l;
       const upd = { ...l, [campo]: valor };
-      if (campo === "cantidad" || campo === "precioUnitario")
-        upd.subtotal = parseFloat(((parseFloat(upd.cantidad)||1)*(parseFloat(upd.precioUnitario)||0)).toFixed(2));
+      if (campo === "cantidad" || campo === "precioUnitario" || campo === "descuento") {
+        const qty = parseNum(upd.cantidad) || 1;
+        const price = parseNum(upd.precioUnitario) || 0;
+        const dto = Math.min(100, Math.max(0, parseNum(upd.descuento) || 0));
+        const precioNeto = parseFloat((price * (1 - dto/100)).toFixed(6));
+        upd.precioNeto = precioNeto;
+        upd.subtotal = parseFloat((qty * precioNeto).toFixed(2));
+      }
       return upd;
     }));
   };
 
-  const addLinea = () => setLineas(prev => [...prev, { id: Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
+  const addLinea = () => setLineas(prev => [...prev, { id: Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
   const removeLinea = (i) => setLineas(prev => prev.filter((_,idx)=>idx!==i));
 
   // ── Partes ──
@@ -6584,7 +6601,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
     else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true });
     else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"" });
     setBuscarCli("");
-    setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
+    setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
   };
 
@@ -6645,9 +6662,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
     const lns = (alb.lineas||[]).map((l,i) => ({
       id: Date.now()+i, descripcion:l.descripcion||l.producto||"",
       cantidad:parseFloat(l.cantidad)||1, precioUnitario:parseFloat(l.precio||l.precioUnitario)||0,
-      subtotal:parseFloat(((parseFloat(l.cantidad)||1)*(parseFloat(l.precio||l.precioUnitario)||0)).toFixed(2))
+      descuento:0, precioNeto:parseFloat(l.precio||l.precioUnitario)||0, subtotal:parseFloat(((parseFloat(l.cantidad)||1)*(parseFloat(l.precio||l.precioUnitario)||0)).toFixed(2))
     }));
-    if (!lns.length) lns.push({ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 });
+    if (!lns.length) lns.push({ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 });
     setBuscarCli(fiscal.clienteRazonSocial||"");
     setForm({ fecha:today(), tipoIVA:21, notas:`Albarán: ${alb.numero||alb.id}`, estado:"Emitida", esProforma:false, clienteId:cliId, ...fiscal });
     setLineas(lns);
@@ -6963,13 +6980,17 @@ const Contabilidad = ({ data, setData, userActual }) => {
             <div style={{marginTop:4,color:"#f59e0b",fontSize:11}}>⚠ Si los datos fiscales no son correctos, actualízalos en la ficha del cliente.</div>
           </div>
         )}
-        <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas</div>
+        <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:4}}>Líneas</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:4}}>
+          {["Descripción","Cant.","P.Unit.","Dto%","Subtotal",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,padding:"0 4px"}}>{h}</div>)}
+        </div>
         {lineas.map((ln,i)=>(
-          <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 90px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
-            <input placeholder="Descripción" value={ln.descripcion||""} onChange={e=>actualizarLinea(i,"descripcion",e.target.value)} style={inputStyle}/>
-            <input type="number" placeholder="Cant." value={ln.cantidad??1} onChange={e=>actualizarLinea(i,"cantidad",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
-            <input type="number" placeholder="Precio" value={ln.precioUnitario??0} onChange={e=>actualizarLinea(i,"precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
-            <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:"#e4e9f6",textAlign:"right"}}>{fmtEur(ln.subtotal)}</div>
+          <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input placeholder="Descripción del servicio/producto" value={ln.descripcion||""} onChange={e=>actualizarLinea(i,"descripcion",e.target.value)} style={inputStyle}/>
+            <input type="number" placeholder="1" value={ln.cantidad??1} onChange={e=>actualizarLinea(i,"cantidad",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+            <input type="text" inputMode="decimal" placeholder="0,00" value={ln.precioUnitario??0} onChange={e=>actualizarLinea(i,"precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px",textAlign:"right"}}/>
+            <input type="number" placeholder="0" min={0} max={100} value={ln.descuento??0} onChange={e=>actualizarLinea(i,"descuento",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+            <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:ln.descuento>0?"#f59e0b":"#e4e9f6",textAlign:"right",fontSize:12}}>{fmtEur(ln.subtotal)}</div>
             <button onClick={()=>removeLinea(i)} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
           </div>
         ))}
@@ -7117,20 +7138,24 @@ const Contabilidad = ({ data, setData, userActual }) => {
             </Field>
             <div/>
           </div>
-          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas del gasto</div>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:4}}>Líneas del gasto</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:4}}>
+            {["Descripción","Cant.","P.Unit.","Dto%","Subtotal",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,padding:"0 4px"}}>{h}</div>)}
+          </div>
           {gastoLineas.map((ln,i)=>{
-            const actG=(campo,val)=>setGastoLineas(prev=>prev.map((l,idx)=>{if(idx!==i)return l;const u={...l,[campo]:val};if(campo==="cantidad"||campo==="precioUnitario")u.subtotal=parseFloat(((parseFloat(u.cantidad)||1)*(parseFloat(u.precioUnitario)||0)).toFixed(2));return u;}));
+            const actG=(campo,val)=>setGastoLineas(prev=>prev.map((l,idx)=>{if(idx!==i)return l;const u={...l,[campo]:val};if(campo==="cantidad"||campo==="precioUnitario"||campo==="descuento"){const qty=parseNum(u.cantidad)||1,price=parseNum(u.precioUnitario)||0,dto=Math.min(100,Math.max(0,parseNum(u.descuento)||0));const neto=parseFloat((price*(1-dto/100)).toFixed(6));u.precioNeto=neto;u.subtotal=parseFloat((qty*neto).toFixed(2));}return u;}));
             return (
-              <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 90px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
+              <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
                 <input placeholder="Descripción" value={ln.descripcion||""} onChange={e=>actG("descripcion",e.target.value)} style={inputStyle}/>
-                <input type="number" placeholder="Cant." value={ln.cantidad??1} onChange={e=>actG("cantidad",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
-                <input type="number" placeholder="Precio" value={ln.precioUnitario??0} onChange={e=>actG("precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
-                <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:"#e4e9f6",textAlign:"right"}}>{fmtEur(ln.subtotal)}</div>
+                <input type="number" placeholder="1" value={ln.cantidad??1} onChange={e=>actG("cantidad",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+                <input type="text" inputMode="decimal" placeholder="0,00" value={ln.precioUnitario??0} onChange={e=>actG("precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px",textAlign:"right"}}/>
+                <input type="number" placeholder="0" min={0} max={100} value={ln.descuento??0} onChange={e=>actG("descuento",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+                <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:ln.descuento>0?"#f59e0b":"#e4e9f6",textAlign:"right",fontSize:12}}>{fmtEur(ln.subtotal)}</div>
                 <button onClick={()=>setGastoLineas(prev=>prev.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
               </div>
             );
           })}
-          <button onClick={()=>setGastoLineas(prev=>[...prev,{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}])} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:12}}><Icon name="plus" size={12}/> Añadir línea</button>
+          <button onClick={()=>setGastoLineas(prev=>[...prev,{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}])} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:12}}><Icon name="plus" size={12}/> Añadir línea</button>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
             <Field label="% IVA soportado"><input type="number" value={gastoForm.tipoIVA||21} onChange={e=>setGastoForm(f=>({...f,tipoIVA:parseFloat(e.target.value)||21}))} style={inputStyle}/></Field>
             <div/>
