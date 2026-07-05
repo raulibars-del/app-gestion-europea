@@ -12516,24 +12516,24 @@ function AppInner() {
     </div>
   );
   const Sidebar = () => (
-    <aside style={{width:isTablet?60:200,background:"#0a0f1a",borderRight:"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s"}}>
+    <aside style={{width:isTablet?64:248,background:"#0a0f1a",borderRight:"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s"}}>
       {/* Logo */}
-      <div style={{padding:isTablet?"12px 8px":"14px 13px 11px",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"flex-start",gap:8}}>
-        <img src={LOGO_URL} style={{width:30,height:30,borderRadius:8,objectFit:"contain",flexShrink:0}} alt="EM"/>
-        {!isTablet&&<div><div style={{fontWeight:900,fontSize:11,color:"#f1f3f9",letterSpacing:".4px"}}>EUROPEA</div><div style={{fontSize:9,color:"#e4e9f6",letterSpacing:".9px"}}>DE MAQUINARIA</div></div>}
+      <div style={{padding:isTablet?"14px 8px":"16px 15px 13px",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"flex-start",gap:9}}>
+        <img src={LOGO_URL} style={{width:34,height:34,borderRadius:8,objectFit:"contain",flexShrink:0}} alt="EM"/>
+        {!isTablet&&<div><div style={{fontWeight:900,fontSize:12,color:"#f1f3f9",letterSpacing:".4px"}}>EUROPEA</div><div style={{fontSize:10,color:"#e4e9f6",letterSpacing:".9px"}}>DE MAQUINARIA</div></div>}
       </div>
       {/* Nav */}
-      <nav style={{padding:"7px 5px",flex:1,overflow:"auto"}}>
+      <nav style={{padding:"8px 6px",flex:1,overflow:"auto"}}>
         {navV.map(n=>{
           const badge=navBadge(n.id);
           return(
             <button key={n.id} onClick={()=>handleNav(n.id)} title={isTablet?n.label:""}
-              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"9px":"7px 9px",borderRadius:7,border:"none",cursor:"pointer",marginBottom:1,background:active===n.id?n.color+"20":"transparent",color:active===n.id?n.color:"#e4e9f6",fontWeight:active===n.id?700:400,fontSize:12,position:"relative"}}>
-              <span style={{display:"flex",alignItems:"center",gap:isTablet?0:7}}>
-                <Icon name={n.icon} size={isTablet?18:14}/>
+              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"10px":"9px 11px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:active===n.id?n.color+"22":"transparent",color:active===n.id?n.color:"#e4e9f6",fontWeight:active===n.id?700:400,fontSize:14,position:"relative",transition:"background .12s"}}>
+              <span style={{display:"flex",alignItems:"center",gap:isTablet?0:9}}>
+                <Icon name={n.icon} size={isTablet?20:16}/>
                 {!isTablet&&n.label}
               </span>
-              {badge&&!isTablet&&<span style={{background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 6px",fontSize:10,fontWeight:800}}>{badge}</span>}
+              {badge&&!isTablet&&<span style={{background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 7px",fontSize:11,fontWeight:800}}>{badge}</span>}
               {badge&&isTablet&&<span style={{position:"absolute",top:4,right:4,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800,minWidth:14,textAlign:"center"}}>{badge}</span>}
             </button>
           );
@@ -12545,11 +12545,11 @@ function AppInner() {
           <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"#1a2236",border:"none",borderRadius:6,padding:"8px",color:"#e4e9f6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="logout" size={14}/></button>
         ):(
           <>
-            <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:7,marginBottom:6,cursor:"pointer"}}>
-              <Avatar u={user} size={26} fontSize={11}/>
-              <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:11,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
+            <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,cursor:"pointer"}}>
+              <Avatar u={user} size={30} fontSize={12}/>
+              <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
             </div>
-            <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,padding:"6px",color:"#e4e9f6",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,fontWeight:600}}><Icon name="logout" size={11}/>Cerrar sesión</button>
+            <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:7,padding:"7px",color:"#e4e9f6",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontWeight:600}}><Icon name="logout" size={13}/>Cerrar sesión</button>
             <div style={{marginTop:8,textAlign:"center",color:"#e4e9f6",fontSize:10,lineHeight:1.5,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
           </>
         )}
