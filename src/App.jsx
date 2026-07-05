@@ -7288,7 +7288,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         const d=new Date(fd); return d.getFullYear()===tallAnyo&&d.getMonth()===mi;
       });
       const horas = partesMes.reduce((s,p)=>s+(parseFloat(p.horasT)||0),0);
-      const prosMes = (cont.proformas||[]).filter(pr=>partesMes.some(p=>p.id===pr.origenParteId));
+      const prosMes = (cont.facturas||[]).filter(pr=>partesMes.some(p=>p.id===pr.origenParteId));
       const facturado = prosMes.reduce((s,pr)=>s+(pr.baseImponible||0),0);
       return { mes, partes:partesMes.length, horas, facturado, ratio:horas>0?parseFloat((facturado/horas).toFixed(2)):0 };
     });
@@ -7362,7 +7362,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
               </tbody>
             </table>
           </div>
-          <div style={{marginTop:8,color:"#e4e9f6",fontSize:11}}>€/hora calculado sobre las proformas vinculadas a partes finalizados ese mes.</div>
+          <div style={{marginTop:8,color:"#e4e9f6",fontSize:11}}>€/hora calculado sobre las facturas vinculadas a partes finalizados ese mes.</div>
         </div>
       </div>
     );
@@ -7485,7 +7485,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         <div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px",marginBottom:14}}>
             <div style={{fontWeight:700,color:"#f1f3f9",fontSize:15,marginBottom:4}}>Calcular importe de un parte</div>
-            <p style={{color:"#e4e9f6",fontSize:12,marginBottom:16}}>Selecciona un parte finalizado, revisa km y horas (se rellenan automáticamente), y genera una proforma.</p>
+            <p style={{color:"#e4e9f6",fontSize:12,marginBottom:16}}>Selecciona un parte finalizado, revisa km y horas (se rellenan automáticamente), y genera la factura.</p>
             <Field label="Parte de trabajo (finalizado)">
               <select value={pForm.parteId} onChange={e=>{
                 const pid=e.target.value, parte=partesCompletados.find(p=>p.id===parseInt(pid));
@@ -7546,12 +7546,12 @@ const Contabilidad = ({ data, setData, userActual }) => {
               if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2))});
               if(!lns.length){alert("Introduce al menos km, horas de desplazamiento o mano de obra.");return;}
               const{baseImponible,cuotaIVA,total}=calcTotales(lns,21);
-              const num=nextNumContabilidad(cont.proformas,"PRO");
-              const pro={id:Date.now(),numero:num,fecha:today(),...fiscal,clienteId:cliId,tipoIVA:21,lineas:lns,baseImponible,cuotaIVA,total,notas:`Parte: ${parte.numeroParte||parte.id}`,estado:"Emitida",esProforma:true,emailEnviado:false,origenParteId:parte.id};
-              setData(d=>{const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}};return{...d,contabilidad:{...contab,proformas:[...contab.proformas,pro]}};});
-              alert("Proforma "+num+" creada. Puedes verla en la pestaña Proformas.");
+              const num=nextNumContabilidad(cont.facturas,"FAC");
+              const pro={id:Date.now(),numero:num,fecha:today(),...fiscal,clienteId:cliId,tipoIVA:21,lineas:lns,baseImponible,cuotaIVA,total,notas:`Parte: ${parte.numeroParte||parte.id}`,estado:"Emitida",esProforma:false,emailEnviado:false,origenParteId:parte.id};
+              setData(d=>{const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}};return{...d,contabilidad:{...contab,facturas:[...(contab.facturas||[]),pro]}};});
+              alert("Factura "+num+" creada. Puedes verla en la pestaña Facturas.");
               setPForm({parteId:"",km:0,horasDesplazamiento:0,horasObraPorPersona:0,numTecnicos:1});
-            }} style={{...btnPrimary,marginTop:14,background:"#d97706"}}>Generar proforma</button>
+            }} style={{...btnPrimary,marginTop:14,background:"#16a34a"}}>Generar factura</button>
           </div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px 20px"}}>
             <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:10}}>Tarifas por defecto</div>
