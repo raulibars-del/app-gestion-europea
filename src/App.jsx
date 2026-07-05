@@ -7075,14 +7075,18 @@ const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
-// ── Pie de página (helper, se llama en cada página) ──────────
+const PAD=4;const GAP=6; // marco y separación entre fotos
 const addFooter=()=>{
   doc.setFillColor(249,115,22);doc.rect(0,282,W,1,"F");
   doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");
   doc.setTextColor(150,162,180);doc.setFontSize(7);
   doc.text("Europea de Maquinaria PMM SL · CIF B98527583 · europeademaquinaria.com",W/2,291,{align:"center"});
 };
-// ── Cabecera ────────────────────────────────────────────────
+const drawFotoFrame=(fx,fy,fw,fh)=>{
+  doc.setFillColor(30,40,60);doc.roundedRect(fx-PAD,fy-PAD,fw+PAD*2,fh+PAD*2,3,3,"F");
+  doc.setDrawColor(249,115,22);doc.setLineWidth(0.8);doc.roundedRect(fx-2,fy-2,fw+4,fh+4,2,2,"D");doc.setLineWidth(0.2);
+};
+// ── Cabecera ─────────────────────────────────────────────────
 doc.setFillColor(15,23,42);doc.rect(0,0,W,40,"F");doc.setFillColor(249,115,22);doc.rect(0,37,W,3,"F");
 try{doc.addImage(LOGO_CIRCULO,"JPEG",mg,8,22,22);}catch(e){}
 doc.setTextColor(241,243,249);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+26,15);
@@ -7091,72 +7095,54 @@ doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold")
 doc.setTextColor(249,115,22);doc.setFontSize(14);doc.setFont("helvetica","bold");doc.text(m.codigo||"—",W-mg,22,{align:"right"});
 doc.setTextColor(241,243,249);doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.text(today(),W-mg,30,{align:"right"});
 let y=50;
-// ── 1. Datos de la máquina ───────────────────────────────────
+// ── 1. Datos de la máquina ────────────────────────────────────
 doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
 doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MÁQUINA",mg+4,y+5);y+=12;
 [["Marca",m.marca],["Modelo",m.modelo],["Nº Serie / Matrícula",m.serie],["Año",m.anyo]].forEach(([l,v])=>{
   if(!v)return;
   doc.setTextColor(130,145,170);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);
   doc.setTextColor(20,30,55);doc.setFont("helvetica","bold");doc.text(String(v||"—"),mg+55,y);y+=6;
-});y+=4;
-// ── Notas (en la página de datos) ───────────────────────────
-if(m.notas){
-  doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
-  doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("NOTAS",mg+4,y+5);y+=10;
-  doc.setTextColor(30,40,65);doc.setFontSize(9);doc.setFont("helvetica","normal");
-  const nl=doc.splitTextToSize(m.notas,W-mg*2-8);doc.text(nl,mg+4,y);y+=nl.length*5+6;
-}
-addFooter(); // pie de la primera página
-// ── 2. Fotografías: nueva página, todas igual tamaño, 2 por página ──
-const hasFotos=(m.fotos||[]).length>0;
+});y+=6;
+// ── 2. Foto principal: rellena el espacio restante de la página 1 ──
+const fotosSorted=[...(m.fotos||[])].sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
+const hasFotos=fotosSorted.length>0;
 const hasCodigos=(m.codigos||[]).length>0;
 if(hasFotos){
-  const fotosSorted=[...(m.fotos||[])].sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
-  // Dimensiones: ancho total disponible, altura calculada para que 2 fotos
-  // (con sus marcos de 4mm) + 6mm de separación entre marcos encajen exactamente
-  // entre y=28 (marco superior) e y=278 (margen sobre el pie de página).
-  // Marco = 4mm extra por cada lado. Restricción: (32-4) + fH+4 + 6 + (fH+4) + (fH+4) ... nope
-  // Recalculando: foto1 a y=32, marco superior foto1 a y=28.
-  // fondo_marco_foto2 = 32 + fH + 4 + 6 + 4 + fH + 4 = 50 + 2*fH ≤ 278 → fH ≤ 114
-  const fW=W-mg*2;  // 180mm
-  const fH=114;     // altura de cada foto (calculado para 2 por página con marcos)
-  const PAD=4;      // relleno del marco alrededor de la imagen
-  const GAP=6;      // separación entre marcos consecutivos
-  const yFOTO_START=32; // y donde empieza la primera foto en cada página de fotos
-  let primeraFotosPag=true;
-  let countEnPag=0;
-  let yF=yFOTO_START;
-  for(let i=0;i<fotosSorted.length;i++){
+  const fW=W-mg*2; // 180mm ancho total
+  const fH=276-y;  // ocupa todo el espacio restante hasta antes del pie
+  drawFotoFrame(mg,y,fW,fH);
+  const fdMain=await cargarFotoParaPDF(fotosSorted[0].data);
+  if(fdMain)try{doc.addImage(fdMain,"JPEG",mg,y,fW,fH);}catch(e){}
+}
+addFooter(); // pie página 1
+// ── 3. Fotos adicionales: de 2 en 2, sin título, llenando la página ──
+// Tamaño para 2 fotos+marcos por página:
+// y1=22, marco_sup=18, marco_inf_foto1=22+fH+4, gap=6, marco_sup_foto2=22+fH+10,
+// y2=22+fH+14, marco_inf_foto2=22+fH+14+fH+4=40+2*fH ≤ 278 → fH≤119 → usamos 118
+if(hasFotos&&fotosSorted.length>1){
+  const fW=W-mg*2;
+  const fH=118;
+  const step=fH+PAD+GAP+PAD; // 118+4+6+4=132 — avance entre fotos
+  let countEnPag=0;let yF=0;
+  for(let i=1;i<fotosSorted.length;i++){
     if(countEnPag===0){
-      // Abrir nueva página de fotos
-      if(i>0)addFooter();
+      if(i>1)addFooter();
       doc.addPage();
-      yF=yFOTO_START;
-      if(primeraFotosPag){
-        // Título de sección solo en la primera página de fotos (en el hueco y=20..31)
-        doc.setFillColor(21,27,42);doc.roundedRect(mg,20,W-mg*2,7,1,1,"F");
-        doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("FOTOGRAFÍAS",mg+4,25);
-        primeraFotosPag=false;
-      }
+      yF=22; // margen superior en páginas de fotos
     }
-    // Marco oscuro de fondo + borde naranja
-    doc.setFillColor(30,40,60);doc.roundedRect(mg-PAD,yF-PAD,fW+PAD*2,fH+PAD*2,3,3,"F");
-    doc.setDrawColor(249,115,22);doc.setLineWidth(0.8);doc.roundedRect(mg-2,yF-2,fW+4,fH+4,2,2,"D");doc.setLineWidth(0.2);
+    drawFotoFrame(mg,yF,fW,fH);
     const fd=await cargarFotoParaPDF(fotosSorted[i].data);
     if(fd)try{doc.addImage(fd,"JPEG",mg,yF,fW,fH);}catch(e){}
-    yF+=fH+PAD+GAP+PAD; // avanzar: fH + marco inferior + separación + marco superior siguiente
-    countEnPag++;
-    if(countEnPag===2)countEnPag=0; // dos fotos por página → reset
+    yF+=step;countEnPag++;
+    if(countEnPag===2)countEnPag=0;
   }
-  addFooter(); // pie de la última página de fotos
+  addFooter(); // pie de la última página de fotos adicionales
 }
-// ── 3. Configuración y valoración: siempre en nueva página ───
+// ── 4. Configuración y valoración: siempre página nueva ──────
 if(hasCodigos){
-  doc.addPage();
-  let yC=20;
+  doc.addPage();let yC=20;
   doc.setFillColor(21,27,42);doc.roundedRect(mg,yC,W-mg*2,7,1,1,"F");
   doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("CONFIGURACIÓN Y VALORACIÓN",mg+4,yC+5);yC+=10;
-  // Cabecera tabla
   doc.setFillColor(249,115,22);doc.rect(mg,yC,W-mg*2,6.5,"F");
   doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont("helvetica","bold");
   doc.text("CÓDIGO",mg+3,yC+4.5);doc.text("DESCRIPCIÓN",mg+45,yC+4.5);doc.text("VALOR EUR",W-mg-3,yC+4.5,{align:"right"});yC+=7.5;
@@ -7169,7 +7155,6 @@ if(hasCodigos){
     doc.setFont("helvetica","bold");doc.setTextColor(15,100,60);doc.text(Math.round(parseFloat(c.valor)||0).toLocaleString(),W-mg-3,yC+4,{align:"right"});
     yC+=Math.max(ls.length*5,7);
   });yC+=4;
-  // Total
   if(yC+14>275){doc.addPage();addFooter();yC=20;}
   const tar=vT(m);
   doc.setFillColor(21,27,42);doc.roundedRect(mg,yC,W-mg*2,9,1,1,"F");
