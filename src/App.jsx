@@ -380,8 +380,8 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad"],
-  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
+  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad"],
+  admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
 };
@@ -506,6 +506,7 @@ const initialData = {
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
   empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
   contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
+  proveedores:[],
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
@@ -1882,6 +1883,151 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     </div>
   );
 };
+const Proveedores = ({ data, setData, userActual }) => {
+  const puedeEliminar = userActual?.rol==="manager";
+  const [search,setSearch]=useState("");
+  const [modal,setModal]=useState(null); // null | "nuevo" | id(number)
+  const [form,setForm]=useState({});
+  const [contactos,setContactos]=useState([]);
+  const [modalCo,setModalCo]=useState(null);
+  const [formCo,setFormCo]=useState({});
+
+  const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
+  const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
+
+  const lista=(data.proveedores||[]).slice().sort((a,b)=>(a.razonSocial||"").localeCompare(b.razonSocial||"","es",{sensitivity:"base"}));
+  const filtered=lista.filter(p=>
+    (p.razonSocial||"").toLowerCase().includes(search.toLowerCase())||
+    (p.nif||"").toLowerCase().includes(search.toLowerCase())||
+    (p.localidad||"").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const abrirNuevo=()=>{ setForm({razonSocial:"",nif:"",dirFiscal:"",cpFiscal:"",localidad:"",provincia:"",email:"",tel:"",web:"",notas:""}); setContactos([]); setModal("nuevo"); };
+  const abrirEditar=prov=>{ setForm({...prov}); setContactos(prov.contactos?[...prov.contactos]:[]); setModal(prov.id); };
+
+  const guardar=()=>{
+    if(!form.razonSocial?.trim()){alert("Introduce la razón social.");return;}
+    const prov={...form,contactos,id:modal==="nuevo"?Date.now():modal};
+    setData(d=>({...d,proveedores:modal==="nuevo"?[...(d.proveedores||[]),prov]:(d.proveedores||[]).map(p=>p.id===modal?prov:p)}));
+    setModal(null);
+  };
+
+  const eliminar=id=>{ if(!window.confirm("¿Eliminar este proveedor?"))return; setData(d=>({...d,proveedores:(d.proveedores||[]).filter(p=>p.id!==id)})); };
+
+  const guardarCo=()=>{
+    if(!formCo.nombre?.trim()){alert("Nombre requerido.");return;}
+    if(modalCo==="nuevo"){
+      setContactos(prev=>[...prev,{...formCo,id:Date.now(),principal:prev.length===0}]);
+    }else{
+      setContactos(prev=>prev.map(c=>c.id===modalCo?{...c,...formCo}:c));
+    }
+    setModalCo(null);
+  };
+
+  const principal=contactos.find(c=>c.principal);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div style={{color:"#f1f3f9",fontWeight:800,fontSize:20}}>Proveedores</div>
+          <div style={{color:"#8899b4",fontSize:13}}>{filtered.length} proveedor{filtered.length!==1?"es":""}</div>
+        </div>
+        <button onClick={abrirNuevo} style={{background:"#f59e0b",color:"#0d1117",border:"none",borderRadius:9,padding:"9px 18px",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+          <Icon name="plus" size={14}/> Nuevo proveedor
+        </button>
+      </div>
+      {/* Buscador */}
+      <div style={{position:"relative",marginBottom:16}}>
+        <Icon name="search" size={14} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#8899b4"}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar proveedor, NIF, localidad..." style={{...inputStyle,paddingLeft:32}}/>
+      </div>
+      {/* Lista */}
+      {filtered.length===0?(
+        <div style={{textAlign:"center",color:"#8899b4",padding:40}}>{search?"Sin resultados.":"No hay proveedores registrados. Crea el primero."}</div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {filtered.map(prov=>{
+            const cp=prov.contactos?.find(c=>c.principal)||prov.contactos?.[0];
+            return (
+              <div key={prov.id} style={{background:"#101828",border:"1px solid #1e2d45",borderRadius:11,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14,marginBottom:2}}>{prov.razonSocial}</div>
+                  <div style={{color:"#8899b4",fontSize:12}}>{[prov.nif,prov.localidad,prov.provincia].filter(Boolean).join(" · ")}</div>
+                  {cp&&<div style={{color:"#f59e0b",fontSize:12,marginTop:2}}>{cp.nombre}{cp.tel?" · "+cp.tel:""}{cp.email?" · "+cp.email:""}</div>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>abrirEditar(prov)} style={{background:"#1e2d45",border:"none",borderRadius:7,padding:"6px 12px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}>Editar</button>
+                  {puedeEliminar&&<button onClick={()=>eliminar(prov.id)} style={{background:"#3b1c1c",border:"none",borderRadius:7,padding:"6px 10px",color:"#dc2626",cursor:"pointer",fontSize:12}}>✕</button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* Modal proveedor */}
+      {modal!==null&&(
+        <Modal title={modal==="nuevo"?"Nuevo proveedor":"Editar proveedor"} onClose={()=>setModal(null)} wide>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <Field label="Razón social *"><input value={form.razonSocial||""} onChange={f("razonSocial")} style={inputStyle} placeholder="Nombre de la empresa"/></Field>
+            <Field label="NIF / CIF"><input value={form.nif||""} onChange={f("nif")} style={inputStyle} placeholder="B00000000"/></Field>
+            <Field label="Dirección fiscal"><input value={form.dirFiscal||""} onChange={f("dirFiscal")} style={inputStyle} placeholder="Calle, número..."/></Field>
+            <Field label="Código postal"><input value={form.cpFiscal||""} onChange={f("cpFiscal")} style={inputStyle} placeholder="00000"/></Field>
+            <Field label="Localidad"><input value={form.localidad||""} onChange={f("localidad")} style={inputStyle} placeholder="Ciudad"/></Field>
+            <Field label="Provincia"><input value={form.provincia||""} onChange={f("provincia")} style={inputStyle} placeholder="Provincia"/></Field>
+            <Field label="Email"><input value={form.email||""} onChange={f("email")} style={inputStyle} placeholder="info@proveedor.com"/></Field>
+            <Field label="Teléfono"><input value={form.tel||""} onChange={f("tel")} style={inputStyle} placeholder="900 000 000"/></Field>
+            <Field label="Web" style={{gridColumn:"1/-1"}}><input value={form.web||""} onChange={f("web")} style={inputStyle} placeholder="www.empresa.com"/></Field>
+          </div>
+          {/* Contactos */}
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:8}}>Contactos</div>
+          {contactos.map(co=>(
+            <div key={co.id} style={{background:"#0d1117",border:"1px solid #1e2d45",borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <div>
+                <span style={{color:"#f1f3f9",fontWeight:600}}>{co.nombre}</span>
+                {co.puesto&&<span style={{color:"#8899b4",fontSize:12,marginLeft:6}}>({co.puesto})</span>}
+                {co.tel&&<span style={{color:"#60a5fa",fontSize:12,marginLeft:8}}>{co.tel}</span>}
+                {co.email&&<span style={{color:"#8899b4",fontSize:12,marginLeft:8}}>{co.email}</span>}
+                {co.principal&&<span style={{color:"#f59e0b",fontSize:11,marginLeft:8}}>★ Principal</span>}
+              </div>
+              <div style={{display:"flex",gap:5}}>
+                <button onClick={()=>{setFormCo({...co});setModalCo(co.id);}} style={{background:"#1e2d45",border:"none",borderRadius:6,padding:"4px 10px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}>Editar</button>
+                <button onClick={()=>setContactos(prev=>prev.filter(c=>c.id!==co.id))} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"4px 8px",color:"#dc2626",cursor:"pointer"}}>✕</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={()=>{setFormCo({nombre:"",puesto:"",tel:"",email:"",principal:false});setModalCo("nuevo");}} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:14}}><Icon name="plus" size={12}/> Añadir contacto</button>
+          <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} rows={3} style={{...inputStyle,resize:"vertical"}} placeholder="Condiciones de pago, observaciones..."/></Field>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:14}}>
+            <button onClick={()=>setModal(null)} style={{...btnOutline}}>Cancelar</button>
+            <button onClick={guardar} style={{background:"#f59e0b",color:"#0d1117",border:"none",borderRadius:9,padding:"10px 22px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Guardar</button>
+          </div>
+        </Modal>
+      )}
+      {/* Modal contacto */}
+      {modalCo!==null&&(
+        <Modal title={modalCo==="nuevo"?"Nuevo contacto":"Editar contacto"} onClose={()=>setModalCo(null)}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <Field label="Nombre *"><input value={formCo.nombre||""} onChange={fco("nombre")} style={inputStyle}/></Field>
+            <Field label="Cargo / Puesto"><input value={formCo.puesto||""} onChange={fco("puesto")} style={inputStyle}/></Field>
+            <Field label="Teléfono"><input value={formCo.tel||""} onChange={fco("tel")} style={inputStyle}/></Field>
+            <Field label="Email"><input value={formCo.email||""} onChange={fco("email")} style={inputStyle}/></Field>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,color:"#e4e9f6",fontSize:13,marginBottom:14,cursor:"pointer"}}>
+            <input type="checkbox" checked={!!formCo.principal} onChange={e=>setFormCo(p=>({...p,principal:e.target.checked}))}/>
+            Contacto principal
+          </label>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+            <button onClick={()=>setModalCo(null)} style={{...btnOutline}}>Cancelar</button>
+            <button onClick={guardarCo} style={{background:"#f59e0b",color:"#0d1117",border:"none",borderRadius:9,padding:"10px 22px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Guardar</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
   const [canal,setCanal]=useState("general"); const [texto,setTexto]=useState(""); const [buscar,setBuscar]=useState("");
   const [mView,setMView]=useState("lista"); const [subiendo,setSubiendo]=useState(false);
@@ -7205,8 +7351,17 @@ const Contabilidad = ({ data, setData, userActual }) => {
       {showGastoModal&&(
         <Modal title="Registrar gasto" onClose={()=>setShowGastoModal(false)} wide>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-            <Field label="Proveedor"><input value={gastoForm.proveedor||""} onChange={e=>setGastoForm(f=>({...f,proveedor:e.target.value}))} style={inputStyle} placeholder="Nombre del proveedor"/></Field>
-            <Field label="NIF proveedor"><input value={gastoForm.nifProveedor||""} onChange={e=>setGastoForm(f=>({...f,nifProveedor:e.target.value}))} style={inputStyle} placeholder="NIF/CIF"/></Field>
+            <Field label="Proveedor">
+              <div style={{position:"relative"}}>
+                <input value={gastoForm.proveedor||""} onChange={e=>{const v=e.target.value;const match=(data.proveedores||[]).find(p=>p.razonSocial===v);setGastoForm(f=>({...f,proveedor:v,nifProveedor:match?.nif||f.nifProveedor}));}} list="prov-list-gasto" style={inputStyle} placeholder="Nombre del proveedor"/>
+                <datalist id="prov-list-gasto">{(data.proveedores||[]).map(p=><option key={p.id} value={p.razonSocial}/>)}</datalist>
+              </div>
+            </Field>
+            <Field label="NIF proveedor">
+              <input value={gastoForm.nifProveedor||""} onChange={e=>setGastoForm(f=>({...f,nifProveedor:e.target.value}))}
+                onFocus={()=>{if(!gastoForm.nifProveedor&&gastoForm.proveedor){const match=(data.proveedores||[]).find(p=>p.razonSocial===gastoForm.proveedor);if(match?.nif)setGastoForm(f=>({...f,nifProveedor:match.nif}));}}}
+                style={inputStyle} placeholder="NIF/CIF"/>
+            </Field>
             <Field label="Fecha"><input type="date" value={gastoForm.fecha||""} onChange={e=>setGastoForm(f=>({...f,fecha:e.target.value}))} style={inputStyle}/></Field>
             <Field label="Nº factura proveedor"><input value={gastoForm.numFacturaProveedor||""} onChange={e=>setGastoForm(f=>({...f,numFacturaProveedor:e.target.value}))} style={inputStyle} placeholder="Ref. factura"/></Field>
             <Field label="Categoría">
@@ -10507,6 +10662,7 @@ const NAV_ITEMS = [
   {id:"tareas",         label:"Tareas",                icon:"tasks",        color:"#8b5cf6"},
   {id:"calendario",     label:"Calendario",            icon:"calendario",   color:"#f97316"},
   {id:"clientes",       label:"Clientes",              icon:"clients",      color:"#3b82f6"},
+  {id:"proveedores",    label:"Proveedores",           icon:"clients",      color:"#f59e0b"},
   {id:"partes",         label:"Partes",                icon:"parts",        color:"#0ea5e9"},
   {id:"albaran",        label:"Albaranes",             icon:"albaran",      color:"#f97316"},
   {id:"maquinas",       label:"Máquinas",              icon:"maquina",      color:"#0ea5e9"},
@@ -12041,7 +12197,8 @@ export default function App() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>
+          {active==="proveedores"&&puedeVer(user.rol,"proveedores")&&<Proveedores data={data} setData={setData} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="visitas"&&puedeVer(user.rol,"visitas")&&<DiarioVisitas data={data} setData={setData} userActual={user}/>}
