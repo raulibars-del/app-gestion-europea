@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -269,6 +270,55 @@ const migrateContabilidad = (d) => {
 };
 // Función que aplica todas las migraciones/backfills al cargar datos.
 const prepararDatos = d => migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d))));
+
+// ── Verifactu: hash SHA-256 encadenado (RD 1007/2023, Ley 11/2021 antifraude) ──
+// Campos: IDEmisorFactura & NumSerieFactura & FechaExpedicion & TipoFactura & CuotaTotal & ImporteTotal & HuellaAnterior
+async function computarHashVerifactu(factura, hashAnterior, nifEmisor) {
+  try {
+    const fecha = factura.fecha
+      ? new Date(factura.fecha + "T00:00:00").toLocaleDateString("es-ES", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-")
+      : "";
+    const str = `IDEmisorFactura=${nifEmisor}&NumSerieFactura=${factura.numero}&FechaExpedicionFactura=${fecha}&TipoFactura=F1&CuotaTotal=${(parseFloat(factura.cuotaIVA)||0).toFixed(2)}&ImporteTotal=${(parseFloat(factura.total)||0).toFixed(2)}&HuellaAnterior=${hashAnterior}`;
+    const encoded = new TextEncoder().encode(str);
+    const hashBuf = await crypto.subtle.digest("SHA-256", encoded);
+    return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
+  } catch(e) { return ""; }
+}
+
+// CSV parser para importar datos de ContaPlus / Factusol / genérico PGC
+function parsearCSVContabilidad(text) {
+  const firstLine = text.split("\n")[0];
+  const sep = firstLine.includes(";") ? ";" : firstLine.includes("\t") ? "\t" : ",";
+  const raw = text.trim().split("\n").map(l => l.split(sep).map(s => s.replace(/^["'\s]+|["'\s]+$/g,"").trim()));
+  if (raw.length < 2) return null;
+  const hdrs = raw[0].map(h => h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," "));
+  const rows = raw.slice(1).filter(r => r.some(c => c.trim()));
+  const fc = (...cands) => { for(const c of cands){const i=hdrs.findIndex(h=>h.includes(c));if(i>=0)return i;} return -1; };
+  const cA=fc("asiento","num asiento","numero asiento","n. asiento","nº asiento","n asiento");
+  const cF=fc("fecha");
+  const cC=fc("subcuenta","cuenta");
+  const cN=fc("nombre cuenta","nombre subcuenta","nombre");
+  const cCon=fc("concepto","descripcion","descripcion","concepto movimiento");
+  const cD=fc("debe","importe debe");
+  const cH=fc("haber","importe haber");
+  const parseNum=s=>parseFloat((s||"").replace(/\./g,"").replace(",","."))||0;
+  const parseDateES=s=>{if(!s)return"";const p=s.split(/[\/\-\.]/);if(p.length===3){if(p[0].length===4)return`${p[0]}-${p[1].padStart(2,"0")}-${p[2].padStart(2,"0")}`;return`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;}return s;};
+  const grupos={};
+  rows.forEach((row,ri)=>{
+    const na=cA>=0?row[cA]:(ri+1).toString();
+    const fecha=cF>=0?parseDateES(row[cF]):"";
+    const cta=cC>=0?row[cC].substring(0,9):"";
+    const nom=cN>=0?row[cN]:"";
+    const concepto=cCon>=0?row[cCon]:"";
+    const debe=cD>=0?parseNum(row[cD]):0;
+    const haber=cH>=0?parseNum(row[cH]):0;
+    if(!grupos[na])grupos[na]={num:na,fecha,concepto,lineas:[]};
+    if(!grupos[na].fecha&&fecha)grupos[na].fecha=fecha;
+    if(!grupos[na].concepto&&concepto)grupos[na].concepto=concepto;
+    if(cta||debe||haber)grupos[na].lineas.push({cta,nom,debe,haber});
+  });
+  return Object.values(grupos).filter(g=>g.lineas.length>0);
+}
 // Fusión inteligente de los datos al detectar que otro dispositivo guardó mientras
 // nosotros teníamos una edición local pendiente. Como "data" es un único bloque
 // compartido por toda la app, antes simplemente se descartaba TODA nuestra edición
@@ -6693,6 +6743,19 @@ async function generarPDFFacturaDoc(factura, empresa) {
   doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
   doc.text("Nº: "+factura.numero,W-mg,21,{align:"right"});
   doc.text("Fecha: "+(factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""),W-mg,27,{align:"right"});
+  // ── Verifactu QR (solo en facturas definitivas con hash) ──
+  if (!esProforma && !esPresupuesto && factura.verifactuHash) {
+    try {
+      const nif_ = emp.nif || "B98527583";
+      const fecha_ = factura.fecha ? new Date(factura.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "";
+      const qrContent = `1=${nif_}&2=${factura.numero}&3=${fecha_}&4=${(parseFloat(factura.total)||0).toFixed(2)}&5=${factura.verifactuHash.substring(0,10)}`;
+      const qrDataUrl = await QRCode.toDataURL(qrContent, { width:96, margin:1, color:{dark:"#0f172a",light:"#ffffff"} });
+      doc.addImage(qrDataUrl, "PNG", W-mg-24, 4, 22, 22);
+      doc.setFontSize(5); doc.setTextColor(150,160,180); doc.setFont("helvetica","normal");
+      doc.text("Verifactu", W-mg-13, 28, {align:"center"});
+    } catch(e) {}
+  }
+
   // Fondo blanco cuerpo
   doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
 
@@ -6819,6 +6882,12 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.text("ANULADA",W/2,148,{align:"center",angle:40});
   }
 
+  // ── Huella Verifactu en footer (solo facturas con hash) ──
+  if (!esProforma && !esPresupuesto && factura.verifactuHash) {
+    doc.setTextColor(160,170,190); doc.setFontSize(5.5); doc.setFont("helvetica","normal");
+    doc.text("Verifactu · Huella: "+factura.verifactuHash, mg, 279);
+  }
+
   // ── Footer (idéntico al de partes) ──
   doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
   doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
@@ -6908,6 +6977,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [gastoForm, setGastoForm] = useState({});
   const [gastoLineas, setGastoLineas] = useState([]);
   const [showGastoModal, setShowGastoModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importAsientos, setImportAsientos] = useState(null); // parsed data ready to import
+  const [importError, setImportError] = useState("");
   const [pedidoForm, setPedidoForm] = useState({});
   const [pedidoLineas, setPedidoLineas] = useState([]);
   const [showPedidoModal, setShowPedidoModal] = useState(false);
@@ -6925,18 +6997,33 @@ const Contabilidad = ({ data, setData, userActual }) => {
     setModal(tipo);
   };
 
-  const guardarDocumento = () => {
+  const guardarDocumento = async () => {
     if (!form.clienteId) { alert("Selecciona un cliente."); return; }
     if (!lineas.length || lineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
     const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
     const esProforma = modal==="proforma", esPresupuesto = modal==="presupuesto";
+    const esFactura = !esProforma && !esPresupuesto;
+
+    // ── Verifactu: calcular hash solo para facturas nuevas ──
+    let verifactuExtra = {};
+    if (esFactura && !form.id) {
+      const contab_ = data.contabilidad || {};
+      const facturas_ = contab_.facturas || [];
+      const nif_ = data.empresa?.nif || "B98527583";
+      const numero_ = nextNumContabilidad(facturas_, "FAC");
+      const conHash = facturas_.filter(f=>f.verifactuHash&&f.estado!=="Anulada").sort((a,b)=>(a.numero||"").localeCompare(b.numero||""));
+      const hashPrev = conHash.length ? conHash[conHash.length-1].verifactuHash : "0";
+      const hash = await computarHashVerifactu({numero:numero_,fecha:form.fecha||today(),cuotaIVA,total}, hashPrev, nif_);
+      if (hash) verifactuExtra = { verifactuHash: hash, verifactuHashPrev: hashPrev };
+    }
+
     setData(d => {
       const contab = d.contabilidad || { facturas:[], proformas:[], presupuestos:[], gastos:[], tarifas:{}, costesVentas:{} };
       const clave = esPresupuesto ? "presupuestos" : esProforma ? "proformas" : "facturas";
       const prefijo = esPresupuesto ? "PRS" : esProforma ? "PRO" : "FAC";
       const lista = contab[clave]||[];
       const numero = form.id ? form.numero : nextNumContabilidad(lista, prefijo);
-      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total };
+      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total, ...verifactuExtra };
       const nuevaLista = form.id ? lista.map(x=>x.id===form.id?doc:x) : [...lista, doc];
       return { ...d, contabilidad: { ...contab, [clave]: nuevaLista } };
     });
@@ -6951,12 +7038,19 @@ const Contabilidad = ({ data, setData, userActual }) => {
     });
   };
 
-  const convertirAFactura = (pro, clave) => {
+  const convertirAFactura = async (pro, clave) => {
     if (!window.confirm(`¿Convertir ${pro.numero} en factura real? Se creará una nueva FAC.`)) return;
+    const contab_ = data.contabilidad || {};
+    const facturas_ = contab_.facturas || [];
+    const num = nextNumContabilidad(facturas_, "FAC");
+    const nif_ = data.empresa?.nif || "B98527583";
+    const conHash = facturas_.filter(f=>f.verifactuHash&&f.estado!=="Anulada").sort((a,b)=>(a.numero||"").localeCompare(b.numero||""));
+    const hashPrev = conHash.length ? conHash[conHash.length-1].verifactuHash : "0";
+    const hash = await computarHashVerifactu({numero:num, fecha:pro.fecha||today(), cuotaIVA:pro.cuotaIVA, total:pro.total}, hashPrev, nif_);
+    const verifactuExtra = hash ? { verifactuHash: hash, verifactuHashPrev: hashPrev } : {};
     setData(d => {
       const contab = d.contabilidad||{ facturas:[] };
-      const num = nextNumContabilidad(contab.facturas||[], "FAC");
-      const fac = { ...pro, id: Date.now(), numero: num, esProforma:false, esPresupuesto:false, estado:"Emitida", emailEnviado:false, origenNumero:pro.numero };
+      const fac = { ...pro, id: Date.now(), numero: num, esProforma:false, esPresupuesto:false, estado:"Emitida", emailEnviado:false, origenNumero:pro.numero, ...verifactuExtra };
       return { ...d, contabilidad: { ...contab, facturas:[...(contab.facturas||[]),fac], [clave]:(contab[clave]||[]).map(x=>x.id===pro.id?{...x,convertidaAFactura:num,...(clave==="presupuestos"?{estado:"Facturado"}:{})}:x) } };
     });
   };
@@ -7128,6 +7222,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
               {doc.emailEnviado&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
               {doc.aceptacionToken&&!doc.aceptadoPor&&<span style={{fontSize:10,background:"#8b5cf620",color:"#8b5cf6",borderRadius:4,padding:"1px 6px",fontWeight:700}}>🔗 Enlace activo</span>}
               {doc.aceptadoPor&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",border:"1px solid #16a34a44",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✅ Aceptado por {doc.aceptadoPor}</span>}
+              {doc.verifactuHash&&<span title={"Huella Verifactu: "+doc.verifactuHash} style={{fontSize:10,background:"#1d4ed820",color:"#60a5fa",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 6px",fontWeight:700,cursor:"help"}}>🔒 Verifactu</span>}
             </div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{doc.clienteRazonSocial}</div>
             <div style={{color:"#e4e9f6",fontSize:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -7478,6 +7573,123 @@ const Contabilidad = ({ data, setData, userActual }) => {
         </div>
       </div>
     ));
+  };
+
+  // ── Modal: Importar datos ContaPlus / Factusol / CSV genérico ──
+  const renderImportModal = () => {
+    const handleFile = (file) => {
+      if (!file) return;
+      setImportError("");
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const grupos = parsearCSVContabilidad(text);
+          if (!grupos || !grupos.length) { setImportError("No se pudieron detectar asientos. Comprueba que el archivo tiene columnas de Cuenta, Debe y Haber."); return; }
+          setImportAsientos(grupos);
+        } catch(err) { setImportError("Error al leer el archivo: "+err.message); }
+      };
+      reader.onerror = () => setImportError("No se pudo leer el archivo.");
+      reader.readAsText(file, "iso-8859-1"); // ContaPlus suele usar Latin-1
+    };
+
+    const handleImport = () => {
+      if (!importAsientos?.length) return;
+      const existing = cont.asientos || [];
+      let nextIdx = existing.length + 1;
+      const nuevos = importAsientos.map(g => ({
+        id: Date.now() + Math.random(),
+        numero: `AS-${String(nextIdx++).padStart(4,"0")}`,
+        fecha: g.fecha || "",
+        descripcion: g.concepto || `Asiento ${g.num}`,
+        origenTipo: "importado",
+        origenId: null,
+        origenNumero: g.num,
+        lineas: g.lineas,
+      }));
+      setData(d => ({ ...d, contabilidad: { ...d.contabilidad, asientos: [...(d.contabilidad.asientos||[]), ...nuevos] } }));
+      setShowImportModal(false); setImportAsientos(null); setImportError("");
+    };
+
+    const totalDebe = importAsientos?.reduce((s,g)=>s+g.lineas.reduce((ls,l)=>ls+l.debe,0),0)||0;
+    const totalHaber = importAsientos?.reduce((s,g)=>s+g.lineas.reduce((ls,l)=>ls+l.haber,0),0)||0;
+
+    return (
+      <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:14,padding:"24px 26px",width:"100%",maxWidth:760,maxHeight:"90vh",overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <div>
+              <div style={{fontWeight:800,color:"#f1f3f9",fontSize:17}}>📥 Importar datos contables</div>
+              <div style={{color:"#8899b4",fontSize:12,marginTop:2}}>Compatible con ContaPlus, Factusol y cualquier CSV con columnas PGC (Cuenta · Debe · Haber)</div>
+            </div>
+            <button onClick={()=>{setShowImportModal(false);setImportAsientos(null);setImportError("");}} style={{background:"none",border:"none",color:"#8899b4",fontSize:22,cursor:"pointer"}}>×</button>
+          </div>
+
+          {/* Zona de carga */}
+          {!importAsientos && (
+            <div>
+              <label style={{display:"block",border:"2px dashed #2a3550",borderRadius:12,padding:"40px 20px",textAlign:"center",cursor:"pointer",background:"#0a0f1a"}}>
+                <input type="file" accept=".csv,.txt,.tsv" style={{display:"none"}} onChange={e=>handleFile(e.target.files[0])}/>
+                <div style={{fontSize:40,marginBottom:8}}>📂</div>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:15,marginBottom:4}}>Arrastra o haz clic para seleccionar el archivo</div>
+                <div style={{color:"#8899b4",fontSize:12}}>Formatos soportados: CSV (;) de ContaPlus, Factusol o exportación genérica PGC</div>
+                <div style={{color:"#8899b4",fontSize:11,marginTop:8}}>Columnas necesarias: <strong style={{color:"#f59e0b"}}>Asiento · Fecha · Cuenta · Nombre · Concepto · Debe · Haber</strong></div>
+              </label>
+              {importError && <div style={{background:"#2d1515",border:"1px solid #dc2626",borderRadius:8,padding:"10px 14px",marginTop:12,color:"#fca5a5",fontSize:13}}>{importError}</div>}
+              <div style={{marginTop:18,background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"14px 16px"}}>
+                <div style={{fontWeight:700,color:"#f59e0b",fontSize:13,marginBottom:8}}>¿Cómo exportar desde tu software?</div>
+                <div style={{color:"#e4e9f6",fontSize:12,lineHeight:1.7}}>
+                  <strong style={{color:"#f1f3f9"}}>ContaPlus / Sage 50:</strong> Herramientas → Exportar → Libro Diario → CSV (separado por comas o punto y coma)<br/>
+                  <strong style={{color:"#f1f3f9"}}>Factusol:</strong> Contabilidad → Asientos → Exportar a CSV<br/>
+                  <strong style={{color:"#f1f3f9"}}>A3 / Wolters Kluwer:</strong> Utilidades → Exportar asientos → Formato CSV
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Preview */}
+          {importAsientos && (
+            <div>
+              <div style={{background:"#052e16",border:"1px solid #16a34a55",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:13,display:"flex",gap:20,flexWrap:"wrap"}}>
+                <span style={{color:"#e4e9f6"}}>Asientos detectados: <strong style={{color:"#16a34a"}}>{importAsientos.length}</strong></span>
+                <span style={{color:"#e4e9f6"}}>Total Debe: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalDebe)}</strong></span>
+                <span style={{color:"#e4e9f6"}}>Total Haber: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalHaber)}</strong></span>
+                {Math.abs(totalDebe-totalHaber)<0.02
+                  ?<span style={{color:"#16a34a",fontWeight:700}}>✓ Cuadre correcto</span>
+                  :<span style={{color:"#f59e0b",fontWeight:700}}>⚠ Diferencia: {fmtEur(Math.abs(totalDebe-totalHaber))}</span>
+                }
+              </div>
+              <div style={{maxHeight:300,overflowY:"auto",display:"grid",gap:6,marginBottom:16}}>
+                {importAsientos.slice(0,50).map((g,i)=>(
+                  <div key={i} style={{background:"#151b2a",border:"1px solid #1e2d45",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{background:"#1a2236",padding:"4px 10px",display:"flex",gap:10,fontSize:11}}>
+                      <span style={{fontFamily:"monospace",color:"#f59e0b"}}>Nº {g.num}</span>
+                      <span style={{color:"#8899b4"}}>{g.fecha?new Date(g.fecha+"T00:00:00").toLocaleDateString("es-ES"):""}</span>
+                      <span style={{color:"#e4e9f6",flex:1}}>{g.concepto}</span>
+                    </div>
+                    <div style={{padding:"4px 10px 6px"}}>
+                      {g.lineas.map((l,j)=>(
+                        <div key={j} style={{display:"grid",gridTemplateColumns:"52px 1fr 90px 90px",gap:4,fontSize:11,color:"#8899b4"}}>
+                          <span style={{fontFamily:"monospace",color:"#f59e0b"}}>{l.cta}</span>
+                          <span style={{color:"#e4e9f6"}}>{l.nom}</span>
+                          <span style={{textAlign:"right",color:l.debe?"#16a34a":"#4b5563",fontFamily:"monospace"}}>{l.debe?fmtEur(l.debe):"—"}</span>
+                          <span style={{textAlign:"right",color:l.haber?"#3b82f6":"#4b5563",fontFamily:"monospace"}}>{l.haber?fmtEur(l.haber):"—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {importAsientos.length>50&&<div style={{color:"#8899b4",textAlign:"center",fontSize:12}}>... y {importAsientos.length-50} asientos más</div>}
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button onClick={()=>{setImportAsientos(null);setImportError("");}} style={{...btnOutline,padding:"8px 18px"}}>← Volver</button>
+                <button onClick={handleImport} style={{...btnPrimary,background:"#16a34a",padding:"8px 22px"}}>✓ Importar {importAsientos.length} asientos</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // ── Asientos Contables (Libro Diario / PGC) ──
@@ -7920,6 +8132,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {tab==="proformas"&&<button onClick={()=>abrirNuevo("proforma")} style={{...btnPrimary,background:"#d97706"}}><Icon name="plus" size={14}/> Nueva proforma</button>}
           {tab==="gastos"&&<button onClick={()=>{setShowGastoModal(true);setGastoForm({fecha:today(),tipoIVA:21,categoria:"Suministros"});setGastoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}]);}} style={{...btnPrimary,background:"#dc2626"}}><Icon name="plus" size={14}/> Nuevo gasto</button>}
           {tab==="asientos"&&<>
+            <button onClick={()=>setShowImportModal(true)} style={{...btnOutline,padding:"7px 13px",fontSize:12}}>📥 Importar ContaPlus/Factusol</button>
             <button onClick={()=>{
               const asientos=cont.asientos||[];
               const CAT_CUENTA={"Suministros":{cta:"628",nom:"Suministros"},"Alquiler":{cta:"621",nom:"Arrendamientos y cánones"},"Servicios profesionales":{cta:"623",nom:"Serv. profesionales independientes"},"Material":{cta:"629",nom:"Otros servicios"},"Maquinaria":{cta:"600",nom:"Compras de mercaderías"},"Transportes":{cta:"624",nom:"Transportes"},"Seguros":{cta:"625",nom:"Primas de seguros"},"Otros":{cta:"629",nom:"Otros servicios"}};
@@ -8087,6 +8300,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       {tab==="gestor"&&renderGestor()}
       {/* Modales */}
       {renderModal()}
+      {showImportModal&&renderImportModal()}
       {showGastoModal&&(
         <Modal title="Registrar gasto" onClose={()=>setShowGastoModal(false)} wide>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
