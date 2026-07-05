@@ -7000,10 +7000,33 @@ const Contabilidad = ({ data, setData, userActual }) => {
       const base64 = uri.split(",")[1];
       const esP = doc.esProforma, esPrs = doc.esPresupuesto;
       const tipoDoc = esPrs ? "presupuesto" : esP ? "factura proforma" : "factura";
+      const esFac=!esP&&!esPrs;
+      const htmlPago = esFac ? `
+        <table style="width:100%;border-collapse:collapse;margin:18px 0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+          <tr style="background:#f8fafc"><td colspan="2" style="padding:10px 16px;font-weight:700;font-size:13px;color:#334155;border-bottom:1px solid #e2e8f0">Datos de pago</td></tr>
+          <tr><td style="padding:8px 16px;color:#64748b;font-size:13px;width:140px">Importe total</td><td style="padding:8px 16px;font-weight:700;font-size:16px;color:#16a34a">${fmtEur(doc.total||0)}</td></tr>
+          ${doc.formaPago?`<tr style="background:#f8fafc"><td style="padding:8px 16px;color:#64748b;font-size:13px">Forma de pago</td><td style="padding:8px 16px;font-size:13px">${doc.formaPago}</td></tr>`:""}
+          ${doc.banco?`<tr><td style="padding:8px 16px;color:#64748b;font-size:13px">Banco</td><td style="padding:8px 16px;font-size:13px">${doc.banco}</td></tr>`:""}
+          ${doc.iban?`<tr style="background:#f8fafc"><td style="padding:8px 16px;color:#64748b;font-size:13px">IBAN</td><td style="padding:8px 16px;font-family:monospace;font-weight:700;font-size:14px;letter-spacing:1px">${doc.iban}</td></tr>`:""}
+          ${doc.fechaVencimiento?`<tr><td style="padding:8px 16px;color:#64748b;font-size:13px">Vencimiento</td><td style="padding:8px 16px;font-size:13px;color:#dc2626;font-weight:600">${new Date(doc.fechaVencimiento).toLocaleDateString("es-ES")}</td></tr>`:""}
+        </table>
+        <p style="font-size:12px;color:#64748b;margin:0 0 18px">Por favor, incluya el número de factura <strong>${doc.numero}</strong> en el concepto de la transferencia.</p>
+      ` : `<p style="color:#64748b;font-size:13px;font-style:italic">Este documento es informativo y no tiene validez fiscal.</p>`;
       await apiSendMail({
         to: email, cc: data.smtp?.ccPartes||"",
         subject: `${esPrs?"Presupuesto":esP?"Factura Proforma":"Factura"} ${doc.numero} — ${emp.razonSocial||"Europea de Maquinaria"}`,
-        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a"><p>Buenas,</p><p>Le enviamos adjunto ${tipoDoc==="presupuesto"?"el":"la"} ${tipoDoc} <strong>${doc.numero}</strong>.</p>${(esP||esPrs)?`<p><em>Este documento no tiene validez fiscal.</em></p>`:""}<br><p>Un saludo,<br>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</p></div>`,
+        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a;max-width:600px;margin:0 auto">
+          <div style="background:#0a0f1a;padding:20px 24px;border-radius:8px 8px 0 0">
+            <p style="color:#f1f3f9;font-weight:700;font-size:16px;margin:0">${emp.razonSocial||"Europea de Maquinaria PMM SL"}</p>
+            ${emp.nif?`<p style="color:#94a3b8;font-size:12px;margin:4px 0 0">NIF: ${emp.nif}</p>`:""}
+          </div>
+          <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;padding:24px">
+            <p style="margin:0 0 12px">Estimado/a cliente,</p>
+            <p style="margin:0 0 16px">Le enviamos adjunto ${tipoDoc==="presupuesto"?"el":"la"} ${tipoDoc} <strong>${doc.numero}</strong> por importe de <strong>${fmtEur(doc.total||0)}</strong>.</p>
+            ${htmlPago}
+            <p style="margin:18px 0 0">Un saludo,<br><strong>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</strong><br><span style="color:#64748b;font-size:12px">${emp.email||""}</span></p>
+          </div>
+        </div>`,
         attachmentBase64:base64, attachmentName:doc.numero+".pdf", attachmentMime:"application/pdf",
       });
       setData(d => { const contab=d.contabilidad||{}; return { ...d, contabilidad:{ ...contab, [clave]:(contab[clave]||[]).map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email}:x) } }; });
