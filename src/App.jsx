@@ -505,7 +505,7 @@ const initialData = {
     {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
   empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
-  contabilidad:{facturas:[],proformas:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}},
+  contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
@@ -6417,7 +6417,8 @@ async function generarPDFFacturaDoc(factura, empresa) {
   const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
   const W = 210; const mg = 14;
   const esProforma = factura.esProforma;
-  const titulo = esProforma ? "FACTURA PROFORMA" : "FACTURA";
+  const esPresupuesto = factura.esPresupuesto;
+  const titulo = esPresupuesto ? "PRESUPUESTO" : esProforma ? "FACTURA PROFORMA" : "FACTURA";
   const colorAc = [22, 163, 74];   // verde
   const colorOsc = [15, 23, 42];
   // ── Cabecera empresa ──
@@ -6441,6 +6442,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
   doc.text("Fecha: " + (factura.fecha ? new Date(factura.fecha).toLocaleDateString("es-ES") : ""), W - mg, 26, { align:"right" });
   if (factura.fechaVencimiento) doc.text("Vencimiento: " + new Date(factura.fechaVencimiento).toLocaleDateString("es-ES"), W - mg, 31, { align:"right" });
   if (esProforma) { doc.setTextColor(255, 180, 0); doc.setFontSize(7); doc.text("DOCUMENTO NO VÁLIDO A EFECTOS FISCALES", W - mg, 36, { align:"right" }); }
+  if (esPresupuesto) { doc.setTextColor(139, 92, 246); doc.setFontSize(7); doc.text("PRESUPUESTO — NO VÁLIDO COMO FACTURA", W - mg, 36, { align:"right" }); }
   // ── Bloque cliente ──
   let y = 46;
   doc.setFillColor(30, 40, 60); doc.roundedRect(mg, y, (W / 2) - mg - 4, 32, 2, 2, "F");
@@ -6512,19 +6514,23 @@ async function generarPDFFacturaDoc(factura, empresa) {
 }
 function fmtEur(n) { return (parseFloat(n)||0).toFixed(2).replace(".",",")+" €"; }
 
+const MESES_ES_CONT=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const Contabilidad = ({ data, setData, userActual }) => {
-  const [tab, setTab] = useState("facturas");
-  const [modal, setModal] = useState(null); // null | "factura" | "proforma" | "partes"
+  const [tab, setTab] = useState("dashboard");
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [lineas, setLineas] = useState([]);
-  const [enviando, setEnviando] = useState(false);
+  const [enviando, setEnviando] = useState(null);
+  const [buscarCli, setBuscarCli] = useState("");
+  const [anyoRent, setAnyoRent] = useState(()=>String(new Date().getFullYear()));
   const [trFiltro, setTrFiltro] = useState(() => {
     const d = new Date(); const q = Math.ceil((d.getMonth()+1)/3);
     return d.getFullYear()+"-Q"+q;
   });
 
-  const cont = data.contabilidad || { facturas:[], proformas:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55} };
+  const cont = data.contabilidad || { facturas:[], proformas:[], presupuestos:[], gastos:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}, costesVentas:{} };
   const emp = data.empresa || {};
+  const clientesReales = (data.clientes||[]).filter(c=>!c.esPropia&&!c.esStockInterno&&c.id>0);
 
   // ── helpers ──
   const getClienteFiscal = (cId) => {
@@ -6548,26 +6554,36 @@ const Contabilidad = ({ data, setData, userActual }) => {
   };
 
   const actualizarLinea = (i, campo, valor) => {
-    setLineas(prev => {
-      const nuevo = prev.map((l,idx) => {
-        if (idx !== i) return l;
-        const upd = { ...l, [campo]: valor };
-        if (campo === "cantidad" || campo === "precioUnitario") {
-          upd.subtotal = parseFloat(((parseFloat(upd.cantidad)||1)*(parseFloat(upd.precioUnitario)||0)).toFixed(2));
-        }
-        return upd;
-      });
-      return nuevo;
-    });
+    setLineas(prev => prev.map((l,idx) => {
+      if (idx !== i) return l;
+      const upd = { ...l, [campo]: valor };
+      if (campo === "cantidad" || campo === "precioUnitario")
+        upd.subtotal = parseFloat(((parseFloat(upd.cantidad)||1)*(parseFloat(upd.precioUnitario)||0)).toFixed(2));
+      return upd;
+    }));
   };
 
   const addLinea = () => setLineas(prev => [...prev, { id: Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
   const removeLinea = (i) => setLineas(prev => prev.filter((_,idx)=>idx!==i));
 
+  // ── Partes ──
+  const [pForm, setPForm] = useState({ parteId:"", km:0, horasDesplazamiento:0, horasObraPorPersona:0, numTecnicos:1 });
+  const tarifa = cont.tarifas || {};
+  const partesCompletados = (data.partes||[]).filter(p => p.estadoParte==="Finalizado" || p.estadoParte==="Completado");
+
+  // ── Gastos ──
+  const [gastoForm, setGastoForm] = useState({});
+  const [gastoLineas, setGastoLineas] = useState([]);
+  const [showGastoModal, setShowGastoModal] = useState(false);
+  const [showAlbModal, setShowAlbModal] = useState(false);
+
+  // ── CRUD ──
   const abrirNuevo = (tipo) => {
-    const clienteRealId = data.clientes.find(c=>!c.esPropia&&!c.esStockInterno&&c.id>0)?.id;
-    const fiscal = clienteRealId ? getClienteFiscal(clienteRealId) : {};
-    setForm({ clienteId: clienteRealId||null, ...fiscal, fecha: today(), tipoIVA: 21, notas:"", estado:"Emitida", esProforma: tipo==="proforma", origenParteId: null });
+    const hoy = today();
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"" });
+    setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
     setModal(tipo);
   };
@@ -6576,36 +6592,67 @@ const Contabilidad = ({ data, setData, userActual }) => {
     if (!form.clienteId) { alert("Selecciona un cliente."); return; }
     if (!lineas.length || lineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
     const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
-    const esProforma = modal === "proforma";
+    const esProforma = modal==="proforma", esPresupuesto = modal==="presupuesto";
     setData(d => {
-      const contab = d.contabilidad || { facturas:[], proformas:[], tarifas:{} };
-      const lista = esProforma ? contab.proformas : contab.facturas;
-      const prefijo = esProforma ? "PRO" : "FAC";
+      const contab = d.contabilidad || { facturas:[], proformas:[], presupuestos:[], gastos:[], tarifas:{}, costesVentas:{} };
+      const clave = esPresupuesto ? "presupuestos" : esProforma ? "proformas" : "facturas";
+      const prefijo = esPresupuesto ? "PRS" : esProforma ? "PRO" : "FAC";
+      const lista = contab[clave]||[];
       const numero = form.id ? form.numero : nextNumContabilidad(lista, prefijo);
-      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total, emailEnviado: false };
+      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total };
       const nuevaLista = form.id ? lista.map(x=>x.id===form.id?doc:x) : [...lista, doc];
-      return { ...d, contabilidad: { ...contab, [esProforma?"proformas":"facturas"]: nuevaLista } };
+      return { ...d, contabilidad: { ...contab, [clave]: nuevaLista } };
     });
-    setModal(null);
+    setModal(null); setBuscarCli("");
   };
 
-  const anularDoc = (doc, esProforma) => {
-    if (!window.confirm("¿Anular " + doc.numero + "?\nEl documento quedará marcado como ANULADO y no se puede deshacer.")) return;
+  const anularDoc = (doc, clave) => {
+    if (!window.confirm(`¿Anular ${doc.numero}?\nEl documento quedará marcado como ANULADO y no se puede deshacer.`)) return;
     setData(d => {
-      const contab = d.contabilidad || { facturas:[], proformas:[] };
-      const clave = esProforma ? "proformas" : "facturas";
-      return { ...d, contabilidad: { ...contab, [clave]: contab[clave].map(x=>x.id===doc.id?{...x,estado:"Anulada"}:x) } };
+      const contab = d.contabilidad||{};
+      return { ...d, contabilidad: { ...contab, [clave]: (contab[clave]||[]).map(x=>x.id===doc.id?{...x,estado:"Anulada"}:x) } };
     });
   };
 
-  const convertirAFactura = (pro) => {
-    if (!window.confirm("¿Convertir " + pro.numero + " en factura real? Se creará una nueva FAC con los mismos datos.")) return;
+  const convertirAFactura = (pro, clave) => {
+    if (!window.confirm(`¿Convertir ${pro.numero} en factura real? Se creará una nueva FAC.`)) return;
     setData(d => {
-      const contab = d.contabilidad || { facturas:[], proformas:[] };
-      const num = nextNumContabilidad(contab.facturas, "FAC");
-      const fac = { ...pro, id: Date.now(), numero: num, esProforma: false, estado:"Emitida", emailEnviado: false, origenProformaId: pro.id };
-      return { ...d, contabilidad: { ...contab, facturas: [...contab.facturas, fac], proformas: contab.proformas.map(x=>x.id===pro.id?{...x,convertidaAFactura:num}:x) } };
+      const contab = d.contabilidad||{ facturas:[] };
+      const num = nextNumContabilidad(contab.facturas||[], "FAC");
+      const fac = { ...pro, id: Date.now(), numero: num, esProforma:false, esPresupuesto:false, estado:"Emitida", emailEnviado:false, origenNumero:pro.numero };
+      return { ...d, contabilidad: { ...contab, facturas:[...(contab.facturas||[]),fac], [clave]:(contab[clave]||[]).map(x=>x.id===pro.id?{...x,convertidaAFactura:num}:x) } };
     });
+  };
+
+  const guardarGasto = () => {
+    if (!gastoForm.proveedor?.trim()) { alert("Introduce el nombre del proveedor."); return; }
+    if (!gastoLineas.length || gastoLineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
+    const { baseImponible, cuotaIVA, total } = calcTotales(gastoLineas, gastoForm.tipoIVA||21);
+    setData(d => {
+      const contab = d.contabilidad||{ gastos:[] };
+      const lista = contab.gastos||[];
+      const numero = nextNumContabilidad(lista, "GAS");
+      const gasto = { ...gastoForm, id:Date.now(), numero, lineas:[...gastoLineas], baseImponible, cuotaIVA, total };
+      return { ...d, contabilidad: { ...contab, gastos:[...lista, gasto] } };
+    });
+    setShowGastoModal(false); setGastoForm({}); setGastoLineas([]);
+  };
+
+  const importarAlbaran = (alb) => {
+    if (!alb) return;
+    const cliId = alb.clienteId||null;
+    const fiscal = cliId ? getClienteFiscal(cliId) : {};
+    const lns = (alb.lineas||[]).map((l,i) => ({
+      id: Date.now()+i, descripcion:l.descripcion||l.producto||"",
+      cantidad:parseFloat(l.cantidad)||1, precioUnitario:parseFloat(l.precio||l.precioUnitario)||0,
+      subtotal:parseFloat(((parseFloat(l.cantidad)||1)*(parseFloat(l.precio||l.precioUnitario)||0)).toFixed(2))
+    }));
+    if (!lns.length) lns.push({ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 });
+    setBuscarCli(fiscal.clienteRazonSocial||"");
+    setForm({ fecha:today(), tipoIVA:21, notas:`Albarán: ${alb.numero||alb.id}`, estado:"Emitida", esProforma:false, clienteId:cliId, ...fiscal });
+    setLineas(lns);
+    setShowAlbModal(false);
+    setModal("factura");
   };
 
   const descargarPDF = async (doc) => {
@@ -6614,28 +6661,22 @@ const Contabilidad = ({ data, setData, userActual }) => {
     a.href = uri; a.download = doc.numero + ".pdf"; a.click();
   };
 
-  const enviarFacturaPorEmail = async (doc) => {
+  const enviarPorEmail = async (doc, clave) => {
     const email = doc.clienteEmail || prompt("Email del cliente:");
     if (!email?.trim()) return;
     setEnviando(doc.id);
     try {
       const uri = await generarPDFFacturaDoc(doc, emp);
       const base64 = uri.split(",")[1];
-      const esP = doc.esProforma;
+      const esP = doc.esProforma, esPrs = doc.esPresupuesto;
+      const tipoDoc = esPrs ? "presupuesto" : esP ? "factura proforma" : "factura";
       await apiSendMail({
-        to: email,
-        cc: data.smtp?.ccPartes || "",
-        subject: (esP ? "Factura Proforma " : "Factura ") + doc.numero + " — " + (emp.razonSocial||"Europea de Maquinaria"),
-        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a"><p>Buenas,</p><p>Le enviamos adjunto ${esP?"la factura proforma":"la factura"} <strong>${doc.numero}</strong>.</p>${esP?"<p><em>Este documento es una factura proforma y no tiene validez fiscal.</em></p>":""}<br><p>Un saludo,<br>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</p></div>`,
-        attachmentBase64: base64,
-        attachmentName: doc.numero + ".pdf",
-        attachmentMime: "application/pdf",
+        to: email, cc: data.smtp?.ccPartes||"",
+        subject: `${esPrs?"Presupuesto":esP?"Factura Proforma":"Factura"} ${doc.numero} — ${emp.razonSocial||"Europea de Maquinaria"}`,
+        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a"><p>Buenas,</p><p>Le enviamos adjunto ${tipoDoc==="presupuesto"?"el":"la"} ${tipoDoc} <strong>${doc.numero}</strong>.</p>${(esP||esPrs)?`<p><em>Este documento no tiene validez fiscal.</em></p>`:""}<br><p>Un saludo,<br>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</p></div>`,
+        attachmentBase64:base64, attachmentName:doc.numero+".pdf", attachmentMime:"application/pdf",
       });
-      setData(d => {
-        const contab = d.contabilidad || { facturas:[], proformas:[] };
-        const clave = doc.esProforma ? "proformas" : "facturas";
-        return { ...d, contabilidad: { ...contab, [clave]: contab[clave].map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email}:x) } };
-      });
+      setData(d => { const contab=d.contabilidad||{}; return { ...d, contabilidad:{ ...contab, [clave]:(contab[clave]||[]).map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email}:x) } }; });
       alert("Email enviado correctamente a " + email);
     } catch(e) { alert("Error al enviar: " + e.message); }
     finally { setEnviando(null); }
@@ -6645,119 +6686,287 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const filtrarPorTrimestre = (lista) => {
     if (!trFiltro) return lista;
     const [anyo, q] = trFiltro.split("-Q");
-    const qn = parseInt(q); const ay = parseInt(anyo);
-    const mIni = (qn-1)*3; const mFin = qn*3-1;
-    return lista.filter(f => {
-      if (!f.fecha) return false;
-      const d = new Date(f.fecha);
-      return d.getFullYear()===ay && d.getMonth()>=mIni && d.getMonth()<=mFin;
-    });
+    const qn = parseInt(q), ay = parseInt(anyo), mIni=(qn-1)*3, mFin=qn*3-1;
+    return lista.filter(f => { if (!f.fecha) return false; const d=new Date(f.fecha); return d.getFullYear()===ay&&d.getMonth()>=mIni&&d.getMonth()<=mFin; });
   };
 
-  const anyos = [...new Set([...cont.facturas,...cont.proformas].map(f=>f.fecha?.slice(0,4)).filter(Boolean))].sort().reverse();
-  if (!anyos.includes(new Date().getFullYear()+"")) anyos.unshift(new Date().getFullYear()+"");
+  const todosAnyos = [...new Set([...cont.facturas,...cont.proformas,...(cont.gastos||[])].map(f=>f.fecha?.slice(0,4)).filter(Boolean))].sort().reverse();
+  if (!todosAnyos.includes(String(new Date().getFullYear()))) todosAnyos.unshift(String(new Date().getFullYear()));
+  const trOpts = todosAnyos.flatMap(a => [1,2,3,4].map(q => ({ val:`${a}-Q${q}`, lbl:`${a} — T${q}` })));
 
-  const trOpts = anyos.flatMap(a => [1,2,3,4].map(q => ({ val:`${a}-Q${q}`, lbl:`${a} — T${q}` })));
-
-  const tabStyle = (t) => ({ padding:"7px 18px", fontWeight:700, fontSize:13, cursor:"pointer", border:"none", borderRadius:8, background: tab===t ? "#16a34a" : "#151b2a", color: tab===t ? "#fff" : "#e4e9f6" });
-
-  // ── Cálculo de partes ──
-  const [pForm, setPForm] = useState({ parteId:"", km:0, horasDesplazamiento:0, horasObraPorPersona:0, numTecnicos:1, clienteId:"" });
-  const tarifa = cont.tarifas || {};
-  const partesCompletados = (data.partes||[]).filter(p => p.estadoParte==="Finalizado" || p.estadoParte==="Completado");
-
-  const generarProformaDesdePartes = () => {
-    const parte = partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
-    if (!parte) { alert("Selecciona un parte."); return; }
-    const cliId = parte.clienteDirectoId || (data.reparaciones?.find(r=>r.id===parte.reparacionId)?.clienteId) || null;
-    if (!cliId) { alert("No se puede determinar el cliente de este parte."); return; }
-    const fiscal = getClienteFiscal(cliId);
-    const km = parseFloat(pForm.km)||0;
-    const hDespl = parseFloat(pForm.horasDesplazamiento)||0;
-    const hObra = parseFloat(pForm.horasObraPorPersona)||0;
-    const nTec = parseInt(pForm.numTecnicos)||1;
-    const lns = [];
-    if (km>0) lns.push({ id:1, descripcion:`Desplazamiento — ${km} km`, cantidad:km, precioUnitario:parseFloat(tarifa.precioPorKm)||0, subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2)) });
-    if (hDespl>0) lns.push({ id:2, descripcion:`Horas de desplazamiento (${nTec} técnico${nTec>1?"s":""})`, cantidad:hDespl*nTec, precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0, subtotal:parseFloat((hDespl*nTec*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2)) });
-    if (hObra>0) lns.push({ id:3, descripcion:`Mano de obra (${nTec} técnico${nTec>1?"s":""})`, cantidad:hObra*nTec, precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0, subtotal:parseFloat((hObra*nTec*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2)) });
-    if (!lns.length) { alert("Introduce al menos km, horas de desplazamiento o horas de mano de obra."); return; }
-    const { baseImponible, cuotaIVA, total } = calcTotales(lns, 21);
-    const num = nextNumContabilidad(cont.proformas, "PRO");
-    const pro = { id:Date.now(), numero:num, fecha:today(), ...fiscal, clienteId:cliId, tipoIVA:21, lineas:lns, baseImponible, cuotaIVA, total, notas:`Parte: ${parte.numeroParte||parte.id}`, estado:"Emitida", esProforma:true, emailEnviado:false, origenParteId:parte.id };
-    setData(d => { const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}}; return {...d,contabilidad:{...contab,proformas:[...contab.proformas,pro]}}; });
-    alert("Proforma " + num + " creada correctamente. Puedes verla en Facturas Proforma.");
-    setPForm({ parteId:"", km:0, horasDesplazamiento:0, horasObraPorPersona:0, numTecnicos:1 });
-  };
-
-  // ── Resumen trimestral ──
+  // ── KPIs ──
+  const anioActualNum = new Date().getFullYear();
+  const facAnio = cont.facturas.filter(f=>f.fecha?.startsWith(String(anioActualNum))&&f.estado!=="Anulada");
+  const gasAnio = (cont.gastos||[]).filter(g=>g.fecha?.startsWith(String(anioActualNum)));
+  const totalFacAnio = facAnio.reduce((s,f)=>s+(f.total||0),0);
+  const totalGasAnio = gasAnio.reduce((s,g)=>s+(g.total||0),0);
   const facsFiltradas = filtrarPorTrimestre(cont.facturas).filter(f=>f.estado!=="Anulada");
+  const gastosFiltrados = filtrarPorTrimestre(cont.gastos||[]);
+  const ivaRep = facsFiltradas.reduce((s,f)=>s+(f.cuotaIVA||0),0);
+  const ivaSop = gastosFiltrados.reduce((s,g)=>s+(g.cuotaIVA||0),0);
   const totalBase = facsFiltradas.reduce((s,f)=>s+(f.baseImponible||0),0);
-  const totalIVA = facsFiltradas.reduce((s,f)=>s+(f.cuotaIVA||0),0);
   const totalTotal = facsFiltradas.reduce((s,f)=>s+(f.total||0),0);
 
+  // ── Tab style ──
+  const tabStyle = (t) => ({ padding:"6px 14px", fontWeight:700, fontSize:12, cursor:"pointer", border:"none", borderRadius:7, background:tab===t?"#16a34a":"#151b2a", color:tab===t?"#fff":"#e4e9f6", whiteSpace:"nowrap" });
+
+  // ── Client autocomplete ──
+  const renderClienteSearch = () => {
+    const filtered = buscarCli ? clientesReales.filter(c=>(c.nombreFiscal||c.nombreEmpresa||"").toLowerCase().includes(buscarCli.toLowerCase())).slice(0,8) : [];
+    return (
+      <Field label="Cliente">
+        <div style={{position:"relative"}}>
+          <input type="text" value={buscarCli} onChange={e=>{setBuscarCli(e.target.value);setForm(f=>({...f,clienteId:null}));}} placeholder="Buscar cliente por nombre..." style={inputStyle}/>
+          {buscarCli && !form.clienteId && filtered.length>0 && (
+            <div style={{position:"absolute",top:"100%",left:0,right:0,background:"#1a2235",border:"1px solid #2a3550",borderRadius:8,zIndex:200,maxHeight:180,overflowY:"auto",boxShadow:"0 4px 20px #00000060"}}>
+              {filtered.map(c=>(
+                <div key={c.id} onClick={()=>{const fiscal=getClienteFiscal(c.id);setForm(f=>({...f,clienteId:c.id,...fiscal}));setBuscarCli(c.nombreFiscal||c.nombreEmpresa||"");}}
+                  style={{padding:"8px 12px",cursor:"pointer",color:"#f1f3f9",fontSize:13,borderBottom:"1px solid #2a3550"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#2a3550"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <strong>{c.nombreFiscal||c.nombreEmpresa}</strong>{c.cif?<span style={{color:"#e4e9f6",fontSize:11}}> · {c.cif}</span>:""}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Field>
+    );
+  };
+
   // ── Render lista ──
-  const renderLista = (lista, esProforma) => {
+  const renderLista = (lista, clave) => {
+    const esProforma=clave==="proformas", esPresupuesto=clave==="presupuestos";
     const filtrada = filtrarPorTrimestre(lista);
-    if (!filtrada.length) return <div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay {esProforma?"proformas":"facturas"} en este trimestre.</div>;
+    if (!filtrada.length) return <div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay documentos en este período.</div>;
     return filtrada.sort((a,b)=>b.fecha?.localeCompare(a.fecha)).map(doc => {
-      const anulada = doc.estado==="Anulada";
-      const convertida = doc.convertidaAFactura;
+      const anulada=doc.estado==="Anulada", convertida=doc.convertidaAFactura;
+      const estadoColor=doc.estado==="Aceptado"?"#16a34a":doc.estado==="Rechazado"?"#dc2626":doc.estado==="Pendiente"?"#f59e0b":"#3b82f6";
       return (
         <div key={doc.id} style={{background:"#151b2a",border:`1px solid ${anulada?"#dc262633":"#2a3550"}`,borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,opacity:anulada?0.6:1}}>
           <div style={{minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
-              <span style={{fontFamily:"monospace",fontWeight:800,color:anulada?"#dc2626":esProforma?"#f59e0b":"#16a34a",fontSize:14}}>{doc.numero}</span>
-              {anulada && <span style={{fontSize:10,background:"#dc262620",color:"#dc2626",border:"1px solid #dc262644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>ANULADA</span>}
-              {convertida && <span style={{fontSize:10,background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ {convertida}</span>}
-              {doc.emailEnviado && <span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+              <span style={{fontFamily:"monospace",fontWeight:800,color:anulada?"#dc2626":esPresupuesto?"#8b5cf6":esProforma?"#f59e0b":"#16a34a",fontSize:14}}>{doc.numero}</span>
+              {doc.estado&&!esProforma&&!anulada&&<span style={{fontSize:10,background:estadoColor+"20",color:estadoColor,border:`1px solid ${estadoColor}44`,borderRadius:4,padding:"1px 6px",fontWeight:700}}>{doc.estado}</span>}
+              {anulada&&<span style={{fontSize:10,background:"#dc262620",color:"#dc2626",border:"1px solid #dc262644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>ANULADA</span>}
+              {convertida&&<span style={{fontSize:10,background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ {convertida}</span>}
+              {doc.emailEnviado&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
             </div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{doc.clienteRazonSocial}</div>
-            <div style={{color:"#e4e9f6",fontSize:12}}>{doc.fecha ? new Date(doc.fecha).toLocaleDateString("es-ES") : ""} · Base: {fmtEur(doc.baseImponible)} · IVA: {fmtEur(doc.cuotaIVA)} · <strong>Total: {fmtEur(doc.total)}</strong></div>
+            <div style={{color:"#e4e9f6",fontSize:12}}>{doc.fecha?new Date(doc.fecha).toLocaleDateString("es-ES"):""} · Base: {fmtEur(doc.baseImponible)} · IVA: {fmtEur(doc.cuotaIVA)} · <strong>Total: {fmtEur(doc.total)}</strong></div>
           </div>
           <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
-            {!anulada && <button onClick={()=>descargarPDF(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12}}>PDF</button>}
-            {!anulada && <button onClick={()=>enviarFacturaPorEmail(doc)} disabled={enviando===doc.id} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#0ea5e9",borderColor:"#0ea5e944"}}>{enviando===doc.id?"Enviando...":"Email"}</button>}
-            {!anulada && esProforma && !convertida && <button onClick={()=>convertirAFactura(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#f59e0b",borderColor:"#f59e0b44"}}>→ FAC</button>}
-            {!anulada && <button onClick={()=>anularDoc(doc,esProforma)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>Anular</button>}
+            {!anulada&&<button onClick={()=>descargarPDF(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12}}>PDF</button>}
+            {!anulada&&<button onClick={()=>enviarPorEmail(doc,clave)} disabled={enviando===doc.id} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#0ea5e9",borderColor:"#0ea5e944"}}>{enviando===doc.id?"Enviando...":"Email"}</button>}
+            {!anulada&&(esProforma||esPresupuesto)&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:esPresupuesto?"#8b5cf6":"#f59e0b",borderColor:esPresupuesto?"#8b5cf644":"#f59e0b44"}}>→ FAC</button>}
+            {!anulada&&esPresupuesto&&doc.estado==="Pendiente"&&<>
+              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Aceptado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#16a34a",borderColor:"#16a34a44"}}>✓</button>
+              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Rechazado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>✗</button>
+            </>}
+            {!anulada&&<button onClick={()=>anularDoc(doc,clave)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>Anular</button>}
           </div>
         </div>
       );
     });
   };
 
-  // ── Render formulario modal ──
-  const renderModal = () => {
-    if (!modal || modal==="partes") return null;
-    const esProforma = modal==="proforma";
-    const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
-    const clientesReales = data.clientes.filter(c=>!c.esPropia&&!c.esStockInterno&&c.id>0);
+  // ── Render gastos ──
+  const renderGastos = () => {
+    const lista = filtrarPorTrimestre(cont.gastos||[]);
+    if (!lista.length) return <div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay gastos registrados en este período.</div>;
+    return lista.sort((a,b)=>b.fecha?.localeCompare(a.fecha)).map(g=>(
+      <div key={g.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+            <span style={{fontFamily:"monospace",fontWeight:800,color:"#dc2626",fontSize:14}}>{g.numero}</span>
+            {g.categoria&&<span style={{fontSize:10,background:"#dc262620",color:"#dc2626",borderRadius:4,padding:"1px 6px"}}>{g.categoria}</span>}
+          </div>
+          <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{g.proveedor}</div>
+          <div style={{color:"#e4e9f6",fontSize:12}}>{g.fecha?new Date(g.fecha).toLocaleDateString("es-ES"):""} · Fac: {g.numFacturaProveedor||"—"} · Base: {fmtEur(g.baseImponible)} · IVA: {fmtEur(g.cuotaIVA)} · <strong>Total: {fmtEur(g.total)}</strong></div>
+        </div>
+      </div>
+    ));
+  };
+
+  // ── Dashboard ──
+  const renderDashboard = () => {
+    const kpis = [
+      { label:"Facturado este año", value:fmtEur(totalFacAnio), color:"#16a34a" },
+      { label:"Gastos este año", value:fmtEur(totalGasAnio), color:"#dc2626" },
+      { label:"Margen bruto", value:fmtEur(totalFacAnio-totalGasAnio), color:(totalFacAnio-totalGasAnio)>=0?"#3b82f6":"#dc2626" },
+      { label:"IVA neto trimestre", value:fmtEur(ivaRep-ivaSop), color:"#f59e0b" },
+    ];
+    const resQ = [1,2,3,4].map(q=>{
+      const mIni=(q-1)*3, mFin=q*3-1, ay=anioActualNum;
+      const ff=(cont.facturas||[]).filter(f=>f.estado!=="Anulada"&&f.fecha&&(()=>{const d=new Date(f.fecha);return d.getFullYear()===ay&&d.getMonth()>=mIni&&d.getMonth()<=mFin;})());
+      const gg=(cont.gastos||[]).filter(g=>g.fecha&&(()=>{const d=new Date(g.fecha);return d.getFullYear()===ay&&d.getMonth()>=mIni&&d.getMonth()<=mFin;})());
+      const iR=ff.reduce((s,f)=>s+(f.cuotaIVA||0),0);
+      const iS=gg.reduce((s,g)=>s+(g.cuotaIVA||0),0);
+      return { q, base:ff.reduce((s,f)=>s+(f.baseImponible||0),0), iR, iS, neto:iR-iS, total:ff.reduce((s,f)=>s+(f.total||0),0) };
+    });
     return (
-      <Modal title={(esProforma?"Nueva Factura Proforma":"Nueva Factura")} onClose={()=>setModal(null)} wide>
+      <div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:20}}>
+          {kpis.map(k=>(
+            <div key={k.label} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px"}}>
+              <div style={{color:"#e4e9f6",fontSize:12,marginBottom:6}}>{k.label}</div>
+              <div style={{color:k.color,fontSize:20,fontWeight:800}}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px"}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:14,marginBottom:12}}>Modelo 303 — {anioActualNum}</div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid #2a3550"}}>
+                  {["Trimestre","Base imponible","IVA repercutido","IVA soportado","IVA a ingresar","Total facturado"].map(h=>(
+                    <th key={h} style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {resQ.map(r=>(
+                  <tr key={r.q} style={{borderBottom:"1px solid #1a2235"}}>
+                    <td style={{padding:"6px 10px",color:"#f1f3f9",fontWeight:700}}>T{r.q}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{fmtEur(r.base)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#16a34a"}}>{fmtEur(r.iR)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#dc2626"}}>{fmtEur(r.iS)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:r.neto>=0?"#f59e0b":"#dc2626",fontWeight:700}}>{fmtEur(r.neto)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#f1f3f9",fontWeight:700}}>{fmtEur(r.total)}</td>
+                  </tr>
+                ))}
+                <tr style={{borderTop:"2px solid #2a3550",fontWeight:800}}>
+                  <td style={{padding:"6px 10px",color:"#f1f3f9"}}>TOTAL</td>
+                  {[resQ.reduce((s,r)=>s+r.base,0),resQ.reduce((s,r)=>s+r.iR,0),resQ.reduce((s,r)=>s+r.iS,0),resQ.reduce((s,r)=>s+r.neto,0),resQ.reduce((s,r)=>s+r.total,0)].map((v,i)=>(
+                    <td key={i} style={{padding:"6px 10px",textAlign:"right",color:i===3?((v>=0)?"#f59e0b":"#dc2626"):"#f1f3f9"}}>{fmtEur(v)}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Rentabilidad ──
+  const renderRentabilidad = () => {
+    const ventasGanadas = (data.ventas||[]).filter(v=>(v.estado||"").toLowerCase().includes("ganada")||(v.estado||"").toLowerCase().includes("venta realizada"));
+    const tallAnyo = parseInt(anyoRent)||anioActualNum;
+    const mesesTaller = MESES_ES_CONT.map((mes,mi)=>{
+      const partesMes = (data.partes||[]).filter(p=>{
+        if (p.estadoParte!=="Finalizado"&&p.estadoParte!=="Completado") return false;
+        const fd=p.fechaFin||p.fecha; if(!fd) return false;
+        const d=new Date(fd); return d.getFullYear()===tallAnyo&&d.getMonth()===mi;
+      });
+      const horas = partesMes.reduce((s,p)=>s+(parseFloat(p.horasT)||0),0);
+      const prosMes = (cont.proformas||[]).filter(pr=>partesMes.some(p=>p.id===pr.origenParteId));
+      const facturado = prosMes.reduce((s,pr)=>s+(pr.baseImponible||0),0);
+      return { mes, partes:partesMes.length, horas, facturado, ratio:horas>0?parseFloat((facturado/horas).toFixed(2)):0 };
+    });
+    return (
+      <div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px",marginBottom:16}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:14,marginBottom:12}}>Rentabilidad en venta de máquinas</div>
+          {!ventasGanadas.length ? (
+            <div style={{color:"#e4e9f6",fontSize:13,padding:"16px 0",textAlign:"center"}}>No hay ventas ganadas registradas. El estado de la venta debe incluir "ganada".</div>
+          ) : (
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr style={{borderBottom:"1px solid #2a3550"}}>
+                    {["Referencia","Cliente","Máquina","Precio venta","Coste compra","Margen","% Margen"].map(h=>(
+                      <th key={h} style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventasGanadas.map(v=>{
+                    const cli = data.clientes?.find(c=>c.id===v.clienteId);
+                    const pv = parseFloat(v.importeOferta||v.precio||0);
+                    const co = parseFloat((cont.costesVentas||{})[v.id]||0);
+                    const mg = pv-co, pct=pv>0?parseFloat((mg/pv*100).toFixed(1)):0;
+                    return (
+                      <tr key={v.id} style={{borderBottom:"1px solid #1a2235"}}>
+                        <td style={{padding:"6px 10px",color:"#f1f3f9",fontWeight:700}}>{v.referencia||v.id}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{cli?.nombreEmpresa||"—"}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{v.maquina||v.modelo||"—"}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:"#f1f3f9"}}>{fmtEur(pv)}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right"}}>
+                          <input type="number" value={(cont.costesVentas||{})[v.id]||""} placeholder="0" min={0} step={0.01}
+                            onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,costesVentas:{...(d.contabilidad.costesVentas||{}),[v.id]:parseFloat(e.target.value)||0}}}))}
+                            style={{...inputStyle,width:90,padding:"4px 8px",textAlign:"right"}}/>
+                        </td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:mg>=0?"#16a34a":"#dc2626",fontWeight:700}}>{fmtEur(mg)}</td>
+                        <td style={{padding:"6px 10px",textAlign:"right",color:pct>=0?"#16a34a":"#dc2626",fontWeight:700}}>{pct}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:14}}>Rentabilidad taller — {tallAnyo}</div>
+            <input type="number" value={anyoRent} onChange={e=>setAnyoRent(e.target.value)} style={{...inputStyle,width:80,padding:"5px 8px"}}/>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid #2a3550"}}>
+                  {["Mes","Partes","Horas","Facturado (base)","€/hora"].map(h=>(
+                    <th key={h} style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6",fontWeight:700}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {mesesTaller.map(m=>(
+                  <tr key={m.mes} style={{borderBottom:"1px solid #1a2235"}}>
+                    <td style={{padding:"6px 10px",color:"#f1f3f9",fontWeight:700}}>{m.mes}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{m.partes}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{m.horas.toFixed(1)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:"#16a34a"}}>{fmtEur(m.facturado)}</td>
+                    <td style={{padding:"6px 10px",textAlign:"right",color:m.ratio>0?"#f59e0b":"#e4e9f6",fontWeight:m.ratio>0?700:400}}>{m.ratio>0?`${m.ratio.toFixed(2).replace(".",",")} €/h`:"—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{marginTop:8,color:"#e4e9f6",fontSize:11}}>€/hora calculado sobre las proformas vinculadas a partes finalizados ese mes.</div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Modal ──
+  const renderModal = () => {
+    if (!modal) return null;
+    const esProforma=modal==="proforma", esPresupuesto=modal==="presupuesto";
+    const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
+    const titulo = esPresupuesto?"Nuevo Presupuesto":esProforma?"Nueva Factura Proforma":"Nueva Factura";
+    return (
+      <Modal title={titulo} onClose={()=>{setModal(null);setBuscarCli("");}} wide>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
           <Field label="Fecha"><input type="date" value={form.fecha||""} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} style={inputStyle}/></Field>
-          <Field label="Fecha vencimiento"><input type="date" value={form.fechaVencimiento||""} onChange={e=>setForm(f=>({...f,fechaVencimiento:e.target.value}))} style={inputStyle}/></Field>
+          {!esProforma&&!esPresupuesto&&<Field label="Fecha vencimiento"><input type="date" value={form.fechaVencimiento||""} onChange={e=>setForm(f=>({...f,fechaVencimiento:e.target.value}))} style={inputStyle}/></Field>}
+          {esPresupuesto&&<Field label="Válido hasta"><input type="date" value={form.validezHasta||""} onChange={e=>setForm(f=>({...f,validezHasta:e.target.value}))} style={inputStyle}/></Field>}
+          {esProforma&&<div/>}
         </div>
-        <Field label="Cliente">
-          <select value={form.clienteId||""} onChange={e=>{const cId=parseInt(e.target.value);const fiscal=getClienteFiscal(cId);setForm(f=>({...f,clienteId:cId,...fiscal}));}} style={inputStyle}>
-            <option value="">Seleccionar cliente</option>
-            {clientesReales.map(c=><option key={c.id} value={c.id}>{c.nombreFiscal||c.nombreEmpresa}</option>)}
-          </select>
-        </Field>
-        {form.clienteId && (
+        {renderClienteSearch()}
+        {form.clienteId&&(
           <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 12px",marginBottom:10,fontSize:12,color:"#e4e9f6"}}>
             <div style={{fontWeight:700,color:"#f1f3f9"}}>{form.clienteRazonSocial}</div>
             <div>NIF/CIF: {form.clienteCIF||"—"}</div>
             <div>{form.clienteDirFiscal||"—"} · {form.clienteCPFiscal} {form.clienteLocalidad} {form.clienteProvinciaFiscal}</div>
-            <div style={{marginTop:4,color:"#e4e9f6",fontSize:11}}>
-              <span style={{color:"#f59e0b",fontSize:10}}>⚠ Si los datos fiscales del cliente no son correctos, actualízalos en su ficha.</span>
-            </div>
+            <div style={{marginTop:4,color:"#f59e0b",fontSize:11}}>⚠ Si los datos fiscales no son correctos, actualízalos en la ficha del cliente.</div>
           </div>
         )}
-        {/* Líneas */}
-        <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas de factura</div>
+        <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas</div>
         {lineas.map((ln,i)=>(
           <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 90px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
-            <input placeholder="Descripción del servicio/producto" value={ln.descripcion||""} onChange={e=>actualizarLinea(i,"descripcion",e.target.value)} style={inputStyle}/>
+            <input placeholder="Descripción" value={ln.descripcion||""} onChange={e=>actualizarLinea(i,"descripcion",e.target.value)} style={inputStyle}/>
             <input type="number" placeholder="Cant." value={ln.cantidad??1} onChange={e=>actualizarLinea(i,"cantidad",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
             <input type="number" placeholder="Precio" value={ln.precioUnitario??0} onChange={e=>actualizarLinea(i,"precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
             <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:"#e4e9f6",textAlign:"right"}}>{fmtEur(ln.subtotal)}</div>
@@ -6775,29 +6984,42 @@ const Contabilidad = ({ data, setData, userActual }) => {
           <div style={{color:"#16a34a",fontSize:16,fontWeight:800,marginTop:4}}>Total: {fmtEur(total)}</div>
         </div>
         <Field label="Notas (opcional)"><textarea value={form.notas||""} onChange={e=>setForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical",fontFamily:"inherit"}}/></Field>
-        {esProforma && <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginBottom:10,color:"#f59e0b",fontSize:12}}>Esta proforma no es una factura real y no tiene validez fiscal. Se puede convertir a factura definitiva cuando el cliente confirme.</div>}
-        <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={guardarDocumento} style={btnPrimary}>Guardar</button></div>
+        {esProforma&&<div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginBottom:10,color:"#f59e0b",fontSize:12}}>Esta proforma no tiene validez fiscal. Se puede convertir a factura cuando el cliente confirme.</div>}
+        {esPresupuesto&&<div style={{background:"#8b5cf610",border:"1px solid #8b5cf633",borderRadius:8,padding:"8px 12px",marginBottom:10,color:"#8b5cf6",fontSize:12}}>Este presupuesto no tiene validez fiscal. Se puede convertir a factura cuando el cliente lo acepte.</div>}
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+          <button onClick={()=>{setModal(null);setBuscarCli("");}} style={btnOutline}>Cancelar</button>
+          <button onClick={guardarDocumento} style={btnPrimary}>Guardar</button>
+        </div>
       </Modal>
     );
   };
 
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-        <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Contabilidad</h2><p style={{color:"#e4e9f6",fontSize:12,margin:"2px 0 0"}}>Facturas, proformas y cálculo de partes de trabajo</p></div>
-        <div style={{display:"flex",gap:8}}>
-          {tab==="facturas"&&<button onClick={()=>abrirNuevo("factura")} style={btnPrimary}><Icon name="plus" size={14}/> Nueva factura</button>}
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+        <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Contabilidad</h2><p style={{color:"#e4e9f6",fontSize:12,margin:"2px 0 0"}}>Facturas, presupuestos, gastos y análisis financiero</p></div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {tab==="facturas"&&<><button onClick={()=>setShowAlbModal(true)} style={{...btnOutline,padding:"7px 13px",fontSize:12}}><Icon name="file" size={12}/> Importar albarán</button><button onClick={()=>abrirNuevo("factura")} style={btnPrimary}><Icon name="plus" size={14}/> Nueva factura</button></>}
+          {tab==="presupuestos"&&<button onClick={()=>abrirNuevo("presupuesto")} style={{...btnPrimary,background:"#7c3aed"}}><Icon name="plus" size={14}/> Nuevo presupuesto</button>}
           {tab==="proformas"&&<button onClick={()=>abrirNuevo("proforma")} style={{...btnPrimary,background:"#d97706"}}><Icon name="plus" size={14}/> Nueva proforma</button>}
+          {tab==="gastos"&&<button onClick={()=>{setShowGastoModal(true);setGastoForm({fecha:today(),tipoIVA:21,categoria:"Suministros"});setGastoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}]);}} style={{...btnPrimary,background:"#dc2626"}}><Icon name="plus" size={14}/> Nuevo gasto</button>}
         </div>
       </div>
       {/* Tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:14}}>
-        <button onClick={()=>setTab("facturas")} style={tabStyle("facturas")}>Facturas ({cont.facturas.length})</button>
-        <button onClick={()=>setTab("proformas")} style={tabStyle("proformas")}>Proformas ({cont.proformas.length})</button>
-        <button onClick={()=>setTab("partes")} style={tabStyle("partes")}>Cálculo de partes</button>
+      <div style={{display:"flex",gap:5,marginBottom:14,flexWrap:"wrap"}}>
+        {[
+          {id:"dashboard",lbl:"Dashboard"},
+          {id:"facturas",lbl:`Facturas (${cont.facturas.length})`},
+          {id:"presupuestos",lbl:`Presupuestos (${(cont.presupuestos||[]).length})`},
+          {id:"proformas",lbl:`Proformas (${cont.proformas.length})`},
+          {id:"gastos",lbl:`Gastos (${(cont.gastos||[]).length})`},
+          {id:"partes",lbl:"Cálculo partes"},
+          {id:"rentabilidad",lbl:"Rentabilidad"},
+        ].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={tabStyle(t.id)}>{t.lbl}</button>)}
       </div>
       {/* Filtro trimestral */}
-      {tab !== "partes" && (
+      {["facturas","proformas","presupuestos","gastos"].includes(tab)&&(
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
           <span style={{color:"#e4e9f6",fontSize:13}}>Período:</span>
           <select value={trFiltro} onChange={e=>setTrFiltro(e.target.value)} style={{...inputStyle,width:"auto",padding:"7px 12px"}}>
@@ -6805,72 +7027,149 @@ const Contabilidad = ({ data, setData, userActual }) => {
             {trOpts.map(o=><option key={o.val} value={o.val}>{o.lbl}</option>)}
           </select>
           {tab==="facturas"&&trFiltro&&(
-            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 14px",fontSize:12,color:"#e4e9f6",display:"flex",gap:16}}>
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 14px",fontSize:12,color:"#e4e9f6",display:"flex",gap:16,flexWrap:"wrap"}}>
               <span>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalBase)}</strong></span>
-              <span>IVA: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalIVA)}</strong></span>
+              <span>IVA rep.: <strong style={{color:"#16a34a"}}>{fmtEur(ivaRep)}</strong></span>
               <span>Total: <strong style={{color:"#16a34a"}}>{fmtEur(totalTotal)}</strong></span>
               <span style={{color:"#f59e0b",fontSize:11}}>⟵ Mod. 303</span>
             </div>
           )}
+          {tab==="gastos"&&trFiltro&&(
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 14px",fontSize:12,color:"#e4e9f6",display:"flex",gap:16}}>
+              <span>IVA soportado: <strong style={{color:"#dc2626"}}>{fmtEur(ivaSop)}</strong></span>
+            </div>
+          )}
         </div>
       )}
-      {/* Tab: Facturas */}
-      {tab==="facturas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.facturas, false)}</div>}
-      {/* Tab: Proformas */}
-      {tab==="proformas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.proformas, true)}</div>}
-      {/* Tab: Cálculo de partes */}
+      {/* Content */}
+      {tab==="dashboard"&&renderDashboard()}
+      {tab==="facturas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.facturas,"facturas")}</div>}
+      {tab==="presupuestos"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.presupuestos||[],"presupuestos")}</div>}
+      {tab==="proformas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.proformas,"proformas")}</div>}
+      {tab==="gastos"&&<div style={{display:"grid",gap:8}}>{renderGastos()}</div>}
       {tab==="partes"&&(
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px"}}>
-          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:15,marginBottom:4}}>Calcular importe de un parte</div>
-          <p style={{color:"#e4e9f6",fontSize:12,marginBottom:16}}>Selecciona un parte finalizado, introduce km y horas, y se generará automáticamente una factura proforma con las tarifas configuradas.</p>
-          <Field label="Parte de trabajo (finalizado)">
-            <select value={pForm.parteId} onChange={e=>setPForm(p=>({...p,parteId:e.target.value}))} style={inputStyle}>
-              <option value="">Seleccionar parte...</option>
-              {partesCompletados.map(p=>{
-                const cliId = p.clienteDirectoId || (data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);
-                const cli = data.clientes.find(c=>c.id===cliId);
-                return <option key={p.id} value={p.id}>{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha})</option>;
-              })}
-            </select>
-          </Field>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:10}}>
-            <Field label={`Km recorridos (${fmtEur(tarifa.precioPorKm)}/km)`}><input type="number" value={pForm.km} onChange={e=>setPForm(p=>({...p,km:e.target.value}))} style={inputStyle} min={0}/></Field>
-            <Field label={`Horas desplazamiento (${fmtEur(tarifa.precioHoraDesplazamiento)}/h)`}><input type="number" value={pForm.horasDesplazamiento} onChange={e=>setPForm(p=>({...p,horasDesplazamiento:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
-            <Field label={`Horas mano obra/técnico (${fmtEur(tarifa.precioHoraManoObra)}/h)`}><input type="number" value={pForm.horasObraPorPersona} onChange={e=>setPForm(p=>({...p,horasObraPorPersona:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
-            <Field label="Número de técnicos"><input type="number" value={pForm.numTecnicos} onChange={e=>setPForm(p=>({...p,numTecnicos:e.target.value}))} style={inputStyle} min={1}/></Field>
+        <div>
+          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px",marginBottom:14}}>
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:15,marginBottom:4}}>Calcular importe de un parte</div>
+            <p style={{color:"#e4e9f6",fontSize:12,marginBottom:16}}>Selecciona un parte finalizado, revisa km y horas (se rellenan automáticamente), y genera una proforma.</p>
+            <Field label="Parte de trabajo (finalizado)">
+              <select value={pForm.parteId} onChange={e=>{
+                const pid=e.target.value, parte=partesCompletados.find(p=>p.id===parseInt(pid));
+                setPForm(p=>({...p, parteId:pid, km:parte?.km||0, horasObraPorPersona:parte?.horasT||0, numTecnicos:(parte?.tecnicos||[]).length||1, horasDesplazamiento:p.horasDesplazamiento }));
+              }} style={inputStyle}>
+                <option value="">Seleccionar parte...</option>
+                {partesCompletados.map(p=>{const cliId=p.clienteDirectoId||(data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);const cli=data.clientes.find(c=>c.id===cliId);return <option key={p.id} value={p.id}>{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha})</option>;})}
+              </select>
+            </Field>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:10}}>
+              <Field label={`Km recorridos (${fmtEur(tarifa.precioPorKm)}/km)`}><input type="number" value={pForm.km} onChange={e=>setPForm(p=>({...p,km:e.target.value}))} style={inputStyle} min={0}/></Field>
+              <Field label={`Horas desplazamiento (${fmtEur(tarifa.precioHoraDesplazamiento)}/h)`}><input type="number" value={pForm.horasDesplazamiento} onChange={e=>setPForm(p=>({...p,horasDesplazamiento:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
+              <Field label={`Horas mano obra/téc. (${fmtEur(tarifa.precioHoraManoObra)}/h)`}><input type="number" value={pForm.horasObraPorPersona} onChange={e=>setPForm(p=>({...p,horasObraPorPersona:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
+              <Field label="Número de técnicos"><input type="number" value={pForm.numTecnicos} onChange={e=>setPForm(p=>({...p,numTecnicos:e.target.value}))} style={inputStyle} min={1}/></Field>
+            </div>
+            <div style={{marginTop:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e4e9f6"}}>
+              {(()=>{const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1,sKm=km*(parseFloat(tarifa.precioPorKm)||0),sHD=hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0),sHO=hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0),base=sKm+sHD+sHO,iva=base*0.21;return<>{km>0&&<div>Km: {km} × {fmtEur(tarifa.precioPorKm)} = {fmtEur(sKm)}</div>}{hD>0&&<div>Desplazamiento: {hD}h × {nT} téc. × {fmtEur(tarifa.precioHoraDesplazamiento)} = {fmtEur(sHD)}</div>}{hO>0&&<div>Mano de obra: {hO}h × {nT} téc. × {fmtEur(tarifa.precioHoraManoObra)} = {fmtEur(sHO)}</div>}<div style={{marginTop:6,borderTop:"1px solid #2a3550",paddingTop:6}}>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(base)}</strong> · IVA 21%: <strong style={{color:"#f1f3f9"}}>{fmtEur(iva)}</strong> · <strong style={{color:"#16a34a"}}>Total: {fmtEur(base+iva)}</strong></div></>;})()}
+            </div>
+            <button onClick={()=>{
+              const parte=partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
+              if(!parte){alert("Selecciona un parte.");return;}
+              const cliId=parte.clienteDirectoId||(data.reparaciones?.find(r=>r.id===parte.reparacionId)?.clienteId)||null;
+              if(!cliId){alert("No se puede determinar el cliente de este parte.");return;}
+              const fiscal=getClienteFiscal(cliId);
+              const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1;
+              const lns=[];
+              if(km>0) lns.push({id:1,descripcion:`Desplazamiento — ${km} km`,cantidad:km,precioUnitario:parseFloat(tarifa.precioPorKm)||0,subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2))});
+              if(hD>0) lns.push({id:2,descripcion:`Horas de desplazamiento (${nT} técnico${nT>1?"s":""})`,cantidad:hD*nT,precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0,subtotal:parseFloat((hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2))});
+              if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2))});
+              if(!lns.length){alert("Introduce al menos km, horas de desplazamiento o mano de obra.");return;}
+              const{baseImponible,cuotaIVA,total}=calcTotales(lns,21);
+              const num=nextNumContabilidad(cont.proformas,"PRO");
+              const pro={id:Date.now(),numero:num,fecha:today(),...fiscal,clienteId:cliId,tipoIVA:21,lineas:lns,baseImponible,cuotaIVA,total,notas:`Parte: ${parte.numeroParte||parte.id}`,estado:"Emitida",esProforma:true,emailEnviado:false,origenParteId:parte.id};
+              setData(d=>{const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}};return{...d,contabilidad:{...contab,proformas:[...contab.proformas,pro]}};});
+              alert("Proforma "+num+" creada. Puedes verla en la pestaña Proformas.");
+              setPForm({parteId:"",km:0,horasDesplazamiento:0,horasObraPorPersona:0,numTecnicos:1});
+            }} style={{...btnPrimary,marginTop:14,background:"#d97706"}}>Generar proforma</button>
           </div>
-          <div style={{marginTop:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e4e9f6"}}>
-            {(()=>{
-              const km=parseFloat(pForm.km)||0; const hD=parseFloat(pForm.horasDesplazamiento)||0; const hO=parseFloat(pForm.horasObraPorPersona)||0; const nT=parseInt(pForm.numTecnicos)||1;
-              const subtKm=km*(parseFloat(tarifa.precioPorKm)||0); const subtHD=hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0); const subtHO=hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0);
-              const base=subtKm+subtHD+subtHO; const iva=base*0.21;
-              return <>
-                {km>0&&<div>Km: {km} × {fmtEur(tarifa.precioPorKm)} = {fmtEur(subtKm)}</div>}
-                {hD>0&&<div>Desplazamiento: {hD}h × {nT} téc. × {fmtEur(tarifa.precioHoraDesplazamiento)} = {fmtEur(subtHD)}</div>}
-                {hO>0&&<div>Mano de obra: {hO}h × {nT} téc. × {fmtEur(tarifa.precioHoraManoObra)} = {fmtEur(subtHO)}</div>}
-                <div style={{marginTop:6,borderTop:"1px solid #2a3550",paddingTop:6}}>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(base)}</strong> · IVA 21%: <strong style={{color:"#f1f3f9"}}>{fmtEur(iva)}</strong> · <strong style={{color:"#16a34a"}}>Total: {fmtEur(base+iva)}</strong></div>
-              </>;
-            })()}
+          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px 20px"}}>
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:10}}>Tarifas por defecto</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+              <Field label="€/km"><input type="number" value={tarifa.precioPorKm||0} step={0.01} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioPorKm:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+              <Field label="€/hora desplazamiento"><input type="number" value={tarifa.precioHoraDesplazamiento||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraDesplazamiento:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+              <Field label="€/hora mano de obra"><input type="number" value={tarifa.precioHoraManoObra||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraManoObra:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+            </div>
           </div>
-          <button onClick={generarProformaDesdePartes} style={{...btnPrimary,marginTop:14,background:"#d97706"}}>Generar proforma</button>
         </div>
       )}
-      {/* Tarifas */}
-      {tab==="partes"&&(
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px 20px",marginTop:14}}>
-          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:10}}>Tarifas por defecto</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
-            <Field label="€/km"><input type="number" value={tarifa.precioPorKm||0} step={0.01} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioPorKm:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
-            <Field label="€/hora desplazamiento"><input type="number" value={tarifa.precioHoraDesplazamiento||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraDesplazamiento:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
-            <Field label="€/hora mano de obra"><input type="number" value={tarifa.precioHoraManoObra||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraManoObra:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
-          </div>
-          <div style={{color:"#e4e9f6",fontSize:11,marginTop:8}}>Los cambios en tarifas se guardan automáticamente y aplican a futuros cálculos.</div>
-        </div>
-      )}
+      {tab==="rentabilidad"&&renderRentabilidad()}
+      {/* Modales */}
       {renderModal()}
+      {showGastoModal&&(
+        <Modal title="Registrar gasto" onClose={()=>setShowGastoModal(false)} wide>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <Field label="Proveedor"><input value={gastoForm.proveedor||""} onChange={e=>setGastoForm(f=>({...f,proveedor:e.target.value}))} style={inputStyle} placeholder="Nombre del proveedor"/></Field>
+            <Field label="NIF proveedor"><input value={gastoForm.nifProveedor||""} onChange={e=>setGastoForm(f=>({...f,nifProveedor:e.target.value}))} style={inputStyle} placeholder="NIF/CIF"/></Field>
+            <Field label="Fecha"><input type="date" value={gastoForm.fecha||""} onChange={e=>setGastoForm(f=>({...f,fecha:e.target.value}))} style={inputStyle}/></Field>
+            <Field label="Nº factura proveedor"><input value={gastoForm.numFacturaProveedor||""} onChange={e=>setGastoForm(f=>({...f,numFacturaProveedor:e.target.value}))} style={inputStyle} placeholder="Ref. factura"/></Field>
+            <Field label="Categoría">
+              <select value={gastoForm.categoria||"Suministros"} onChange={e=>setGastoForm(f=>({...f,categoria:e.target.value}))} style={inputStyle}>
+                {["Suministros","Alquiler","Servicios profesionales","Material","Maquinaria","Transportes","Seguros","Otros"].map(c=><option key={c}>{c}</option>)}
+              </select>
+            </Field>
+            <div/>
+          </div>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas del gasto</div>
+          {gastoLineas.map((ln,i)=>{
+            const actG=(campo,val)=>setGastoLineas(prev=>prev.map((l,idx)=>{if(idx!==i)return l;const u={...l,[campo]:val};if(campo==="cantidad"||campo==="precioUnitario")u.subtotal=parseFloat(((parseFloat(u.cantidad)||1)*(parseFloat(u.precioUnitario)||0)).toFixed(2));return u;}));
+            return (
+              <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 90px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
+                <input placeholder="Descripción" value={ln.descripcion||""} onChange={e=>actG("descripcion",e.target.value)} style={inputStyle}/>
+                <input type="number" placeholder="Cant." value={ln.cantidad??1} onChange={e=>actG("cantidad",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
+                <input type="number" placeholder="Precio" value={ln.precioUnitario??0} onChange={e=>actG("precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
+                <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:"#e4e9f6",textAlign:"right"}}>{fmtEur(ln.subtotal)}</div>
+                <button onClick={()=>setGastoLineas(prev=>prev.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
+              </div>
+            );
+          })}
+          <button onClick={()=>setGastoLineas(prev=>[...prev,{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}])} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:12}}><Icon name="plus" size={12}/> Añadir línea</button>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <Field label="% IVA soportado"><input type="number" value={gastoForm.tipoIVA||21} onChange={e=>setGastoForm(f=>({...f,tipoIVA:parseFloat(e.target.value)||21}))} style={inputStyle}/></Field>
+            <div/>
+          </div>
+          {(()=>{const{baseImponible,cuotaIVA,total}=calcTotales(gastoLineas,gastoForm.tipoIVA||21);return(
+            <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12,textAlign:"right"}}>
+              <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
+              <div style={{color:"#e4e9f6",fontSize:13}}>IVA soportado ({gastoForm.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
+              <div style={{color:"#dc2626",fontSize:16,fontWeight:800,marginTop:4}}>Total: {fmtEur(total)}</div>
+            </div>
+          );})()}
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={()=>setShowGastoModal(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={guardarGasto} style={{...btnPrimary,background:"#dc2626"}}>Guardar gasto</button>
+          </div>
+        </Modal>
+      )}
+      {showAlbModal&&(
+        <Modal title="Importar albarán como factura" onClose={()=>setShowAlbModal(false)}>
+          <div style={{display:"grid",gap:8,maxHeight:400,overflowY:"auto"}}>
+            {(data.albaran||data.albaranes||[]).length===0 ? (
+              <div style={{color:"#e4e9f6",fontSize:13,padding:"16px",textAlign:"center"}}>No hay albaranes registrados.</div>
+            ) : (data.albaran||data.albaranes||[]).sort((a,b)=>b.fecha?.localeCompare(a.fecha)).map(alb=>{
+              const cli=data.clientes?.find(c=>c.id===alb.clienteId);
+              return (
+                <div key={alb.id} onClick={()=>importarAlbaran(alb)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:"10px 14px",cursor:"pointer"}}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor="#16a34a"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2a3550"}>
+                  <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13}}>{alb.numero||`ALB-${alb.id}`}</div>
+                  <div style={{color:"#e4e9f6",fontSize:12}}>{cli?.nombreEmpresa||"Sin cliente"} · {alb.fecha?new Date(alb.fecha).toLocaleDateString("es-ES"):""} · {(alb.lineas||[]).length} línea(s)</div>
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
+
 // ─── FIN CONTABILIDAD ────────────────────────────────────────────────────────
 
 const Dashboard = ({ data, setActive, userActual }) => {
