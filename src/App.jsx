@@ -380,8 +380,8 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords"],
-  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
+  manager:  ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad"],
+  admin:    ["dashboard","asistencia","clientes","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
 };
@@ -504,6 +504,8 @@ const initialData = {
     {id:11,codigo:"INV0011",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
+  empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
+  contabilidad:{facturas:[],proformas:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}},
 };
 const Icon = ({ name, size=18 }) => {
   const P = {
@@ -513,6 +515,8 @@ const Icon = ({ name, size=18 }) => {
     share:"M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6 12 2 8 6 M12 2v13",
     refresh:"M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M20.49 15a9 9 0 0 1-14.85 3.36L1 14",
     lock:"M5 11a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1z M7 11V7a5 5 0 0 1 10 0v4",
+    receipt:"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1z M16 8H8 M16 12H8 M12 16H8",
+    euro:"M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z M14.5 8.5A4 4 0 0 0 9 12a4 4 0 0 0 5.5 3.7 M8 12h5",
   };
   const d = P[name]||"";
   return (
@@ -6284,8 +6288,12 @@ const Usuarios = ({ data, setData, userActual }) => {
 };
 const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [smtp,setSmtp]=useState({...data.smtp}); const [ok,setOk]=useState(false);
+  const [empresa,setEmpresa]=useState({razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"",cpFiscal:"",localidad:"",provincia:"",telefono:"",email:"",web:"europeademaquinaria.com",...(data.empresa||{})});
+  const [okEmp,setOkEmp]=useState(false);
   const s=k=>e=>setSmtp(p=>({...p,[k]:e.target.value}));
+  const sEmp=k=>e=>setEmpresa(p=>({...p,[k]:e.target.value}));
   const guardar=()=>{setData(d=>({...d,smtp}));setOk(true);setTimeout(()=>setOk(false),2200);};
+  const guardarEmpresa=()=>{setData(d=>({...d,empresa}));setOkEmp(true);setTimeout(()=>setOkEmp(false),2200);};
   const resetDatos=()=>{
     if(window.confirm("¿Borrar todos los datos guardados y volver a los datos de ejemplo?\n\nEsta acción no se puede deshacer.")){
       localStorage.removeItem("em_data");
@@ -6318,7 +6326,25 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   };
   return (<div>
     <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,marginBottom:3}}>Ajustes</h2>
-    <p style={{color:"#e4e9f6",fontSize:13,marginBottom:20}}>Configuración de correo y notificaciones</p>
+    <p style={{color:"#e4e9f6",fontSize:13,marginBottom:20}}>Configuración de correo, empresa y notificaciones</p>
+    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="receipt" size={15}/>Datos fiscales de la empresa (cabecera de facturas)</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(240px,100%),1fr))",gap:11}}>
+        <Field label="Razón social"><Input value={empresa.razonSocial} onChange={sEmp("razonSocial")}/></Field>
+        <Field label="NIF/CIF"><Input value={empresa.nif} onChange={sEmp("nif")}/></Field>
+        <Field label="Dirección fiscal"><Input value={empresa.dirFiscal} onChange={sEmp("dirFiscal")}/></Field>
+        <Field label="Código postal"><Input value={empresa.cpFiscal} onChange={sEmp("cpFiscal")}/></Field>
+        <Field label="Localidad"><Input value={empresa.localidad} onChange={sEmp("localidad")}/></Field>
+        <Field label="Provincia"><Input value={empresa.provincia} onChange={sEmp("provincia")}/></Field>
+        <Field label="Teléfono"><Input value={empresa.telefono} onChange={sEmp("telefono")}/></Field>
+        <Field label="Email empresa"><Input value={empresa.email} onChange={sEmp("email")}/></Field>
+        <Field label="Web"><Input value={empresa.web} onChange={sEmp("web")}/></Field>
+      </div>
+      <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
+        <button onClick={guardarEmpresa} style={btnPrimary}>Guardar datos empresa</button>
+        {okEmp&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
+      </div>
+    </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Configuración SMTP</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
@@ -6376,6 +6402,477 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     </div>
   </div>);
 };
+// ─── CONTABILIDAD ────────────────────────────────────────────────────────────
+// Helpers de numeración
+function nextNumContabilidad(lista, prefijo) {
+  const nums = lista.map(f => {
+    const m = (f.numero||"").match(/^[A-Z]+-(\d+)$/);
+    return m ? parseInt(m[1]) : 0;
+  });
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return prefijo + "-" + String(next).padStart(4, "0");
+}
+// Genera PDF de factura/proforma y devuelve data URI
+async function generarPDFFacturaDoc(factura, empresa) {
+  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const W = 210; const mg = 14;
+  const esProforma = factura.esProforma;
+  const titulo = esProforma ? "FACTURA PROFORMA" : "FACTURA";
+  const colorAc = [22, 163, 74];   // verde
+  const colorOsc = [15, 23, 42];
+  // ── Cabecera empresa ──
+  doc.setFillColor(...colorOsc); doc.rect(0, 0, W, 38, "F");
+  doc.setFillColor(...colorAc); doc.rect(0, 36, W, 2, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica","bold"); doc.setFontSize(16);
+  doc.text(empresa.razonSocial || "Europea de Maquinaria PMM SL", mg, 13);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(180, 200, 220);
+  const linEmpresa = [
+    "NIF: " + (empresa.nif || "B98527583"),
+    (empresa.dirFiscal || "") + (empresa.dirFiscal ? ", " : "") + (empresa.cpFiscal || "") + " " + (empresa.localidad || "") + (empresa.provincia ? " (" + empresa.provincia + ")" : ""),
+    empresa.telefono ? "Tel: " + empresa.telefono : null,
+    empresa.web || "",
+  ].filter(Boolean);
+  linEmpresa.forEach((l, i) => doc.text(l, mg, 20 + i * 4.5));
+  // ── Título factura ──
+  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...colorAc);
+  doc.text(titulo, W - mg, 13, { align:"right" });
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(180, 200, 220);
+  doc.text("Nº: " + factura.numero, W - mg, 21, { align:"right" });
+  doc.text("Fecha: " + (factura.fecha ? new Date(factura.fecha).toLocaleDateString("es-ES") : ""), W - mg, 26, { align:"right" });
+  if (factura.fechaVencimiento) doc.text("Vencimiento: " + new Date(factura.fechaVencimiento).toLocaleDateString("es-ES"), W - mg, 31, { align:"right" });
+  if (esProforma) { doc.setTextColor(255, 180, 0); doc.setFontSize(7); doc.text("DOCUMENTO NO VÁLIDO A EFECTOS FISCALES", W - mg, 36, { align:"right" }); }
+  // ── Bloque cliente ──
+  let y = 46;
+  doc.setFillColor(30, 40, 60); doc.roundedRect(mg, y, (W / 2) - mg - 4, 32, 2, 2, "F");
+  doc.setTextColor(120, 150, 190); doc.setFontSize(7); doc.setFont("helvetica","bold");
+  doc.text("DATOS DEL CLIENTE", mg + 4, y + 6);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(240, 244, 252);
+  doc.text(factura.clienteRazonSocial || "", mg + 4, y + 12);
+  doc.setFontSize(8); doc.setTextColor(180, 200, 220);
+  const cliLines = [
+    factura.clienteCIF ? "NIF/CIF: " + factura.clienteCIF : "",
+    factura.clienteDirFiscal || "",
+    [factura.clienteCPFiscal, factura.clienteLocalidad, factura.clienteProvinciaFiscal].filter(Boolean).join(" "),
+    factura.clienteEmail || "",
+  ].filter(Boolean);
+  cliLines.forEach((l, i) => doc.text(l, mg + 4, y + 18 + i * 4));
+  y += 38;
+  // ── Tabla de líneas ──
+  const colDesc = mg; const colCant = mg + 95; const colPU = mg + 118; const colSub = mg + 149;
+  const tableW = W - mg * 2;
+  doc.setFillColor(...colorOsc); doc.rect(colDesc, y, tableW, 7, "F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...colorAc);
+  doc.text("Descripción", colDesc + 3, y + 5);
+  doc.text("Cant.", colCant, y + 5); doc.text("Precio/ud", colPU, y + 5); doc.text("Subtotal", colSub, y + 5);
+  y += 7;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8);
+  let alt = false;
+  (factura.lineas || []).forEach(ln => {
+    const lh = 7;
+    if (alt) { doc.setFillColor(20, 30, 48); doc.rect(colDesc, y, tableW, lh, "F"); }
+    doc.setTextColor(230, 235, 246);
+    const descLines = doc.splitTextToSize(ln.descripcion || "", 88);
+    descLines.forEach((dl, di) => doc.text(dl, colDesc + 3, y + 5 + di * 4));
+    doc.text(String(ln.cantidad ?? 1), colCant + 8, y + 5, { align:"right" });
+    doc.text(fmtEur(ln.precioUnitario), colPU + 20, y + 5, { align:"right" });
+    doc.text(fmtEur(ln.subtotal), colSub + 28, y + 5, { align:"right" });
+    y += Math.max(lh, descLines.length * 4 + 3);
+    alt = !alt;
+  });
+  // ── Totales ──
+  y += 4;
+  doc.setDrawColor(...colorAc); doc.setLineWidth(0.4); doc.line(colSub - 2, y, W - mg, y);
+  y += 5;
+  const totX = colPU; const numX = W - mg;
+  const fila = (lbl, val, bold) => {
+    if (bold) { doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...colorAc); }
+    else { doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(200, 210, 230); }
+    doc.text(lbl, totX, y); doc.text(val, numX, y, { align:"right" }); y += 6;
+  };
+  fila("Base imponible:", fmtEur(factura.baseImponible));
+  fila("IVA (" + (factura.tipoIVA || 21) + "%):", fmtEur(factura.cuotaIVA));
+  y += 1; doc.setLineWidth(0.6); doc.line(totX, y, numX, y); y += 4;
+  fila("TOTAL:", fmtEur(factura.total), true);
+  // ── Notas ──
+  if (factura.notas?.trim()) {
+    y += 6;
+    doc.setFont("helvetica","italic"); doc.setFontSize(8); doc.setTextColor(150, 170, 200);
+    doc.text("Notas: " + factura.notas, mg, y, { maxWidth: tableW });
+  }
+  if (factura.estado === "Anulada") {
+    doc.setFont("helvetica","bold"); doc.setFontSize(36); doc.setTextColor(220, 38, 38, 0.4);
+    doc.text("ANULADA", W / 2, 148, { align:"center", angle:45 });
+  }
+  // ── Footer ──
+  doc.setFillColor(...colorOsc); doc.rect(0, 282, W, 15, "F");
+  doc.setFillColor(...colorAc); doc.rect(0, 282, W, 0.8, "F");
+  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150, 170, 200);
+  doc.text((empresa.razonSocial || "Europea de Maquinaria PMM SL") + " · NIF " + (empresa.nif || "B98527583") + " · " + (empresa.web || "europeademaquinaria.com"), W / 2, 291, { align:"center" });
+  return doc.output("datauristring");
+}
+function fmtEur(n) { return (parseFloat(n)||0).toFixed(2).replace(".",",")+" €"; }
+
+const Contabilidad = ({ data, setData, userActual }) => {
+  const [tab, setTab] = useState("facturas");
+  const [modal, setModal] = useState(null); // null | "factura" | "proforma" | "partes"
+  const [form, setForm] = useState({});
+  const [lineas, setLineas] = useState([]);
+  const [enviando, setEnviando] = useState(false);
+  const [trFiltro, setTrFiltro] = useState(() => {
+    const d = new Date(); const q = Math.ceil((d.getMonth()+1)/3);
+    return d.getFullYear()+"-Q"+q;
+  });
+
+  const cont = data.contabilidad || { facturas:[], proformas:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55} };
+  const emp = data.empresa || {};
+
+  // ── helpers ──
+  const getClienteFiscal = (cId) => {
+    const c = data.clientes.find(x => x.id === cId);
+    if (!c) return {};
+    return {
+      clienteRazonSocial: c.nombreFiscal || c.nombreEmpresa || "",
+      clienteCIF: c.cif || "",
+      clienteDirFiscal: c.dirFiscal || "",
+      clienteCPFiscal: c.cpFiscal || "",
+      clienteLocalidad: c.localidad || "",
+      clienteProvinciaFiscal: c.provinciaFiscal || "",
+      clienteEmail: c.contactos?.[0]?.email || "",
+    };
+  };
+
+  const calcTotales = (lns, tipoIVA=21) => {
+    const base = lns.reduce((s,l) => s + (parseFloat(l.subtotal)||0), 0);
+    const iva = parseFloat((base * tipoIVA / 100).toFixed(2));
+    return { baseImponible: parseFloat(base.toFixed(2)), cuotaIVA: iva, total: parseFloat((base+iva).toFixed(2)) };
+  };
+
+  const actualizarLinea = (i, campo, valor) => {
+    setLineas(prev => {
+      const nuevo = prev.map((l,idx) => {
+        if (idx !== i) return l;
+        const upd = { ...l, [campo]: valor };
+        if (campo === "cantidad" || campo === "precioUnitario") {
+          upd.subtotal = parseFloat(((parseFloat(upd.cantidad)||1)*(parseFloat(upd.precioUnitario)||0)).toFixed(2));
+        }
+        return upd;
+      });
+      return nuevo;
+    });
+  };
+
+  const addLinea = () => setLineas(prev => [...prev, { id: Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
+  const removeLinea = (i) => setLineas(prev => prev.filter((_,idx)=>idx!==i));
+
+  const abrirNuevo = (tipo) => {
+    const clienteRealId = data.clientes.find(c=>!c.esPropia&&!c.esStockInterno&&c.id>0)?.id;
+    const fiscal = clienteRealId ? getClienteFiscal(clienteRealId) : {};
+    setForm({ clienteId: clienteRealId||null, ...fiscal, fecha: today(), tipoIVA: 21, notas:"", estado:"Emitida", esProforma: tipo==="proforma", origenParteId: null });
+    setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, subtotal:0 }]);
+    setModal(tipo);
+  };
+
+  const guardarDocumento = () => {
+    if (!form.clienteId) { alert("Selecciona un cliente."); return; }
+    if (!lineas.length || lineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
+    const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
+    const esProforma = modal === "proforma";
+    setData(d => {
+      const contab = d.contabilidad || { facturas:[], proformas:[], tarifas:{} };
+      const lista = esProforma ? contab.proformas : contab.facturas;
+      const prefijo = esProforma ? "PRO" : "FAC";
+      const numero = form.id ? form.numero : nextNumContabilidad(lista, prefijo);
+      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total, emailEnviado: false };
+      const nuevaLista = form.id ? lista.map(x=>x.id===form.id?doc:x) : [...lista, doc];
+      return { ...d, contabilidad: { ...contab, [esProforma?"proformas":"facturas"]: nuevaLista } };
+    });
+    setModal(null);
+  };
+
+  const anularDoc = (doc, esProforma) => {
+    if (!window.confirm("¿Anular " + doc.numero + "?\nEl documento quedará marcado como ANULADO y no se puede deshacer.")) return;
+    setData(d => {
+      const contab = d.contabilidad || { facturas:[], proformas:[] };
+      const clave = esProforma ? "proformas" : "facturas";
+      return { ...d, contabilidad: { ...contab, [clave]: contab[clave].map(x=>x.id===doc.id?{...x,estado:"Anulada"}:x) } };
+    });
+  };
+
+  const convertirAFactura = (pro) => {
+    if (!window.confirm("¿Convertir " + pro.numero + " en factura real? Se creará una nueva FAC con los mismos datos.")) return;
+    setData(d => {
+      const contab = d.contabilidad || { facturas:[], proformas:[] };
+      const num = nextNumContabilidad(contab.facturas, "FAC");
+      const fac = { ...pro, id: Date.now(), numero: num, esProforma: false, estado:"Emitida", emailEnviado: false, origenProformaId: pro.id };
+      return { ...d, contabilidad: { ...contab, facturas: [...contab.facturas, fac], proformas: contab.proformas.map(x=>x.id===pro.id?{...x,convertidaAFactura:num}:x) } };
+    });
+  };
+
+  const descargarPDF = async (doc) => {
+    const uri = await generarPDFFacturaDoc(doc, emp);
+    const a = document.createElement("a");
+    a.href = uri; a.download = doc.numero + ".pdf"; a.click();
+  };
+
+  const enviarFacturaPorEmail = async (doc) => {
+    const email = doc.clienteEmail || prompt("Email del cliente:");
+    if (!email?.trim()) return;
+    setEnviando(doc.id);
+    try {
+      const uri = await generarPDFFacturaDoc(doc, emp);
+      const base64 = uri.split(",")[1];
+      const esP = doc.esProforma;
+      await apiSendMail({
+        to: email,
+        cc: data.smtp?.ccPartes || "",
+        subject: (esP ? "Factura Proforma " : "Factura ") + doc.numero + " — " + (emp.razonSocial||"Europea de Maquinaria"),
+        html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a"><p>Buenas,</p><p>Le enviamos adjunto ${esP?"la factura proforma":"la factura"} <strong>${doc.numero}</strong>.</p>${esP?"<p><em>Este documento es una factura proforma y no tiene validez fiscal.</em></p>":""}<br><p>Un saludo,<br>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</p></div>`,
+        attachmentBase64: base64,
+        attachmentName: doc.numero + ".pdf",
+        attachmentMime: "application/pdf",
+      });
+      setData(d => {
+        const contab = d.contabilidad || { facturas:[], proformas:[] };
+        const clave = doc.esProforma ? "proformas" : "facturas";
+        return { ...d, contabilidad: { ...contab, [clave]: contab[clave].map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email}:x) } };
+      });
+      alert("Email enviado correctamente a " + email);
+    } catch(e) { alert("Error al enviar: " + e.message); }
+    finally { setEnviando(null); }
+  };
+
+  // ── Filtro trimestral ──
+  const filtrarPorTrimestre = (lista) => {
+    if (!trFiltro) return lista;
+    const [anyo, q] = trFiltro.split("-Q");
+    const qn = parseInt(q); const ay = parseInt(anyo);
+    const mIni = (qn-1)*3; const mFin = qn*3-1;
+    return lista.filter(f => {
+      if (!f.fecha) return false;
+      const d = new Date(f.fecha);
+      return d.getFullYear()===ay && d.getMonth()>=mIni && d.getMonth()<=mFin;
+    });
+  };
+
+  const anyos = [...new Set([...cont.facturas,...cont.proformas].map(f=>f.fecha?.slice(0,4)).filter(Boolean))].sort().reverse();
+  if (!anyos.includes(new Date().getFullYear()+"")) anyos.unshift(new Date().getFullYear()+"");
+
+  const trOpts = anyos.flatMap(a => [1,2,3,4].map(q => ({ val:`${a}-Q${q}`, lbl:`${a} — T${q}` })));
+
+  const tabStyle = (t) => ({ padding:"7px 18px", fontWeight:700, fontSize:13, cursor:"pointer", border:"none", borderRadius:8, background: tab===t ? "#16a34a" : "#151b2a", color: tab===t ? "#fff" : "#e4e9f6" });
+
+  // ── Cálculo de partes ──
+  const [pForm, setPForm] = useState({ parteId:"", km:0, horasDesplazamiento:0, horasObraPorPersona:0, numTecnicos:1, clienteId:"" });
+  const tarifa = cont.tarifas || {};
+  const partesCompletados = (data.partes||[]).filter(p => p.estadoParte==="Finalizado" || p.estadoParte==="Completado");
+
+  const generarProformaDesdePartes = () => {
+    const parte = partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
+    if (!parte) { alert("Selecciona un parte."); return; }
+    const cliId = parte.clienteDirectoId || (data.reparaciones?.find(r=>r.id===parte.reparacionId)?.clienteId) || null;
+    if (!cliId) { alert("No se puede determinar el cliente de este parte."); return; }
+    const fiscal = getClienteFiscal(cliId);
+    const km = parseFloat(pForm.km)||0;
+    const hDespl = parseFloat(pForm.horasDesplazamiento)||0;
+    const hObra = parseFloat(pForm.horasObraPorPersona)||0;
+    const nTec = parseInt(pForm.numTecnicos)||1;
+    const lns = [];
+    if (km>0) lns.push({ id:1, descripcion:`Desplazamiento — ${km} km`, cantidad:km, precioUnitario:parseFloat(tarifa.precioPorKm)||0, subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2)) });
+    if (hDespl>0) lns.push({ id:2, descripcion:`Horas de desplazamiento (${nTec} técnico${nTec>1?"s":""})`, cantidad:hDespl*nTec, precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0, subtotal:parseFloat((hDespl*nTec*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2)) });
+    if (hObra>0) lns.push({ id:3, descripcion:`Mano de obra (${nTec} técnico${nTec>1?"s":""})`, cantidad:hObra*nTec, precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0, subtotal:parseFloat((hObra*nTec*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2)) });
+    if (!lns.length) { alert("Introduce al menos km, horas de desplazamiento o horas de mano de obra."); return; }
+    const { baseImponible, cuotaIVA, total } = calcTotales(lns, 21);
+    const num = nextNumContabilidad(cont.proformas, "PRO");
+    const pro = { id:Date.now(), numero:num, fecha:today(), ...fiscal, clienteId:cliId, tipoIVA:21, lineas:lns, baseImponible, cuotaIVA, total, notas:`Parte: ${parte.numeroParte||parte.id}`, estado:"Emitida", esProforma:true, emailEnviado:false, origenParteId:parte.id };
+    setData(d => { const contab=d.contabilidad||{facturas:[],proformas:[],tarifas:{}}; return {...d,contabilidad:{...contab,proformas:[...contab.proformas,pro]}}; });
+    alert("Proforma " + num + " creada correctamente. Puedes verla en Facturas Proforma.");
+    setPForm({ parteId:"", km:0, horasDesplazamiento:0, horasObraPorPersona:0, numTecnicos:1 });
+  };
+
+  // ── Resumen trimestral ──
+  const facsFiltradas = filtrarPorTrimestre(cont.facturas).filter(f=>f.estado!=="Anulada");
+  const totalBase = facsFiltradas.reduce((s,f)=>s+(f.baseImponible||0),0);
+  const totalIVA = facsFiltradas.reduce((s,f)=>s+(f.cuotaIVA||0),0);
+  const totalTotal = facsFiltradas.reduce((s,f)=>s+(f.total||0),0);
+
+  // ── Render lista ──
+  const renderLista = (lista, esProforma) => {
+    const filtrada = filtrarPorTrimestre(lista);
+    if (!filtrada.length) return <div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay {esProforma?"proformas":"facturas"} en este trimestre.</div>;
+    return filtrada.sort((a,b)=>b.fecha?.localeCompare(a.fecha)).map(doc => {
+      const anulada = doc.estado==="Anulada";
+      const convertida = doc.convertidaAFactura;
+      return (
+        <div key={doc.id} style={{background:"#151b2a",border:`1px solid ${anulada?"#dc262633":"#2a3550"}`,borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,opacity:anulada?0.6:1}}>
+          <div style={{minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+              <span style={{fontFamily:"monospace",fontWeight:800,color:anulada?"#dc2626":esProforma?"#f59e0b":"#16a34a",fontSize:14}}>{doc.numero}</span>
+              {anulada && <span style={{fontSize:10,background:"#dc262620",color:"#dc2626",border:"1px solid #dc262644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>ANULADA</span>}
+              {convertida && <span style={{fontSize:10,background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ {convertida}</span>}
+              {doc.emailEnviado && <span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
+            </div>
+            <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{doc.clienteRazonSocial}</div>
+            <div style={{color:"#e4e9f6",fontSize:12}}>{doc.fecha ? new Date(doc.fecha).toLocaleDateString("es-ES") : ""} · Base: {fmtEur(doc.baseImponible)} · IVA: {fmtEur(doc.cuotaIVA)} · <strong>Total: {fmtEur(doc.total)}</strong></div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
+            {!anulada && <button onClick={()=>descargarPDF(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12}}>PDF</button>}
+            {!anulada && <button onClick={()=>enviarFacturaPorEmail(doc)} disabled={enviando===doc.id} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#0ea5e9",borderColor:"#0ea5e944"}}>{enviando===doc.id?"Enviando...":"Email"}</button>}
+            {!anulada && esProforma && !convertida && <button onClick={()=>convertirAFactura(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#f59e0b",borderColor:"#f59e0b44"}}>→ FAC</button>}
+            {!anulada && <button onClick={()=>anularDoc(doc,esProforma)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>Anular</button>}
+          </div>
+        </div>
+      );
+    });
+  };
+
+  // ── Render formulario modal ──
+  const renderModal = () => {
+    if (!modal || modal==="partes") return null;
+    const esProforma = modal==="proforma";
+    const { baseImponible, cuotaIVA, total } = calcTotales(lineas, form.tipoIVA||21);
+    const clientesReales = data.clientes.filter(c=>!c.esPropia&&!c.esStockInterno&&c.id>0);
+    return (
+      <Modal title={(esProforma?"Nueva Factura Proforma":"Nueva Factura")} onClose={()=>setModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <Field label="Fecha"><input type="date" value={form.fecha||""} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} style={inputStyle}/></Field>
+          <Field label="Fecha vencimiento"><input type="date" value={form.fechaVencimiento||""} onChange={e=>setForm(f=>({...f,fechaVencimiento:e.target.value}))} style={inputStyle}/></Field>
+        </div>
+        <Field label="Cliente">
+          <select value={form.clienteId||""} onChange={e=>{const cId=parseInt(e.target.value);const fiscal=getClienteFiscal(cId);setForm(f=>({...f,clienteId:cId,...fiscal}));}} style={inputStyle}>
+            <option value="">Seleccionar cliente</option>
+            {clientesReales.map(c=><option key={c.id} value={c.id}>{c.nombreFiscal||c.nombreEmpresa}</option>)}
+          </select>
+        </Field>
+        {form.clienteId && (
+          <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 12px",marginBottom:10,fontSize:12,color:"#e4e9f6"}}>
+            <div style={{fontWeight:700,color:"#f1f3f9"}}>{form.clienteRazonSocial}</div>
+            <div>NIF/CIF: {form.clienteCIF||"—"}</div>
+            <div>{form.clienteDirFiscal||"—"} · {form.clienteCPFiscal} {form.clienteLocalidad} {form.clienteProvinciaFiscal}</div>
+            <div style={{marginTop:4,color:"#e4e9f6",fontSize:11}}>
+              <span style={{color:"#f59e0b",fontSize:10}}>⚠ Si los datos fiscales del cliente no son correctos, actualízalos en su ficha.</span>
+            </div>
+          </div>
+        )}
+        {/* Líneas */}
+        <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:6}}>Líneas de factura</div>
+        {lineas.map((ln,i)=>(
+          <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 60px 90px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input placeholder="Descripción del servicio/producto" value={ln.descripcion||""} onChange={e=>actualizarLinea(i,"descripcion",e.target.value)} style={inputStyle}/>
+            <input type="number" placeholder="Cant." value={ln.cantidad??1} onChange={e=>actualizarLinea(i,"cantidad",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
+            <input type="number" placeholder="Precio" value={ln.precioUnitario??0} onChange={e=>actualizarLinea(i,"precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px"}}/>
+            <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:"#e4e9f6",textAlign:"right"}}>{fmtEur(ln.subtotal)}</div>
+            <button onClick={()=>removeLinea(i)} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
+          </div>
+        ))}
+        <button onClick={addLinea} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:14}}><Icon name="plus" size={12}/> Añadir línea</button>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <Field label="% IVA"><input type="number" value={form.tipoIVA||21} onChange={e=>setForm(f=>({...f,tipoIVA:parseFloat(e.target.value)||21}))} style={inputStyle}/></Field>
+          <div/>
+        </div>
+        <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12,textAlign:"right"}}>
+          <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
+          <div style={{color:"#e4e9f6",fontSize:13}}>IVA ({form.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
+          <div style={{color:"#16a34a",fontSize:16,fontWeight:800,marginTop:4}}>Total: {fmtEur(total)}</div>
+        </div>
+        <Field label="Notas (opcional)"><textarea value={form.notas||""} onChange={e=>setForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical",fontFamily:"inherit"}}/></Field>
+        {esProforma && <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginBottom:10,color:"#f59e0b",fontSize:12}}>Esta proforma no es una factura real y no tiene validez fiscal. Se puede convertir a factura definitiva cuando el cliente confirme.</div>}
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={btnOutline}>Cancelar</button><button onClick={guardarDocumento} style={btnPrimary}>Guardar</button></div>
+      </Modal>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Contabilidad</h2><p style={{color:"#e4e9f6",fontSize:12,margin:"2px 0 0"}}>Facturas, proformas y cálculo de partes de trabajo</p></div>
+        <div style={{display:"flex",gap:8}}>
+          {tab==="facturas"&&<button onClick={()=>abrirNuevo("factura")} style={btnPrimary}><Icon name="plus" size={14}/> Nueva factura</button>}
+          {tab==="proformas"&&<button onClick={()=>abrirNuevo("proforma")} style={{...btnPrimary,background:"#d97706"}}><Icon name="plus" size={14}/> Nueva proforma</button>}
+        </div>
+      </div>
+      {/* Tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        <button onClick={()=>setTab("facturas")} style={tabStyle("facturas")}>Facturas ({cont.facturas.length})</button>
+        <button onClick={()=>setTab("proformas")} style={tabStyle("proformas")}>Proformas ({cont.proformas.length})</button>
+        <button onClick={()=>setTab("partes")} style={tabStyle("partes")}>Cálculo de partes</button>
+      </div>
+      {/* Filtro trimestral */}
+      {tab !== "partes" && (
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <span style={{color:"#e4e9f6",fontSize:13}}>Período:</span>
+          <select value={trFiltro} onChange={e=>setTrFiltro(e.target.value)} style={{...inputStyle,width:"auto",padding:"7px 12px"}}>
+            <option value="">Todos</option>
+            {trOpts.map(o=><option key={o.val} value={o.val}>{o.lbl}</option>)}
+          </select>
+          {tab==="facturas"&&trFiltro&&(
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"6px 14px",fontSize:12,color:"#e4e9f6",display:"flex",gap:16}}>
+              <span>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalBase)}</strong></span>
+              <span>IVA: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalIVA)}</strong></span>
+              <span>Total: <strong style={{color:"#16a34a"}}>{fmtEur(totalTotal)}</strong></span>
+              <span style={{color:"#f59e0b",fontSize:11}}>⟵ Mod. 303</span>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Tab: Facturas */}
+      {tab==="facturas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.facturas, false)}</div>}
+      {/* Tab: Proformas */}
+      {tab==="proformas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.proformas, true)}</div>}
+      {/* Tab: Cálculo de partes */}
+      {tab==="partes"&&(
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px"}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:15,marginBottom:4}}>Calcular importe de un parte</div>
+          <p style={{color:"#e4e9f6",fontSize:12,marginBottom:16}}>Selecciona un parte finalizado, introduce km y horas, y se generará automáticamente una factura proforma con las tarifas configuradas.</p>
+          <Field label="Parte de trabajo (finalizado)">
+            <select value={pForm.parteId} onChange={e=>setPForm(p=>({...p,parteId:e.target.value}))} style={inputStyle}>
+              <option value="">Seleccionar parte...</option>
+              {partesCompletados.map(p=>{
+                const cliId = p.clienteDirectoId || (data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);
+                const cli = data.clientes.find(c=>c.id===cliId);
+                return <option key={p.id} value={p.id}>{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha})</option>;
+              })}
+            </select>
+          </Field>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:10}}>
+            <Field label={`Km recorridos (${fmtEur(tarifa.precioPorKm)}/km)`}><input type="number" value={pForm.km} onChange={e=>setPForm(p=>({...p,km:e.target.value}))} style={inputStyle} min={0}/></Field>
+            <Field label={`Horas desplazamiento (${fmtEur(tarifa.precioHoraDesplazamiento)}/h)`}><input type="number" value={pForm.horasDesplazamiento} onChange={e=>setPForm(p=>({...p,horasDesplazamiento:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
+            <Field label={`Horas mano obra/técnico (${fmtEur(tarifa.precioHoraManoObra)}/h)`}><input type="number" value={pForm.horasObraPorPersona} onChange={e=>setPForm(p=>({...p,horasObraPorPersona:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
+            <Field label="Número de técnicos"><input type="number" value={pForm.numTecnicos} onChange={e=>setPForm(p=>({...p,numTecnicos:e.target.value}))} style={inputStyle} min={1}/></Field>
+          </div>
+          <div style={{marginTop:14,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#e4e9f6"}}>
+            {(()=>{
+              const km=parseFloat(pForm.km)||0; const hD=parseFloat(pForm.horasDesplazamiento)||0; const hO=parseFloat(pForm.horasObraPorPersona)||0; const nT=parseInt(pForm.numTecnicos)||1;
+              const subtKm=km*(parseFloat(tarifa.precioPorKm)||0); const subtHD=hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0); const subtHO=hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0);
+              const base=subtKm+subtHD+subtHO; const iva=base*0.21;
+              return <>
+                {km>0&&<div>Km: {km} × {fmtEur(tarifa.precioPorKm)} = {fmtEur(subtKm)}</div>}
+                {hD>0&&<div>Desplazamiento: {hD}h × {nT} téc. × {fmtEur(tarifa.precioHoraDesplazamiento)} = {fmtEur(subtHD)}</div>}
+                {hO>0&&<div>Mano de obra: {hO}h × {nT} téc. × {fmtEur(tarifa.precioHoraManoObra)} = {fmtEur(subtHO)}</div>}
+                <div style={{marginTop:6,borderTop:"1px solid #2a3550",paddingTop:6}}>Base: <strong style={{color:"#f1f3f9"}}>{fmtEur(base)}</strong> · IVA 21%: <strong style={{color:"#f1f3f9"}}>{fmtEur(iva)}</strong> · <strong style={{color:"#16a34a"}}>Total: {fmtEur(base+iva)}</strong></div>
+              </>;
+            })()}
+          </div>
+          <button onClick={generarProformaDesdePartes} style={{...btnPrimary,marginTop:14,background:"#d97706"}}>Generar proforma</button>
+        </div>
+      )}
+      {/* Tarifas */}
+      {tab==="partes"&&(
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px 20px",marginTop:14}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:10}}>Tarifas por defecto</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+            <Field label="€/km"><input type="number" value={tarifa.precioPorKm||0} step={0.01} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioPorKm:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+            <Field label="€/hora desplazamiento"><input type="number" value={tarifa.precioHoraDesplazamiento||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraDesplazamiento:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+            <Field label="€/hora mano de obra"><input type="number" value={tarifa.precioHoraManoObra||0} step={1} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,tarifas:{...d.contabilidad.tarifas,precioHoraManoObra:parseFloat(e.target.value)||0}}}))} style={inputStyle}/></Field>
+          </div>
+          <div style={{color:"#e4e9f6",fontSize:11,marginTop:8}}>Los cambios en tarifas se guardan automáticamente y aplican a futuros cálculos.</div>
+        </div>
+      )}
+      {renderModal()}
+    </div>
+  );
+};
+// ─── FIN CONTABILIDAD ────────────────────────────────────────────────────────
+
 const Dashboard = ({ data, setActive, userActual }) => {
   const activos  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado");
   const criticos = activos.filter(a => a.prioridad === "Alta");
@@ -9619,6 +10116,7 @@ const NAV_ITEMS = [
   {id:"fichaje",        label:"Fichaje",               icon:"clock",        color:"#14b8a6"},
   {id:"passwords",      label:"Passwords",             icon:"lock",         color:"#eab308"},
   {id:"usuarios",       label:"Usuarios",              icon:"users",        color:"#8b5cf6"},
+  {id:"contabilidad",   label:"Contabilidad",           icon:"receipt",      color:"#16a34a"},
   {id:"ajustes",        label:"Ajustes",               icon:"settings",     color:"#e4e9f6"},
 ];
 // ─── Sincronización con servidor (todos los usuarios comparten los mismos datos) ──
@@ -11156,6 +11654,7 @@ export default function App() {
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
           {active==="passwords"&&puedeVer(user.rol,"passwords")&&<Passwords data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
+          {active==="contabilidad"&&puedeVer(user.rol,"contabilidad")&&<Contabilidad data={data} setData={setData} userActual={user}/>}
           {active==="ajustes"&&puedeVer(user.rol,"ajustes")&&<Ajustes data={data} setData={setData} onPrueba={onPrueba} userActual={user}/>}
         </main>
       </div>

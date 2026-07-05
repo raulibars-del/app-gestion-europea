@@ -225,6 +225,31 @@ if ($changed) {
     }
 }
 
+// ─── Guardar sección avisos actualizada ─────────────────────────────────────
+if ($avisosChanged && $versionAvisos > 0) {
+    $newVersionAvisos = $versionAvisos + 1;
+    $stmtAv = $pdo->prepare(
+        "UPDATE app_sections SET data = :data, version = :v
+         WHERE section = 'avisos' AND version = :oldv"
+    );
+    $okAv = $stmtAv->execute([
+        'data' => json_encode($avisos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'v'    => $newVersionAvisos,
+        'oldv' => $versionAvisos,
+    ]);
+    if (!$okAv || $stmtAv->rowCount() === 0) {
+        // Conflicto de versión: guardar sin locking
+        $stmtAv2 = $pdo->prepare(
+            "UPDATE app_sections SET data = :data, version = :v WHERE section = 'avisos'"
+        );
+        $stmtAv2->execute([
+            'data' => json_encode($avisos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'v'    => $newVersionAvisos,
+        ]);
+        $errors[] = 'avisos_version_conflict_forzado';
+    }
+}
+
 echo json_encode([
     'ok'        => true,
     'processed' => $processed,
