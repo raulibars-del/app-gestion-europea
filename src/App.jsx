@@ -2870,22 +2870,6 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   // Regla automática: aviso con +14 días sin resolver y prioridad Alta → se marca URGENTE
   const urgentes14 = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && a.prioridad === "Alta" && diasDesde(a.fechaAviso) >= 14);
   const avisosActivos = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado").length;
-  const esMobil = window.innerWidth < 700;
-  const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
-  const asigFiltroBase = filtroAsig === "pendientes"
-    ? asignadasPorMi.filter(t => t.estado !== "Completada")
-    : filtroAsig === "completadas"
-      ? asigCompletadas
-      : asignadasPorMi;
-  const asigMostrar = busqAsig.trim().length < 2
-    ? asigFiltroBase
-    : (() => {
-        const q = busqAsig.trim().toLowerCase();
-        return asigFiltroBase.filter(t =>
-          [t.titulo, t.notas, t.vence, t.estado, t.prioridad, uN(t.asignadoId)].some(c => (c||"").toString().toLowerCase().includes(q))
-        );
-      })();
-  const asigMostrarSorted = ordenar(asigMostrar);
   return (
     <div>
       {/* Cabecera */}
