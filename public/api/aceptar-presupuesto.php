@@ -89,11 +89,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         'aceptadoPor'       => $prs['aceptadoPor'] ?? null,
         'aceptadoEn'        => $prs['aceptadoEn'] ?? null,
         'empresa' => [
-            'razonSocial' => $empresa['razonSocial'] ?? 'Europea de Maquinaria PMM SL',
-            'nif'         => $empresa['nif'] ?? '',
-            'email'       => $empresa['email'] ?? '',
-            'web'         => $empresa['web'] ?? '',
-            'telefono'    => $empresa['telefono'] ?? '',
+            'razonSocial'      => $empresa['razonSocial'] ?? 'Europea de Maquinaria PMM SL',
+            'nif'              => $empresa['nif'] ?? '',
+            'email'            => $empresa['email'] ?? '',
+            'web'              => $empresa['web'] ?? '',
+            'telefono'         => $empresa['telefono'] ?? '',
+            'cuentasBancarias' => $empresa['cuentasBancarias'] ?? [],
         ],
     ]);
     exit;

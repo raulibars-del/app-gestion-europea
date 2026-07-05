@@ -6565,7 +6565,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     {/* ── Cuentas bancarias ── */}
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
       <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><Icon name="receipt" size={15}/>Cuentas bancarias</div>
-      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:12}}>Aparecerán en facturas, proformas y presupuestos. Marca la predeterminada para que se seleccione automáticamente.</p>
+      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:12}}>Todos los bancos configurados aparecen automáticamente en <strong style={{color:"#f1f3f9"}}>todas</strong> las facturas, proformas y presupuestos (en el PDF y en el email). Añade todos los que necesites.</p>
       <div style={{display:"grid",gap:6,marginBottom:12}}>
         {(empresa.cuentasBancarias||[]).length===0&&<div style={{color:"#6b7a99",fontSize:12}}>Sin cuentas configuradas.</div>}
         {(empresa.cuentasBancarias||[]).map((c,i)=>(
@@ -6734,7 +6734,6 @@ async function generarPDFFacturaDoc(factura, empresa) {
     ...(!esProforma&&!esPresupuesto&&factura.fechaVencimiento?[["Vencimiento",new Date(factura.fechaVencimiento).toLocaleDateString("es-ES")]]:[] ),
     ...(esPresupuesto&&factura.validezHasta?[["Válido hasta",new Date(factura.validezHasta).toLocaleDateString("es-ES")]]:[] ),
     ...(factura.formaPago?[["Forma de pago",factura.formaPago]]:[] ),
-    ...(factura.iban?[["Banco",factura.banco||"—"],["IBAN",factura.iban]]:[] ),
   ],y);
 
   // ── Tabla líneas ──
@@ -6790,6 +6789,17 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(60,80,120);
     const nL=doc.splitTextToSize(factura.notas,W-mg*2-8);
     doc.text(nL,mg+4,y); y+=nL.length*5+6;
+  }
+
+  // ── Datos bancarios (todos los bancos configurados en empresa) ──
+  const cuentasPDF=(empresa.cuentasBancarias||[]);
+  if(cuentasPDF.length>0){
+    const multi=cuentasPDF.length>1;
+    const filasB=cuentasPDF.flatMap((c,i)=>[
+      [multi?`Banco ${i+1}`:"Banco", c.banco],
+      [multi?`IBAN ${i+1}`:"IBAN",  c.iban],
+    ]);
+    y=box("Datos bancarios para el pago",filasB,y);
   }
 
   // ── Aviso no fiscal ──
@@ -6907,12 +6917,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
   // ── CRUD ──
   const abrirNuevo = (tipo) => {
     const hoy = today();
-    const cuentas=data.empresa?.cuentasBancarias||[];
-    const bancoPred=cuentas.find(c=>c.predeterminada)||cuentas[0]||null;
-    const bancoDef=bancoPred?{banco:bancoPred.banco,iban:bancoPred.iban}:{};
-    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, ...bancoDef });
-    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, ...bancoDef });
-    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", ...bancoDef });
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"" });
     setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
@@ -7016,8 +7023,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           <tr style="background:#f8fafc"><td colspan="2" style="padding:10px 16px;font-weight:700;font-size:13px;color:#334155;border-bottom:1px solid #e2e8f0">Datos de pago</td></tr>
           <tr><td style="padding:8px 16px;color:#64748b;font-size:13px;width:140px">Importe total</td><td style="padding:8px 16px;font-weight:700;font-size:16px;color:#16a34a">${fmtEur(doc.total||0)}</td></tr>
           ${doc.formaPago?`<tr style="background:#f8fafc"><td style="padding:8px 16px;color:#64748b;font-size:13px">Forma de pago</td><td style="padding:8px 16px;font-size:13px">${doc.formaPago}</td></tr>`:""}
-          ${doc.banco?`<tr><td style="padding:8px 16px;color:#64748b;font-size:13px">Banco</td><td style="padding:8px 16px;font-size:13px">${doc.banco}</td></tr>`:""}
-          ${doc.iban?`<tr style="background:#f8fafc"><td style="padding:8px 16px;color:#64748b;font-size:13px">IBAN</td><td style="padding:8px 16px;font-family:monospace;font-weight:700;font-size:14px;letter-spacing:1px">${doc.iban}</td></tr>`:""}
+          ${(emp.cuentasBancarias||[]).map((c,i)=>`<tr style="background:${i%2===0?"#fff":"#f8fafc"}"><td style="padding:6px 16px;color:#64748b;font-size:13px">${(emp.cuentasBancarias||[]).length>1?"Banco "+(i+1):"Banco"}</td><td style="padding:6px 16px;font-size:13px;font-weight:600">${c.banco}</td></tr><tr style="background:${i%2===0?"#f8fafc":"#fff"}"><td style="padding:6px 16px 10px;color:#64748b;font-size:13px">${(emp.cuentasBancarias||[]).length>1?"IBAN "+(i+1):"IBAN"}</td><td style="padding:6px 16px 10px;font-family:monospace;font-weight:700;font-size:14px;letter-spacing:1px">${c.iban}</td></tr>`).join("")}
           ${doc.fechaVencimiento?`<tr><td style="padding:8px 16px;color:#64748b;font-size:13px">Vencimiento</td><td style="padding:8px 16px;font-size:13px;color:#dc2626;font-weight:600">${new Date(doc.fechaVencimiento).toLocaleDateString("es-ES")}</td></tr>`:""}
         </table>
         <p style="font-size:12px;color:#64748b;margin:0 0 18px">Por favor, incluya el número de factura <strong>${doc.numero}</strong> en el concepto de la transferencia.</p>
@@ -7673,22 +7679,11 @@ const Contabilidad = ({ data, setData, userActual }) => {
             </select>
           </Field>
         </div>
-        {/* Cuenta bancaria */}
-        {(()=>{const cuentas=data.empresa?.cuentasBancarias||[];return cuentas.length>0?(
-          <div style={{marginBottom:12}}>
-            <Field label="Cuenta bancaria (datos de pago)">
-              <select value={form.iban||""} onChange={e=>{const c=cuentas.find(x=>x.iban===e.target.value);setForm(f=>({...f,banco:c?.banco||"",iban:c?.iban||""}));}} style={inputStyle}>
-                <option value="">Sin cuenta bancaria</option>
-                {cuentas.map(c=><option key={c.id} value={c.iban}>{c.banco} — {c.iban}</option>)}
-              </select>
-            </Field>
-          </div>
-        ):(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:12}}>
-            <Field label="Banco"><input value={form.banco||""} onChange={e=>setForm(f=>({...f,banco:e.target.value}))} style={inputStyle} placeholder="CaixaBank"/></Field>
-            <Field label="IBAN"><input value={form.iban||""} onChange={e=>setForm(f=>({...f,iban:e.target.value.toUpperCase()}))} style={inputStyle} placeholder="ES91 2100 0418 4502 0005 1332"/></Field>
-          </div>
-        );})()}
+        {/* Cuentas bancarias — se muestran automáticamente desde Ajustes */}
+        {(data.empresa?.cuentasBancarias||[]).length>0&&<div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12}}>
+          <div style={{fontSize:11,color:"#6b7a99",marginBottom:6}}>Cuentas bancarias que aparecerán en el documento:</div>
+          {(data.empresa.cuentasBancarias).map((c,i)=><div key={i} style={{display:"flex",gap:10,alignItems:"center",marginBottom:i<data.empresa.cuentasBancarias.length-1?4:0}}><span style={{color:"#f1f3f9",fontWeight:700,fontSize:12}}>{c.banco}</span><span style={{color:"#8899b4",fontSize:12,fontFamily:"monospace"}}>{c.iban}</span></div>)}
+        </div>}
         <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12,textAlign:"right"}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
           <div style={{color:"#e4e9f6",fontSize:13}}>IVA ({form.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
@@ -12045,10 +12040,9 @@ function AceptarPresupuestoPublico({ token }) {
               Este presupuesto tiene como forma de pago <strong>Pago anticipado</strong>.<br/>
               El importe de <strong style={{fontSize:16}}>{fmt(prs?.total)}</strong> deberá abonarse antes de que iniciemos el trabajo.
             </p>
-            {prs?.iban&&<div style={{background:"#fef3c7",borderRadius:8,padding:"10px 14px",marginBottom:16}}>
-              <div style={{fontSize:12,color:"#92400e",marginBottom:4}}>Datos bancarios:</div>
-              <div style={{fontWeight:700,fontSize:13}}>{prs.banco}</div>
-              <div style={{fontFamily:"monospace",fontWeight:700,fontSize:14,letterSpacing:1}}>{prs.iban}</div>
+            {(prs?.empresa?.cuentasBancarias||[]).length>0&&<div style={{background:"#fef3c7",borderRadius:8,padding:"10px 14px",marginBottom:16}}>
+              <div style={{fontSize:12,color:"#92400e",marginBottom:8,fontWeight:700}}>Datos bancarios para el pago:</div>
+              {(prs.empresa.cuentasBancarias).map((c,i)=><div key={i} style={{marginBottom:i<prs.empresa.cuentasBancarias.length-1?8:0}}><div style={{fontWeight:700,fontSize:13,color:"#78350f"}}>{c.banco}</div><div style={{fontFamily:"monospace",fontWeight:700,fontSize:14,letterSpacing:1,color:"#92400e"}}>{c.iban}</div></div>)}
             </div>}
             <p style={{color:"#64748b",fontSize:12,margin:"0 0 18px"}}>Al aceptar el presupuesto confirmas que estás informado/a de esta condición.</p>
             <div style={{display:"flex",gap:10}}>
@@ -12068,7 +12062,7 @@ function AceptarPresupuestoPublico({ token }) {
         {estado==="ya_aceptado"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:40,marginBottom:12}}>✅</div><h3 style={{margin:"0 0 8px",color:"#16a34a"}}>Presupuesto ya aceptado</h3>{prs?.aceptadoPor&&<p style={{color:"#64748b",fontSize:14}}>Aceptado por <strong>{prs.aceptadoPor}</strong>{prs?.aceptadoEn?` el ${new Date(prs.aceptadoEn).toLocaleString("es-ES")}`:""}</p>}<p style={{color:"#94a3b8",fontSize:12,marginTop:16}}>En breve nos pondremos en contacto contigo.</p></div>}
 
         {/* Éxito */}
-        {estado==="exito"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>🎉</div><h2 style={{margin:"0 0 10px",color:"#16a34a"}}>¡Presupuesto aceptado!</h2><p style={{color:"#475569",fontSize:15,marginBottom:8}}>Hemos recibido tu aceptación del presupuesto <strong>{prs?.numero}</strong>.</p><p style={{color:"#64748b",fontSize:14}}>Nos pondremos en contacto contigo a la mayor brevedad para coordinar los siguientes pasos.</p>{prs?.formaPago==="Pago anticipado"&&<div style={{background:"#fef3c7",borderRadius:10,padding:"14px 18px",marginTop:20,textAlign:"left"}}><p style={{margin:0,color:"#92400e",fontSize:13,fontWeight:600}}>⚠️ Recuerda que el pago es anticipado</p><p style={{margin:"6px 0 0",color:"#78350f",fontSize:13}}>Importe: <strong>{fmt(prs?.total)}</strong>{prs?.iban?` — IBAN: ${prs.iban}`:""}</p></div>}<p style={{color:"#94a3b8",fontSize:12,marginTop:24}}>Puedes cerrar esta página.</p></div>}
+        {estado==="exito"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>🎉</div><h2 style={{margin:"0 0 10px",color:"#16a34a"}}>¡Presupuesto aceptado!</h2><p style={{color:"#475569",fontSize:15,marginBottom:8}}>Hemos recibido tu aceptación del presupuesto <strong>{prs?.numero}</strong>.</p><p style={{color:"#64748b",fontSize:14}}>Nos pondremos en contacto contigo a la mayor brevedad para coordinar los siguientes pasos.</p>{prs?.formaPago==="Pago anticipado"&&<div style={{background:"#fef3c7",borderRadius:10,padding:"14px 18px",marginTop:20,textAlign:"left"}}><p style={{margin:"0 0 6px",color:"#92400e",fontSize:13,fontWeight:600}}>⚠️ Recuerda que el pago es anticipado</p><p style={{margin:"0 0 8px",color:"#78350f",fontSize:13}}>Importe: <strong>{fmt(prs?.total)}</strong></p>{(prs?.empresa?.cuentasBancarias||[]).map((c,i)=><div key={i} style={{marginBottom:4}}><span style={{color:"#78350f",fontWeight:600,fontSize:12}}>{c.banco}: </span><span style={{fontFamily:"monospace",fontSize:12,color:"#92400e",fontWeight:700}}>{c.iban}</span></div>)}</div>}<p style={{color:"#94a3b8",fontSize:12,marginTop:24}}>Puedes cerrar esta página.</p></div>}
 
         {/* Formulario */}
         {(estado==="ok"||estado==="enviando")&&prs&&(
