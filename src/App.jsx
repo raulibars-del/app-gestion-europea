@@ -7096,6 +7096,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{p.proveedor}</div>
                   <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
                     {p.fecha?new Date(p.fecha).toLocaleDateString("es-ES"):""} · {(p.lineas||[]).length} línea{(p.lineas||[]).length!==1?"s":""} · <strong>Total: {fmtEur(p.total)}</strong>
+                    {p.formaPago&&p.formaPago!=="Contado"&&<span style={{marginLeft:8,background:"#3b82f622",color:"#3b82f6",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>💳 {p.formaPago}</span>}
+                    {p.formaPago==="Contado"&&<span style={{marginLeft:8,background:"#10b98122",color:"#10b981",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>💵 Contado</span>}
                   </div>
                   {p.notas&&<div style={{color:"#8899b4",fontSize:11,marginTop:2,fontStyle:"italic"}}>{p.notas}</div>}
                 </div>
@@ -7148,7 +7150,11 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   {["Material","Repuestos","Herramientas","Suministros","Maquinaria","Servicios","Otros"].map(c=><option key={c}>{c}</option>)}
                 </select>
               </Field>
-              <div/>
+              <Field label="Forma de pago">
+                <select value={pedidoForm.formaPago||"Contado"} onChange={e=>setPedidoForm(f=>({...f,formaPago:e.target.value}))} style={inputStyle}>
+                  {["Contado","30 días","60 días","90 días","120 días","Pago anticipado","Confirming","Otro"].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </Field>
             </div>
             <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:4}}>Líneas del pedido</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:4}}>
