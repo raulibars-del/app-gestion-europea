@@ -6506,6 +6506,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [smtp,setSmtp]=useState({...data.smtp}); const [ok,setOk]=useState(false);
   const [empresa,setEmpresa]=useState({razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"",cpFiscal:"",localidad:"",provincia:"",telefono:"",email:"",web:"europeademaquinaria.com",...(data.empresa||{})});
   const [okEmp,setOkEmp]=useState(false);
+  const [nuevoBanco,setNuevoBanco]=useState({banco:"",iban:""});
   const s=k=>e=>setSmtp(p=>({...p,[k]:e.target.value}));
   const sEmp=k=>e=>setEmpresa(p=>({...p,[k]:e.target.value}));
   const guardar=()=>{setData(d=>({...d,smtp}));setOk(true);setTimeout(()=>setOk(false),2200);};
@@ -6558,6 +6559,45 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
       </div>
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardarEmpresa} style={btnPrimary}>Guardar datos empresa</button>
+        {okEmp&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
+      </div>
+    </div>
+    {/* ── Cuentas bancarias ── */}
+    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><Icon name="receipt" size={15}/>Cuentas bancarias</div>
+      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:12}}>Aparecerán en facturas, proformas y presupuestos. Marca la predeterminada para que se seleccione automáticamente.</p>
+      <div style={{display:"grid",gap:6,marginBottom:12}}>
+        {(empresa.cuentasBancarias||[]).length===0&&<div style={{color:"#6b7a99",fontSize:12}}>Sin cuentas configuradas.</div>}
+        {(empresa.cuentasBancarias||[]).map((c,i)=>(
+          <div key={i} style={{display:"flex",gap:8,alignItems:"center",background:"#0d1117",borderRadius:8,padding:"9px 12px",flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{c.banco}</span>
+              <span style={{color:"#e4e9f6",fontSize:12,fontFamily:"monospace",marginLeft:10}}>{c.iban}</span>
+            </div>
+            <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,color:c.predeterminada?"#16a34a":"#8899b4",flexShrink:0}}>
+              <input type="radio" name="bancoPred" checked={!!c.predeterminada} onChange={()=>setEmpresa(p=>({...p,cuentasBancarias:(p.cuentasBancarias||[]).map((x,j)=>({...x,predeterminada:j===i}))}))} style={{accentColor:"#16a34a"}}/>
+              {c.predeterminada?"Predeterminada":"Usar como predeterminada"}
+            </label>
+            <button onClick={()=>setEmpresa(p=>({...p,cuentasBancarias:(p.cuentasBancarias||[]).filter((_,j)=>j!==i)}))} style={{background:"transparent",border:"1px solid #dc262644",borderRadius:6,padding:"3px 9px",color:"#dc2626",cursor:"pointer",fontSize:11}}>✕</button>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:8,alignItems:"end",marginBottom:12}}>
+        <Field label="Banco"><Input value={nuevoBanco.banco} onChange={e=>setNuevoBanco(p=>({...p,banco:e.target.value}))} placeholder="CaixaBank"/></Field>
+        <Field label="IBAN"><Input value={nuevoBanco.iban} onChange={e=>setNuevoBanco(p=>({...p,iban:e.target.value.toUpperCase()}))} placeholder="ES91 2100 0418 4502 0005 1332"/></Field>
+        <button onClick={()=>{
+          const {banco,iban}=nuevoBanco;
+          if(!banco.trim()||!iban.trim()){alert("Introduce banco e IBAN.");return;}
+          setEmpresa(p=>{
+            const actual=p.cuentasBancarias||[];
+            const esPrimera=actual.length===0;
+            return{...p,cuentasBancarias:[...actual,{id:Date.now(),banco:banco.trim(),iban:iban.trim(),predeterminada:esPrimera}]};
+          });
+          setNuevoBanco({banco:"",iban:""});
+        }} style={{...btnPrimary,padding:"8px 16px",alignSelf:"end"}}>Añadir</button>
+      </div>
+      <div style={{display:"flex",gap:9,alignItems:"center"}}>
+        <button onClick={guardarEmpresa} style={btnPrimary}>Guardar cuentas bancarias</button>
         {okEmp&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
       </div>
     </div>
@@ -6694,6 +6734,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
     ...(!esProforma&&!esPresupuesto&&factura.fechaVencimiento?[["Vencimiento",new Date(factura.fechaVencimiento).toLocaleDateString("es-ES")]]:[] ),
     ...(esPresupuesto&&factura.validezHasta?[["Válido hasta",new Date(factura.validezHasta).toLocaleDateString("es-ES")]]:[] ),
     ...(factura.formaPago?[["Forma de pago",factura.formaPago]]:[] ),
+    ...(factura.iban?[["Banco",factura.banco||"—"],["IBAN",factura.iban]]:[] ),
   ],y);
 
   // ── Tabla líneas ──
@@ -6866,9 +6907,12 @@ const Contabilidad = ({ data, setData, userActual }) => {
   // ── CRUD ──
   const abrirNuevo = (tipo) => {
     const hoy = today();
-    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false });
-    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true });
-    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"" });
+    const cuentas=data.empresa?.cuentasBancarias||[];
+    const bancoPred=cuentas.find(c=>c.predeterminada)||cuentas[0]||null;
+    const bancoDef=bancoPred?{banco:bancoPred.banco,iban:bancoPred.iban}:{};
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, ...bancoDef });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, ...bancoDef });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", ...bancoDef });
     setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
@@ -7046,7 +7090,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
             {!anulada&&<button onClick={()=>descargarPDF(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12}}>PDF</button>}
             {!anulada&&<button onClick={()=>enviarPorEmail(doc,clave)} disabled={enviando===doc.id} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#0ea5e9",borderColor:"#0ea5e944"}}>{enviando===doc.id?"Enviando...":"Email"}</button>}
-            {!anulada&&esProforma&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#f59e0b",borderColor:"#f59e0b44"}}>→ FAC</button>}
+            {!anulada&&esProforma&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 13px",fontSize:12,background:"#d9770622",color:"#f59e0b",borderColor:"#f59e0b55",fontWeight:700}}>→ Emitir factura</button>}
             {!anulada&&esPresupuesto&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 13px",fontSize:12,background:"#16a34a22",color:"#16a34a",borderColor:"#16a34a55",fontWeight:700}}>→ Emitir factura</button>}
             {!anulada&&esPresupuesto&&doc.estado==="Pendiente"&&<>
               <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Aceptado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#16a34a",borderColor:"#16a34a44"}}>✓</button>
@@ -7587,6 +7631,22 @@ const Contabilidad = ({ data, setData, userActual }) => {
             </select>
           </Field>
         </div>
+        {/* Cuenta bancaria */}
+        {(()=>{const cuentas=data.empresa?.cuentasBancarias||[];return cuentas.length>0?(
+          <div style={{marginBottom:12}}>
+            <Field label="Cuenta bancaria (datos de pago)">
+              <select value={form.iban||""} onChange={e=>{const c=cuentas.find(x=>x.iban===e.target.value);setForm(f=>({...f,banco:c?.banco||"",iban:c?.iban||""}));}} style={inputStyle}>
+                <option value="">Sin cuenta bancaria</option>
+                {cuentas.map(c=><option key={c.id} value={c.iban}>{c.banco} — {c.iban}</option>)}
+              </select>
+            </Field>
+          </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10,marginBottom:12}}>
+            <Field label="Banco"><input value={form.banco||""} onChange={e=>setForm(f=>({...f,banco:e.target.value}))} style={inputStyle} placeholder="CaixaBank"/></Field>
+            <Field label="IBAN"><input value={form.iban||""} onChange={e=>setForm(f=>({...f,iban:e.target.value.toUpperCase()}))} style={inputStyle} placeholder="ES91 2100 0418 4502 0005 1332"/></Field>
+          </div>
+        );})()}
         <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12,textAlign:"right"}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
           <div style={{color:"#e4e9f6",fontSize:13}}>IVA ({form.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
