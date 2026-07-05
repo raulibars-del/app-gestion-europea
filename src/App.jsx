@@ -7281,6 +7281,21 @@ const Contabilidad = ({ data, setData, userActual }) => {
               <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Rechazado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>✗</button>
             </>}
             {!anulada&&<button onClick={()=>anularDoc(doc,clave)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>Anular</button>}
+            <button
+              title="Solo para pruebas — elimina permanentemente el documento y sus asientos"
+              onClick={()=>{
+                if(!window.confirm(`⚠️ ELIMINAR PERMANENTEMENTE\n\n"${doc.numero}" se borrará por completo (no es anulación).\n\nUSO EXCLUSIVO DURANTE PRUEBAS — en producción usa "Anular".\n\n¿Continuar?`)) return;
+                setData(d=>({
+                  ...d,
+                  contabilidad:{
+                    ...d.contabilidad,
+                    [clave]:(d.contabilidad[clave]||[]).filter(x=>x.id!==doc.id),
+                    asientos:(d.contabilidad.asientos||[]).filter(a=>a.origenId!==doc.id),
+                  }
+                }));
+              }}
+              style={{background:"none",border:"none",color:"#4b5563",fontSize:11,cursor:"pointer",padding:"4px 6px",textDecoration:"underline",textDecorationStyle:"dotted"}}
+            >🗑 pruebas</button>
           </div>
         </div>
       );
@@ -8174,6 +8189,14 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {tab==="gastos"&&<button onClick={()=>{setShowGastoModal(true);setGastoForm({fecha:today(),tipoIVA:21,categoria:"Suministros"});setGastoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}]);}} style={{...btnPrimary,background:"#dc2626"}}><Icon name="plus" size={14}/> Nuevo gasto</button>}
           {tab==="asientos"&&<>
             <button onClick={()=>setShowImportModal(true)} style={{...btnOutline,padding:"7px 13px",fontSize:12}}>📥 Importar ContaPlus/Factusol</button>
+            <button
+              title="Solo durante pruebas — elimina TODOS los documentos y asientos"
+              onClick={()=>{
+                if(!window.confirm("⚠️ RESET COMPLETO DE PRUEBAS\n\nSe eliminarán TODAS las facturas, proformas, presupuestos, gastos, pedidos y asientos.\n\nUSO EXCLUSIVO DURANTE PRUEBAS.\n\n¿Seguro que quieres continuar?")) return;
+                setData(d=>({...d,contabilidad:{...d.contabilidad,facturas:[],proformas:[],presupuestos:[],gastos:[],pedidos:[],asientos:[]}}));
+              }}
+              style={{background:"none",border:"1px solid #374151",borderRadius:7,color:"#6b7280",fontSize:11,cursor:"pointer",padding:"5px 10px"}}
+            >🗑 Reset pruebas</button>
             <button onClick={()=>{
               const asientos=cont.asientos||[];
               const CAT_CUENTA={"Suministros":{cta:"628",nom:"Suministros"},"Alquiler":{cta:"621",nom:"Arrendamientos y cánones"},"Servicios profesionales":{cta:"623",nom:"Serv. profesionales independientes"},"Material":{cta:"629",nom:"Otros servicios"},"Maquinaria":{cta:"600",nom:"Compras de mercaderías"},"Transportes":{cta:"624",nom:"Transportes"},"Seguros":{cta:"625",nom:"Primas de seguros"},"Otros":{cta:"629",nom:"Otros servicios"}};
