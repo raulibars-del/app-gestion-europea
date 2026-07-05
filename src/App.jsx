@@ -7000,6 +7000,16 @@ const Contabilidad = ({ data, setData, userActual }) => {
       const base64 = uri.split(",")[1];
       const esP = doc.esProforma, esPrs = doc.esPresupuesto;
       const tipoDoc = esPrs ? "presupuesto" : esP ? "factura proforma" : "factura";
+
+      // Para presupuestos: generar token de aceptación online y guardarlo en el doc
+      let aceptacionToken = doc.aceptacionToken;
+      if (esPrs && !aceptacionToken) {
+        const arr = new Uint8Array(24);
+        crypto.getRandomValues(arr);
+        aceptacionToken = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+        setData(d=>{const contab=d.contabilidad||{};return{...d,contabilidad:{...contab,presupuestos:(contab.presupuestos||[]).map(x=>x.id===doc.id?{...x,aceptacionToken}:x)}};});
+        doc = {...doc, aceptacionToken}; // usar en el email
+      }
       const esFac=!esP&&!esPrs;
       const htmlPago = esFac ? `
         <table style="width:100%;border-collapse:collapse;margin:18px 0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
@@ -7024,6 +7034,13 @@ const Contabilidad = ({ data, setData, userActual }) => {
             <p style="margin:0 0 12px">Estimado/a cliente,</p>
             <p style="margin:0 0 16px">Le enviamos adjunto ${tipoDoc==="presupuesto"?"el":"la"} ${tipoDoc} <strong>${doc.numero}</strong> por importe de <strong>${fmtEur(doc.total||0)}</strong>.</p>
             ${htmlPago}
+            ${esPrs&&aceptacionToken?`
+            <div style="margin:20px 0;background:#f0fdf4;border:2px solid #86efac;border-radius:10px;padding:18px 20px;text-align:center">
+              <p style="margin:0 0 6px;font-weight:700;font-size:15px;color:#166534">¿De acuerdo con el presupuesto?</p>
+              <p style="margin:0 0 14px;color:#166534;font-size:13px">Puede aceptarlo online con un solo clic, sin necesidad de registrarse:</p>
+              <a href="https://gestion.europeademaquinaria.com/?aceptar=${aceptacionToken}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px">✅ Aceptar presupuesto</a>
+              <p style="margin:10px 0 0;color:#64748b;font-size:11px">O copie este enlace en su navegador:<br>${"https://gestion.europeademaquinaria.com/?aceptar="+aceptacionToken}</p>
+            </div>`:""}
             <p style="margin:18px 0 0">Un saludo,<br><strong>${emp.razonSocial||"Europea de Maquinaria PMM SL"}</strong><br><span style="color:#64748b;font-size:12px">${emp.email||""}</span></p>
           </div>
         </div>`,
@@ -7103,6 +7120,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
               {anulada&&<span style={{fontSize:10,background:"#dc262620",color:"#dc2626",border:"1px solid #dc262644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>ANULADA</span>}
               {convertida&&<span style={{fontSize:10,background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ {convertida}</span>}
               {doc.emailEnviado&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
+              {doc.aceptacionToken&&!doc.aceptadoPor&&<span style={{fontSize:10,background:"#8b5cf620",color:"#8b5cf6",borderRadius:4,padding:"1px 6px",fontWeight:700}}>🔗 Enlace activo</span>}
+              {doc.aceptadoPor&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",border:"1px solid #16a34a44",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✅ Aceptado por {doc.aceptadoPor}</span>}
             </div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{doc.clienteRazonSocial}</div>
             <div style={{color:"#e4e9f6",fontSize:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -11957,6 +11976,183 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
+// ─── Página pública de aceptación de presupuesto ────────────────────────────
+function AceptarPresupuestoPublico({ token }) {
+  const [estado, setEstado] = useState("cargando"); // cargando|ok|error|ya_aceptado|enviando|exito
+  const [prs, setPrs] = useState(null);
+  const [nombre, setNombre] = useState("");
+  const [acepto, setAcepto] = useState(false);
+  const [showPayNotice, setShowPayNotice] = useState(false);
+  const [noticeAcept, setNoticeAcept] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+
+  const fmt = n => new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR"}).format(n||0);
+
+  useEffect(()=>{
+    fetch(`/api/aceptar-presupuesto.php?token=${encodeURIComponent(token)}`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.error==="not_found"){setEstado("error");setErrMsg("Presupuesto no encontrado. Puede que el enlace haya caducado.");return;}
+        if(d.error){setEstado("error");setErrMsg("Error al cargar el presupuesto.");return;}
+        setPrs(d);
+        if(d.yaAceptado){setEstado("ya_aceptado");return;}
+        setEstado("ok");
+        // Mostrar aviso de pago anticipado automáticamente
+        if(d.formaPago==="Pago anticipado") setShowPayNotice(true);
+      })
+      .catch(()=>{setEstado("error");setErrMsg("No se pudo conectar con el servidor.");});
+  },[token]);
+
+  const enviarAceptacion = async () => {
+    if(!nombre.trim()){alert("Por favor, introduce tu nombre completo.");return;}
+    if(!acepto){alert("Debes marcar la casilla de aceptación.");return;}
+    if(prs?.formaPago==="Pago anticipado"&&!noticeAcept){setShowPayNotice(true);return;}
+    setEstado("enviando");
+    try {
+      const r = await fetch("/api/aceptar-presupuesto.php",{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({token, nombre: nombre.trim()}),
+      });
+      const d = await r.json();
+      if(d.ok) setEstado("exito");
+      else if(d.error==="ya_aceptado") setEstado("ya_aceptado");
+      else {setEstado("ok");setErrMsg("Error al enviar: "+(d.error||"desconocido"));}
+    } catch(e) {setEstado("ok");setErrMsg("Error de red al enviar.");}
+  };
+
+  const base = {fontFamily:"'DM Sans','Segoe UI',Arial,sans-serif",minHeight:"100vh",background:"#f1f5f9",color:"#1a1a1a"};
+  const card = {background:"#fff",borderRadius:16,boxShadow:"0 4px 32px rgba(0,0,0,.10)",padding:"32px 28px",maxWidth:640,margin:"0 auto"};
+  const emp = prs?.empresa;
+
+  return (
+    <div style={base}>
+      {/* Cabecera */}
+      <div style={{background:"#0a0f1a",padding:"16px 24px",display:"flex",alignItems:"center",gap:12}}>
+        <img src={LOGO_URL} style={{width:36,height:36,borderRadius:8,objectFit:"contain"}} alt="EM"/>
+        <div>
+          <div style={{color:"#f1f3f9",fontWeight:800,fontSize:14}}>{emp?.razonSocial||"Europea de Maquinaria PMM SL"}</div>
+          {emp?.nif&&<div style={{color:"#94a3b8",fontSize:11}}>NIF: {emp.nif}</div>}
+        </div>
+      </div>
+
+      <div style={{padding:"28px 16px"}}>
+        {/* Modal aviso pago anticipado */}
+        {showPayNotice&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:"#fff",borderRadius:14,padding:"28px 24px",maxWidth:440,width:"100%",boxShadow:"0 24px 60px rgba(0,0,0,.3)"}}>
+            <div style={{fontSize:32,marginBottom:10,textAlign:"center"}}>⚠️</div>
+            <h3 style={{margin:"0 0 12px",fontSize:18,color:"#92400e",textAlign:"center"}}>Pago anticipado requerido</h3>
+            <p style={{color:"#78350f",fontSize:14,margin:"0 0 16px",lineHeight:1.6}}>
+              Este presupuesto tiene como forma de pago <strong>Pago anticipado</strong>.<br/>
+              El importe de <strong style={{fontSize:16}}>{fmt(prs?.total)}</strong> deberá abonarse antes de que iniciemos el trabajo.
+            </p>
+            {prs?.iban&&<div style={{background:"#fef3c7",borderRadius:8,padding:"10px 14px",marginBottom:16}}>
+              <div style={{fontSize:12,color:"#92400e",marginBottom:4}}>Datos bancarios:</div>
+              <div style={{fontWeight:700,fontSize:13}}>{prs.banco}</div>
+              <div style={{fontFamily:"monospace",fontWeight:700,fontSize:14,letterSpacing:1}}>{prs.iban}</div>
+            </div>}
+            <p style={{color:"#64748b",fontSize:12,margin:"0 0 18px"}}>Al aceptar el presupuesto confirmas que estás informado/a de esta condición.</p>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{setNoticeAcept(true);setShowPayNotice(false);}} style={{flex:1,background:"#d97706",border:"none",borderRadius:8,padding:"11px",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>Entendido, acepto</button>
+              <button onClick={()=>setShowPayNotice(false)} style={{flex:1,background:"#f1f5f9",border:"1px solid #cbd5e1",borderRadius:8,padding:"11px",color:"#475569",fontWeight:600,fontSize:14,cursor:"pointer"}}>Cancelar</button>
+            </div>
+          </div>
+        </div>}
+
+        {/* Cargando */}
+        {estado==="cargando"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:32,marginBottom:12}}>⏳</div><p style={{color:"#64748b"}}>Cargando presupuesto...</p></div>}
+
+        {/* Error */}
+        {estado==="error"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:32,marginBottom:12}}>❌</div><h3 style={{margin:"0 0 8px"}}>Enlace no válido</h3><p style={{color:"#64748b",fontSize:14}}>{errMsg}</p><p style={{color:"#94a3b8",fontSize:12,marginTop:16}}>Si crees que es un error, contacta con nosotros.</p></div>}
+
+        {/* Ya aceptado */}
+        {estado==="ya_aceptado"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:40,marginBottom:12}}>✅</div><h3 style={{margin:"0 0 8px",color:"#16a34a"}}>Presupuesto ya aceptado</h3>{prs?.aceptadoPor&&<p style={{color:"#64748b",fontSize:14}}>Aceptado por <strong>{prs.aceptadoPor}</strong>{prs?.aceptadoEn?` el ${new Date(prs.aceptadoEn).toLocaleString("es-ES")}`:""}</p>}<p style={{color:"#94a3b8",fontSize:12,marginTop:16}}>En breve nos pondremos en contacto contigo.</p></div>}
+
+        {/* Éxito */}
+        {estado==="exito"&&<div style={{...card,textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>🎉</div><h2 style={{margin:"0 0 10px",color:"#16a34a"}}>¡Presupuesto aceptado!</h2><p style={{color:"#475569",fontSize:15,marginBottom:8}}>Hemos recibido tu aceptación del presupuesto <strong>{prs?.numero}</strong>.</p><p style={{color:"#64748b",fontSize:14}}>Nos pondremos en contacto contigo a la mayor brevedad para coordinar los siguientes pasos.</p>{prs?.formaPago==="Pago anticipado"&&<div style={{background:"#fef3c7",borderRadius:10,padding:"14px 18px",marginTop:20,textAlign:"left"}}><p style={{margin:0,color:"#92400e",fontSize:13,fontWeight:600}}>⚠️ Recuerda que el pago es anticipado</p><p style={{margin:"6px 0 0",color:"#78350f",fontSize:13}}>Importe: <strong>{fmt(prs?.total)}</strong>{prs?.iban?` — IBAN: ${prs.iban}`:""}</p></div>}<p style={{color:"#94a3b8",fontSize:12,marginTop:24}}>Puedes cerrar esta página.</p></div>}
+
+        {/* Formulario */}
+        {(estado==="ok"||estado==="enviando")&&prs&&(
+          <div style={card}>
+            <h2 style={{margin:"0 0 4px",fontSize:20}}>Presupuesto {prs.numero}</h2>
+            <p style={{color:"#64748b",fontSize:13,margin:"0 0 20px"}}>
+              {prs.fecha&&`Fecha: ${new Date(prs.fecha).toLocaleDateString("es-ES")}`}
+              {prs.validezHasta&&` · Válido hasta: ${new Date(prs.validezHasta).toLocaleDateString("es-ES")}`}
+            </p>
+
+            {/* Líneas */}
+            <div style={{overflowX:"auto",marginBottom:16}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"#f8fafc"}}>
+                  {["Descripción","Cant.","P. Unit.","Subtotal"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:h==="Descripción"?"left":"right",color:"#64748b",fontWeight:600,borderBottom:"2px solid #e2e8f0",whiteSpace:"nowrap"}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {(prs.lineas||[]).filter(l=>l.descripcion?.trim()).map((l,i)=>(
+                    <tr key={i} style={{borderBottom:"1px solid #f1f5f9"}}>
+                      <td style={{padding:"9px 10px"}}>{l.descripcion}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right"}}>{l.cantidad}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right"}}>{fmt(l.precioNeto||l.precioUnitario)}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:600}}>{fmt(l.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totales */}
+            <div style={{background:"#f8fafc",borderRadius:8,padding:"12px 16px",marginBottom:16,textAlign:"right"}}>
+              <div style={{color:"#64748b",fontSize:13}}>Base imponible: <strong style={{color:"#1a1a1a"}}>{fmt(prs.baseImponible)}</strong></div>
+              <div style={{color:"#64748b",fontSize:13}}>IVA ({prs.tipoIVA}%): <strong style={{color:"#1a1a1a"}}>{fmt(prs.cuotaIVA)}</strong></div>
+              <div style={{color:"#16a34a",fontSize:18,fontWeight:800,marginTop:4}}>Total: {fmt(prs.total)}</div>
+            </div>
+
+            {/* Forma de pago */}
+            {prs.formaPago&&<div style={{background:prs.formaPago==="Pago anticipado"?"#fef3c7":"#f0fdf4",borderRadius:8,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>{prs.formaPago==="Pago anticipado"?"⚠️":"💳"}</span>
+              <div>
+                <span style={{fontWeight:700,fontSize:13,color:prs.formaPago==="Pago anticipado"?"#92400e":"#166534"}}>Forma de pago: {prs.formaPago}</span>
+                {prs.formaPago==="Pago anticipado"&&<div style={{fontSize:12,color:"#78350f",marginTop:2}}>El trabajo se iniciará una vez confirmado el pago.</div>}
+              </div>
+            </div>}
+
+            {/* Notas */}
+            {prs.notas&&<div style={{background:"#f8fafc",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#475569"}}><strong>Notas:</strong> {prs.notas}</div>}
+
+            {/* Formulario de aceptación */}
+            <div style={{borderTop:"2px solid #e2e8f0",paddingTop:20,marginTop:8}}>
+              <h3 style={{margin:"0 0 14px",fontSize:16}}>Firma y aceptación</h3>
+              <div style={{marginBottom:12}}>
+                <label style={{display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:5}}>Nombre completo del firmante *</label>
+                <input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Nombre y apellidos" style={{width:"100%",boxSizing:"border-box",border:"1px solid #cbd5e1",borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+              </div>
+              <label style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",marginBottom:18,padding:"12px 14px",background:acepto?"#f0fdf4":"#f8fafc",borderRadius:8,border:`1px solid ${acepto?"#86efac":"#e2e8f0"}`}}>
+                <input type="checkbox" checked={acepto} onChange={e=>setAcepto(e.target.checked)} style={{marginTop:2,accentColor:"#16a34a",width:16,height:16,flexShrink:0}}/>
+                <span style={{fontSize:13,color:"#374151",lineHeight:1.5}}>
+                  He leído y acepto el presupuesto <strong>{prs.numero}</strong> por importe de <strong>{fmt(prs.total)}</strong>{prs.formaPago?` con forma de pago "${prs.formaPago}"`:""}.
+                  {prs.formaPago==="Pago anticipado"&&<span style={{color:"#92400e"}}> Entiendo que el pago debe realizarse antes del inicio del trabajo.</span>}
+                </span>
+              </label>
+              {errMsg&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"8px 12px",marginBottom:12,color:"#dc2626",fontSize:13}}>{errMsg}</div>}
+              <button onClick={enviarAceptacion} disabled={estado==="enviando"||!nombre.trim()||!acepto}
+                style={{width:"100%",background:(estado==="enviando"||!nombre.trim()||!acepto)?"#94a3b8":"#16a34a",border:"none",borderRadius:10,padding:"14px",color:"#fff",fontWeight:800,fontSize:16,cursor:(estado==="enviando"||!nombre.trim()||!acepto)?"not-allowed":"pointer",transition:"background .15s"}}>
+                {estado==="enviando"?"Enviando...":"✅ Firmar y aceptar presupuesto"}
+              </button>
+              <p style={{textAlign:"center",color:"#94a3b8",fontSize:11,marginTop:10}}>
+                Tu aceptación quedará registrada con fecha, hora e IP como firma electrónica válida.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pie */}
+        <div style={{textAlign:"center",marginTop:24,color:"#94a3b8",fontSize:11}}>
+          {emp?.razonSocial} {emp?.nif&&`· NIF: ${emp.nif}`}
+          {emp?.email&&<> · <a href={`mailto:${emp.email}`} style={{color:"#94a3b8"}}>{emp.email}</a></>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
   // ?reset en la URL limpia el caché local y recarga desde el servidor
   if(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("reset") !== null){
@@ -12328,6 +12524,9 @@ function AppInner() {
   const [maquinaPublica]=useState(()=>{
     try { return new URLSearchParams(window.location.search).get("maquina"); } catch(e) { return null; }
   });
+  const [presupuestoAceptar]=useState(()=>{
+    try { return new URLSearchParams(window.location.search).get("aceptar"); } catch(e) { return null; }
+  });
   // Id de tarea recibido por enlace externo (botón "Ver tarea en la app" del
   // email automático). A diferencia de articulo/maquina, requiere sesión
   // iniciada: se consume justo después de loguearse (ver efecto más abajo).
@@ -12544,6 +12743,7 @@ function AppInner() {
       alert("No se pudo enviar el email de prueba.\n\n"+e.message);
     }
   };
+  if(presupuestoAceptar) return <AceptarPresupuestoPublico token={presupuestoAceptar}/>;
   if(articuloPublico){
     if(!user)return <Login usuarios={data.usuarios} onLogin={u=>setUser(u)}/>;
     return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
