@@ -6792,6 +6792,7 @@ function parseNum(v) {
 const MESES_ES_CONT=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const Contabilidad = ({ data, setData, userActual }) => {
   const [tab, setTab] = useState("dashboard");
+  const [gestorAnyo, setGestorAnyo] = useState(()=>String(new Date().getFullYear()));
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [lineas, setLineas] = useState([]);
@@ -7073,6 +7074,167 @@ const Contabilidad = ({ data, setData, userActual }) => {
     }
     setShowPedidoModal(false);
     setPedidoEsMaquina(false);
+  };
+
+  const exportCSV = (filename, headers, rows) => {
+    const bom='﻿', sep=';';
+    const lines=[headers, ...rows].map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(sep));
+    const blob=new Blob([bom+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
+  };
+
+  const renderGestor = () => {
+    const todosAnyos=[...new Set([...(cont.facturas||[]),...(cont.gastos||[])].map(d=>d.fecha?.slice(0,4)).filter(Boolean))].sort().reverse();
+    const anyo=gestorAnyo||(todosAnyos[0]||String(new Date().getFullYear()));
+    const factEmit=(cont.facturas||[]).filter(f=>f.fecha?.startsWith(anyo)&&!f.anulada).sort((a,b)=>a.fecha?.localeCompare(b.fecha||'')||0);
+    const factRecib=(cont.gastos||[]).filter(g=>g.fecha?.startsWith(anyo)).sort((a,b)=>a.fecha?.localeCompare(b.fecha||'')||0);
+    const trimestres=[1,2,3,4].map(tr=>{
+      const ms=[(tr-1)*3+1,(tr-1)*3+2,(tr-1)*3+3].map(m=>String(m).padStart(2,'0'));
+      const emTr=factEmit.filter(f=>ms.includes(f.fecha?.slice(5,7)));
+      const rcTr=factRecib.filter(g=>ms.includes(g.fecha?.slice(5,7)));
+      const baseRep=emTr.reduce((s,f)=>s+(f.baseImponible||0),0);
+      const ivaRep=emTr.reduce((s,f)=>s+(f.cuotaIVA||0),0);
+      const baseSop=rcTr.reduce((s,g)=>s+(g.baseImponible||0),0);
+      const ivaSop=rcTr.reduce((s,g)=>s+(g.cuotaIVA||0),0);
+      return {tr,baseRep,ivaRep,baseSop,ivaSop,resultado:ivaRep-ivaSop,nEmit:emTr.length,nRecib:rcTr.length};
+    });
+    const totEmit=factEmit.reduce((s,f)=>s+(f.total||0),0);
+    const totRecib=factRecib.reduce((s,g)=>s+(g.total||0),0);
+    const totIvaRep=factEmit.reduce((s,f)=>s+(f.cuotaIVA||0),0);
+    const totIvaSop=factRecib.reduce((s,g)=>s+(g.cuotaIVA||0),0);
+    const btnExport=(lbl,color,fn)=>(
+      <button onClick={fn} style={{display:"flex",alignItems:"center",gap:8,background:color+"18",border:`1px solid ${color}55`,borderRadius:10,padding:"14px 18px",cursor:"pointer",color:color,fontWeight:700,fontSize:13,textAlign:"left",transition:"background .15s"}}
+        onMouseEnter={e=>e.currentTarget.style.background=color+"30"} onMouseLeave={e=>e.currentTarget.style.background=color+"18"}>
+        <span style={{fontSize:22}}>⬇</span><div><div>{lbl}</div><div style={{fontWeight:400,fontSize:11,opacity:.8,marginTop:2}}>Descarga CSV para Excel</div></div>
+      </button>
+    );
+    return (
+      <div>
+        {/* Cabecera + selector año */}
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:14}}>
+            <div>
+              <div style={{fontWeight:800,color:"#f1f3f9",fontSize:16}}>📋 Documentación para gestor</div>
+              <div style={{color:"#8899b4",fontSize:12,marginTop:2}}>Exporta los libros registro para presentación a Hacienda (SL)</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{color:"#e4e9f6",fontSize:13}}>Ejercicio:</span>
+              <select value={anyo} onChange={e=>setGestorAnyo(e.target.value)} style={{...inputStyle,width:"auto",padding:"7px 14px",fontWeight:700,fontSize:14}}>
+                {[...new Set([String(new Date().getFullYear()),...todosAnyos])].map(y=><option key={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Resumen ejecutivo */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+            {[
+              ["Facturas emitidas",factEmit.length,"#16a34a"],
+              ["Total facturado",fmtEur(totEmit),"#16a34a"],
+              ["IVA repercutido",fmtEur(totIvaRep),"#f59e0b"],
+              ["Gastos/compras",factRecib.length,"#dc2626"],
+              ["Total gastos",fmtEur(totRecib),"#dc2626"],
+              ["IVA soportado",fmtEur(totIvaSop),"#f59e0b"],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:"#0d1117",borderRadius:9,padding:"10px 13px",border:`1px solid ${c}22`}}>
+                <div style={{color:c,fontWeight:800,fontSize:15}}>{v}</div>
+                <div style={{color:"#8899b4",fontSize:11,marginTop:2}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Resumen IVA trimestral */}
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:16}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:14,marginBottom:12}}>Resumen IVA trimestral — Modelo 303</div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <thead>
+                <tr style={{borderBottom:"2px solid #2a3550"}}>
+                  {["Trimestre","Base rep.","IVA rep.","Base sop.","IVA sop.","Resultado"].map(h=>(
+                    <th key={h} style={{color:"#8899b4",fontWeight:700,padding:"6px 10px",textAlign:"right",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {trimestres.map(t=>(
+                  <tr key={t.tr} style={{borderBottom:"1px solid #1a2236"}}>
+                    <td style={{color:"#f1f3f9",fontWeight:700,padding:"8px 10px",whiteSpace:"nowrap"}}>
+                      T{t.tr} {anyo}
+                      <span style={{color:"#8899b4",fontWeight:400,fontSize:10,marginLeft:6}}>{t.nEmit} fact. / {t.nRecib} gast.</span>
+                    </td>
+                    <td style={{color:"#e4e9f6",padding:"8px 10px",textAlign:"right"}}>{fmtEur(t.baseRep)}</td>
+                    <td style={{color:"#16a34a",fontWeight:700,padding:"8px 10px",textAlign:"right"}}>{fmtEur(t.ivaRep)}</td>
+                    <td style={{color:"#e4e9f6",padding:"8px 10px",textAlign:"right"}}>{fmtEur(t.baseSop)}</td>
+                    <td style={{color:"#dc2626",fontWeight:700,padding:"8px 10px",textAlign:"right"}}>{fmtEur(t.ivaSop)}</td>
+                    <td style={{padding:"8px 10px",textAlign:"right"}}>
+                      <span style={{fontWeight:800,fontSize:13,color:t.resultado>=0?"#f59e0b":"#10b981"}}>
+                        {t.resultado>=0?"+":""}{fmtEur(t.resultado)}
+                        <span style={{fontSize:10,fontWeight:400,marginLeft:4,color:"#8899b4"}}>{t.resultado>=0?"a pagar":"a devolver"}</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{borderTop:"2px solid #2a3550",background:"#0d1117"}}>
+                  <td style={{color:"#f1f3f9",fontWeight:800,padding:"8px 10px"}}>TOTAL {anyo}</td>
+                  <td style={{color:"#e4e9f6",fontWeight:700,padding:"8px 10px",textAlign:"right"}}>{fmtEur(trimestres.reduce((s,t)=>s+t.baseRep,0))}</td>
+                  <td style={{color:"#16a34a",fontWeight:800,padding:"8px 10px",textAlign:"right"}}>{fmtEur(totIvaRep)}</td>
+                  <td style={{color:"#e4e9f6",fontWeight:700,padding:"8px 10px",textAlign:"right"}}>{fmtEur(trimestres.reduce((s,t)=>s+t.baseSop,0))}</td>
+                  <td style={{color:"#dc2626",fontWeight:800,padding:"8px 10px",textAlign:"right"}}>{fmtEur(totIvaSop)}</td>
+                  <td style={{padding:"8px 10px",textAlign:"right"}}>
+                    <span style={{fontWeight:900,fontSize:14,color:(totIvaRep-totIvaSop)>=0?"#f59e0b":"#10b981"}}>
+                      {(totIvaRep-totIvaSop)>=0?"+":""}{fmtEur(totIvaRep-totIvaSop)}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Botones exportar */}
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:16}}>
+          <div style={{fontWeight:700,color:"#f1f3f9",fontSize:14,marginBottom:4}}>Exportar para gestor</div>
+          <div style={{color:"#8899b4",fontSize:12,marginBottom:14}}>Archivos CSV compatibles con Excel. Ábrelos con Excel y entrégaselos al gestor tal cual.</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+            {btnExport(`Libro facturas emitidas ${anyo}`,"#16a34a",()=>exportCSV(
+              `facturas_emitidas_${anyo}.csv`,
+              ['Ejercicio','Período','Nº Factura','Fecha','Cliente','NIF/CIF','Base Imponible','Tipo IVA %','Cuota IVA','Total Factura','Forma de pago','Estado'],
+              factEmit.map(f=>[anyo,f.fecha?.slice(5,7)||'',f.numero||'',f.fecha||'',f.clienteRazonSocial||'',f.clienteCIF||'',(f.baseImponible||0).toFixed(2),f.tipoIVA||21,(f.cuotaIVA||0).toFixed(2),(f.total||0).toFixed(2),f.formaPago||'Contado',f.estado||''])
+            ))}
+            {btnExport(`Libro facturas recibidas ${anyo}`,"#dc2626",()=>exportCSV(
+              `facturas_recibidas_${anyo}.csv`,
+              ['Ejercicio','Período','Nº Fra. Proveedor','Fecha','Proveedor','NIF Proveedor','Base Imponible','Tipo IVA %','Cuota IVA','Total Factura','Categoría','Forma de pago'],
+              factRecib.map(g=>[anyo,g.fecha?.slice(5,7)||'',g.numFacturaProveedor||'',g.fecha||'',g.proveedor||'',g.nifProveedor||'',(g.baseImponible||0).toFixed(2),g.tipoIVA||21,(g.cuotaIVA||0).toFixed(2),(g.total||0).toFixed(2),g.categoria||'',g.formaPago||''])
+            ))}
+            {btnExport(`Resumen IVA trimestral ${anyo}`,"#f59e0b",()=>exportCSV(
+              `resumen_iva_mod303_${anyo}.csv`,
+              ['Ejercicio','Trimestre','Base IVA Repercutido','Cuota IVA Repercutido','Base IVA Soportado','Cuota IVA Soportado','Resultado'],
+              trimestres.map(t=>[anyo,`${t.tr}T`,t.baseRep.toFixed(2),t.ivaRep.toFixed(2),t.baseSop.toFixed(2),t.ivaSop.toFixed(2),t.resultado.toFixed(2)])
+            ))}
+          </div>
+        </div>
+
+        {/* Info plazos */}
+        <div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"16px 20px"}}>
+          <div style={{fontWeight:700,color:"#3b82f6",fontSize:13,marginBottom:10}}>ℹ Plazos de presentación (SL)</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8,fontSize:12}}>
+            {[
+              ["Mod. 303 — T1","Hasta el 20 de abril"],
+              ["Mod. 303 — T2","Hasta el 20 de julio"],
+              ["Mod. 303 — T3","Hasta el 20 de octubre"],
+              ["Mod. 303 — T4","Hasta el 30 de enero"],
+              ["Mod. 390 — Resumen anual","Hasta el 30 de enero"],
+              ["Mod. 200 — Imp. Sociedades","Hasta el 25 de julio"],
+            ].map(([m,p])=>(
+              <div key={m} style={{background:"#0d1117",borderRadius:8,padding:"8px 12px"}}>
+                <div style={{color:"#f1f3f9",fontWeight:700}}>{m}</div>
+                <div style={{color:"#8899b4",marginTop:2}}>{p}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderPedidos = () => {
@@ -7463,6 +7625,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {id:"pedidos",lbl:`Pedidos (${(cont.pedidos||[]).length})`},
           {id:"partes",lbl:"Cálculo partes"},
           {id:"rentabilidad",lbl:"Rentabilidad"},
+          {id:"gestor",lbl:"📋 Gestor"},
         ].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={tabStyle(t.id)}>{t.lbl}</button>)}
       </div>
       {/* Filtro trimestral */}
@@ -7578,6 +7741,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         </div>
       )}
       {tab==="rentabilidad"&&renderRentabilidad()}
+      {tab==="gestor"&&renderGestor()}
       {/* Modales */}
       {renderModal()}
       {showGastoModal&&(
