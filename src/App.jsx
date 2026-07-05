@@ -6748,8 +6748,28 @@ async function generarPDFFacturaDoc(factura, empresa) {
 
   let y = 42;
 
+  // ── Zona reservada para Verifactu QR (siempre libre en la última página) ──
+  const SAFE_BOTTOM = 238;
+
+  // Añade nueva página con cuerpo blanco + footer repetido
+  const addPageBreak = () => {
+    doc.addPage();
+    doc.setFillColor(255,255,255); doc.rect(0,0,W,297,"F");
+    doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+    doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+    doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text((emp.razonSocial||"Europea de Maquinaria PMM SL")+"  ·  CIF "+(emp.nif||"B98527583")+"  ·  "+(emp.web||"europeademaquinaria.com"),W/2,291,{align:"center"});
+    y = 20;
+  };
+  // Garantiza que hay al menos `needed` mm antes de SAFE_BOTTOM
+  const ensureSpace = (needed) => { if (y + needed > SAFE_BOTTOM) addPageBreak(); };
+
   // ── Helper box (mismo estilo que partes) ──
   const box = (tit, filas, yS) => {
+    // Estimar altura para evitar que el box arranque justo antes del salto
+    const visibles = filas.filter(([,v])=>v||v===0).length;
+    ensureSpace(7 + visibles * 7 + 8);
+    yS = y; // y puede haber cambiado si ensureSpace añadió página
     doc.setFillColor(230,235,245); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"F");
     doc.setDrawColor(180,190,210); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"S");
     doc.setDrawColor(255,255,255);
@@ -6765,7 +6785,8 @@ async function generarPDFFacturaDoc(factura, empresa) {
       doc.text(lines,mg+52,fy);
       fy+=Math.max(lines.length*5.5,6.5);
     });
-    return fy+4;
+    y = fy+4;
+    return y;
   };
 
   // ── Datos del cliente ──
@@ -6800,10 +6821,24 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.text("DTO%",cS-2,y+4.5,{align:"right"});
     doc.text("SUBTOTAL",W-mg-2,y+4.5,{align:"right"});
     y+=7;
+    // Función para redibujar cabecera de tabla en nuevas páginas
+    const drawTabHeader = () => {
+      doc.setFillColor(40,60,110); doc.rect(cD,y,tW,6,"F");
+      doc.setDrawColor(255,255,255);
+      doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","bold");
+      doc.text("LÍNEAS / CONCEPTOS (cont.)",cD+3,y+4.5);
+      doc.text("CANT.",cP-2,y+4.5,{align:"right"});
+      doc.text("P.UNIT.",cDt-2,y+4.5,{align:"right"});
+      doc.text("DTO%",cS-2,y+4.5,{align:"right"});
+      doc.text("SUBTOTAL",W-mg-2,y+4.5,{align:"right"});
+      y+=7;
+    };
     lineas.forEach((ln,j)=>{
-      const bg=j%2===0?[248,250,255]:[255,255,255];
       const descLines=doc.splitTextToSize(ln.descripcion||"",cC-cD-4);
       const lh=Math.max(8,descLines.length*4.5+4);
+      // Salto de página si la línea no cabe antes de la zona Verifactu
+      if (y + lh + 2 > SAFE_BOTTOM) { addPageBreak(); drawTabHeader(); }
+      const bg=j%2===0?[248,250,255]:[255,255,255];
       doc.setFillColor(...bg); doc.rect(cD,y-1,tW,lh+1,"F");
       doc.setTextColor(25,35,70); doc.setFontSize(8); doc.setFont("helvetica","normal");
       descLines.forEach((dl,di)=>doc.text(dl,cD+3,y+5+di*4.5));
@@ -6818,7 +6853,8 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.setDrawColor(180,190,210); doc.setLineWidth(0.3); doc.line(cS,y,W-mg,y); y+=4;
   }
 
-  // ── Totales (alineados a la derecha) ──
+  // ── Totales (alineados a la derecha) — necesita ~35mm ──
+  ensureSpace(35);
   const totX=mg+100,numX=W-mg;
   doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(60,80,120);
   doc.text("Base imponible:",totX,y); doc.text(fmtEur(factura.baseImponible),numX,y,{align:"right"}); y+=6;
@@ -6831,13 +6867,14 @@ async function generarPDFFacturaDoc(factura, empresa) {
 
   // ── Notas ──
   if(factura.notas?.trim()){
+    const nL=doc.splitTextToSize(factura.notas,W-mg*2-8);
+    ensureSpace(20 + nL.length*5);
     doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
     doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
     doc.setDrawColor(255,255,255);
     doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
     doc.text("NOTAS",mg+4,y+5); y+=12;
     doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(60,80,120);
-    const nL=doc.splitTextToSize(factura.notas,W-mg*2-8);
     doc.text(nL,mg+4,y); y+=nL.length*5+6;
   }
 
