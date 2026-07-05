@@ -260,7 +260,7 @@ const backfillConsumiblesClave = (d) => {
 const migrateContabilidad = (d) => {
   if (!d.contabilidad) return d;
   const c = d.contabilidad;
-  const defaults = { facturas:[], proformas:[], presupuestos:[], gastos:[], pedidos:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}, costesVentas:{} };
+  const defaults = { facturas:[], proformas:[], presupuestos:[], gastos:[], pedidos:[], asientos:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}, costesVentas:{} };
   let changed = false;
   const next = {};
   for (const k of Object.keys(defaults)) { if (c[k] === undefined) { next[k] = defaults[k]; changed = true; } }
@@ -7480,6 +7480,215 @@ const Contabilidad = ({ data, setData, userActual }) => {
     ));
   };
 
+  // ── Asientos Contables (Libro Diario / PGC) ──
+  const renderAsientos = () => {
+    const CAT_CUENTA = {
+      "Suministros":             { cta:"628", nom:"Suministros" },
+      "Alquiler":                { cta:"621", nom:"Arrendamientos y cánones" },
+      "Servicios profesionales": { cta:"623", nom:"Serv. profesionales independientes" },
+      "Material":                { cta:"629", nom:"Otros servicios" },
+      "Maquinaria":              { cta:"600", nom:"Compras de mercaderías" },
+      "Transportes":             { cta:"624", nom:"Transportes" },
+      "Seguros":                 { cta:"625", nom:"Primas de seguros" },
+      "Otros":                   { cta:"629", nom:"Otros servicios" },
+    };
+
+    const asientos = [...(cont.asientos||[])].sort((a,b)=>a.fecha?.localeCompare(b.fecha));
+
+    const generar = () => {
+      const existFact  = new Set(asientos.filter(a=>a.origenTipo==="factura").map(a=>a.origenId));
+      const existGasto = new Set(asientos.filter(a=>a.origenTipo==="gasto").map(a=>a.origenId));
+      let nextIdx = asientos.length + 1;
+      const nuevos = [];
+
+      // Ventas — facturas emitidas (no proforma, no presupuesto, no anulada)
+      (cont.facturas||[])
+        .filter(f=>f.estado!=="Anulada"&&!f.esProforma&&!f.esPresupuesto&&!existFact.has(f.id))
+        .forEach(f=>{
+          const base=parseFloat(f.baseImponible)||0;
+          const iva=parseFloat(f.cuotaIVA)||0;
+          const tot=parseFloat(f.total)||(base+iva);
+          nuevos.push({
+            id:Date.now()+Math.random(),
+            numero:`AS-${String(nextIdx++).padStart(4,"0")}`,
+            fecha:f.fecha||today(),
+            descripcion:`Venta: ${f.numero} — ${f.clienteRazonSocial||"Cliente"}`,
+            origenTipo:"factura", origenId:f.id, origenNumero:f.numero||"",
+            lineas:[
+              {cta:"430", nom:"Clientes", debe:tot, haber:0},
+              {cta:"705", nom:"Prestaciones de servicios", debe:0, haber:base},
+              ...(iva?[{cta:"477", nom:"H.P. IVA repercutido", debe:0, haber:iva}]:[]),
+            ],
+          });
+        });
+
+      // Compras — gastos registrados
+      (cont.gastos||[])
+        .filter(g=>!existGasto.has(g.id))
+        .forEach(g=>{
+          const cd=CAT_CUENTA[g.categoria]||{cta:"629",nom:"Otros servicios"};
+          const base=parseFloat(g.baseImponible)||0;
+          const iva=parseFloat(g.cuotaIVA)||0;
+          const tot=parseFloat(g.total)||(base+iva);
+          nuevos.push({
+            id:Date.now()+Math.random(),
+            numero:`AS-${String(nextIdx++).padStart(4,"0")}`,
+            fecha:g.fecha||today(),
+            descripcion:`Compra: ${g.proveedor||"Proveedor"}${g.numFacturaProveedor?" · "+g.numFacturaProveedor:""}`,
+            origenTipo:"gasto", origenId:g.id, origenNumero:g.numFacturaProveedor||g.numero||"",
+            lineas:[
+              {cta:cd.cta, nom:cd.nom, debe:base, haber:0},
+              ...(iva?[{cta:"472", nom:"H.P. IVA soportado", debe:iva, haber:0}]:[]),
+              {cta:"400", nom:"Proveedores", debe:0, haber:tot},
+            ],
+          });
+        });
+
+      if(!nuevos.length){alert("No hay documentos nuevos sin asiento contable.");return;}
+      setData(d=>({...d,contabilidad:{...d.contabilidad,asientos:[...(d.contabilidad.asientos||[]),...nuevos]}}));
+    };
+
+    const exportCSV = () => {
+      const rows=["﻿Número;Fecha;Cuenta;Nombre cuenta;Referencia;Concepto;Debe;Haber"];
+      asientos.forEach(a=>{
+        a.lineas.forEach(l=>{
+          rows.push([
+            a.numero,
+            a.fecha?new Date(a.fecha+"T00:00:00").toLocaleDateString("es-ES"):"",
+            l.cta, l.nom, a.origenNumero, a.descripcion,
+            l.debe.toFixed(2).replace(".",","),
+            l.haber.toFixed(2).replace(".",","),
+          ].join(";"));
+        });
+      });
+      const blob=new Blob([rows.join("\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob);
+      const el=document.createElement("a");el.href=url;el.download="libro_diario.csv";el.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Libro Mayor
+    const mayor={};
+    asientos.forEach(a=>{
+      a.lineas.forEach(l=>{
+        if(!mayor[l.cta])mayor[l.cta]={cta:l.cta,nom:l.nom,debe:0,haber:0};
+        mayor[l.cta].debe+=l.debe;
+        mayor[l.cta].haber+=l.haber;
+      });
+    });
+    const mayorOrd=Object.values(mayor).sort((a,b)=>a.cta.localeCompare(b.cta));
+
+    const totalDebe  = asientos.reduce((s,a)=>s+a.lineas.reduce((ls,l)=>ls+l.debe,0),0);
+    const totalHaber = asientos.reduce((s,a)=>s+a.lineas.reduce((ls,l)=>ls+l.haber,0),0);
+    const ivaRep_=(mayor["477"]||{}).haber||0;
+    const ivaSop_=(mayor["472"]||{}).debe||0;
+    const baseVentas_=(mayor["705"]||{}).haber||0;
+    const baseCompras_=Object.values(mayor).filter(m=>m.cta.startsWith("6")).reduce((s,m)=>s+m.debe,0)-ivaSop_;
+    const cuotaLiquidar_=ivaRep_-ivaSop_;
+    const pendientes_=
+      (cont.facturas||[]).filter(f=>f.estado!=="Anulada"&&!f.esProforma&&!f.esPresupuesto&&!asientos.some(a=>a.origenId===f.id&&a.origenTipo==="factura")).length+
+      (cont.gastos||[]).filter(g=>!asientos.some(a=>a.origenId===g.id&&a.origenTipo==="gasto")).length;
+
+    const thStyle={color:"#8899b4",fontSize:10,fontWeight:700};
+    const monoR={textAlign:"right",fontFamily:"monospace",fontSize:12};
+
+    return (
+      <div>
+        {/* KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:14}}>
+          {[
+            {lbl:"Ventas (base imponible)",  val:fmtEur(baseVentas_),  color:"#16a34a"},
+            {lbl:"Compras (base imponible)", val:fmtEur(baseCompras_), color:"#dc2626"},
+            {lbl:"IVA repercutido (cta. 477)", val:fmtEur(ivaRep_),   color:"#3b82f6"},
+            {lbl:"IVA soportado (cta. 472)",   val:fmtEur(ivaSop_),   color:"#f59e0b"},
+            {lbl:"Cuota a liquidar Mod. 303",  val:fmtEur(cuotaLiquidar_), color:cuotaLiquidar_>=0?"#16a34a":"#dc2626"},
+          ].map(k=>(
+            <div key={k.lbl} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"10px 14px"}}>
+              <div style={{color:"#8899b4",fontSize:10,marginBottom:4}}>{k.lbl}</div>
+              <div style={{color:k.color,fontWeight:800,fontSize:16}}>{k.val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Cuadre contable */}
+        <div style={{background:Math.abs(totalDebe-totalHaber)<0.02?"#052e16":"#2d1515",border:`1px solid ${Math.abs(totalDebe-totalHaber)<0.02?"#16a34a55":"#dc262655"}`,borderRadius:8,padding:"8px 14px",marginBottom:14,fontSize:12,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{color:"#e4e9f6"}}>Total Debe: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalDebe)}</strong></span>
+          <span style={{color:"#e4e9f6"}}>Total Haber: <strong style={{color:"#f1f3f9"}}>{fmtEur(totalHaber)}</strong></span>
+          {Math.abs(totalDebe-totalHaber)<0.02
+            ?<span style={{color:"#16a34a",fontWeight:700}}>✓ Cuadre correcto (partida doble)</span>
+            :<span style={{color:"#dc2626",fontWeight:700}}>⚠ Diferencia: {fmtEur(Math.abs(totalDebe-totalHaber))}</span>
+          }
+          {pendientes_>0&&<span style={{color:"#f59e0b",fontSize:11}}>⚠ {pendientes_} documento(s) sin asiento — pulsa "Generar asientos"</span>}
+        </div>
+
+        {!asientos.length
+          ?<div style={{color:"#8899b4",textAlign:"center",padding:"50px 0",fontSize:14}}>
+             No hay asientos. Pulsa <strong style={{color:"#f1f3f9"}}>"Generar asientos"</strong> para crear los asientos desde las facturas y gastos existentes.
+           </div>
+          :<>
+            {/* Libro Diario */}
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:8}}>
+              📒 Libro Diario <span style={{fontSize:11,color:"#8899b4",fontWeight:400}}>({asientos.length} asientos)</span>
+            </div>
+            <div style={{display:"grid",gap:8,marginBottom:24}}>
+              {asientos.map(a=>{
+                const esV=a.origenTipo==="factura";
+                const color=esV?"#16a34a":a.origenTipo==="gasto"?"#dc2626":"#3b82f6";
+                const totA=a.lineas.reduce((s,l)=>s+l.debe,0);
+                return (
+                  <div key={a.id} style={{background:"#151b2a",border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
+                    <div style={{background:color+"11",borderBottom:`1px solid ${color}22`,padding:"5px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontFamily:"monospace",fontWeight:800,color,fontSize:12}}>{a.numero}</span>
+                      <span style={{color:"#8899b4",fontSize:11}}>{a.fecha?new Date(a.fecha+"T00:00:00").toLocaleDateString("es-ES"):""}</span>
+                      <span style={{color:"#e4e9f6",fontSize:12,fontWeight:600,flex:1}}>{a.descripcion}</span>
+                      <span style={{color:"#f1f3f9",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{fmtEur(totA)}</span>
+                      <button onClick={()=>{if(!confirm("¿Eliminar este asiento?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,asientos:(d.contabilidad.asientos||[]).filter(x=>x.id!==a.id)}}));}} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar asiento">×</button>
+                    </div>
+                    <div style={{padding:"6px 12px 8px"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"52px 1fr 100px 100px",gap:4,marginBottom:4}}>
+                        {["Cuenta","Nombre cuenta","Debe","Haber"].map(h=><div key={h} style={thStyle}>{h}</div>)}
+                      </div>
+                      {a.lineas.map((l,i)=>(
+                        <div key={i} style={{display:"grid",gridTemplateColumns:"52px 1fr 100px 100px",gap:4,marginBottom:2}}>
+                          <div style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{l.cta}</div>
+                          <div style={{color:"#e4e9f6",fontSize:12}}>{l.nom}</div>
+                          <div style={{...monoR,color:l.debe?"#16a34a":"#4b5563"}}>{l.debe?fmtEur(l.debe):"—"}</div>
+                          <div style={{...monoR,color:l.haber?"#3b82f6":"#4b5563"}}>{l.haber?fmtEur(l.haber):"—"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Libro Mayor */}
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:8}}>📊 Libro Mayor (saldos por cuenta PGC)</div>
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden",marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"60px 1fr 110px 110px 100px",padding:"8px 14px",borderBottom:"1px solid #2a3550"}}>
+                {["Cuenta","Nombre","Total Debe","Total Haber","Saldo"].map(h=><div key={h} style={thStyle}>{h}</div>)}
+              </div>
+              {mayorOrd.map(m=>{
+                const saldo=m.debe-m.haber;
+                return (
+                  <div key={m.cta} style={{display:"grid",gridTemplateColumns:"60px 1fr 110px 110px 100px",padding:"6px 14px",borderBottom:"1px solid #1a2236",alignItems:"center"}}>
+                    <div style={{fontFamily:"monospace",fontWeight:700,color:"#f59e0b",fontSize:12}}>{m.cta}</div>
+                    <div style={{color:"#e4e9f6",fontSize:12}}>{m.nom}</div>
+                    <div style={{...monoR,color:"#16a34a"}}>{fmtEur(m.debe)}</div>
+                    <div style={{...monoR,color:"#3b82f6"}}>{fmtEur(m.haber)}</div>
+                    <div style={{...monoR,color:Math.abs(saldo)<0.01?"#8899b4":saldo>0?"#f1f3f9":"#dc2626",fontWeight:700}}>
+                      {Math.abs(saldo)<0.01?"Saldo 0":fmtEur(Math.abs(saldo))+(saldo>0?" D":" H")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        }
+      </div>
+    );
+  };
+
   // ── Dashboard ──
   const renderDashboard = () => {
     const kpis = [
@@ -7710,6 +7919,34 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {tab==="presupuestos"&&<button onClick={()=>abrirNuevo("presupuesto")} style={{...btnPrimary,background:"#7c3aed"}}><Icon name="plus" size={14}/> Nuevo presupuesto</button>}
           {tab==="proformas"&&<button onClick={()=>abrirNuevo("proforma")} style={{...btnPrimary,background:"#d97706"}}><Icon name="plus" size={14}/> Nueva proforma</button>}
           {tab==="gastos"&&<button onClick={()=>{setShowGastoModal(true);setGastoForm({fecha:today(),tipoIVA:21,categoria:"Suministros"});setGastoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,subtotal:0}]);}} style={{...btnPrimary,background:"#dc2626"}}><Icon name="plus" size={14}/> Nuevo gasto</button>}
+          {tab==="asientos"&&<>
+            <button onClick={()=>{
+              const asientos=cont.asientos||[];
+              const CAT_CUENTA={"Suministros":{cta:"628",nom:"Suministros"},"Alquiler":{cta:"621",nom:"Arrendamientos y cánones"},"Servicios profesionales":{cta:"623",nom:"Serv. profesionales independientes"},"Material":{cta:"629",nom:"Otros servicios"},"Maquinaria":{cta:"600",nom:"Compras de mercaderías"},"Transportes":{cta:"624",nom:"Transportes"},"Seguros":{cta:"625",nom:"Primas de seguros"},"Otros":{cta:"629",nom:"Otros servicios"}};
+              const existFact=new Set(asientos.filter(a=>a.origenTipo==="factura").map(a=>a.origenId));
+              const existGasto=new Set(asientos.filter(a=>a.origenTipo==="gasto").map(a=>a.origenId));
+              let nextIdx=asientos.length+1;
+              const nuevos=[];
+              (cont.facturas||[]).filter(f=>f.estado!=="Anulada"&&!f.esProforma&&!f.esPresupuesto&&!existFact.has(f.id)).forEach(f=>{
+                const base=parseFloat(f.baseImponible)||0,iva=parseFloat(f.cuotaIVA)||0,tot=parseFloat(f.total)||(base+iva);
+                nuevos.push({id:Date.now()+Math.random(),numero:`AS-${String(nextIdx++).padStart(4,"0")}`,fecha:f.fecha||today(),descripcion:`Venta: ${f.numero} — ${f.clienteRazonSocial||"Cliente"}`,origenTipo:"factura",origenId:f.id,origenNumero:f.numero||"",lineas:[{cta:"430",nom:"Clientes",debe:tot,haber:0},{cta:"705",nom:"Prestaciones de servicios",debe:0,haber:base},...(iva?[{cta:"477",nom:"H.P. IVA repercutido",debe:0,haber:iva}]:[])],});
+              });
+              (cont.gastos||[]).filter(g=>!existGasto.has(g.id)).forEach(g=>{
+                const cd=CAT_CUENTA[g.categoria]||{cta:"629",nom:"Otros servicios"};
+                const base=parseFloat(g.baseImponible)||0,iva=parseFloat(g.cuotaIVA)||0,tot=parseFloat(g.total)||(base+iva);
+                nuevos.push({id:Date.now()+Math.random(),numero:`AS-${String(nextIdx++).padStart(4,"0")}`,fecha:g.fecha||today(),descripcion:`Compra: ${g.proveedor||"Proveedor"}${g.numFacturaProveedor?" · "+g.numFacturaProveedor:""}`,origenTipo:"gasto",origenId:g.id,origenNumero:g.numFacturaProveedor||g.numero||"",lineas:[{cta:cd.cta,nom:cd.nom,debe:base,haber:0},...(iva?[{cta:"472",nom:"H.P. IVA soportado",debe:iva,haber:0}]:[]),{cta:"400",nom:"Proveedores",debe:0,haber:tot}],});
+              });
+              if(!nuevos.length){alert("No hay documentos nuevos sin asiento contable.");return;}
+              setData(d=>({...d,contabilidad:{...d.contabilidad,asientos:[...(d.contabilidad.asientos||[]),...nuevos]}}));
+            }} style={{...btnPrimary,background:"#1d4ed8"}}><Icon name="plus" size={14}/> Generar asientos</button>
+            <button onClick={()=>{
+              const asientos=[...(cont.asientos||[])].sort((a,b)=>a.fecha?.localeCompare(b.fecha));
+              const rows=["﻿Número;Fecha;Cuenta;Nombre cuenta;Referencia;Concepto;Debe;Haber"];
+              asientos.forEach(a=>{a.lineas.forEach(l=>{rows.push([a.numero,a.fecha?new Date(a.fecha+"T00:00:00").toLocaleDateString("es-ES"):"",l.cta,l.nom,a.origenNumero,a.descripcion,l.debe.toFixed(2).replace(".",","),l.haber.toFixed(2).replace(".",",")].join(";"));});});
+              const blob=new Blob([rows.join("\n")],{type:"text/csv;charset=utf-8;"});
+              const url=URL.createObjectURL(blob);const el=document.createElement("a");el.href=url;el.download="libro_diario.csv";el.click();URL.revokeObjectURL(url);
+            }} style={{...btnOutline,padding:"7px 13px",fontSize:12}}>⬇ Exportar CSV</button>
+          </>}
         </div>
       </div>
       {/* Tabs */}
@@ -7724,6 +7961,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {id:"partes",lbl:"Cálculo partes"},
           {id:"rentabilidad",lbl:"Rentabilidad"},
           {id:"gestor",lbl:"📋 Gestor"},
+          {id:"asientos",lbl:"📒 Asientos"},
         ].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={tabStyle(t.id)}>{t.lbl}</button>)}
       </div>
       {/* Filtro trimestral */}
@@ -7756,6 +7994,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       {tab==="proformas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.proformas,"proformas")}</div>}
       {tab==="gastos"&&<div style={{display:"grid",gap:8}}>{renderGastos()}</div>}
       {tab==="pedidos"&&renderPedidos()}
+      {tab==="asientos"&&renderAsientos()}
       {tab==="partes"&&(
         <div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px",marginBottom:14}}>
