@@ -6693,6 +6693,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
     ["Fecha",factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""],
     ...(!esProforma&&!esPresupuesto&&factura.fechaVencimiento?[["Vencimiento",new Date(factura.fechaVencimiento).toLocaleDateString("es-ES")]]:[] ),
     ...(esPresupuesto&&factura.validezHasta?[["Válido hasta",new Date(factura.validezHasta).toLocaleDateString("es-ES")]]:[] ),
+    ...(factura.formaPago?[["Forma de pago",factura.formaPago]]:[] ),
   ],y);
 
   // ── Tabla líneas ──
@@ -7036,7 +7037,10 @@ const Contabilidad = ({ data, setData, userActual }) => {
               {doc.emailEnviado&&<span style={{fontSize:10,background:"#16a34a20",color:"#16a34a",borderRadius:4,padding:"1px 6px",fontWeight:700}}>✓ Enviada</span>}
             </div>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{doc.clienteRazonSocial}</div>
-            <div style={{color:"#e4e9f6",fontSize:12}}>{doc.fecha?new Date(doc.fecha).toLocaleDateString("es-ES"):""} · Base: {fmtEur(doc.baseImponible)} · IVA: {fmtEur(doc.cuotaIVA)} · <strong>Total: {fmtEur(doc.total)}</strong></div>
+            <div style={{color:"#e4e9f6",fontSize:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <span>{doc.fecha?new Date(doc.fecha).toLocaleDateString("es-ES"):""} · Base: {fmtEur(doc.baseImponible)} · IVA: {fmtEur(doc.cuotaIVA)} · <strong>Total: {fmtEur(doc.total)}</strong></span>
+              {doc.formaPago&&<span style={{background:"#3b82f622",color:"#3b82f6",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>💳 {doc.formaPago}</span>}
+            </div>
           </div>
           <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap"}}>
             {!anulada&&<button onClick={()=>descargarPDF(doc)} style={{...btnOutline,padding:"5px 11px",fontSize:12}}>PDF</button>}
@@ -7414,7 +7418,11 @@ const Contabilidad = ({ data, setData, userActual }) => {
         <button onClick={addLinea} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:14}}><Icon name="plus" size={12}/> Añadir línea</button>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
           <Field label="% IVA"><input type="number" value={form.tipoIVA||21} onChange={e=>setForm(f=>({...f,tipoIVA:parseFloat(e.target.value)||21}))} style={inputStyle}/></Field>
-          <div/>
+          <Field label="Forma de pago">
+            <select value={form.formaPago||"Contado"} onChange={e=>setForm(f=>({...f,formaPago:e.target.value}))} style={inputStyle}>
+              {["Contado","Transferencia bancaria","30 días","60 días","90 días","120 días","Pago anticipado","Domiciliación bancaria","Confirming","Otro"].map(o=><option key={o}>{o}</option>)}
+            </select>
+          </Field>
         </div>
         <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"10px 14px",marginBottom:12,textAlign:"right"}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
