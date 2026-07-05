@@ -11200,7 +11200,28 @@ async function cargarFotoParaPDF(src){
   if(src.startsWith("data:"))return src;
   return new Promise(resolve=>{
     const img=new Image();
-    img.onload=()=>{const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext("2d").drawImage(img,0,0);resolve(c.toDataURL("image/jpeg",0.85));};
+    img.crossOrigin="anonymous";
+    img.onload=()=>{
+      try{
+        const c=document.createElement("canvas");
+        c.width=img.naturalWidth;c.height=img.naturalHeight;
+        c.getContext("2d").drawImage(img,0,0);
+        resolve(c.toDataURL("image/jpeg",0.85));
+      }catch(e){
+        // Canvas tainted o error — intentar sin crossOrigin como fallback
+        const img2=new Image();
+        img2.onload=()=>{
+          try{
+            const c2=document.createElement("canvas");
+            c2.width=img2.naturalWidth;c2.height=img2.naturalHeight;
+            c2.getContext("2d").drawImage(img2,0,0);
+            resolve(c2.toDataURL("image/jpeg",0.85));
+          }catch(e2){resolve(null);}
+        };
+        img2.onerror=()=>resolve(null);
+        img2.src=src+(src.includes("?")?"&":"?")+"_cb="+Date.now();
+      }
+    };
     img.onerror=()=>resolve(null);
     img.src=src;
   });

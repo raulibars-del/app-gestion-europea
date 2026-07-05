@@ -6,3 +6,12 @@
 <FilesMatch "\.(php|phtml|php\d)$">
   Require all denied
 </FilesMatch>
+
+# Cabeceras CORS para imágenes — necesario para que jsPDF pueda
+# cargarlas en un canvas y generar los PDFs con fotos.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET"
+  </FilesMatch>
+</IfModule>
