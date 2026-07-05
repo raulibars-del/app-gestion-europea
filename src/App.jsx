@@ -11198,33 +11198,34 @@ const UPLOAD_API_URL = "/api/upload.php";
 async function cargarFotoParaPDF(src){
   if(!src)return null;
   if(src.startsWith("data:"))return src;
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.crossOrigin="anonymous";
-    img.onload=()=>{
-      try{
-        const c=document.createElement("canvas");
-        c.width=img.naturalWidth;c.height=img.naturalHeight;
-        c.getContext("2d").drawImage(img,0,0);
-        resolve(c.toDataURL("image/jpeg",0.85));
-      }catch(e){
-        // Canvas tainted o error — intentar sin crossOrigin como fallback
-        const img2=new Image();
-        img2.onload=()=>{
-          try{
-            const c2=document.createElement("canvas");
-            c2.width=img2.naturalWidth;c2.height=img2.naturalHeight;
-            c2.getContext("2d").drawImage(img2,0,0);
-            resolve(c2.toDataURL("image/jpeg",0.85));
-          }catch(e2){resolve(null);}
-        };
-        img2.onerror=()=>resolve(null);
-        img2.src=src+(src.includes("?")?"&":"?")+"_cb="+Date.now();
-      }
-    };
-    img.onerror=()=>resolve(null);
-    img.src=src;
-  });
+  // Usar fetch() para imágenes de servidor: evita canvas y problemas CORS.
+  // Las imágenes son same-origin (/api/uploads/...) — fetch funciona sin CORS headers.
+  try{
+    const resp=await fetch(src);
+    if(!resp.ok)throw new Error("fetch "+resp.status);
+    const blob=await resp.blob();
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){
+    // Fallback canvas sin crossOrigin (same-origin no mancha el canvas)
+    return new Promise(resolve=>{
+      const img=new Image();
+      img.onload=()=>{
+        try{
+          const c=document.createElement("canvas");
+          c.width=img.naturalWidth;c.height=img.naturalHeight;
+          c.getContext("2d").drawImage(img,0,0);
+          resolve(c.toDataURL("image/jpeg",0.85));
+        }catch(e2){resolve(null);}
+      };
+      img.onerror=()=>resolve(null);
+      img.src=src;
+    });
+  }
 }
 // Redimensiona y comprime una imagen en el navegador antes de subirla: las
 // fotos hechas con el móvil pueden pesar varios MB (o venir en HEIC, que el
