@@ -505,7 +505,7 @@ const initialData = {
     {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
   empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
-  contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
+  contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],pedidos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
   proveedores:[],
 };
 const Icon = ({ name, size=18 }) => {
@@ -6698,34 +6698,35 @@ async function generarPDFFacturaDoc(factura, empresa) {
   ],y);
 
   // ── Tabla líneas ──
+  // Columnas: desc 70mm | cant 14mm | p.unit 32mm | dto% 16mm | subtotal 42mm = 174mm total
   const lineas=factura.lineas||[];
   if(lineas.length){
-    const cD=mg,cC=mg+85,cP=mg+105,cDt=mg+125,cS=mg+147,tW=W-mg*2;
+    const cD=mg,cC=mg+70,cP=mg+84,cDt=mg+116,cS=mg+132,tW=W-mg*2;
     doc.setFillColor(40,60,110); doc.rect(cD,y,tW,6,"F");
     doc.setDrawColor(255,255,255);
-    doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+    doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","bold");
     doc.text("LÍNEAS / CONCEPTOS",cD+3,y+4.5);
-    doc.text("CANT.",cC+8,y+4.5,{align:"right"});
-    doc.text("P.UNIT.",cP+18,y+4.5,{align:"right"});
-    doc.text("DTO%",cDt+10,y+4.5,{align:"right"});
-    doc.text("SUBTOTAL",cS+28,y+4.5,{align:"right"});
+    doc.text("CANT.",cP-2,y+4.5,{align:"right"});
+    doc.text("P.UNIT.",cDt-2,y+4.5,{align:"right"});
+    doc.text("DTO%",cS-2,y+4.5,{align:"right"});
+    doc.text("SUBTOTAL",W-mg-2,y+4.5,{align:"right"});
     y+=7;
     lineas.forEach((ln,j)=>{
       const bg=j%2===0?[248,250,255]:[255,255,255];
-      const descLines=doc.splitTextToSize(ln.descripcion||"",80);
+      const descLines=doc.splitTextToSize(ln.descripcion||"",cC-cD-4);
       const lh=Math.max(8,descLines.length*4.5+4);
       doc.setFillColor(...bg); doc.rect(cD,y-1,tW,lh+1,"F");
-      doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","normal");
+      doc.setTextColor(25,35,70); doc.setFontSize(8); doc.setFont("helvetica","normal");
       descLines.forEach((dl,di)=>doc.text(dl,cD+3,y+5+di*4.5));
       doc.setFont("helvetica","bold");
-      doc.setTextColor(25,35,70); doc.text(String(ln.cantidad??1),cC+8,y+5,{align:"right"});
-      doc.setTextColor(25,35,70); doc.text(fmtEur(ln.precioUnitario),cP+18,y+5,{align:"right"});
-      if(ln.descuento>0){doc.setTextColor(245,158,11);doc.text((ln.descuento||0)+"%",cDt+10,y+5,{align:"right"});}
-      doc.setTextColor(15,100,55); doc.text(fmtEur(ln.subtotal),cS+28,y+5,{align:"right"});
+      doc.setTextColor(25,35,70); doc.text(String(ln.cantidad??1),cP-2,y+5,{align:"right"});
+      doc.setTextColor(25,35,70); doc.text(fmtEur(ln.precioUnitario),cDt-2,y+5,{align:"right"});
+      if(ln.descuento>0){doc.setTextColor(245,158,11);doc.text((ln.descuento||0)+"%",cS-2,y+5,{align:"right"});}
+      doc.setTextColor(15,100,55); doc.text(fmtEur(ln.subtotal),W-mg-2,y+5,{align:"right"});
       y+=lh;
     });
     y+=4;
-    doc.setDrawColor(180,190,210); doc.setLineWidth(0.3); doc.line(cDt-2,y,W-mg,y); y+=4;
+    doc.setDrawColor(180,190,210); doc.setLineWidth(0.3); doc.line(cS,y,W-mg,y); y+=4;
   }
 
   // ── Totales (alineados a la derecha) ──
@@ -6777,7 +6778,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
   return doc.output("datauristring");
 }
 
-function fmtEur(n) { const v=typeof n==="number"?n:parseNum(n); return v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
+function fmtEur(n) { const v=typeof n==="number"?n:parseNum(n); return v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
 // Parsea números en formato español: "94.000" → 94000, "94,50" → 94.5, "1.234,56" → 1234.56
 function parseNum(v) {
   if (typeof v === "number") return v;
@@ -6856,6 +6857,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [gastoForm, setGastoForm] = useState({});
   const [gastoLineas, setGastoLineas] = useState([]);
   const [showGastoModal, setShowGastoModal] = useState(false);
+  const [pedidoForm, setPedidoForm] = useState({});
+  const [pedidoLineas, setPedidoLineas] = useState([]);
+  const [showPedidoModal, setShowPedidoModal] = useState(false);
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -7051,6 +7055,124 @@ const Contabilidad = ({ data, setData, userActual }) => {
   };
 
   // ── Render gastos ──
+  const guardarPedido = () => {
+    if (!pedidoForm.proveedor?.trim()) { alert("Introduce el proveedor."); return; }
+    if (!pedidoLineas.length || pedidoLineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
+    const {baseImponible,cuotaIVA,total} = calcTotales(pedidoLineas, pedidoForm.tipoIVA||21);
+    const cont = data.contabilidad||{};
+    const lista = cont.pedidos||[];
+    if (pedidoForm.id) {
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(p=>p.id===pedidoForm.id?{...pedidoForm,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total}:p)}}));
+    } else {
+      const numero = nextNumContabilidad(lista,"PED");
+      const pedido = {...pedidoForm,id:Date.now(),numero,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador"};
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]}}));
+    }
+    setShowPedidoModal(false);
+  };
+
+  const renderPedidos = () => {
+    const lista = (cont.pedidos||[]).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
+    const ESTADO_COLOR = {Borrador:"#8899b4",Enviado:"#f59e0b",Recibido:"#10b981",Cancelado:"#dc2626"};
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+          <div style={{color:"#e4e9f6",fontSize:13}}>{lista.length} pedido{lista.length!==1?"s":""}</div>
+          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
+        </div>
+        {!lista.length&&<div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay pedidos registrados.</div>}
+        <div style={{display:"grid",gap:8}}>
+          {lista.map(p=>{
+            const ec = ESTADO_COLOR[p.estado]||"#8899b4";
+            return (
+              <div key={p.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:"monospace",fontWeight:800,color:"#f59e0b",fontSize:14}}>{p.numero}</span>
+                    <span style={{fontSize:10,background:ec+"22",color:ec,borderRadius:4,padding:"2px 7px",fontWeight:700}}>{p.estado}</span>
+                    {p.categoria&&<span style={{fontSize:10,background:"#2a355022",color:"#8899b4",borderRadius:4,padding:"1px 6px"}}>{p.categoria}</span>}
+                  </div>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{p.proveedor}</div>
+                  <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
+                    {p.fecha?new Date(p.fecha).toLocaleDateString("es-ES"):""} · {(p.lineas||[]).length} línea{(p.lineas||[]).length!==1?"s":""} · <strong>Total: {fmtEur(p.total)}</strong>
+                  </div>
+                  {p.notas&&<div style={{color:"#8899b4",fontSize:11,marginTop:2,fontStyle:"italic"}}>{p.notas}</div>}
+                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <select value={p.estado} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:e.target.value}:x)}}))} style={{...inputStyle,width:"auto",padding:"5px 10px",fontSize:12}}>
+                    {["Borrador","Enviado","Recibido","Cancelado"].map(s=><option key={s}>{s}</option>)}
+                  </select>
+                  <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
+                  <button onClick={()=>{if(!window.confirm("¿Eliminar pedido "+p.numero+"?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).filter(x=>x.id!==p.id)}}));}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {showPedidoModal&&(
+          <Modal title={pedidoForm.id?"Editar pedido":"Nuevo pedido de compra"} onClose={()=>setShowPedidoModal(false)} wide>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <Field label="Proveedor">
+                <div style={{position:"relative"}}>
+                  <input value={pedidoForm.proveedor||""} onChange={e=>{const v=e.target.value;const match=(data.proveedores||[]).find(p=>p.razonSocial===v);setPedidoForm(f=>({...f,proveedor:v,nifProveedor:match?.nif||f.nifProveedor}));}} list="prov-list-pedido" style={inputStyle} placeholder="Nombre del proveedor"/>
+                  <datalist id="prov-list-pedido">{(data.proveedores||[]).map(p=><option key={p.id} value={p.razonSocial}/>)}</datalist>
+                </div>
+              </Field>
+              <Field label="NIF proveedor"><input value={pedidoForm.nifProveedor||""} onChange={e=>setPedidoForm(f=>({...f,nifProveedor:e.target.value}))} style={inputStyle} placeholder="NIF/CIF"/></Field>
+              <Field label="Fecha"><input type="date" value={pedidoForm.fecha||""} onChange={e=>setPedidoForm(f=>({...f,fecha:e.target.value}))} style={inputStyle}/></Field>
+              <Field label="Estado">
+                <select value={pedidoForm.estado||"Borrador"} onChange={e=>setPedidoForm(f=>({...f,estado:e.target.value}))} style={inputStyle}>
+                  {["Borrador","Enviado","Recibido","Cancelado"].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Categoría">
+                <select value={pedidoForm.categoria||"Material"} onChange={e=>setPedidoForm(f=>({...f,categoria:e.target.value}))} style={inputStyle}>
+                  {["Material","Repuestos","Herramientas","Suministros","Maquinaria","Servicios","Otros"].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </Field>
+              <div/>
+            </div>
+            <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13,marginBottom:4}}>Líneas del pedido</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:4}}>
+              {["Descripción / Material","Cant.","P.Unit.","Dto%","Subtotal",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,padding:"0 4px"}}>{h}</div>)}
+            </div>
+            {pedidoLineas.map((ln,i)=>{
+              const actP=(campo,val)=>setPedidoLineas(prev=>prev.map((l,idx)=>{if(idx!==i)return l;const u={...l,[campo]:val};if(campo==="cantidad"||campo==="precioUnitario"||campo==="descuento"){const qty=parseNum(u.cantidad)||1,price=parseNum(u.precioUnitario)||0,dto=Math.min(100,Math.max(0,parseNum(u.descuento)||0));const neto=parseFloat((price*(1-dto/100)).toFixed(6));u.precioNeto=neto;u.subtotal=parseFloat((qty*neto).toFixed(2));}return u;}));
+              return (
+                <div key={ln.id} style={{display:"grid",gridTemplateColumns:"1fr 55px 90px 55px 90px 32px",gap:6,marginBottom:6,alignItems:"center"}}>
+                  <input placeholder="Material o descripción" value={ln.descripcion||""} onChange={e=>actP("descripcion",e.target.value)} style={inputStyle}/>
+                  <input type="number" placeholder="1" value={ln.cantidad??1} onChange={e=>actP("cantidad",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+                  <input type="text" inputMode="decimal" placeholder="0,00" value={ln.precioUnitario??0} onChange={e=>actP("precioUnitario",e.target.value)} style={{...inputStyle,padding:"9px 6px",textAlign:"right"}}/>
+                  <input type="number" placeholder="0" min={0} max={100} value={ln.descuento??0} onChange={e=>actP("descuento",e.target.value)} style={{...inputStyle,padding:"9px 4px",textAlign:"right"}}/>
+                  <div style={{...inputStyle,padding:"9px 6px",background:"#0d1117",color:ln.descuento>0?"#f59e0b":"#e4e9f6",textAlign:"right",fontSize:12}}>{fmtEur(ln.subtotal)}</div>
+                  <button onClick={()=>setPedidoLineas(prev=>prev.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>
+                </div>
+              );
+            })}
+            <button onClick={()=>setPedidoLineas(prev=>[...prev,{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}])} style={{...btnOutline,fontSize:12,padding:"6px 14px",marginBottom:12}}><Icon name="plus" size={12}/> Añadir línea</button>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <Field label="% IVA"><input type="number" value={pedidoForm.tipoIVA||21} onChange={e=>setPedidoForm(f=>({...f,tipoIVA:parseFloat(e.target.value)||21}))} style={inputStyle}/></Field>
+              <div/>
+            </div>
+            {(()=>{const{baseImponible,cuotaIVA,total}=calcTotales(pedidoLineas,pedidoForm.tipoIVA||21);return(
+              <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:9,padding:"12px 14px",marginBottom:12,textAlign:"right"}}>
+                <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
+                <div style={{color:"#e4e9f6",fontSize:13}}>IVA ({pedidoForm.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
+                <div style={{color:"#f59e0b",fontSize:16,fontWeight:800,marginTop:6}}>Total: {fmtEur(total)}</div>
+              </div>
+            );})()}
+            <Field label="Notas"><textarea value={pedidoForm.notas||""} onChange={e=>setPedidoForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Referencia, condiciones de entrega..."/></Field>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:12}}>
+              <button onClick={()=>setShowPedidoModal(false)} style={btnOutline}>Cancelar</button>
+              <button onClick={guardarPedido} style={{...btnPrimary,background:"#f59e0b",color:"#0d1117"}}>Guardar pedido</button>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  };
+
+
   const renderGastos = () => {
     const lista = filtrarPorTrimestre(cont.gastos||[]);
     if (!lista.length) return <div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay gastos registrados en este período.</div>;
@@ -7299,6 +7421,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {id:"presupuestos",lbl:`Presupuestos (${(cont.presupuestos||[]).length})`},
           {id:"proformas",lbl:`Proformas (${cont.proformas.length})`},
           {id:"gastos",lbl:`Gastos (${(cont.gastos||[]).length})`},
+          {id:"pedidos",lbl:`Pedidos (${(cont.pedidos||[]).length})`},
           {id:"partes",lbl:"Cálculo partes"},
           {id:"rentabilidad",lbl:"Rentabilidad"},
         ].map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={tabStyle(t.id)}>{t.lbl}</button>)}
@@ -7332,6 +7455,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       {tab==="presupuestos"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.presupuestos||[],"presupuestos")}</div>}
       {tab==="proformas"&&<div style={{display:"grid",gap:8}}>{renderLista(cont.proformas,"proformas")}</div>}
       {tab==="gastos"&&<div style={{display:"grid",gap:8}}>{renderGastos()}</div>}
+      {tab==="pedidos"&&renderPedidos()}
       {tab==="partes"&&(
         <div>
           <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"20px",marginBottom:14}}>
