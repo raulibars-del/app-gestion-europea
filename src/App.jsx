@@ -7131,6 +7131,35 @@ const Contabilidad = ({ data, setData, userActual }) => {
                 {partesCompletados.map(p=>{const cliId=p.clienteDirectoId||(data.reparaciones?.find(r=>r.id===p.reparacionId)?.clienteId);const cli=data.clientes.find(c=>c.id===cliId);return <option key={p.id} value={p.id}>{p.numeroParte||p.id} — {cli?.nombreEmpresa||"Cliente"} ({p.fecha})</option>;})}
               </select>
             </Field>
+            {pForm.parteId&&(()=>{
+              const pv=partesCompletados.find(p=>p.id===parseInt(pForm.parteId));
+              if(!pv) return null;
+              const cliId=pv.clienteDirectoId||(data.reparaciones?.find(r=>r.id===pv.reparacionId)?.clienteId);
+              const cli=data.clientes.find(c=>c.id===cliId);
+              const tecnicos=(pv.tecnicos||[]).map(t=>typeof t==="string"?t:(t.nombre||"")).filter(Boolean).join(", ")||pv.tecnico||"—";
+              const maquina=[pv.marca,pv.modelo].filter(Boolean).join(" ")||"—";
+              const avis=data.avisos?.find(a=>a.id===parseInt(pv.avisoId));
+              const fila=(l,v,hl)=>v?<div key={l} style={{display:"flex",gap:8,padding:"5px 0",borderBottom:"1px solid #1a2235",alignItems:"flex-start"}}><span style={{color:"#6b7a99",fontSize:11,minWidth:110,flexShrink:0}}>{l}:</span><span style={{color:hl?"#f59e0b":"#f1f3f9",fontWeight:hl?800:600,fontSize:12}}>{v}</span></div>:null;
+              return (
+                <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,marginTop:12,marginBottom:4,overflow:"hidden"}}>
+                  <div style={{background:"#1e293b",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontWeight:800,color:"#f59e0b",fontSize:13}}>{pv.numeroParte||("PT-"+pv.id)} — Vista previa del parte</span>
+                    <span style={{color:"#94a3b8",fontSize:11}}>{pv.fecha?new Date(pv.fecha).toLocaleDateString("es-ES"):""}</span>
+                  </div>
+                  <div style={{padding:"10px 14px"}}>
+                    {fila("Cliente",cli?.nombreEmpresa||cli?.nombreFiscal||"—")}
+                    {fila("Técnico/s",tecnicos)}
+                    {fila("Máquina",maquina)}
+                    {pv.matricula&&fila("Matrícula",pv.matricula)}
+                    {avis&&fila("Aviso","#"+avis.id+" — "+avis.titulo)}
+                    {fila("Descripción",pv.descripcion)}
+                    {fila("Horas trabajadas",(pv.horasT||0)+" h",true)}
+                    {fila("Desplazamiento",pv.km>0?("Sí — "+pv.km+" km"):pv.desplazamiento==="si"?"Sí":"No")}
+                    {pv.notasConformidad&&fila("Notas conformidad",pv.notasConformidad)}
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:10}}>
               <Field label={`Km recorridos (${fmtEur(tarifa.precioPorKm)}/km)`}><input type="number" value={pForm.km} onChange={e=>setPForm(p=>({...p,km:e.target.value}))} style={inputStyle} min={0}/></Field>
               <Field label={`Horas desplazamiento (${fmtEur(tarifa.precioHoraDesplazamiento)}/h)`}><input type="number" value={pForm.horasDesplazamiento} onChange={e=>setPForm(p=>({...p,horasDesplazamiento:e.target.value}))} style={inputStyle} min={0} step={0.5}/></Field>
