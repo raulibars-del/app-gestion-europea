@@ -4696,7 +4696,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             {busqTarea.trim().length >= 2 && <span style={{color:"#8b5cf6"}}>· {mostrar.length} resultado{mostrar.length !== 1 ? "s" : ""}</span>}
           </div>
           {/* Lista scrollable */}
-          <div style={{overflowY:"auto",maxHeight:esMobil?"none":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
+          <div style={{overflowY:"auto",maxHeight:esMobil?"42vh":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
             {sorted.length === 0 && (
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
                 <div style={{color:"#8b5cf6",fontSize:24,marginBottom:6}}>✓</div>
@@ -4786,7 +4786,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             {busqAsig.trim().length >= 2 && <span style={{color:"#3b82f6"}}>· {asigMostrar.length} resultado{asigMostrar.length !== 1 ? "s" : ""}</span>}
           </div>
           {/* Lista scrollable */}
-          <div style={{overflowY:"auto",maxHeight:esMobil?"none":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
+          <div style={{overflowY:"auto",maxHeight:esMobil?"42vh":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
             {asigMostrarSorted.length === 0 && (
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
                 <div style={{color:"#3b82f6",fontSize:24,marginBottom:6}}>📋</div>
@@ -6858,6 +6858,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [pedidoForm, setPedidoForm] = useState({});
   const [pedidoLineas, setPedidoLineas] = useState([]);
   const [showPedidoModal, setShowPedidoModal] = useState(false);
+  const [pedidoCrearStock, setPedidoCrearStock] = useState(false);
+  const [pedidoDispDesde, setPedidoDispDesde] = useState("");
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -7064,9 +7066,32 @@ const Contabilidad = ({ data, setData, userActual }) => {
     } else {
       const numero = nextNumContabilidad(lista,"PED");
       const pedido = {...pedidoForm,id:Date.now(),numero,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador"};
-      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]}}));
+      const maquinasNuevas = pedidoCrearStock
+        ? pedidoLineas.filter(l=>l.descripcion?.trim()).flatMap((l,i) => {
+            const qty = Math.min(Math.max(1, Math.round(l.cantidad||1)), 20);
+            return Array.from({length:qty}, (_,j) => ({
+              id: Date.now()+i*100+j+1,
+              nombre: l.descripcion.trim(),
+              marca: pedidoForm.proveedor||"",
+              modelo:"", serie:"", anyo:"", codigo:null,
+              precioCompra: parseFloat((parseFloat(l.precioNeto||0)||parseFloat(l.precioUnitario||0)||0).toFixed(2)),
+              precioVentaObj:0, fotos:[], pdfs:[], codigos:[],
+              estadoStock:"En pedido",
+              disponibleDesde: pedidoDispDesde||"",
+              pedidoRef: numero,
+              notas:[`Pedido: ${numero}`, pedidoForm.fecha&&`Fecha pedido: ${pedidoForm.fecha}`, qty>1&&`Unidad ${j+1}/${qty}`].filter(Boolean).join(" · "),
+            }));
+          })
+        : [];
+      setData(d=>({
+        ...d,
+        contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]},
+        ...(maquinasNuevas.length ? {clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...maquinasNuevas]}:c)} : {}),
+      }));
     }
     setShowPedidoModal(false);
+    setPedidoCrearStock(false);
+    setPedidoDispDesde("");
   };
 
   const renderPedidos = () => {
@@ -7076,7 +7101,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>{lista.length} pedido{lista.length!==1?"s":""}</div>
-          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
+          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setPedidoCrearStock(false);setPedidoDispDesde("");setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
         </div>
         {!lista.length&&<div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay pedidos registrados.</div>}
         <div style={{display:"grid",gap:8}}>
@@ -7160,6 +7185,24 @@ const Contabilidad = ({ data, setData, userActual }) => {
               </div>
             );})()}
             <Field label="Notas"><textarea value={pedidoForm.notas||""} onChange={e=>setPedidoForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Referencia, condiciones de entrega..."/></Field>
+            {!pedidoForm.id && (
+              <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4}}>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:"#f1f3f9",fontWeight:700,fontSize:13}}>
+                  <input type="checkbox" checked={pedidoCrearStock} onChange={e=>setPedidoCrearStock(e.target.checked)} style={{accentColor:"#f59e0b",width:15,height:15}}/>
+                  📦 Añadir a Stock Maquinaria Nueva
+                </label>
+                {pedidoCrearStock && (
+                  <div style={{marginTop:8,paddingLeft:4}}>
+                    <Field label="Disponible desde (estimado)">
+                      <input type="date" value={pedidoDispDesde} onChange={e=>setPedidoDispDesde(e.target.value)} style={inputStyle}/>
+                    </Field>
+                    <div style={{background:"#f59e0b11",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 11px",fontSize:11,color:"#f59e0b",marginTop:4}}>
+                      Se crearán {pedidoLineas.filter(l=>l.descripcion?.trim()).reduce((s,l)=>s+Math.min(Math.max(1,Math.round(l.cantidad||1)),20),0)} máquina(s) con estado "En pedido" en Stock Maquinaria Nueva.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:12}}>
               <button onClick={()=>setShowPedidoModal(false)} style={btnOutline}>Cancelar</button>
               <button onClick={guardarPedido} style={{...btnPrimary,background:"#f59e0b",color:"#0d1117"}}>Guardar pedido</button>
@@ -8551,14 +8594,18 @@ return(<div>
 <div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:14,overflow:"hidden",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
 <div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
 {(m.fotos||[]).length>0?<img src={(m.fotos.find(x=>x.principal)||m.fotos[0]).data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
-<div style={{position:"absolute",top:8,left:8,display:"flex",gap:4}}>
-<span style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>🆕 NUEVA</span>
+<div style={{position:"absolute",top:8,left:8,display:"flex",gap:4,flexWrap:"wrap"}}>
+{m.estadoStock==="En pedido"
+  ? <span style={{background:"#f59e0b",color:"#0d1117",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>⏳ EN PEDIDO</span>
+  : <span style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>🆕 NUEVA</span>
+}
 {m.codigo&&<span style={{background:"rgba(0,0,0,.7)",color:"#f97316",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{m.codigo}</span>}
 </div>
 </div>
 <div style={{padding:"13px 15px"}}>
 <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,marginBottom:1}}>{m.marca} <span style={{fontWeight:400}}>{m.modelo}</span></div>
-<div style={{color:"#e4e9f6",fontSize:11,marginBottom:10}}>Serie: {m.serie||"—"} · {m.anyo} · {(m.codigos||[]).length} códigos</div>
+<div style={{color:"#e4e9f6",fontSize:11,marginBottom:m.estadoStock==="En pedido"?4:10}}>Serie: {m.serie||"—"} · {m.anyo} · {(m.codigos||[]).length} códigos</div>
+{m.estadoStock==="En pedido"&&<div style={{background:"#f59e0b15",border:"1px solid #f59e0b44",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#f59e0b",fontWeight:700,marginBottom:10,display:"flex",gap:6,alignItems:"center"}}>⏳ En pedido{m.pedidoRef&&<span style={{fontWeight:400,color:"#e4e9f6"}}>· {m.pedidoRef}</span>}{m.disponibleDesde&&<span style={{fontWeight:400,color:"#e4e9f6"}}>· Disp. {fmtFecha(m.disponibleDesde)}</span>}</div>}
 <div style={{display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
 <div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#f97316",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
 {puedeConf && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
