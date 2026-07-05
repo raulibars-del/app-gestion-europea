@@ -447,7 +447,7 @@ const ROL_MODULOS = {
   manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad"],
   admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
-  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje"],
+  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje","tareas"],
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
 const ROLES = ["manager","admin","tecnico","comercial"];
