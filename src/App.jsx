@@ -6231,6 +6231,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               <button onClick={()=>{ if(esMobil){ window.open(pdfLectura.url,"_blank"); return; } const ifr=document.getElementById("pdfLecturaFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="print" size={14}/>Imprimir
               </button>
+              <button onClick={()=>{const a=document.createElement("a");a.href=pdfLectura.url;a.download=(pdfLectura.nombre||"parte").replace(/[^\w\sÀ-ɏ.-]/g,"")+".pdf";a.click();}} style={{background:"#7c3aed",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                <Icon name="file" size={14}/>Descargar
+              </button>
               <button onClick={compartirPdfLectura} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
                 <Icon name="share" size={14}/>Compartir
               </button>
@@ -6415,104 +6418,150 @@ function nextNumContabilidad(lista, prefijo) {
 // Genera PDF de factura/proforma y devuelve data URI
 async function generarPDFFacturaDoc(factura, empresa) {
   const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
-  const W = 210; const mg = 14;
+  const W = 210; const mg = 18;
   const esProforma = factura.esProforma;
   const esPresupuesto = factura.esPresupuesto;
   const titulo = esPresupuesto ? "PRESUPUESTO" : esProforma ? "FACTURA PROFORMA" : "FACTURA";
-  const colorAc = [22, 163, 74];   // verde
-  const colorOsc = [15, 23, 42];
-  // ── Cabecera empresa ──
-  doc.setFillColor(...colorOsc); doc.rect(0, 0, W, 38, "F");
-  doc.setFillColor(...colorAc); doc.rect(0, 36, W, 2, "F");
-  doc.setTextColor(255, 255, 255); doc.setFont("helvetica","bold"); doc.setFontSize(16);
-  doc.text(empresa.razonSocial || "Europea de Maquinaria PMM SL", mg, 13);
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(180, 200, 220);
-  const linEmpresa = [
-    "NIF: " + (empresa.nif || "B98527583"),
-    (empresa.dirFiscal || "") + (empresa.dirFiscal ? ", " : "") + (empresa.cpFiscal || "") + " " + (empresa.localidad || "") + (empresa.provincia ? " (" + empresa.provincia + ")" : ""),
-    empresa.telefono ? "Tel: " + empresa.telefono : null,
-    empresa.web || "",
-  ].filter(Boolean);
-  linEmpresa.forEach((l, i) => doc.text(l, mg, 20 + i * 4.5));
-  // ── Título factura ──
-  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(...colorAc);
-  doc.text(titulo, W - mg, 13, { align:"right" });
-  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(180, 200, 220);
-  doc.text("Nº: " + factura.numero, W - mg, 21, { align:"right" });
-  doc.text("Fecha: " + (factura.fecha ? new Date(factura.fecha).toLocaleDateString("es-ES") : ""), W - mg, 26, { align:"right" });
-  if (factura.fechaVencimiento) doc.text("Vencimiento: " + new Date(factura.fechaVencimiento).toLocaleDateString("es-ES"), W - mg, 31, { align:"right" });
-  if (esProforma) { doc.setTextColor(255, 180, 0); doc.setFontSize(7); doc.text("DOCUMENTO NO VÁLIDO A EFECTOS FISCALES", W - mg, 36, { align:"right" }); }
-  if (esPresupuesto) { doc.setTextColor(139, 92, 246); doc.setFontSize(7); doc.text("PRESUPUESTO — NO VÁLIDO COMO FACTURA", W - mg, 36, { align:"right" }); }
-  // ── Bloque cliente ──
-  let y = 46;
-  doc.setFillColor(30, 40, 60); doc.roundedRect(mg, y, (W / 2) - mg - 4, 32, 2, 2, "F");
-  doc.setTextColor(120, 150, 190); doc.setFontSize(7); doc.setFont("helvetica","bold");
-  doc.text("DATOS DEL CLIENTE", mg + 4, y + 6);
-  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(240, 244, 252);
-  doc.text(factura.clienteRazonSocial || "", mg + 4, y + 12);
-  doc.setFontSize(8); doc.setTextColor(180, 200, 220);
-  const cliLines = [
-    factura.clienteCIF ? "NIF/CIF: " + factura.clienteCIF : "",
-    factura.clienteDirFiscal || "",
-    [factura.clienteCPFiscal, factura.clienteLocalidad, factura.clienteProvinciaFiscal].filter(Boolean).join(" "),
-    factura.clienteEmail || "",
-  ].filter(Boolean);
-  cliLines.forEach((l, i) => doc.text(l, mg + 4, y + 18 + i * 4));
-  y += 38;
-  // ── Tabla de líneas ──
-  const colDesc = mg; const colCant = mg + 85; const colPU = mg + 104; const colDto = mg + 127; const colSub = mg + 147;
-  const tableW = W - mg * 2;
-  doc.setFillColor(...colorOsc); doc.rect(colDesc, y, tableW, 7, "F");
-  doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...colorAc);
-  doc.text("Descripción", colDesc + 3, y + 5);
-  doc.text("Cant.", colCant, y + 5); doc.text("P.Unit.", colPU, y + 5); doc.text("Dto%", colDto, y + 5); doc.text("Subtotal", colSub, y + 5);
-  y += 7;
-  doc.setFont("helvetica","normal"); doc.setFontSize(8);
-  let alt = false;
-  (factura.lineas || []).forEach(ln => {
-    const lh = 7;
-    if (alt) { doc.setFillColor(20, 30, 48); doc.rect(colDesc, y, tableW, lh, "F"); }
-    doc.setTextColor(230, 235, 246);
-    const descLines = doc.splitTextToSize(ln.descripcion || "", 80);
-    descLines.forEach((dl, di) => doc.text(dl, colDesc + 3, y + 5 + di * 4));
-    doc.text(String(ln.cantidad ?? 1), colCant + 8, y + 5, { align:"right" });
-    doc.text(fmtEur(ln.precioUnitario), colPU + 18, y + 5, { align:"right" });
-    if (ln.descuento > 0) doc.text((ln.descuento||0)+"%", colDto + 10, y + 5, { align:"right" });
-    doc.text(fmtEur(ln.subtotal), colSub + 28, y + 5, { align:"right" });
-    y += Math.max(lh, descLines.length * 4 + 3);
-    alt = !alt;
-  });
-  // ── Totales ──
-  y += 4;
-  doc.setDrawColor(...colorAc); doc.setLineWidth(0.4); doc.line(colSub - 2, y, W - mg, y);
-  y += 5;
-  const totX = colPU; const numX = W - mg;
-  const fila = (lbl, val, bold) => {
-    if (bold) { doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...colorAc); }
-    else { doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(200, 210, 230); }
-    doc.text(lbl, totX, y); doc.text(val, numX, y, { align:"right" }); y += 6;
+  const emp = empresa || {};
+
+  // ── Header (idéntico al de partes) ──
+  doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+  doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+  try { doc.addImage(LOGO_CIRCULO,"JPEG",mg,3,26,26); } catch(e) {}
+  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+  doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+  doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+  const dirEmp = [emp.dirFiscal, emp.cpFiscal?(emp.cpFiscal+" "+(emp.localidad||"")):(emp.localidad||""), emp.provincia?("("+emp.provincia+")"):""].filter(Boolean).join("  ·  ");
+  doc.text((dirEmp||"Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)")+"  ·  CIF: "+(emp.nif||"B98527583"),mg+30,18);
+  doc.text((emp.web||"europeademaquinaria.com")+"  ·  "+(emp.email||"info@europeademaquinaria.com")+(emp.telefono?"  ·  Tel: "+emp.telefono:"  ·  Tel: 961550707"),mg+30,24);
+  // Tipo documento — derecha en naranja
+  doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
+  doc.text(titulo,W-mg,13,{align:"right"});
+  doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+  doc.text("Nº: "+factura.numero,W-mg,21,{align:"right"});
+  doc.text("Fecha: "+(factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""),W-mg,27,{align:"right"});
+  // Fondo blanco cuerpo
+  doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+
+  let y = 42;
+
+  // ── Helper box (mismo estilo que partes) ──
+  const box = (tit, filas, yS) => {
+    doc.setFillColor(230,235,245); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"F");
+    doc.setDrawColor(180,190,210); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"S");
+    doc.setDrawColor(255,255,255);
+    doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+    doc.text(tit.toUpperCase(),mg+4,yS+5);
+    let fy = yS+13;
+    filas.forEach(([l,v])=>{
+      if(!v&&v!==0) return;
+      doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+      doc.text(l+":",mg+4,fy);
+      doc.setTextColor(25,35,60); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      const lines=doc.splitTextToSize(String(v),W-mg*2-52);
+      doc.text(lines,mg+52,fy);
+      fy+=Math.max(lines.length*5.5,6.5);
+    });
+    return fy+4;
   };
-  fila("Base imponible:", fmtEur(factura.baseImponible));
-  fila("IVA (" + (factura.tipoIVA || 21) + "%):", fmtEur(factura.cuotaIVA));
-  y += 1; doc.setLineWidth(0.6); doc.line(totX, y, numX, y); y += 4;
-  fila("TOTAL:", fmtEur(factura.total), true);
+
+  // ── Datos del cliente ──
+  const dirCli=[factura.clienteDirFiscal,[factura.clienteCPFiscal,factura.clienteLocalidad,factura.clienteProvinciaFiscal].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  y=box("Datos del cliente",[
+    ["Empresa",factura.clienteRazonSocial||"—"],
+    ["CIF/NIF",factura.clienteCIF||"—"],
+    ["Dir. fiscal",dirCli||"—"],
+    ...(factura.clienteEmail?[["Email",factura.clienteEmail]]:[]),
+  ],y);
+
+  // ── Datos del documento ──
+  y=box("Datos del documento",[
+    ["Número",factura.numero],
+    ["Fecha",factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""],
+    ...(!esProforma&&!esPresupuesto&&factura.fechaVencimiento?[["Vencimiento",new Date(factura.fechaVencimiento).toLocaleDateString("es-ES")]]:[] ),
+    ...(esPresupuesto&&factura.validezHasta?[["Válido hasta",new Date(factura.validezHasta).toLocaleDateString("es-ES")]]:[] ),
+  ],y);
+
+  // ── Tabla líneas ──
+  const lineas=factura.lineas||[];
+  if(lineas.length){
+    const cD=mg,cC=mg+85,cP=mg+105,cDt=mg+125,cS=mg+147,tW=W-mg*2;
+    doc.setFillColor(40,60,110); doc.rect(cD,y,tW,6,"F");
+    doc.setDrawColor(255,255,255);
+    doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
+    doc.text("LÍNEAS / CONCEPTOS",cD+3,y+4.5);
+    doc.text("CANT.",cC+8,y+4.5,{align:"right"});
+    doc.text("P.UNIT.",cP+18,y+4.5,{align:"right"});
+    doc.text("DTO%",cDt+10,y+4.5,{align:"right"});
+    doc.text("SUBTOTAL",cS+28,y+4.5,{align:"right"});
+    y+=7;
+    lineas.forEach((ln,j)=>{
+      const bg=j%2===0?[248,250,255]:[255,255,255];
+      const descLines=doc.splitTextToSize(ln.descripcion||"",80);
+      const lh=Math.max(8,descLines.length*4.5+4);
+      doc.setFillColor(...bg); doc.rect(cD,y-1,tW,lh+1,"F");
+      doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","normal");
+      descLines.forEach((dl,di)=>doc.text(dl,cD+3,y+5+di*4.5));
+      doc.setFont("helvetica","bold");
+      doc.setTextColor(25,35,70); doc.text(String(ln.cantidad??1),cC+8,y+5,{align:"right"});
+      doc.setTextColor(25,35,70); doc.text(fmtEur(ln.precioUnitario),cP+18,y+5,{align:"right"});
+      if(ln.descuento>0){doc.setTextColor(245,158,11);doc.text((ln.descuento||0)+"%",cDt+10,y+5,{align:"right"});}
+      doc.setTextColor(15,100,55); doc.text(fmtEur(ln.subtotal),cS+28,y+5,{align:"right"});
+      y+=lh;
+    });
+    y+=4;
+    doc.setDrawColor(180,190,210); doc.setLineWidth(0.3); doc.line(cDt-2,y,W-mg,y); y+=4;
+  }
+
+  // ── Totales (alineados a la derecha) ──
+  const totX=mg+100,numX=W-mg;
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(60,80,120);
+  doc.text("Base imponible:",totX,y); doc.text(fmtEur(factura.baseImponible),numX,y,{align:"right"}); y+=6;
+  doc.text("IVA ("+(factura.tipoIVA||21)+"%):",totX,y); doc.text(fmtEur(factura.cuotaIVA),numX,y,{align:"right"}); y+=5;
+  doc.setDrawColor(40,60,110); doc.setLineWidth(0.5); doc.line(totX,y,numX,y); y+=5;
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(40,60,110);
+  doc.text("TOTAL:",totX,y);
+  doc.setTextColor(15,100,55); doc.text(fmtEur(factura.total),numX,y,{align:"right"});
+  y+=12;
+
   // ── Notas ──
-  if (factura.notas?.trim()) {
-    y += 6;
-    doc.setFont("helvetica","italic"); doc.setFontSize(8); doc.setTextColor(150, 170, 200);
-    doc.text("Notas: " + factura.notas, mg, y, { maxWidth: tableW });
+  if(factura.notas?.trim()){
+    doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+    doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
+    doc.setDrawColor(255,255,255);
+    doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+    doc.text("NOTAS",mg+4,y+5); y+=12;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(60,80,120);
+    const nL=doc.splitTextToSize(factura.notas,W-mg*2-8);
+    doc.text(nL,mg+4,y); y+=nL.length*5+6;
   }
-  if (factura.estado === "Anulada") {
-    doc.setFont("helvetica","bold"); doc.setFontSize(36); doc.setTextColor(220, 38, 38, 0.4);
-    doc.text("ANULADA", W / 2, 148, { align:"center", angle:45 });
+
+  // ── Aviso no fiscal ──
+  if(esProforma||esPresupuesto){
+    const txt=esPresupuesto
+      ?"Este presupuesto no tiene validez fiscal. Para su validez como factura, debe ser aceptado y emitida la factura correspondiente."
+      :"Esta factura proforma no tiene validez fiscal. Tiene carácter informativo y será sustituida por la factura definitiva al confirmar el pedido.";
+    doc.setFont("helvetica","italic"); doc.setFontSize(7.5);
+    doc.setTextColor(esPresupuesto?124:120,esPresupuesto?58:90,esPresupuesto?237:160);
+    const tL=doc.splitTextToSize(txt,W-mg*2);
+    doc.text(tL,mg,y);
   }
-  // ── Footer ──
-  doc.setFillColor(...colorOsc); doc.rect(0, 282, W, 15, "F");
-  doc.setFillColor(...colorAc); doc.rect(0, 282, W, 0.8, "F");
-  doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(150, 170, 200);
-  doc.text((empresa.razonSocial || "Europea de Maquinaria PMM SL") + " · NIF " + (empresa.nif || "B98527583") + " · " + (empresa.web || "europeademaquinaria.com"), W / 2, 291, { align:"center" });
+
+  // ── Sello ANULADA ──
+  if(factura.estado==="Anulada"){
+    doc.setFont("helvetica","bold"); doc.setFontSize(40); doc.setTextColor(220,38,38);
+    doc.text("ANULADA",W/2,148,{align:"center",angle:40});
+  }
+
+  // ── Footer (idéntico al de partes) ──
+  doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+  doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+  doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+  doc.text((emp.razonSocial||"Europea de Maquinaria PMM SL")+"  ·  CIF "+(emp.nif||"B98527583")+"  ·  "+(emp.web||"europeademaquinaria.com"),W/2,291,{align:"center"});
+
   return doc.output("datauristring");
 }
+
 function fmtEur(n) { return (parseFloat(n)||0).toFixed(2).replace(".",",")+" €"; }
 // Parsea números en formato español: "94.000" → 94000, "94,50" → 94.5, "1.234,56" → 1234.56
 function parseNum(v) {
