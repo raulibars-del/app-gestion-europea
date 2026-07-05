@@ -2856,6 +2856,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   // Regla automática: aviso con +14 días sin resolver y prioridad Alta → se marca URGENTE
   const urgentes14 = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && a.prioridad === "Alta" && diasDesde(a.fechaAviso) >= 14);
   const avisosActivos = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado").length;
+  const esMobil = window.innerWidth < 700;
+  const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
+  const asigFiltroBase = filtroAsig === "pendientes"
+    ? asignadasPorMi.filter(t => t.estado !== "Completada")
+    : filtroAsig === "completadas"
+      ? asigCompletadas
+      : asignadasPorMi;
+  const asigMostrar = busqAsig.trim().length < 2
+    ? asigFiltroBase
+    : (() => {
+        const q = busqAsig.trim().toLowerCase();
+        return asigFiltroBase.filter(t =>
+          [t.titulo, t.notas, t.vence, t.estado, t.prioridad, uN(t.asignadoId)].some(c => (c||"").toString().toLowerCase().includes(q))
+        );
+      })();
+  const asigMostrarSorted = ordenar(asigMostrar);
   return (
     <div>
       {/* Cabecera */}
@@ -4178,6 +4194,8 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
+  const [busqAsig, setBusqAsig] = useState("");
+  const [filtroAsig, setFiltroAsig] = useState(null); // null | "pendientes" | "completadas"
   // "Tarea reenviada": al crear la tarea, además del aviso interno normal (a quien
   // se le asigna), se puede mandar una copia a un proveedor/cliente externo sin
   // cuenta en la app. El nombre y el email se rellenan directamente en la misma
@@ -4602,6 +4620,22 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (d === 1) return "Vence mañana";
     return `Vence en ${d} días`;
   };
+  const esMobil = window.innerWidth < 700;
+  const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
+  const asigFiltroBase = filtroAsig === "pendientes"
+    ? asignadasPorMi.filter(t => t.estado !== "Completada")
+    : filtroAsig === "completadas"
+      ? asigCompletadas
+      : asignadasPorMi;
+  const asigMostrar = busqAsig.trim().length < 2
+    ? asigFiltroBase
+    : (() => {
+        const q = busqAsig.trim().toLowerCase();
+        return asigFiltroBase.filter(t =>
+          [t.titulo, t.notas, t.vence, t.estado, t.prioridad, uN(t.asignadoId)].some(c => (c||"").toString().toLowerCase().includes(q))
+        );
+      })();
+  const asigMostrarSorted = ordenar(asigMostrar);
   return (
     <div>
       {/* Cabecera */}
@@ -4618,8 +4652,8 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         </button>
       </div>
 
-      {/* Layout dos columnas */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,alignItems:"start"}}>
+      {/* Layout dos columnas (1 col en móvil, 2 en desktop) */}
+      <div style={{display:"grid",gridTemplateColumns:esMobil?"1fr":"1fr 1fr",gap:14,alignItems:"start"}}>
 
         {/* ── Columna izquierda: Mis tareas ── */}
         <div style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
@@ -4652,7 +4686,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           <div style={{position:"relative"}}>
             <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#8b5cf6",pointerEvents:"none",display:"flex"}}><Icon name="search" size={13}/></span>
             <input value={busqTarea} onChange={e=>setBusqTarea(e.target.value)}
-              placeholder="Buscar tareas..."
+              placeholder="Buscar mis tareas..."
               style={{...inputStyle,paddingLeft:30,fontSize:12}}
             />
             {busqTarea && <button onClick={()=>setBusqTarea("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
@@ -4664,7 +4698,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
             {busqTarea.trim().length >= 2 && <span style={{color:"#8b5cf6"}}>· {mostrar.length} resultado{mostrar.length !== 1 ? "s" : ""}</span>}
           </div>
           {/* Lista scrollable */}
-          <div style={{overflowY:"auto",maxHeight:"calc(100vh - 290px)",display:"grid",gap:5,paddingRight:2}}>
+          <div style={{overflowY:"auto",maxHeight:esMobil?"none":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
             {sorted.length === 0 && (
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
                 <div style={{color:"#8b5cf6",fontSize:24,marginBottom:6}}>✓</div>
@@ -4712,23 +4746,57 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
 
         {/* ── Columna derecha: Tareas asignadas ── */}
         <div style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
-          <div style={{color:"#3b82f6",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:".6px",borderBottom:"2px solid #3b82f633",paddingBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span>Tareas asignadas</span>
-            <span style={{color:"#e4e9f6",fontSize:11,fontWeight:500,textTransform:"none",letterSpacing:0}}>
-              <span style={{color:"#3b82f6",fontWeight:700}}>{asigPendientes.length}</span> pendiente{asigPendientes.length !== 1 ? "s" : ""}
-              {asignadasPorMi.filter(t=>t.estado==="Completada").length > 0 && <span style={{color:"#10b981"}}> · {asignadasPorMi.filter(t=>t.estado==="Completada").length} completada{asignadasPorMi.filter(t=>t.estado==="Completada").length !== 1 ? "s" : ""}</span>}
-            </span>
+          {/* Título columna */}
+          <div style={{color:"#3b82f6",fontWeight:800,fontSize:13,textTransform:"uppercase",letterSpacing:".6px",borderBottom:"2px solid #3b82f633",paddingBottom:6}}>
+            Tareas asignadas
+          </div>
+          {/* Filtros */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+            {[
+              ["Todas",       asignadasPorMi.length,                                "#3b82f6", null],
+              ["Pendientes",  asigPendientes.length,                                 "#f59e0b", "pendientes"],
+              ["Completadas", asigCompletadas.length,                                "#10b981", "completadas"],
+            ].map(([l, v, c, key]) => {
+              const activo = filtroAsig === key;
+              return (
+                <div key={l} onClick={() => setFiltroAsig(filtroAsig === key ? null : key)}
+                  style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:9,padding:"8px 10px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
+                  <div style={{width:7,height:7,borderRadius:4,background:c,flexShrink:0}} />
+                  <div style={{flex:1}}>
+                    <div style={{color:c,fontWeight:800,fontSize:15,lineHeight:1}}>{v}</div>
+                    <div style={{color:"#e4e9f6",fontSize:10,marginTop:1}}>{l}</div>
+                  </div>
+                  {activo && <div style={{color:c,fontSize:10,fontWeight:700}}>✕</div>}
+                </div>
+              );
+            })}
+          </div>
+          {/* Buscador */}
+          <div style={{position:"relative"}}>
+            <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#3b82f6",pointerEvents:"none",display:"flex"}}><Icon name="search" size={13}/></span>
+            <input value={busqAsig} onChange={e=>setBusqAsig(e.target.value)}
+              placeholder="Buscar tareas asignadas..."
+              style={{...inputStyle,paddingLeft:30,fontSize:12}}
+            />
+            {busqAsig && <button onClick={()=>setBusqAsig("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:16,lineHeight:1}}>×</button>}
+          </div>
+          {/* Contador */}
+          <div style={{color:"#e4e9f6",fontSize:11,display:"flex",gap:8}}>
+            <span style={{color:"#3b82f6",fontWeight:600}}>{asigPendientes.length}</span>
+            <span>pendiente{asigPendientes.length !== 1 ? "s" : ""}</span>
+            {asigCompletadas.length > 0 && <span style={{color:"#10b981"}}>· {asigCompletadas.length} completada{asigCompletadas.length !== 1 ? "s" : ""}</span>}
+            {busqAsig.trim().length >= 2 && <span style={{color:"#3b82f6"}}>· {asigMostrar.length} resultado{asigMostrar.length !== 1 ? "s" : ""}</span>}
           </div>
           {/* Lista scrollable */}
-          <div style={{overflowY:"auto",maxHeight:"calc(100vh - 230px)",display:"grid",gap:5,paddingRight:2}}>
-            {asigSorted.length === 0 && (
+          <div style={{overflowY:"auto",maxHeight:esMobil?"none":"calc(100vh - 310px)",display:"grid",gap:5,paddingRight:2}}>
+            {asigMostrarSorted.length === 0 && (
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"28px",textAlign:"center"}}>
                 <div style={{color:"#3b82f6",fontSize:24,marginBottom:6}}>📋</div>
-                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>Sin tareas asignadas</div>
-                <div style={{color:"#e4e9f6",fontSize:11,marginTop:2}}>Las tareas que asignes a otros aparecerán aquí</div>
+                <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{asignadasPorMi.length === 0 ? "Sin tareas asignadas" : "Sin resultados"}</div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:2}}>{asignadasPorMi.length === 0 ? "Las tareas que asignes a otros aparecerán aquí" : "Prueba a cambiar el filtro o la búsqueda"}</div>
               </div>
             )}
-            {asigSorted.map(t => {
+            {asigMostrarSorted.map(t => {
               const vc = venceColor(t.vence);
               return (
                 <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : PCOLOR[t.prioridad] + "33"),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:9,opacity:t.estado === "Completada" ? 0.55 : 1,transition:"opacity .2s"}}>
@@ -4759,6 +4827,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       </div>
       {/* Modal vista previa de tarea (clic en la lista) */}
       {vistaPrevia && (() => {
+
         const t = vistaPrevia;
         const adjuntos = t.adjuntos || [];
         const imagenes = adjuntos.filter(a => a.mime?.startsWith("image/")).map(a => ({ data: a.url }));
