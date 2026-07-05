@@ -6433,7 +6433,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
   doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
   const dirEmp = [emp.dirFiscal, emp.cpFiscal?(emp.cpFiscal+" "+(emp.localidad||"")):(emp.localidad||""), emp.provincia?("("+emp.provincia+")"):""].filter(Boolean).join("  ·  ");
   doc.text((dirEmp||"Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)")+"  ·  CIF: "+(emp.nif||"B98527583"),mg+30,18);
-  doc.text((emp.web||"europeademaquinaria.com")+"  ·  "+(emp.email||"info@europeademaquinaria.com")+(emp.telefono?"  ·  Tel: "+emp.telefono:"  ·  Tel: 961550707"),mg+30,24);
+  doc.text((emp.web||"europeademaquinaria.com")+"  ·  admin@europeademaquinaria.com"+(emp.telefono?"  ·  Tel: "+emp.telefono:"  ·  Tel: 961550707"),mg+30,24);
   // Tipo documento — derecha en naranja
   doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
   doc.text(titulo,W-mg,13,{align:"right"});
@@ -6562,7 +6562,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
   return doc.output("datauristring");
 }
 
-function fmtEur(n) { return (parseFloat(n)||0).toFixed(2).replace(".",",")+" €"; }
+function fmtEur(n) { const v=typeof n==="number"?n:parseNum(n); return v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
 // Parsea números en formato español: "94.000" → 94000, "94,50" → 94.5, "1.234,56" → 1234.56
 function parseNum(v) {
   if (typeof v === "number") return v;
