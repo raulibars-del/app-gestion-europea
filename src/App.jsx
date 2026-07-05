@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import jsPDF from "jspdf";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -253,8 +253,22 @@ const backfillConsumiblesClave = (d) => {
   });
   return changed ? {...d, inventario: nuevoInv} : d;
 };
+// Migra claves faltantes en data.contabilidad para compatibilidad con versiones antiguas.
+// Cuando el servidor devuelve datos guardados antes de añadir ciertas claves (presupuestos,
+// gastos, pedidos, costesVentas), esas claves llegan como undefined. Esta función las rellena
+// para que el componente Contabilidad nunca reciba un objeto incompleto.
+const migrateContabilidad = (d) => {
+  if (!d.contabilidad) return d;
+  const c = d.contabilidad;
+  const defaults = { facturas:[], proformas:[], presupuestos:[], gastos:[], pedidos:[], tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55}, costesVentas:{} };
+  let changed = false;
+  const next = {};
+  for (const k of Object.keys(defaults)) { if (c[k] === undefined) { next[k] = defaults[k]; changed = true; } }
+  if (!changed) return d;
+  return { ...d, contabilidad: { ...defaults, ...c } };
+};
 // Función que aplica todas las migraciones/backfills al cargar datos.
-const prepararDatos = d => backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d)));
+const prepararDatos = d => migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d))));
 // Fusión inteligente de los datos al detectar que otro dispositivo guardó mientras
 // nosotros teníamos una edición local pendiente. Como "data" es un único bloque
 // compartido por toda la app, antes simplemente se descartaba TODA nuestra edición
@@ -11616,7 +11630,29 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
   );
 };
 
-export default function App() {
+// ── ErrorBoundary: muestra el error en vez de pantalla negra ─────────────────
+class AppErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { console.error("App crash:", e, info); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0d1117",padding:20}}>
+        <div style={{background:"#151b2a",border:"1px solid #dc2626",borderRadius:16,padding:"28px 32px",maxWidth:480,width:"100%"}}>
+          <div style={{color:"#dc2626",fontWeight:900,fontSize:18,marginBottom:10}}>⚠ Error al cargar la aplicación</div>
+          <div style={{color:"#e4e9f6",fontSize:13,marginBottom:16}}>{String(this.state.error)}</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            <button onClick={()=>window.location.replace("/?reset")} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontSize:13}}>Limpiar caché y reiniciar</button>
+            <button onClick={()=>window.location.reload()} style={{background:"#2a3550",color:"#e4e9f6",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontSize:13}}>Recargar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+function AppInner() {
   // ?reset en la URL limpia el caché local y recarga desde el servidor
   if(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("reset") !== null){
     try{ localStorage.removeItem("em_data"); localStorage.removeItem("em_last_synced"); localStorage.removeItem("em_last_synced_v2"); }catch(e){}
@@ -11628,13 +11664,16 @@ export default function App() {
       if(saved){
         const parsed = JSON.parse(saved);
         // Merge: use saved data but fill in any new keys from initialData
-        return {
+        const merged = {
           ...initialData,
           ...parsed,
           // Always merge new initialData keys that don't exist in saved
           smtp: parsed.smtp || initialData.smtp,
           fichajes: parsed.fichajes || initialData.fichajes,
+          // Siempre fusionar contabilidad con todos sus sub-campos por defecto
+          contabilidad: { ...initialData.contabilidad, ...(parsed.contabilidad||{}) },
         };
+        return merged;
       }
     } catch(e){}
     return initialData;
@@ -12461,4 +12500,8 @@ export default function App() {
       );})()}
     </div>
   );
+}
+
+export default function App() {
+  return <AppErrorBoundary><AppInner/></AppErrorBoundary>;
 }
