@@ -6743,19 +6743,6 @@ async function generarPDFFacturaDoc(factura, empresa) {
   doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
   doc.text("Nº: "+factura.numero,W-mg,21,{align:"right"});
   doc.text("Fecha: "+(factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""),W-mg,27,{align:"right"});
-  // ── Verifactu QR (solo en facturas definitivas con hash) ──
-  if (!esProforma && !esPresupuesto && factura.verifactuHash) {
-    try {
-      const nif_ = emp.nif || "B98527583";
-      const fecha_ = factura.fecha ? new Date(factura.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "";
-      const qrContent = `1=${nif_}&2=${factura.numero}&3=${fecha_}&4=${(parseFloat(factura.total)||0).toFixed(2)}&5=${factura.verifactuHash.substring(0,10)}`;
-      const qrDataUrl = await QRCode.toDataURL(qrContent, { width:96, margin:1, color:{dark:"#0f172a",light:"#ffffff"} });
-      doc.addImage(qrDataUrl, "PNG", W-mg-24, 4, 22, 22);
-      doc.setFontSize(5); doc.setTextColor(150,160,180); doc.setFont("helvetica","normal");
-      doc.text("Verifactu", W-mg-13, 28, {align:"center"});
-    } catch(e) {}
-  }
-
   // Fondo blanco cuerpo
   doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
 
@@ -6882,10 +6869,27 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.text("ANULADA",W/2,148,{align:"center",angle:40});
   }
 
-  // ── Huella Verifactu en footer (solo facturas con hash) ──
+  // ── Verifactu QR + Huella — esquina inferior derecha, sobre el footer ──
   if (!esProforma && !esPresupuesto && factura.verifactuHash) {
-    doc.setTextColor(160,170,190); doc.setFontSize(5.5); doc.setFont("helvetica","normal");
-    doc.text("Verifactu · Huella: "+factura.verifactuHash, mg, 279);
+    try {
+      const nif_ = emp.nif || "B98527583";
+      const fecha_ = factura.fecha ? new Date(factura.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "";
+      const qrContent = `1=${nif_}&2=${factura.numero}&3=${fecha_}&4=${(parseFloat(factura.total)||0).toFixed(2)}&5=${factura.verifactuHash.substring(0,10)}`;
+      const qrDataUrl = await QRCode.toDataURL(qrContent, { width:120, margin:1, color:{dark:"#0f172a",light:"#ffffff"} });
+      // QR: 28×28mm en esquina inferior derecha del cuerpo blanco
+      doc.addImage(qrDataUrl, "PNG", W-mg-30, 246, 28, 28);
+      // Etiqueta sobre el QR
+      doc.setFontSize(6); doc.setTextColor(120,130,150); doc.setFont("helvetica","bold");
+      doc.text("VERIFACTU", W-mg-16, 244, {align:"center"});
+      // Huella (truncada en dos líneas) junto al QR
+      doc.setFontSize(5); doc.setFont("helvetica","normal"); doc.setTextColor(150,160,180);
+      doc.text("Huella SHA-256:", mg, 271);
+      doc.text(factura.verifactuHash.substring(0,44), mg, 275);
+      doc.text(factura.verifactuHash.substring(44), mg, 278.5);
+    } catch(e) {
+      doc.setTextColor(160,170,190); doc.setFontSize(5.5); doc.setFont("helvetica","normal");
+      doc.text("Verifactu · Huella: "+factura.verifactuHash, mg, 277);
+    }
   }
 
   // ── Footer (idéntico al de partes) ──
