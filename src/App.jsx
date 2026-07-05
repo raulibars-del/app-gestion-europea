@@ -6858,8 +6858,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [pedidoForm, setPedidoForm] = useState({});
   const [pedidoLineas, setPedidoLineas] = useState([]);
   const [showPedidoModal, setShowPedidoModal] = useState(false);
-  const [pedidoCrearStock, setPedidoCrearStock] = useState(false);
-  const [pedidoDispDesde, setPedidoDispDesde] = useState("");
+  const [pedidoEsMaquina, setPedidoEsMaquina] = useState(false);
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -7062,36 +7061,14 @@ const Contabilidad = ({ data, setData, userActual }) => {
     const cont = data.contabilidad||{};
     const lista = cont.pedidos||[];
     if (pedidoForm.id) {
-      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(p=>p.id===pedidoForm.id?{...pedidoForm,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total}:p)}}));
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(p=>p.id===pedidoForm.id?{...pedidoForm,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total}:p)}}));
     } else {
       const numero = nextNumContabilidad(lista,"PED");
-      const pedido = {...pedidoForm,id:Date.now(),numero,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador"};
-      const maquinasNuevas = pedidoCrearStock
-        ? pedidoLineas.filter(l=>l.descripcion?.trim()).flatMap((l,i) => {
-            const qty = Math.min(Math.max(1, Math.round(l.cantidad||1)), 20);
-            return Array.from({length:qty}, (_,j) => ({
-              id: Date.now()+i*100+j+1,
-              nombre: l.descripcion.trim(),
-              marca: pedidoForm.proveedor||"",
-              modelo:"", serie:"", anyo:"", codigo:null,
-              precioCompra: parseFloat((parseFloat(l.precioNeto||0)||parseFloat(l.precioUnitario||0)||0).toFixed(2)),
-              precioVentaObj:0, fotos:[], pdfs:[], codigos:[],
-              estadoStock:"En pedido",
-              disponibleDesde: pedidoDispDesde||"",
-              pedidoRef: numero,
-              notas:[`Pedido: ${numero}`, pedidoForm.fecha&&`Fecha pedido: ${pedidoForm.fecha}`, qty>1&&`Unidad ${j+1}/${qty}`].filter(Boolean).join(" · "),
-            }));
-          })
-        : [];
-      setData(d=>({
-        ...d,
-        contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]},
-        ...(maquinasNuevas.length ? {clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...maquinasNuevas]}:c)} : {}),
-      }));
+      const pedido = {...pedidoForm,id:Date.now(),numero,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador"};
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]}}));
     }
     setShowPedidoModal(false);
-    setPedidoCrearStock(false);
-    setPedidoDispDesde("");
+    setPedidoEsMaquina(false);
   };
 
   const renderPedidos = () => {
@@ -7101,7 +7078,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>{lista.length} pedido{lista.length!==1?"s":""}</div>
-          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setPedidoCrearStock(false);setPedidoDispDesde("");setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
+          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setPedidoEsMaquina(false);setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
         </div>
         {!lista.length&&<div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay pedidos registrados.</div>}
         <div style={{display:"grid",gap:8}}>
@@ -7114,6 +7091,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                     <span style={{fontFamily:"monospace",fontWeight:800,color:"#f59e0b",fontSize:14}}>{p.numero}</span>
                     <span style={{fontSize:10,background:ec+"22",color:ec,borderRadius:4,padding:"2px 7px",fontWeight:700}}>{p.estado}</span>
                     {p.categoria&&<span style={{fontSize:10,background:"#2a355022",color:"#8899b4",borderRadius:4,padding:"1px 6px"}}>{p.categoria}</span>}
+                    {p.esMaquinaNueva&&<span style={{fontSize:10,background:"#f9731622",color:"#f97316",borderRadius:4,padding:"2px 7px",fontWeight:700}}>🆕 Máquina stock</span>}
                   </div>
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{p.proveedor}</div>
                   <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
@@ -7121,11 +7099,28 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   </div>
                   {p.notas&&<div style={{color:"#8899b4",fontSize:11,marginTop:2,fontStyle:"italic"}}>{p.notas}</div>}
                 </div>
-                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                   <select value={p.estado} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:e.target.value}:x)}}))} style={{...inputStyle,width:"auto",padding:"5px 10px",fontSize:12}}>
                     {["Borrador","Enviado","Recibido","Cancelado"].map(s=><option key={s}>{s}</option>)}
                   </select>
-                  <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
+                  {p.esMaquinaNueva&&<button onClick={()=>{
+                    const lineas=(p.lineas||[]).filter(l=>l.descripcion?.trim());
+                    if(!lineas.length){alert("El pedido no tiene líneas con descripción.");return;}
+                    const nuevas=lineas.flatMap((l,i)=>Array.from({length:Math.min(Math.max(1,Math.round(l.cantidad||1)),20)},(_,j)=>({
+                      id:Date.now()+i*100+j+1,
+                      nombre:l.descripcion.trim(),
+                      marca:p.proveedor||"",
+                      modelo:"",serie:"",anyo:"",codigo:null,
+                      precioCompra:parseFloat((parseFloat(l.precioNeto||0)||parseFloat(l.precioUnitario||0)||0).toFixed(2)),
+                      precioVentaObj:0,fotos:[],pdfs:[],codigos:[],
+                      estadoStock:"En pedido",
+                      pedidoRef:p.numero,
+                      notas:`Pedido: ${p.numero}`,
+                    })));
+                    setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...nuevas]}:c)}));
+                    alert(`${nuevas.length} máquina${nuevas.length!==1?"s":""} añadida${nuevas.length!==1?"s":""} a Stock Maquinaria Nueva. Ve a esa sección para completar los datos.`);
+                  }} style={{...btnSm("#f9731622","#f97316"),fontSize:11,padding:"5px 8px"}}>→ Stock</button>}
+                  <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setPedidoEsMaquina(!!p.esMaquinaNueva);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
                   <button onClick={()=>{if(!window.confirm("¿Eliminar pedido "+p.numero+"?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).filter(x=>x.id!==p.id)}}));}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
                 </div>
               </div>
@@ -7185,24 +7180,13 @@ const Contabilidad = ({ data, setData, userActual }) => {
               </div>
             );})()}
             <Field label="Notas"><textarea value={pedidoForm.notas||""} onChange={e=>setPedidoForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Referencia, condiciones de entrega..."/></Field>
-            {!pedidoForm.id && (
-              <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:"#f1f3f9",fontWeight:700,fontSize:13}}>
-                  <input type="checkbox" checked={pedidoCrearStock} onChange={e=>setPedidoCrearStock(e.target.checked)} style={{accentColor:"#f59e0b",width:15,height:15}}/>
-                  📦 Añadir a Stock Maquinaria Nueva
-                </label>
-                {pedidoCrearStock && (
-                  <div style={{marginTop:8,paddingLeft:4}}>
-                    <Field label="Disponible desde (estimado)">
-                      <input type="date" value={pedidoDispDesde} onChange={e=>setPedidoDispDesde(e.target.value)} style={inputStyle}/>
-                    </Field>
-                    <div style={{background:"#f59e0b11",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 11px",fontSize:11,color:"#f59e0b",marginTop:4}}>
-                      Se crearán {pedidoLineas.filter(l=>l.descripcion?.trim()).reduce((s,l)=>s+Math.min(Math.max(1,Math.round(l.cantidad||1)),20),0)} máquina(s) con estado "En pedido" en Stock Maquinaria Nueva.
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+                <input type="checkbox" checked={pedidoEsMaquina} onChange={e=>setPedidoEsMaquina(e.target.checked)} style={{accentColor:"#f97316",width:15,height:15}}/>
+                <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>🆕 Es máquina nueva para stock</span>
+              </label>
+              {pedidoEsMaquina&&<div style={{marginTop:6,fontSize:11,color:"#8899b4",paddingLeft:23}}>El pedido se marcará como máquina de stock. Usa el botón "→ Stock" en la lista para añadirla a Stock Maquinaria Nueva cuando quieras.</div>}
+            </div>
             <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:12}}>
               <button onClick={()=>setShowPedidoModal(false)} style={btnOutline}>Cancelar</button>
               <button onClick={guardarPedido} style={{...btnPrimary,background:"#f59e0b",color:"#0d1117"}}>Guardar pedido</button>
