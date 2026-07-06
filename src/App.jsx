@@ -12301,8 +12301,30 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
       const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
       file = new File([blob], nombre, { type: "image/jpeg" });
       convertido = true;
-    } catch (_bmpErr) { console.warn("createImageBitmap HEIC: probando heic2any como fallback"); }
-    // Método 2: heic2any (navegadores sin soporte HEIC nativo)
+    } catch (_bmpErr) { console.warn("createImageBitmap HEIC: probando img+canvas"); }
+    // Método 2: <img> element + canvas (iOS Safari puede renderizar HEIC en <img> aunque createImageBitmap falle)
+    if (!convertido) {
+      try {
+        const tempUrl = URL.createObjectURL(file);
+        const img = await new Promise((res, rej) => {
+          const el = new Image();
+          el.onload = () => res(el);
+          el.onerror = rej;
+          el.src = tempUrl;
+        });
+        URL.revokeObjectURL(tempUrl);
+        if (!img.naturalWidth || !img.naturalHeight) throw new Error("img sin dimensiones");
+        const cv = document.createElement("canvas");
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext("2d").drawImage(img, 0, 0);
+        const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
+        if (!blob) throw new Error("toBlob null");
+        const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+        file = new File([blob], nombre, { type: "image/jpeg" });
+        convertido = true;
+      } catch (_imgErr) { console.warn("img+canvas HEIC: probando heic2any como fallback"); }
+    }
+    // Método 3: heic2any (navegadores sin soporte HEIC nativo)
     if (!convertido) {
       try {
         const mod = await import("heic2any");
