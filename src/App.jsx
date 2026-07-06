@@ -278,7 +278,7 @@ async function computarHashVerifactu(factura, hashAnterior, nifEmisor) {
     const fecha = factura.fecha
       ? new Date(factura.fecha + "T00:00:00").toLocaleDateString("es-ES", {day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-")
       : "";
-    const str = `IDEmisorFactura=${nifEmisor}&NumSerieFactura=${factura.numero}&FechaExpedicionFactura=${fecha}&TipoFactura=F1&CuotaTotal=${(parseFloat(factura.cuotaIVA)||0).toFixed(2)}&ImporteTotal=${(parseFloat(factura.total)||0).toFixed(2)}&HuellaAnterior=${hashAnterior}`;
+    const str = `IDEmisorFactura=${nifEmisor}&NumSerieFactura=${factura.numero}&FechaExpedicionFactura=${fecha}&TipoFactura=F1&CuotaTotal=${(parseNum(factura.cuotaIVA)||0).toFixed(2)}&ImporteTotal=${(parseNum(factura.total)||0).toFixed(2)}&HuellaAnterior=${hashAnterior}`;
     const encoded = new TextEncoder().encode(str);
     const hashBuf = await crypto.subtle.digest("SHA-256", encoded);
     return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
@@ -621,13 +621,25 @@ const Field = ({ label, children }) => (
     {children}
   </div>
 );
+// Componente para inputs numéricos en formato español: "." = miles, "," = decimal
+// Ej: 45.000 = 45000 | 45,50 = 45.5 | 1.234,56 = 1234.56
+const NumInputES = ({value, onChange, placeholder, style}) => {
+  const fmtES = v => {
+    if(v===null||v===undefined||v==="") return "";
+    const n = typeof v==="number" ? v : parseNum(v);
+    if(isNaN(n)) return "";
+    return n.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2});
+  };
+  const [disp,setDisp] = React.useState(()=>fmtES(value));
+  const [hasFocus,setHasFocus] = React.useState(false);
+  React.useEffect(()=>{ if(!hasFocus) setDisp(fmtES(value)); },[value,hasFocus]);
+  return <input type="text" inputMode="decimal" value={disp} style={style||inputStyle} placeholder={placeholder||""}
+    onFocus={()=>setHasFocus(true)}
+    onChange={e=>{const raw=e.target.value.replace(/[^\d.,]/g,"");setDisp(raw);onChange({...e,target:{...e.target,value:raw}});}}
+    onBlur={e=>{setHasFocus(false);const f=fmtES(disp);setDisp(f);onChange({...e,target:{...e.target,value:f}});}}/>;
+};
 const Input = ({ value, onChange, type="text", placeholder="" }) => {
-  if(type==="number"){
-    return <input type="text" inputMode="decimal" value={value||""} onChange={e=>{
-      const v=e.target.value.replace(/,/g,".");
-      onChange({...e,target:{...e.target,value:v}});
-    }} placeholder={placeholder} style={inputStyle}/>;
-  }
+  if(type==="number") return <NumInputES value={value??""} onChange={onChange} placeholder={placeholder}/>;
   return <input type={type} value={value||""} onChange={onChange} placeholder={placeholder} style={inputStyle}/>;
 };
 const Select = ({ value, onChange, options }) => <select value={value} onChange={onChange} style={{...inputStyle}}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
@@ -926,7 +938,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
           <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
             <label style={{color:"#3b82f6",fontSize:12,fontWeight:700,cursor:"pointer"}}>
               Subir foto en su lugar
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={subirFoto} style={{display:"none"}}/>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" capture="environment" onChange={subirFoto} style={{display:"none"}}/>
             </label>
             <div style={{display:"flex",gap:9}}>
               <button onClick={onClose} style={btnOutline}>Cancelar</button>
@@ -1735,7 +1747,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:"3px 14px"}}>
                   {[["Código",m.codigo],["Marca",m.marca],["Modelo",m.modelo],["Nº serie",m.serie],["Año",m.anyo]].map(([l,v])=>v?<div key={l}><span style={{color:"#e4e9f6",fontSize:11}}>{l}: </span><span style={{color:l==="Código"?"#0ea5e9":"#f1f3f9",fontSize:12,fontWeight:600,fontFamily:l==="Código"?"monospace":"inherit"}}>{v}</span></div>:null)}
                 </div>
-                {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseFloat(m.precioVenta).toLocaleString()}</div>}
+                {c.id===0&&!m.origenStock&&m.precioVenta&&<div style={{color:"#10b981",fontSize:13,marginTop:5,fontWeight:800}}>💶 Precio de venta: €{parseNum(m.precioVenta).toLocaleString("es-ES")}</div>}
                 {m.notas&&<div style={{color:"#e4e9f6",fontSize:12,marginTop:5}}>📝 {m.notas}</div>}
                 {m.origenStock&&(m.fechaInstalacion?(()=>{const restantes=365-diasDesde(m.fechaInstalacion);return(
                   <div style={{color:restantes>=0?"#10b981":"#dc2626",fontSize:12,marginTop:5,fontWeight:700}}>🛡️ Garantía: {restantes>=0?`${restantes} días restantes`:`vencida hace ${Math.abs(restantes)} días`} (instalada {fmtFecha(m.fechaInstalacion)})</div>
@@ -1895,7 +1907,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             {formM.foto&&<img src={formM.foto} alt="preview" style={{width:80,height:60,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
             <label style={{background:"#2a3550",color:"#e1e6f2",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
               <Icon name="image" size={13}/>{formM.foto?"Cambiar foto":"Subir foto"}
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto} style={{display:"none"}}/>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleFoto} style={{display:"none"}}/>
             </label>
             {formM.foto&&<button onClick={()=>setFormM(p=>({...p,foto:null}))} style={{...btnSm("#3b1c1c","#dc2626"),fontSize:12}}>Quitar</button>}
           </div>
@@ -2597,7 +2609,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-        {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseFloat(m.precioVenta).toLocaleString():"—"}</div></div>}
+        {cliente.id===0&&!m.origenStock&&<div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de venta</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{m.precioVenta?"€"+parseNum(m.precioVenta).toLocaleString("es-ES"):"—"}</div></div>}
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Intervenciones</div><div style={{color:"#0ea5e9",fontWeight:800,fontSize:16}}>{historial.length}</div></div>
         {cliente.revendedor&&<div style={{background:"#1a0d18",border:"1px solid #ec489944",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#ec4899",fontSize:11,textTransform:"uppercase",marginBottom:4}}>📍 Cliente final</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:14}}>{m.clienteFinalNombre||m.clienteFinalLugar?`${m.clienteFinalNombre||"—"}${m.clienteFinalLugar?" · "+m.clienteFinalLugar:""}`:"Desconocido"}</div></div>}
         {garantiaInfo(m)&&(()=>{const g=garantiaInfo(m);
@@ -2665,7 +2677,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             </div>
           </div>
         )}
-        <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto}/></Field>
+        <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleFoto}/></Field>
         <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
@@ -2791,7 +2803,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       </div>
       <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
       {cliente?.id===0&&!form.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>}
-      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto}/></Field>
+      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleFoto}/></Field>
       <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
         <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
@@ -2820,7 +2832,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           </div>
         </div>
       )}
-      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFotoNueva}/></Field>
+      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleFotoNueva}/></Field>
       <Field label="Documentación (opcional)">
         <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
         {archivosNueva.length>0&&<div style={{marginTop:6}}>{archivosNueva.map((a,i)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>📎 {a.nombre}</span><button onClick={()=>setArchivosNueva(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
@@ -3325,7 +3337,7 @@ const Ventas = ({ data, setData, userActual }) => {
   // (el cliente comprará como mucho una de ellas), así que NUNCA se suman entre
   // sí. Para estimar el valor de una operación en los KPIs de pipeline se usa
   // la oferta de mayor importe, no la suma de todas.
-  const maxOferta = v => ofertasDe(v).reduce((m, o) => Math.max(m, parseFloat(o.importe) || 0), 0);
+  const maxOferta = v => ofertasDe(v).reduce((m, o) => Math.max(m, parseNum(o.importe) || 0), 0);
   const [modalSeguimiento, setModalSeguimiento] = useState(null);
   const [formSeguimiento, setFormSeguimiento] = useState({});
   // Ventas es un apartado privado: cada comercial solo ve sus propias
@@ -3367,11 +3379,11 @@ const Ventas = ({ data, setData, userActual }) => {
   };
   const save = () => {
     const { importeOferta,...resto } = form;
-    const ofertasLimpias = (resto.ofertas || []).filter(o => (o.maquina || "").trim() || o.importe).map(o => ({ maquina: o.maquina || "",importe: parseFloat(o.importe) || 0 }));
+    const ofertasLimpias = (resto.ofertas || []).filter(o => (o.maquina || "").trim() || o.importe).map(o => ({ maquina: o.maquina || "",importe: parseNum(o.importe) || 0 }));
     // El comercial dueño de la operación no cambia al editar (importante para
     // que el manager pueda editar ventas de otros sin "robárselas"); solo se
     // asigna al usuario actual cuando es una operación nueva.
-    const item = { ...resto,comercialId: form.id ? form.comercialId : userActual.id,clienteId: parseInt(form.clienteId),ofertas: ofertasLimpias.length ? ofertasLimpias : [{ maquina: "",importe: 0 }],valoracionRetirada: parseFloat(form.valoracionRetirada) || 0 };
+    const item = { ...resto,comercialId: form.id ? form.comercialId : userActual.id,clienteId: parseInt(form.clienteId),ofertas: ofertasLimpias.length ? ofertasLimpias : [{ maquina: "",importe: 0 }],valoracionRetirada: parseNum(form.valoracionRetirada) || 0 };
     if (!item.id) setData(d => ({ ...d,ventas: [...d.ventas, { ...item,id: Date.now() }] }));
     else setData(d => ({ ...d,ventas: d.ventas.map(v => v.id === item.id ? item : v) }));
     setModal(false);
@@ -3552,7 +3564,7 @@ const Ventas = ({ data, setData, userActual }) => {
               {ofertasDe(venta).filter(o => o.maquina || o.importe).map((o, i) => (
                 <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>Oferta {i + 1}: {o.maquina || "—"}</span>
-                  <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</span>
+                  <span style={{color:"#10b981",fontSize:12,fontWeight:700}}>€{(parseNum(o.importe) || 0).toLocaleString("es-ES")}</span>
                 </div>
               ))}
               <div style={{color:"#e4e9f6",fontSize:10.5,marginTop:7,fontStyle:"italic"}}>El cliente comprará como mucho una de estas opciones, no se suman.</div>
@@ -3579,7 +3591,7 @@ const Ventas = ({ data, setData, userActual }) => {
                 <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,marginBottom:5}}>{venta.maquinaRetirar}</div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{color:"#e4e9f6",fontSize:12}}>Valoración:</span>
-                  <span style={{color:"#10b981",fontWeight:800,fontSize:14}}>€{(venta.valoracionRetirada || 0).toLocaleString()}</span>
+                  <span style={{color:"#10b981",fontWeight:800,fontSize:14}}>€{parseNum(venta.valoracionRetirada || 0).toLocaleString("es-ES")}</span>
                 </div>
               </> : <div style={{color:"#e4e9f6",fontSize:12}}>Sin máquina a retirar</div>}
             </div>
@@ -3665,11 +3677,11 @@ const Ventas = ({ data, setData, userActual }) => {
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:9,marginBottom:16}}>
         {[
-          ["Pipeline activo", `€${totalPipeline.toLocaleString()}`, "#10b981"],
+          ["Pipeline activo", `€${totalPipeline.toLocaleString("es-ES")}`, "#10b981"],
           ["Operaciones activas", activas.length, "#3b82f6"],
           ["Ganadas", ganadas.length, "#16a34a"],
           ["Tasa éxito", tasaExito !== null ? `${tasaExito}%` : "—", tasaExito >= 50 ? "#16a34a" : "#f59e0b"],
-          ["Total ganado", `€${totalGanado.toLocaleString()}`, "#10b981"],
+          ["Total ganado", `€${totalGanado.toLocaleString("es-ES")}`, "#10b981"],
         ].map(([l, v, c]) => (
           <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
             <div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
@@ -3752,7 +3764,7 @@ const TarjetaVenta = ({ v, cN, uN, mostrarComercial, cierreLabel, diasCierre, on
             <div key={i} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100}}>
               <div style={{color:"#e4e9f6",fontSize:9,textTransform:"uppercase",fontWeight:700,letterSpacing:".4px"}}>Oferta {i + 1}</div>
               <div style={{color:"#f1f3f9",fontSize:11.5,fontWeight:600,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{o.maquina || "—"}</div>
-              <div style={{color:"#10b981",fontSize:11.5,fontWeight:700}}>€{(parseFloat(o.importe) || 0).toLocaleString()}</div>
+              <div style={{color:"#10b981",fontSize:11.5,fontWeight:700}}>€{(parseNum(o.importe) || 0).toLocaleString("es-ES")}</div>
             </div>
           ))}
           <div title={v.ultimoContactoNota || ""} style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",minWidth:100,maxWidth:180}}>
@@ -6911,7 +6923,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
     try {
       const nif_ = emp.nif || "B98527583";
       const fecha_ = factura.fecha ? new Date(factura.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-") : "";
-      const qrContent = `1=${nif_}&2=${factura.numero}&3=${fecha_}&4=${(parseFloat(factura.total)||0).toFixed(2)}&5=${factura.verifactuHash.substring(0,10)}`;
+      const qrContent = `1=${nif_}&2=${factura.numero}&3=${fecha_}&4=${(parseNum(factura.total)||0).toFixed(2)}&5=${factura.verifactuHash.substring(0,10)}`;
       const qrDataUrl = await QRCode.toDataURL(qrContent, { width:120, margin:1, color:{dark:"#0f172a",light:"#ffffff"} });
       // QR: 28×28mm en esquina inferior derecha del cuerpo blanco
       doc.addImage(qrDataUrl, "PNG", W-mg-30, 246, 28, 28);
@@ -7116,8 +7128,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
     const fiscal = cliId ? getClienteFiscal(cliId) : {};
     const lns = (alb.lineas||[]).map((l,i) => ({
       id: Date.now()+i, descripcion:l.descripcion||l.producto||"",
-      cantidad:parseFloat(l.cantidad)||1, precioUnitario:parseFloat(l.precio||l.precioUnitario)||0,
-      descuento:0, precioNeto:parseFloat(l.precio||l.precioUnitario)||0, subtotal:parseFloat(((parseFloat(l.cantidad)||1)*(parseFloat(l.precio||l.precioUnitario)||0)).toFixed(2))
+      cantidad:parseNum(l.cantidad)||1, precioUnitario:parseNum(l.precio||l.precioUnitario)||0,
+      descuento:0, precioNeto:parseNum(l.precio||l.precioUnitario)||0, subtotal:parseFloat(((parseNum(l.cantidad)||1)*(parseNum(l.precio||l.precioUnitario)||0)).toFixed(2))
     }));
     if (!lns.length) lns.push({ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 });
     setBuscarCli(fiscal.clienteRazonSocial||"");
@@ -7523,7 +7535,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                       nombre:l.descripcion.trim(),
                       marca:p.proveedor||"",
                       modelo:"",serie:"",anyo:"",codigo:null,
-                      precioCompra:parseFloat((parseFloat(l.precioNeto||0)||parseFloat(l.precioUnitario||0)||0).toFixed(2)),
+                      precioCompra:parseFloat((parseNum(l.precioNeto||0)||parseNum(l.precioUnitario||0)||0).toFixed(2)),
                       precioVentaObj:0,fotos:[],pdfs:[],codigos:[],
                       estadoStock:"En pedido",
                       pedidoRef:p.numero,
@@ -7773,9 +7785,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
       (cont.facturas||[])
         .filter(f=>f.estado!=="Anulada"&&!f.esProforma&&!f.esPresupuesto&&!existFact.has(f.id))
         .forEach(f=>{
-          const base=parseFloat(f.baseImponible)||0;
-          const iva=parseFloat(f.cuotaIVA)||0;
-          const tot=parseFloat(f.total)||(base+iva);
+          const base=parseNum(f.baseImponible)||0;
+          const iva=parseNum(f.cuotaIVA)||0;
+          const tot=parseNum(f.total)||(base+iva);
           nuevos.push({
             id:Date.now()+Math.random(),
             numero:`AS-${String(nextIdx++).padStart(4,"0")}`,
@@ -7795,9 +7807,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
         .filter(g=>!existGasto.has(g.id))
         .forEach(g=>{
           const cd=CAT_CUENTA[g.categoria]||{cta:"629",nom:"Otros servicios"};
-          const base=parseFloat(g.baseImponible)||0;
-          const iva=parseFloat(g.cuotaIVA)||0;
-          const tot=parseFloat(g.total)||(base+iva);
+          const base=parseNum(g.baseImponible)||0;
+          const iva=parseNum(g.cuotaIVA)||0;
+          const tot=parseNum(g.total)||(base+iva);
           nuevos.push({
             id:Date.now()+Math.random(),
             numero:`AS-${String(nextIdx++).padStart(4,"0")}`,
@@ -8053,8 +8065,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
                 <tbody>
                   {ventasGanadas.map(v=>{
                     const cli = data.clientes?.find(c=>c.id===v.clienteId);
-                    const pv = parseFloat(v.importeOferta||v.precio||0);
-                    const co = parseFloat((cont.costesVentas||{})[v.id]||0);
+                    const pv = parseNum(v.importeOferta||v.precio||0);
+                    const co = parseNum((cont.costesVentas||{})[v.id]||0);
                     const mg = pv-co, pct=pv>0?parseFloat((mg/pv*100).toFixed(1)):0;
                     return (
                       <tr key={v.id} style={{borderBottom:"1px solid #1a2235"}}>
@@ -8063,8 +8075,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
                         <td style={{padding:"6px 10px",textAlign:"right",color:"#e4e9f6"}}>{v.maquina||v.modelo||"—"}</td>
                         <td style={{padding:"6px 10px",textAlign:"right",color:"#f1f3f9"}}>{fmtEur(pv)}</td>
                         <td style={{padding:"6px 10px",textAlign:"right"}}>
-                          <input type="number" value={(cont.costesVentas||{})[v.id]||""} placeholder="0" min={0} step={0.01}
-                            onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,costesVentas:{...(d.contabilidad.costesVentas||{}),[v.id]:parseFloat(e.target.value)||0}}}))}
+                          <NumInputES value={(cont.costesVentas||{})[v.id]||""} placeholder="0"
+                            onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,costesVentas:{...(d.contabilidad.costesVentas||{}),[v.id]:parseNum(e.target.value)||0}}}))}
                             style={{...inputStyle,width:90,padding:"4px 8px",textAlign:"right"}}/>
                         </td>
                         <td style={{padding:"6px 10px",textAlign:"right",color:mg>=0?"#16a34a":"#dc2626",fontWeight:700}}>{fmtEur(mg)}</td>
@@ -8205,12 +8217,12 @@ const Contabilidad = ({ data, setData, userActual }) => {
               let nextIdx=asientos.length+1;
               const nuevos=[];
               (cont.facturas||[]).filter(f=>f.estado!=="Anulada"&&!f.esProforma&&!f.esPresupuesto&&!existFact.has(f.id)).forEach(f=>{
-                const base=parseFloat(f.baseImponible)||0,iva=parseFloat(f.cuotaIVA)||0,tot=parseFloat(f.total)||(base+iva);
+                const base=parseNum(f.baseImponible)||0,iva=parseNum(f.cuotaIVA)||0,tot=parseNum(f.total)||(base+iva);
                 nuevos.push({id:Date.now()+Math.random(),numero:`AS-${String(nextIdx++).padStart(4,"0")}`,fecha:f.fecha||today(),descripcion:`Venta: ${f.numero} — ${f.clienteRazonSocial||"Cliente"}`,origenTipo:"factura",origenId:f.id,origenNumero:f.numero||"",lineas:[{cta:"430",nom:"Clientes",debe:tot,haber:0},{cta:"705",nom:"Prestaciones de servicios",debe:0,haber:base},...(iva?[{cta:"477",nom:"H.P. IVA repercutido",debe:0,haber:iva}]:[])],});
               });
               (cont.gastos||[]).filter(g=>!existGasto.has(g.id)).forEach(g=>{
                 const cd=CAT_CUENTA[g.categoria]||{cta:"629",nom:"Otros servicios"};
-                const base=parseFloat(g.baseImponible)||0,iva=parseFloat(g.cuotaIVA)||0,tot=parseFloat(g.total)||(base+iva);
+                const base=parseNum(g.baseImponible)||0,iva=parseNum(g.cuotaIVA)||0,tot=parseNum(g.total)||(base+iva);
                 nuevos.push({id:Date.now()+Math.random(),numero:`AS-${String(nextIdx++).padStart(4,"0")}`,fecha:g.fecha||today(),descripcion:`Compra: ${g.proveedor||"Proveedor"}${g.numFacturaProveedor?" · "+g.numFacturaProveedor:""}`,origenTipo:"gasto",origenId:g.id,origenNumero:g.numFacturaProveedor||g.numero||"",lineas:[{cta:cd.cta,nom:cd.nom,debe:base,haber:0},...(iva?[{cta:"472",nom:"H.P. IVA soportado",debe:iva,haber:0}]:[]),{cta:"400",nom:"Proveedores",debe:0,haber:tot}],});
               });
               if(!nuevos.length){alert("No hay documentos nuevos sin asiento contable.");return;}
@@ -8336,9 +8348,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
                 const fiscal=getClienteFiscal(cliId);
                 const km=parseFloat(pForm.km)||0,hD=parseFloat(pForm.horasDesplazamiento)||0,hO=parseFloat(pForm.horasObraPorPersona)||0,nT=parseInt(pForm.numTecnicos)||1;
                 const lns=[];
-                if(km>0) lns.push({id:1,descripcion:`Desplazamiento — ${km} km`,cantidad:km,precioUnitario:parseFloat(tarifa.precioPorKm)||0,subtotal:parseFloat((km*(parseFloat(tarifa.precioPorKm)||0)).toFixed(2))});
-                if(hD>0) lns.push({id:2,descripcion:`Horas de desplazamiento (${nT} técnico${nT>1?"s":""})`,cantidad:hD*nT,precioUnitario:parseFloat(tarifa.precioHoraDesplazamiento)||0,subtotal:parseFloat((hD*nT*(parseFloat(tarifa.precioHoraDesplazamiento)||0)).toFixed(2))});
-                if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseFloat(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseFloat(tarifa.precioHoraManoObra)||0)).toFixed(2))});
+                if(km>0) lns.push({id:1,descripcion:`Desplazamiento — ${km} km`,cantidad:km,precioUnitario:parseNum(tarifa.precioPorKm)||0,subtotal:parseFloat((km*(parseNum(tarifa.precioPorKm)||0)).toFixed(2))});
+                if(hD>0) lns.push({id:2,descripcion:`Horas de desplazamiento (${nT} técnico${nT>1?"s":""})`,cantidad:hD*nT,precioUnitario:parseNum(tarifa.precioHoraDesplazamiento)||0,subtotal:parseFloat((hD*nT*(parseNum(tarifa.precioHoraDesplazamiento)||0)).toFixed(2))});
+                if(hO>0) lns.push({id:3,descripcion:`Mano de obra (${nT} técnico${nT>1?"s":""})`,cantidad:hO*nT,precioUnitario:parseNum(tarifa.precioHoraManoObra)||0,subtotal:parseFloat((hO*nT*(parseNum(tarifa.precioHoraManoObra)||0)).toFixed(2))});
                 if(!lns.length){alert("Introduce al menos km, horas de desplazamiento o mano de obra.");return;}
                 const{baseImponible,cuotaIVA,total}=calcTotales(lns,21);
                 const num=nextNumContabilidad(cont.facturas,"FAC");
@@ -9095,7 +9107,7 @@ const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.to
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
 const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[{id:Date.now(),codigo:"",descripcion:"",valor:""}])]);setModal(true);};
 const save=()=>{
-  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseFloat(form.precioVentaObj)||0,precioCompra:parseFloat(form.precioCompra)||0,costeTransporte:parseFloat(form.costeTransporte)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,costeTransporte:parseNum(form.costeTransporte)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
@@ -9242,7 +9254,7 @@ w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style
 w.document.close();
 };
 if(vista&&maquinas.find(x=>x.id===vista)){
-const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;const compra=parseFloat(m.precioCompra)||0;const transporte=parseFloat(m.costeTransporte)||0;const compraTotal=compra+transporte;
+const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseNum(m.precioVentaObj)||0;const compra=parseNum(m.precioCompra)||0;const transporte=parseNum(m.costeTransporte)||0;const compraTotal=compra+transporte;
 return(<div>
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
 <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
@@ -9321,14 +9333,14 @@ return(<div>
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
 <div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
 <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseNum(form.precioVentaObj)||0).toLocaleString("es-ES")}</div></div>}
 </div>
 </div>
 {puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
 {puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
-{puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
+{puedeConf && (parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)).toLocaleString("es-ES")}</div></div>}
 {puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
 {(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
 {(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
@@ -9354,8 +9366,8 @@ return(<div>
 </div>);}
 const disponibles=maquinas.length;
 const valorTarTotal=maquinas.reduce((s,m)=>s+vT(m),0);
-const valorVentaTotal=maquinas.reduce((s,m)=>s+(parseFloat(m.precioVentaObj)||0),0);
-const valorCompraTotal=maquinas.reduce((s,m)=>s+(parseFloat(m.precioCompra)||0),0);
+const valorVentaTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioVentaObj)||0),0);
+const valorCompraTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioCompra)||0),0);
 return(<div>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
 <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria Nueva</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Códigos de configuración · Valor tarifa · Precio de venta</p></div>
@@ -9373,7 +9385,7 @@ return(<div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:12}}>
 {filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>Sin máquinas en stock</div>}
-{filtradas.map(m=>{const tar=vT(m);const ven=parseFloat(m.precioVentaObj)||0;return(
+{filtradas.map(m=>{const tar=vT(m);const ven=parseNum(m.precioVentaObj)||0;return(
 <div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:14,overflow:"hidden",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
 <div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
 {(m.fotos||[]).length>0?<img src={(m.fotos.find(x=>x.principal)||m.fotos[0]).data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
@@ -9421,14 +9433,14 @@ return(<div>
 <button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
 <div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
 <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseFloat(form.precioVentaObj)||0).toLocaleString()}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseNum(form.precioVentaObj)||0).toLocaleString("es-ES")}</div></div>}
 </div>
 </div>
 {puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
 {puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
-{puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
+{puedeConf && (parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)).toLocaleString("es-ES")}</div></div>}
 {puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
 {(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
 {(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
@@ -9597,9 +9609,9 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     .slice().sort((a,b) => (a.codigo||"").localeCompare(b.codigo||"", undefined, {numeric:true}));
 
   const save = () => {
-    const item = {...form, precioCompra: parseFloat(form.precioCompra)||0, precioVenta: parseFloat(form.precioVenta)||0, stock: parseInt(form.stock)||0,
-      precioCompraProveedor1: form.precioCompraProveedor1!==undefined&&form.precioCompraProveedor1!==""?parseFloat(form.precioCompraProveedor1)||0:"",
-      precioCompraProveedor2: form.precioCompraProveedor2!==undefined&&form.precioCompraProveedor2!==""?parseFloat(form.precioCompraProveedor2)||0:""};
+    const item = {...form, precioCompra: parseNum(form.precioCompra)||0, precioVenta: parseNum(form.precioVenta)||0, stock: parseInt(form.stock)||0,
+      precioCompraProveedor1: form.precioCompraProveedor1!==undefined&&form.precioCompraProveedor1!==""?parseNum(form.precioCompraProveedor1)||0:"",
+      precioCompraProveedor2: form.precioCompraProveedor2!==undefined&&form.precioCompraProveedor2!==""?parseNum(form.precioCompraProveedor2)||0:""};
     if (!item.id) setData(d => ({...d, inventario: [...d.inventario, {...item, id: Date.now()}]}));
     else setData(d => ({...d, inventario: d.inventario.map(i => i.id===item.id ? item : i)}));
     setModal(false);
@@ -11866,7 +11878,19 @@ async function cargarFotoParaPDF(src){
 // navegadores no decodifican HEIC), devolvemos el archivo original tal cual
 // y será el servidor quien decida si lo admite.
 async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
-  if (!file || !file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+  if (!file) return file;
+  // Convertir HEIC/HEIF a JPEG antes de cualquier procesado (iPhone, etc.)
+  const esHEIC = file.type==="image/heic"||file.type==="image/heif"||/\.(heic|heif)$/i.test(file.name);
+  if (esHEIC) {
+    try {
+      const heic2any = (await import("heic2any")).default;
+      let converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+      if (Array.isArray(converted)) converted = converted[0];
+      const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+      file = new File([converted], nombre, { type: "image/jpeg" });
+    } catch (heicErr) { console.warn("heic2any fallo, continuando:", heicErr); }
+  }
+  if (!file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
   let url;
   try {
     url = URL.createObjectURL(file);
@@ -12261,8 +12285,8 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       } catch(e) {}
     }
     if(esStock){
-      const tar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
-      const ven=parseFloat(m.precioVentaObj)||0;
+      const tar=(m.codigos||[]).reduce((s,c)=>s+(parseNum(c.valor)||0),0);
+      const ven=parseNum(m.precioVentaObj)||0;
       y=box("Datos de la máquina",[
         ["Código",m.codigo||"—"],
         ["Marca",m.marca||"—"],
@@ -12304,7 +12328,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       ],y);
       if(esPropia && m.precioVenta){
         asegurarEspacio(20);
-        y=box("Valoración",[["Precio de venta","€"+parseFloat(m.precioVenta).toLocaleString()]],y);
+        y=box("Valoración",[["Precio de venta","€"+parseNum(m.precioVenta).toLocaleString("es-ES")]],y);
       }
       if(m.notas?.trim()){
         asegurarEspacio(20);
@@ -12391,10 +12415,10 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
                 <div style={{fontSize:10,color:"#e4e9f6",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Modelo</div>
                 <div style={{fontSize:14,fontWeight:700,color:"#e1e6f2"}}>{m.modelo||"—"}</div>
               </div>
-              {esStock && (()=>{ const tar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0); const ven=parseFloat(m.precioVentaObj)||0; return (<>
+              {esStock && (()=>{ const tar=(m.codigos||[]).reduce((s,c)=>s+(parseNum(c.valor)||0),0); const ven=parseNum(m.precioVentaObj)||0; return (<>
                 <div style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:10,padding:"12px 14px"}}>
                   <div style={{fontSize:10,color:"#e4e9f6",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de tarifa</div>
-                  <div style={{fontSize:16,fontWeight:800,color:"#3b82f6"}}>€{tar.toLocaleString()}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#3b82f6"}}>€{tar.toLocaleString("es-ES")}</div>
                 </div>
                 <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px"}}>
                   <div style={{fontSize:10,color:"#e4e9f6",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio estimado</div>
@@ -12404,7 +12428,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               {esPropia && m.precioVenta && (
                 <div style={{background:"#151b2a",border:"1px solid #10b98133",borderRadius:10,padding:"12px 14px",gridColumn:"1/-1"}}>
                   <div style={{fontSize:10,color:"#e4e9f6",textTransform:"uppercase",fontWeight:700,marginBottom:5}}>Precio de venta</div>
-                  <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>€{parseFloat(m.precioVenta).toLocaleString()}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:"#10b981"}}>€{parseNum(m.precioVenta).toLocaleString("es-ES")}</div>
                 </div>
               )}
             </div>
