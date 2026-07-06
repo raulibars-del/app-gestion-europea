@@ -554,7 +554,7 @@ const initialData = {
         {id:2,autorId:4,texto:"Sí: CAS-M22-2024.",ts:"2026-05-24T10:05:00"},
       ],comerciales:[],
     },privados:{},
-  },fichajes:[],notificaciones:{},documentacion:[],calendario:[],passwords:[],inventario:[
+  },fichajes:[],notificaciones:{},documentacion:[],docInterna:[],calendario:[],passwords:[],inventario:[
     {id:1,codigo:"INV0001",nombre:"Caja cola natural 15 kg HKP21",descripcion:"Caja de cola natural 15 kg HKP21",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
     {id:2,codigo:"INV0002",nombre:"Caja transparente 15 kg HKP20",descripcion:"Caja de cola transparente 15 kg HKP20",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
     {id:3,codigo:"INV0003",nombre:"Caja blanca 15 kg HKP21 White",descripcion:"Caja de cola blanca 15 kg HKP21 White",categoria:"Cola",unidad:"ud",stock:0,stockMin:5,precioCompra:0,precioVenta:0,consumibleClave:true},
@@ -10190,6 +10190,84 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
   const [subiendoArchivos, setSubiendoArchivos] = useState(false);
   const f = k => e => setForm(p => ({...p, [k]: e.target.value}));
 
+  // ── Documentación Interna ──────────────────────────────────────────
+  const [tabDoc, setTabDoc] = useState("maquinas"); // "maquinas" | "interna"
+  const [vistaDI, setVistaDI] = useState(null); // null | {marcaId} | {marcaId,modeloId}
+  const [modalDI, setModalDI] = useState(null); // null | "marca" | {tipo:"modelo",marcaId}
+  const [formDI, setFormDI] = useState({});
+  const [pendientesDI, setPendientesDI] = useState(null); // {marcaId,modeloId,items}
+  const [subiendoDI, setSubiendoDI] = useState(false);
+  const [abiertosDI, setAbiertosDI] = useState({});
+  const [editandoDI, setEditandoDI] = useState(null); // {marcaId,modeloId,idx,tipo,tipoLibre}
+
+  const diMarcas = () => data.docInterna || [];
+  const diMarca = id => diMarcas().find(m => m.id === id);
+  const diModelo = (marcaId, modeloId) => (diMarca(marcaId)?.modelos||[]).find(m => m.id === modeloId);
+
+  const saveMarca = () => {
+    if (!formDI.nombre?.trim()) return alert("Introduce el nombre de la marca");
+    if (formDI.id) {
+      setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id===formDI.id ? {...m, nombre:formDI.nombre} : m)}));
+    } else {
+      setData(d => ({...d, docInterna:[...(d.docInterna||[]), {id:Date.now(), nombre:formDI.nombre, modelos:[]}]}));
+    }
+    setModalDI(null); setFormDI({});
+  };
+  const saveModelo = (marcaId) => {
+    if (!formDI.nombre?.trim()) return alert("Introduce el nombre del modelo");
+    if (formDI.id) {
+      setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:(m.modelos||[]).map(mod => mod.id===formDI.id ? {...mod,nombre:formDI.nombre} : mod)})}));
+    } else {
+      const nuevoMod = {id:Date.now(), nombre:formDI.nombre, archivos:[]};
+      setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:[...(m.modelos||[]), nuevoMod]})}));
+    }
+    setModalDI(null); setFormDI({});
+  };
+  const elimMarca = (marcaId) => {
+    if (!window.confirm("¿Eliminar esta marca y toda su documentación? Esta acción no se puede deshacer.")) return;
+    setData(d => ({...d, docInterna:(d.docInterna||[]).filter(m => m.id!==marcaId)}));
+    setVistaDI(null);
+  };
+  const elimModelo = (marcaId, modeloId) => {
+    if (!window.confirm("¿Eliminar este modelo y todos sus archivos?")) return;
+    setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:(m.modelos||[]).filter(mod => mod.id!==modeloId)})}));
+    setVistaDI({marcaId});
+  };
+  const elimArchivoDI = (marcaId, modeloId, idx) => {
+    if (!window.confirm("¿Eliminar este archivo?")) return;
+    setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:(m.modelos||[]).map(mod => mod.id!==modeloId ? mod : {...mod, archivos:(mod.archivos||[]).filter((_,j) => j!==idx)})})}));
+  };
+  const guardarTipoDI = () => {
+    if (!editandoDI) return;
+    const {marcaId,modeloId,idx,tipo,tipoLibre} = editandoDI;
+    const tipoFinal = (tipo==="Otro"&&tipoLibre?.trim()) ? tipoLibre.trim() : tipo;
+    setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:(m.modelos||[]).map(mod => mod.id!==modeloId ? mod : {...mod, archivos:(mod.archivos||[]).map((a,j) => j===idx ? {...a,tipo:tipoFinal} : a)})})}));
+    setEditandoDI(null);
+  };
+  const seleccionarArchivosDI = (files, marcaId, modeloId) => {
+    const items = files.map(file => ({nombre:file.name, tipo:detectarTipo(file.name), tipoLibre:"", tamanyo:file.size, mime:file.type, file}));
+    setPendientesDI({marcaId, modeloId, items});
+  };
+  const confirmarDI = async () => {
+    if (!pendientesDI || subiendoDI) return;
+    setSubiendoDI(true);
+    const {marcaId,modeloId} = pendientesDI;
+    const finales = []; const errores = [];
+    for (const it of pendientesDI.items) {
+      const tipoFinal = (it.tipo==="Otro"&&it.tipoLibre?.trim()) ? it.tipoLibre.trim() : it.tipo;
+      try {
+        const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(it.file);});
+        const up = await apiUploadFile({base64, filename:it.nombre, mime:it.mime});
+        finales.push({id:Date.now()+Math.random(), nombre:up.nombre||it.nombre, tipo:tipoFinal, tamanyo:it.tamanyo, mime:up.mime||it.mime, url:up.url});
+      } catch(e) { errores.push(`${it.nombre}: ${e.message}`); }
+    }
+    if (finales.length) {
+      setData(d => ({...d, docInterna:(d.docInterna||[]).map(m => m.id!==marcaId ? m : {...m, modelos:(m.modelos||[]).map(mod => mod.id!==modeloId ? mod : {...mod, archivos:[...(mod.archivos||[]), ...finales]})})}));
+    }
+    setSubiendoDI(false); setPendientesDI(null);
+    if (errores.length) alert("No se pudieron subir:\n"+errores.join("\n"));
+  };
+
   // Llegada desde "Ver documentación" en la ficha de una máquina de un cliente:
   // si existe el documento de esa máquina concreta, abrirlo directamente;
   // si no (p.ej. máquina creada antes de existir este vínculo), al menos
@@ -10362,9 +10440,9 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
     setModal(true);
   };
 
-  // Vista detalle
+  // Vista detalle (solo tab "maquinas")
   const [modalPropietario, setModalPropietario] = useState(false);
-  if (vista) {
+  if (vista && tabDoc==="maquinas") {
     const doc = (data.documentacion||[]).find(d => d.id === vista);
     if (!doc) { setVista(null); return null; }
     const propietario = doc.clienteId ? data.clientes.find(c=>c.id===doc.clienteId) : null;
@@ -10589,134 +10667,373 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Documentacion</h2>
           <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Manuales · Despiece · Esquemas · Repuestos</p>
         </div>
-        <button onClick={()=>{setForm({marca:"",modelo:"",matricula:"",anyo:"",descripcion:"",notas:""});setArchivos([]);setModal(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
-          <Icon name="plus" size={14}/>Nueva maquina
-        </button>
+        {tabDoc==="maquinas"
+          ? <button onClick={()=>{setForm({marca:"",modelo:"",matricula:"",anyo:"",descripcion:"",notas:""});setArchivos([]);setModal(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva maquina</button>
+          : !vistaDI
+            ? <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva marca</button>
+            : vistaDI.modeloId
+              ? null
+              : <button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId:vistaDI.marcaId});}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nuevo modelo</button>
+        }
       </div>
 
-      {/* Buscador por 4 parametros */}
-      <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px",marginBottom:16}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#e2b714",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Buscar documentacion</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:10}}>
-          {[["Marca",busqMarca,setBusqMarca,"Ej: Casadei"],["Modelo",busqModelo,setBusqModelo,"Ej: SC3"],["Matricula",busqMatricula,setBusqMatricula,"Nro serie"],["Año",busqAnyo,setBusqAnyo,"Ej: 2022"]].map(([label,val,setVal,ph])=>(
-            <div key={label}>
-              <div style={{fontSize:10,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:4}}>{label}</div>
-              <div style={{position:"relative"}}>
-                <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={11}/></span>
-                <input value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} style={{...inputStyle,paddingLeft:26,width:"100%",boxSizing:"border-box"}}/>
-              </div>
-            </div>
-          ))}
-        </div>
-        {(busqMarca||busqModelo||busqMatricula||busqAnyo) && (
-          <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#e4e9f6",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
-        )}
-      </div>
-
-      {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:14}}>
-        {[
-          ["Maquinas",(data.documentacion||[]).length,"#e2b714"],
-          ["Documentos",(data.documentacion||[]).reduce((s,d)=>s+(d.archivos||[]).length,0),"#3b82f6"],
-          ["Resultados",filtrados.length,"#10b981"],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
-            <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
-            <div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
-          </div>
+      {/* ── Tab switcher ──────────────────────────────────────────── */}
+      <div style={{display:"flex",gap:4,marginBottom:18,background:"#0d1117",borderRadius:10,padding:4,border:"1px solid #2a3550",width:"fit-content"}}>
+        {[["maquinas","Por máquina","🔧"],["interna","Doc. interna","📁"]].map(([key,label,ico])=>(
+          <button key={key} onClick={()=>{setTabDoc(key);setVista(null);setVistaDI(null);}} style={{background:tabDoc===key?"#1e3a5f":"transparent",border:tabDoc===key?"1px solid #3b82f644":"1px solid transparent",borderRadius:7,padding:"7px 16px",color:tabDoc===key?"#e2b714":"#e4e9f6",fontWeight:tabDoc===key?700:500,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6,transition:"all .15s"}}>
+            {ico} {label}
+          </button>
         ))}
       </div>
 
-      {/* Lista */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:10}}>
-        {filtrados.length===0 && (
-          <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>
-            <div style={{fontSize:28,marginBottom:8}}>📂</div>
-            <div style={{fontWeight:700,fontSize:14,color:"#f1f3f9",marginBottom:4}}>{(data.documentacion||[]).length===0?"Sin maquinas registradas":"Sin resultados para esta busqueda"}</div>
-            <div style={{fontSize:12}}>Añade la primera maquina con sus documentos</div>
-          </div>
-        )}
-        {filtrados.map(doc => {
-          const nArchivos = (doc.archivos||[]).length;
-          const tiposUnicos = [...new Set((doc.archivos||[]).map(a=>a.tipo))];
-          return (
-            <div key={doc.id} onClick={()=>setVista(doc.id)} style={{background:"#151b2a",border:"1px solid #e2b71433",borderRadius:12,padding:"15px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                <div>
-                  <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{doc.marca} <span style={{fontWeight:400}}>{doc.modelo}</span></div>
-                  <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
-                    {doc.matricula && <span style={{color:"#e4e9f6",fontSize:11}}>Matr. {doc.matricula}</span>}
-                    {doc.anyo && <span style={{color:"#e4e9f6",fontSize:11}}>Año {doc.anyo}</span>}
-                  </div>
+      {/* ── TAB: Por máquina ─────────────────────────────── */}
+      {tabDoc==="maquinas" && (<>
+        {/* Buscador por 4 parametros */}
+        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"16px",marginBottom:16}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#e2b714",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>Buscar documentacion</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:10}}>
+            {[["Marca",busqMarca,setBusqMarca,"Ej: Casadei"],["Modelo",busqModelo,setBusqModelo,"Ej: SC3"],["Matricula",busqMatricula,setBusqMatricula,"Nro serie"],["Año",busqAnyo,setBusqAnyo,"Ej: 2022"]].map(([label,val,setVal,ph])=>(
+              <div key={label}>
+                <div style={{fontSize:10,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:4}}>{label}</div>
+                <div style={{position:"relative"}}>
+                  <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={11}/></span>
+                  <input value={val} onChange={e=>setVal(e.target.value)} placeholder={ph} style={{...inputStyle,paddingLeft:26,width:"100%",boxSizing:"border-box"}}/>
                 </div>
-                <div style={{background:"#e2b71420",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0}}>{nArchivos} doc{nArchivos!==1?"s":""}</div>
               </div>
-              {doc.descripcion && <div style={{color:"#e1e6f2",fontSize:12,marginBottom:8}}>{doc.descripcion}</div>}
-              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                {tiposUnicos.slice(0,4).map(t=>(
-                  <span key={t} style={{background:colorTipo(t)+"18",color:colorTipo(t),border:`1px solid ${colorTipo(t)}33`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:600}}>{iconoTipo(t)} {t}</span>
-                ))}
-                {tiposUnicos.length>4 && <span style={{color:"#e4e9f6",fontSize:10}}>+{tiposUnicos.length-4} mas</span>}
+            ))}
+          </div>
+          {(busqMarca||busqModelo||busqMatricula||busqAnyo) && (
+            <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#e4e9f6",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
+          )}
+        </div>
+
+        {/* KPIs */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:14}}>
+          {[
+            ["Maquinas",(data.documentacion||[]).length,"#e2b714"],
+            ["Documentos",(data.documentacion||[]).reduce((s,d)=>s+(d.archivos||[]).length,0),"#3b82f6"],
+            ["Resultados",filtrados.length,"#10b981"],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
+              <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
+              <div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Lista */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:10}}>
+          {filtrados.length===0 && (
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>
+              <div style={{fontSize:28,marginBottom:8}}>📂</div>
+              <div style={{fontWeight:700,fontSize:14,color:"#f1f3f9",marginBottom:4}}>{(data.documentacion||[]).length===0?"Sin maquinas registradas":"Sin resultados para esta busqueda"}</div>
+              <div style={{fontSize:12}}>Añade la primera maquina con sus documentos</div>
+            </div>
+          )}
+          {filtrados.map(doc => {
+            const nArchivos = (doc.archivos||[]).length;
+            const tiposUnicos = [...new Set((doc.archivos||[]).map(a=>a.tipo))];
+            return (
+              <div key={doc.id} onClick={()=>setVista(doc.id)} style={{background:"#151b2a",border:"1px solid #e2b71433",borderRadius:12,padding:"15px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div>
+                    <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{doc.marca} <span style={{fontWeight:400}}>{doc.modelo}</span></div>
+                    <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
+                      {doc.matricula && <span style={{color:"#e4e9f6",fontSize:11}}>Matr. {doc.matricula}</span>}
+                      {doc.anyo && <span style={{color:"#e4e9f6",fontSize:11}}>Año {doc.anyo}</span>}
+                    </div>
+                  </div>
+                  <div style={{background:"#e2b71420",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0}}>{nArchivos} doc{nArchivos!==1?"s":""}</div>
+                </div>
+                {doc.descripcion && <div style={{color:"#e1e6f2",fontSize:12,marginBottom:8}}>{doc.descripcion}</div>}
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {tiposUnicos.slice(0,4).map(t=>(
+                    <span key={t} style={{background:colorTipo(t)+"18",color:colorTipo(t),border:`1px solid ${colorTipo(t)}33`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:600}}>{iconoTipo(t)} {t}</span>
+                  ))}
+                  {tiposUnicos.length>4 && <span style={{color:"#e4e9f6",fontSize:10}}>+{tiposUnicos.length-4} mas</span>}
+                </div>
+                {nArchivos===0 && <div style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic"}}>Sin documentos todavia</div>}
               </div>
-              {nArchivos===0 && <div style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic"}}>Sin documentos todavia</div>}
+            );
+          })}
+        </div>
+
+        {/* Modal nueva/editar maquina */}
+        {modal && (
+          <Modal title={form.id?"Editar maquina":"Nueva maquina"} onClose={()=>setModal(false)} wide>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:11}}>
+              <Field label="Marca *"><Input value={form.marca||""} onChange={f("marca")} placeholder="Casadei, Busellato..."/></Field>
+              <Field label="Modelo *"><Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3, Jet Start..."/></Field>
+              <Field label="Matricula / Nro serie"><Input value={form.matricula||""} onChange={f("matricula")}/></Field>
+              <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")} placeholder="2022"/></Field>
+            </div>
+            <Field label="Cliente (propietario de la maquina)"><ClientePicker clientes={data.clientes} value={form.clienteId||""} onChange={id=>setForm(p=>({...p,clienteId:id}))}/></Field>
+            <Field label="Descripcion breve"><Input value={form.descripcion||""} onChange={f("descripcion")} placeholder="Ej: Escuadradora de precision 3200mm"/></Field>
+            <div style={{marginBottom:4}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Documentos ({archivos.length})</div>
+              <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #e2b71444",borderRadius:8,padding:"12px 14px",cursor:"pointer",marginBottom:8}}>
+                <span style={{fontSize:20}}>📎</span>
+                <div><div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div><div style={{color:"#e4e9f6",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div></div>
+                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
+              </label>
+              {archivos.length > 0 && (
+                <div style={{display:"grid",gap:5}}>
+                  {archivos.map((a,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#0d1117",borderRadius:8,padding:"8px 12px",border:"1px solid #2a3550"}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{iconoTipo(a.tipo)}</span>
+                      <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div><div style={{color:"#e4e9f6",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div></div>
+                      <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
+                      <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")} placeholder="Observaciones, notas de mantenimiento..."/></Field>
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+              <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
+              <button onClick={save} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{form.id?"Guardar":"Crear ficha"}</button>
+            </div>
+          </Modal>
+        )}
+        {modalConfirmarTipos}
+      </>)}
+
+      {/* ── TAB: Documentación Interna ───────────────────── */}
+      {tabDoc==="interna" && (()=>{
+        const marcas = diMarcas();
+        const marcaAct = vistaDI?.marcaId ? diMarca(vistaDI.marcaId) : null;
+        const modeloAct = (vistaDI?.marcaId && vistaDI?.modeloId) ? diModelo(vistaDI.marcaId, vistaDI.modeloId) : null;
+
+        /* ── Vista detalle: modelo ───────────────────────── */
+        if (modeloAct) {
+          const marcaId = vistaDI.marcaId;
+          const modeloId = vistaDI.modeloId;
+          return (
+            <div>
+              {/* Breadcrumb */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+                <button onClick={()=>setVistaDI(null)} style={{background:"none",border:"none",color:"#e2b714",cursor:"pointer",fontSize:13,padding:0,fontWeight:600}}>Doc. Interna</button>
+                <span style={{color:"#4a5580",fontSize:13}}>›</span>
+                <button onClick={()=>setVistaDI({marcaId})} style={{background:"none",border:"none",color:"#e2b714",cursor:"pointer",fontSize:13,padding:0,fontWeight:600}}>{marcaAct?.nombre}</button>
+                <span style={{color:"#4a5580",fontSize:13}}>›</span>
+                <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{modeloAct.nombre}</span>
+                <div style={{flex:1}}/>
+                <button onClick={()=>{setFormDI({id:modeloAct.id,nombre:modeloAct.nombre});setModalDI({tipo:"modelo",marcaId});}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Renombrar</button>
+                <button onClick={()=>elimModelo(marcaId,modeloId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar modelo</button>
+              </div>
+              {/* Área de archivos */}
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid #2a3550",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{(modeloAct.archivos||[]).length} documento{(modeloAct.archivos||[]).length!==1?"s":""}</div>
+                  <label style={{display:"flex",alignItems:"center",gap:6,background:"#e2b71415",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e2b714",fontSize:12,fontWeight:700}}>
+                    📎 Añadir documento
+                    <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg,image/heic,image/heif" onChange={e=>{seleccionarArchivosDI(Array.from(e.target.files),marcaId,modeloId);e.target.value="";}} style={{display:"none"}}/>
+                  </label>
+                </div>
+                {(modeloAct.archivos||[]).length===0 && <div style={{padding:"28px",textAlign:"center",color:"#e4e9f6"}}>Sin archivos — añade el primer documento para este modelo</div>}
+                {(modeloAct.archivos||[]).map((a,i)=>{
+                  const urlA = a.url||a.data;
+                  const mimeA = a.mime||"";
+                  const esPDF = mimeA==="application/pdf"||/\.pdf$/i.test(a.nombre||"");
+                  const esImg = mimeA.startsWith("image/")||/\.(png|jpe?g|gif|webp|svg)$/i.test(a.nombre||"");
+                  const key = modeloId+"-"+i;
+                  const abierto = abiertosDI[key];
+                  const editando = editandoDI && editandoDI.marcaId===marcaId && editandoDI.modeloId===modeloId && editandoDI.idx===i;
+                  return (
+                    <div key={i} style={{borderBottom:"1px solid #1a2236"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px"}}>
+                        <div style={{width:38,height:38,borderRadius:9,background:colorTipo(a.tipo)+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{iconoTipo(a.tipo)}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:"#f1f3f9",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
+                          {editando ? (
+                            <div style={{display:"flex",gap:6,marginTop:5,alignItems:"center",flexWrap:"wrap"}}>
+                              <select value={editandoDI.tipo} onChange={e=>setEditandoDI(p=>({...p,tipo:e.target.value}))} style={{...inputStyle,padding:"3px 7px",fontSize:11,width:"auto"}}>
+                                {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+                              </select>
+                              {editandoDI.tipo==="Otro" && <Input value={editandoDI.tipoLibre||""} onChange={e=>setEditandoDI(p=>({...p,tipoLibre:e.target.value}))} placeholder="Especifica el tipo" style={{padding:"3px 7px",fontSize:11,width:160}}/>}
+                              <button onClick={guardarTipoDI} style={{background:"#10b981",border:"none",borderRadius:5,padding:"3px 9px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+                              <button onClick={()=>setEditandoDI(null)} style={{background:"#2a3550",border:"none",borderRadius:5,padding:"3px 9px",color:"#e6ebf6",fontSize:11,cursor:"pointer"}}>Cancelar</button>
+                            </div>
+                          ) : (
+                            <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
+                              <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
+                              <span style={{color:"#e4e9f6",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
+                              <button onClick={()=>setEditandoDI({marcaId,modeloId,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#e4e9f6",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{display:"flex",gap:6,flexShrink:0}}>
+                          <a href={urlA} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#e6ebf6",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
+                          {(esPDF||esImg)&&<button onClick={()=>setAbiertosDI(p=>({...p,[key]:!p[key]}))} style={{background:abierto?"#e2b714":"#e2b71420",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 11px",color:abierto?"#000":"#e2b714",fontSize:12,fontWeight:700,cursor:"pointer"}}>{abierto?"Cerrar":"👁 Ver"}</button>}
+                          <button onClick={()=>elimArchivoDI(marcaId,modeloId,i)} style={{background:"#3b1c1c",border:"none",borderRadius:7,padding:"6px 9px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={13}/></button>
+                        </div>
+                      </div>
+                      {abierto&&esPDF&&<div style={{padding:"0 16px 14px"}}><iframe src={urlA} style={{width:"100%",height:520,border:"1px solid #2a3550",borderRadius:8,background:"#fff"}} title={a.nombre}/></div>}
+                      {abierto&&esImg&&<div style={{padding:"0 16px 14px",textAlign:"center",background:"#0d1117"}}><img src={urlA} alt={a.nombre} style={{maxWidth:"100%",maxHeight:480,borderRadius:8,border:"1px solid #2a3550"}}/></div>}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Modal confirmar tipos DI */}
+              {pendientesDI && (
+                <Modal title={`¿Qué tipo de documento ${pendientesDI.items.length>1?"son":"es"}?`} onClose={()=>setPendientesDI(null)}>
+                  <div style={{display:"grid",gap:8,marginBottom:12}}>
+                    {pendientesDI.items.map((it,i)=>(
+                      <div key={i} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px",border:"1px solid #2a3550"}}>
+                        <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.nombre}</div>
+                        <select value={it.tipo} onChange={e=>{const t=e.target.value;setPendientesDI(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,tipo:t}:x)}))} } style={{...inputStyle,width:"100%"}}>
+                          {TIPOS_ARCHIVO.map(t=><option key={t} value={t}>{t}</option>)}
+                        </select>
+                        {it.tipo==="Otro"&&<Input value={it.tipoLibre||""} onChange={e=>{const v=e.target.value;setPendientesDI(p=>({...p,items:p.items.map((x,j)=>j===i?{...x,tipoLibre:v}:x)}));}} placeholder="Especifica el tipo" style={{marginTop:6}}/>}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+                    <button onClick={()=>setPendientesDI(null)} disabled={subiendoDI} style={btnOutline}>Cancelar</button>
+                    <button onClick={confirmarDI} disabled={subiendoDI} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800,opacity:subiendoDI?.6:1}}>{subiendoDI?"Subiendo...":"Confirmar y adjuntar"}</button>
+                  </div>
+                </Modal>
+              )}
             </div>
           );
-        })}
-      </div>
+        }
 
-      {/* Modal nueva/editar maquina */}
-      {modal && (
-        <Modal title={form.id?"Editar maquina":"Nueva maquina"} onClose={()=>setModal(false)} wide>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:11}}>
-            <Field label="Marca *"><Input value={form.marca||""} onChange={f("marca")} placeholder="Casadei, Busellato..."/></Field>
-            <Field label="Modelo *"><Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3, Jet Start..."/></Field>
-            <Field label="Matricula / Nro serie"><Input value={form.matricula||""} onChange={f("matricula")}/></Field>
-            <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")} placeholder="2022"/></Field>
-          </div>
-          <Field label="Cliente (propietario de la maquina)"><ClientePicker clientes={data.clientes} value={form.clienteId||""} onChange={id=>setForm(p=>({...p,clienteId:id}))}/></Field>
-          <Field label="Descripcion breve"><Input value={form.descripcion||""} onChange={f("descripcion")} placeholder="Ej: Escuadradora de precision 3200mm"/></Field>
-
-          {/* Subida de archivos */}
-          <div style={{marginBottom:4}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
-              Documentos ({archivos.length})
-            </div>
-            <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #e2b71444",borderRadius:8,padding:"12px 14px",cursor:"pointer",marginBottom:8}}>
-              <span style={{fontSize:20}}>📎</span>
-              <div>
-                <div style={{color:"#e2b714",fontWeight:700,fontSize:13}}>Añadir documentos</div>
-                <div style={{color:"#e4e9f6",fontSize:11}}>PDF, imágenes, Word, Excel, SVG, DWG — máx. 25 MB por archivo</div>
+        /* ── Vista detalle: marca (lista de modelos) ─────── */
+        if (marcaAct) {
+          const marcaId = vistaDI.marcaId;
+          const totalDocs = (marcaAct.modelos||[]).reduce((s,m)=>s+(m.archivos||[]).length,0);
+          return (
+            <div>
+              {/* Breadcrumb */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18,flexWrap:"wrap"}}>
+                <button onClick={()=>setVistaDI(null)} style={{background:"none",border:"none",color:"#e2b714",cursor:"pointer",fontSize:13,padding:0,fontWeight:600}}>Doc. Interna</button>
+                <span style={{color:"#4a5580",fontSize:13}}>›</span>
+                <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{marcaAct.nombre}</span>
+                <div style={{flex:1}}/>
+                <button onClick={()=>{setFormDI({id:marcaAct.id,nombre:marcaAct.nombre});setModalDI("marca");}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Renombrar</button>
+                <button onClick={()=>elimMarca(marcaId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar marca</button>
               </div>
-              <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg" onChange={handleArchivos} style={{display:"none"}}/>
-            </label>
-
-            {archivos.length > 0 && (
-              <div style={{display:"grid",gap:5}}>
-                {archivos.map((a,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"#0d1117",borderRadius:8,padding:"8px 12px",border:"1px solid #2a3550"}}>
-                    <span style={{fontSize:16,flexShrink:0}}>{iconoTipo(a.tipo)}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nombre}</div>
-                      <div style={{color:"#e4e9f6",fontSize:10}}>{formatBytes(a.tamanyo||0)}</div>
-                    </div>
-                    <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:700,flexShrink:0}}>{a.tipo}</span>
-                    <button onClick={()=>setArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:5,padding:"4px 6px",color:"#dc2626",cursor:"pointer",flexShrink:0}}><Icon name="trash" size={11}/></button>
+              {/* Resumen */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:16}}>
+                {[["Modelos",(marcaAct.modelos||[]).length,"#e2b714"],["Documentos",totalDocs,"#3b82f6"]].map(([l,v,c])=>(
+                  <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
+                    <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
+                    <div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+              {/* Lista de modelos */}
+              {(marcaAct.modelos||[]).length===0 && (
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📂</div>
+                  <div style={{fontWeight:700,fontSize:14,color:"#f1f3f9",marginBottom:8}}>Sin modelos todavía</div>
+                  <button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId});}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Añadir primer modelo</button>
+                </div>
+              )}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:10}}>
+                {(marcaAct.modelos||[]).map(mod=>{
+                  const n = (mod.archivos||[]).length;
+                  const tipos = [...new Set((mod.archivos||[]).map(a=>a.tipo))];
+                  return (
+                    <div key={mod.id} onClick={()=>setVistaDI({marcaId,modeloId:mod.id})} style={{background:"#151b2a",border:"1px solid #3b82f633",borderRadius:12,padding:"15px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor="#3b82f688";e.currentTarget.style.transform="translateY(-1px)";}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor="#3b82f633";e.currentTarget.style.transform="none";}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                        <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>📐 {mod.nombre}</div>
+                        <div style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0}}>{n} doc{n!==1?"s":""}</div>
+                      </div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {tipos.slice(0,4).map(t=><span key={t} style={{background:colorTipo(t)+"18",color:colorTipo(t),border:`1px solid ${colorTipo(t)}33`,borderRadius:4,padding:"2px 7px",fontSize:10,fontWeight:600}}>{iconoTipo(t)} {t}</span>)}
+                        {tipos.length>4&&<span style={{color:"#e4e9f6",fontSize:10}}>+{tipos.length-4} más</span>}
+                        {n===0&&<span style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic"}}>Sin documentos todavía</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
 
-          <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")} placeholder="Observaciones, notas de mantenimiento..."/></Field>
-          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
-            <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={save} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{form.id?"Guardar":"Crear ficha"}</button>
+        /* ── Vista principal: lista de marcas ────────────── */
+        return (
+          <div>
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:16}}>
+              {[
+                ["Marcas",marcas.length,"#e2b714"],
+                ["Modelos",marcas.reduce((s,m)=>s+(m.modelos||[]).length,0),"#3b82f6"],
+                ["Documentos",marcas.reduce((s,m)=>s+(m.modelos||[]).reduce((ss,mod)=>ss+(mod.archivos||[]).length,0),0),"#10b981"],
+              ].map(([l,v,c])=>(
+                <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
+                  <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
+                  <div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
+                </div>
+              ))}
+            </div>
+
+            {marcas.length===0 && (
+              <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"40px",textAlign:"center",color:"#e4e9f6"}}>
+                <div style={{fontSize:36,marginBottom:12}}>📁</div>
+                <div style={{fontWeight:700,fontSize:16,color:"#f1f3f9",marginBottom:6}}>Sin marcas todavía</div>
+                <div style={{fontSize:13,marginBottom:18}}>Crea tu primera marca para empezar a organizar la documentación interna por modelo</div>
+                <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Crear primera marca</button>
+              </div>
+            )}
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(300px,100%),1fr))",gap:12}}>
+              {marcas.map(marca=>{
+                const nModelos = (marca.modelos||[]).length;
+                const nDocs = (marca.modelos||[]).reduce((s,m)=>s+(m.archivos||[]).length,0);
+                return (
+                  <div key={marca.id} onClick={()=>setVistaDI({marcaId:marca.id})} style={{background:"#151b2a",border:"1px solid #e2b71433",borderRadius:14,padding:"18px 20px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                      <div style={{width:44,height:44,borderRadius:11,background:"#e2b71415",border:"1px solid #e2b71433",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🏭</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:"#f1f3f9",fontWeight:800,fontSize:17,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{marca.nombre}</div>
+                        <div style={{color:"#e4e9f6",fontSize:12,marginTop:1}}>{nModelos} modelo{nModelos!==1?"s":""} · {nDocs} documento{nDocs!==1?"s":""}</div>
+                      </div>
+                    </div>
+                    {/* Chips de modelos */}
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                      {(marca.modelos||[]).slice(0,5).map(m=>(
+                        <span key={m.id} style={{background:"#3b82f618",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:600}}>{m.nombre}</span>
+                      ))}
+                      {(marca.modelos||[]).length>5&&<span style={{color:"#e4e9f6",fontSize:11}}>+{(marca.modelos||[]).length-5} más</span>}
+                      {(marca.modelos||[]).length===0&&<span style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic"}}>Sin modelos</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modales Doc. Interna */}
+      {modalDI==="marca" && (
+        <Modal title={formDI.id?"Renombrar marca":"Nueva marca"} onClose={()=>setModalDI(null)}>
+          <Field label="Nombre de la marca *"><Input value={formDI.nombre||""} onChange={e=>setFormDI(p=>({...p,nombre:e.target.value}))} placeholder="Ej: Masterwood, Casadei, SCM..."/></Field>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
+            <button onClick={()=>setModalDI(null)} style={btnOutline}>Cancelar</button>
+            <button onClick={saveMarca} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{formDI.id?"Guardar":"Crear marca"}</button>
           </div>
         </Modal>
       )}
-      {modalConfirmarTipos}
+      {modalDI?.tipo==="modelo" && (
+        <Modal title={formDI.id?"Renombrar modelo":"Nuevo modelo"} onClose={()=>setModalDI(null)}>
+          <Field label="Nombre del modelo *"><Input value={formDI.nombre||""} onChange={e=>setFormDI(p=>({...p,nombre:e.target.value}))} placeholder="Ej: TF 600 KST, SC3, Jet Start..."/></Field>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
+            <button onClick={()=>setModalDI(null)} style={btnOutline}>Cancelar</button>
+            <button onClick={()=>saveModelo(modalDI.marcaId)} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{formDI.id?"Guardar":"Crear modelo"}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
