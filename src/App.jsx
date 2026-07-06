@@ -926,7 +926,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
           <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
             <label style={{color:"#3b82f6",fontSize:12,fontWeight:700,cursor:"pointer"}}>
               Subir foto en su lugar
-              <input type="file" accept="image/*" capture="environment" onChange={subirFoto} style={{display:"none"}}/>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment" onChange={subirFoto} style={{display:"none"}}/>
             </label>
             <div style={{display:"flex",gap:9}}>
               <button onClick={onClose} style={btnOutline}>Cancelar</button>
@@ -1895,7 +1895,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
             {formM.foto&&<img src={formM.foto} alt="preview" style={{width:80,height:60,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
             <label style={{background:"#2a3550",color:"#e1e6f2",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
               <Icon name="image" size={13}/>{formM.foto?"Cambiar foto":"Subir foto"}
-              <input type="file" accept="image/*" onChange={handleFoto} style={{display:"none"}}/>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto} style={{display:"none"}}/>
             </label>
             {formM.foto&&<button onClick={()=>setFormM(p=>({...p,foto:null}))} style={{...btnSm("#3b1c1c","#dc2626"),fontSize:12}}>Quitar</button>}
           </div>
@@ -2665,7 +2665,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             </div>
           </div>
         )}
-        <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
+        <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto}/></Field>
         <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
@@ -2791,7 +2791,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       </div>
       <Field label="Código interno"><div style={{...inputStyle,color:"#0ea5e9",fontFamily:"monospace",fontWeight:700,background:"#0a0f1a"}}>{form.codigo||"—"}</div></Field>
       {cliente?.id===0&&!form.origenStock&&<Field label="Precio de venta (EUR)"><Input type="number" value={form.precioVenta||""} onChange={f("precioVenta")}/></Field>}
-      <Field label="Foto"><input type="file" accept="image/*" onChange={handleFoto}/></Field>
+      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto}/></Field>
       <Field label="Notas"><textarea value={form.notas||""} onChange={f("notas")} style={{...inputStyle,minHeight:70,resize:"vertical"}}/></Field>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
         <button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button>
@@ -2820,7 +2820,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           </div>
         </div>
       )}
-      <Field label="Foto"><input type="file" accept="image/*" onChange={handleFotoNueva}/></Field>
+      <Field label="Foto"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFotoNueva}/></Field>
       <Field label="Documentación (opcional)">
         <label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Adjuntar documentos</span><input type="file" multiple onChange={handleArchivosNueva} style={{display:"none"}}/></label>
         {archivosNueva.length>0&&<div style={{marginTop:6}}>{archivosNueva.map((a,i)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>📎 {a.nombre}</span><button onClick={()=>setArchivosNueva(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
@@ -9328,7 +9328,7 @@ return(<div>
 {puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
 {puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
 {puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
 {(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
 {(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
@@ -9428,7 +9428,7 @@ return(<div>
 {puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
 {puedeConf && (parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseFloat(form.precioCompra)||0)+(parseFloat(form.costeTransporte)||0)).toLocaleString()}</div></div>}
 {puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
+<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={handleFotos} style={{display:"none"}}/></label>
 {(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
 {(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
 </Field>
@@ -9912,7 +9912,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               {form.foto && <img src={form.foto} alt="preview" style={{width:64,height:64,objectFit:"cover",borderRadius:8,border:"1px solid #2a3550"}}/>}
               <label style={{background:"#2a3550",color:"#e1e6f2",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:5,fontWeight:600}}>
                 <Icon name="image" size={13}/>{form.foto?"Cambiar foto":"Subir foto"}
-                <input type="file" accept="image/*" onChange={handleFotoArt} style={{display:"none"}}/>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFotoArt} style={{display:"none"}}/>
               </label>
               {form.foto && <button onClick={()=>setForm(p=>({...p,foto:null}))} style={{...btnSm("#3b1c1c","#dc2626"),fontSize:12}}>Quitar</button>}
             </div>
@@ -11824,7 +11824,16 @@ async function cargarFotoParaPDF(src){
   try{
     const resp=await fetch(src);
     if(!resp.ok)throw new Error("fetch "+resp.status);
-    const blob=await resp.blob();
+    let blob=await resp.blob();
+    // ── Convertir HEIC/HEIF (formato iPhone) a JPEG antes de añadir al PDF ──
+    const esHEIC=blob.type==="image/heic"||blob.type==="image/heif"||
+      /\.(heic|heif)$/i.test(src);
+    if(esHEIC){
+      try{
+        const heic2any=(await import("heic2any")).default;
+        blob=await heic2any({blob,toType:"image/jpeg",quality:0.85});
+      }catch(heicErr){console.warn("heic2any error:",heicErr);}
+    }
     return await new Promise((resolve,reject)=>{
       const reader=new FileReader();
       reader.onload=()=>resolve(reader.result);
@@ -12041,7 +12050,7 @@ const MiCuenta = ({ userActual, setData, onUpdateUser, onClose }) => {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2a3550", color: "#e1e6f2", border: "1px solid #3a4560", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
               <Icon name="image" size={13} />{foto ? "Cambiar foto" : "Subir foto"}
-              <input type="file" accept="image/*" onChange={handleFoto} style={{ display: "none" }} />
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFoto} style={{ display: "none" }} />
             </label>
             {foto && <button onClick={() => setCropSource(foto)} style={{ ...btnSm("#2a3550", "#e1e6f2"), fontSize: 11 }}>Editar encuadre</button>}
             {foto && <button onClick={() => setFoto(null)} style={{ ...btnSm("#3b1c1c", "#dc2626"), fontSize: 11 }}>Quitar foto</button>}
