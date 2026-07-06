@@ -1,4 +1,4 @@
-name: Deploy to gestion.europeademaquinaria.com
+name: Deploy to gestion-europea.com
 
 on:
   push:
