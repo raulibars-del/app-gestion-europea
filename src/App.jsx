@@ -11831,7 +11831,9 @@ async function cargarFotoParaPDF(src){
     if(esHEIC){
       try{
         const heic2any=(await import("heic2any")).default;
-        blob=await heic2any({blob,toType:"image/jpeg",quality:0.85});
+        let converted=await heic2any({blob,toType:"image/jpeg",quality:0.85});
+        // heic2any devuelve Blob o Blob[] según el archivo
+        blob=Array.isArray(converted)?converted[0]:converted;
       }catch(heicErr){console.warn("heic2any error:",heicErr);}
     }
     return await new Promise((resolve,reject)=>{
