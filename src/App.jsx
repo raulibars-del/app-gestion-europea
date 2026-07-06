@@ -10172,7 +10172,8 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
 };
 
 // ── DOCUMENTACION ─────────────────────────────────────────
-const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
+const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsumido }) => {
+  const puedeEditar = userActual?.rol==="admin" || userActual?.rol==="manager";
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [archivos, setArchivos] = useState([]);
@@ -10667,13 +10668,15 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
           <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Documentacion</h2>
           <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Manuales · Despiece · Esquemas · Repuestos</p>
         </div>
-        {tabDoc==="maquinas"
+        {tabDoc==="maquinas" && puedeEditar
           ? <button onClick={()=>{setForm({marca:"",modelo:"",matricula:"",anyo:"",descripcion:"",notas:""});setArchivos([]);setModal(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva maquina</button>
-          : !vistaDI
-            ? <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva marca</button>
-            : vistaDI.modeloId
-              ? null
-              : <button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId:vistaDI.marcaId});}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nuevo modelo</button>
+          : tabDoc==="interna" && puedeEditar
+            ? !vistaDI
+              ? <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva marca</button>
+              : vistaDI.modeloId
+                ? null
+                : <button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId:vistaDI.marcaId});}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nuevo modelo</button>
+            : null
         }
       </div>
 
@@ -10821,17 +10824,17 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 <span style={{color:"#4a5580",fontSize:13}}>›</span>
                 <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{modeloAct.nombre}</span>
                 <div style={{flex:1}}/>
-                <button onClick={()=>{setFormDI({id:modeloAct.id,nombre:modeloAct.nombre});setModalDI({tipo:"modelo",marcaId});}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Renombrar</button>
-                <button onClick={()=>elimModelo(marcaId,modeloId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar modelo</button>
+                {puedeEditar&&<button onClick={()=>{setFormDI({id:modeloAct.id,nombre:modeloAct.nombre});setModalDI({tipo:"modelo",marcaId});}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Renombrar</button>}
+                {puedeEditar&&<button onClick={()=>elimModelo(marcaId,modeloId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar modelo</button>}
               </div>
               {/* Área de archivos */}
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
                 <div style={{padding:"12px 16px",borderBottom:"1px solid #2a3550",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{(modeloAct.archivos||[]).length} documento{(modeloAct.archivos||[]).length!==1?"s":""}</div>
-                  <label style={{display:"flex",alignItems:"center",gap:6,background:"#e2b71415",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e2b714",fontSize:12,fontWeight:700}}>
+                  {puedeEditar&&<label style={{display:"flex",alignItems:"center",gap:6,background:"#e2b71415",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e2b714",fontSize:12,fontWeight:700}}>
                     📎 Añadir documento
                     <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.svg,.dwg,image/heic,image/heif" onChange={e=>{seleccionarArchivosDI(Array.from(e.target.files),marcaId,modeloId);e.target.value="";}} style={{display:"none"}}/>
-                  </label>
+                  </label>}
                 </div>
                 {(modeloAct.archivos||[]).length===0 && <div style={{padding:"28px",textAlign:"center",color:"#e4e9f6"}}>Sin archivos — añade el primer documento para este modelo</div>}
                 {(modeloAct.archivos||[]).map((a,i)=>{
@@ -10861,14 +10864,14 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                             <div style={{display:"flex",gap:8,marginTop:2,alignItems:"center"}}>
                               <span style={{background:colorTipo(a.tipo)+"20",color:colorTipo(a.tipo),border:"1px solid "+colorTipo(a.tipo)+"44",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>{a.tipo}</span>
                               <span style={{color:"#e4e9f6",fontSize:11}}>{formatBytes(a.tamanyo||0)}</span>
-                              <button onClick={()=>setEditandoDI({marcaId,modeloId,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#e4e9f6",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>
+                              {puedeEditar&&<button onClick={()=>setEditandoDI({marcaId,modeloId,idx:i,tipo:TIPOS_ARCHIVO.includes(a.tipo)?a.tipo:"Otro",tipoLibre:TIPOS_ARCHIVO.includes(a.tipo)?"":a.tipo})} style={{background:"transparent",border:"none",color:"#e4e9f6",cursor:"pointer",padding:0,display:"flex"}} title="Cambiar tipo"><Icon name="edit" size={11}/></button>}
                             </div>
                           )}
                         </div>
                         <div style={{display:"flex",gap:6,flexShrink:0}}>
                           <a href={urlA} download={a.nombre} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 11px",color:"#e6ebf6",fontSize:12,fontWeight:700,textDecoration:"none"}}>↓</a>
                           {(esPDF||esImg)&&<button onClick={()=>setAbiertosDI(p=>({...p,[key]:!p[key]}))} style={{background:abierto?"#e2b714":"#e2b71420",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 11px",color:abierto?"#000":"#e2b714",fontSize:12,fontWeight:700,cursor:"pointer"}}>{abierto?"Cerrar":"👁 Ver"}</button>}
-                          <button onClick={()=>elimArchivoDI(marcaId,modeloId,i)} style={{background:"#3b1c1c",border:"none",borderRadius:7,padding:"6px 9px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={13}/></button>
+                          {puedeEditar&&<button onClick={()=>elimArchivoDI(marcaId,modeloId,i)} style={{background:"#3b1c1c",border:"none",borderRadius:7,padding:"6px 9px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={13}/></button>}
                         </div>
                       </div>
                       {abierto&&esPDF&&<div style={{padding:"0 16px 14px"}}><iframe src={urlA} style={{width:"100%",height:520,border:"1px solid #2a3550",borderRadius:8,background:"#fff"}} title={a.nombre}/></div>}
@@ -10911,10 +10914,13 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18,flexWrap:"wrap"}}>
                 <button onClick={()=>setVistaDI(null)} style={{background:"none",border:"none",color:"#e2b714",cursor:"pointer",fontSize:13,padding:0,fontWeight:600}}>Doc. Interna</button>
                 <span style={{color:"#4a5580",fontSize:13}}>›</span>
-                <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{marcaAct.nombre}</span>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {marcaAct.logo && <img src={marcaAct.logo} alt={marcaAct.nombre} style={{width:28,height:28,borderRadius:6,objectFit:"contain",background:"#0d1117",border:"1px solid #2a3550",padding:2}}/>}
+                  <span style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{marcaAct.nombre}</span>
+                </div>
                 <div style={{flex:1}}/>
-                <button onClick={()=>{setFormDI({id:marcaAct.id,nombre:marcaAct.nombre});setModalDI("marca");}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Renombrar</button>
-                <button onClick={()=>elimMarca(marcaId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar marca</button>
+                {puedeEditar&&<button onClick={()=>{setFormDI({id:marcaAct.id,nombre:marcaAct.nombre,logo:marcaAct.logo||""});setModalDI("marca");}} style={{...btnOutline,padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="edit" size={12}/>Editar marca</button>}
+                {puedeEditar&&<button onClick={()=>elimMarca(marcaId)} style={{...btnOutline,color:"#dc2626",borderColor:"#dc262644",padding:"5px 12px",fontSize:12}}>Eliminar marca</button>}
               </div>
               {/* Resumen */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:16}}>
@@ -10930,7 +10936,7 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>
                   <div style={{fontSize:28,marginBottom:8}}>📂</div>
                   <div style={{fontWeight:700,fontSize:14,color:"#f1f3f9",marginBottom:8}}>Sin modelos todavía</div>
-                  <button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId});}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Añadir primer modelo</button>
+                  {puedeEditar&&<button onClick={()=>{setFormDI({});setModalDI({tipo:"modelo",marcaId});}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Añadir primer modelo</button>}
                 </div>
               )}
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:10}}>
@@ -10979,8 +10985,8 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
               <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"40px",textAlign:"center",color:"#e4e9f6"}}>
                 <div style={{fontSize:36,marginBottom:12}}>📁</div>
                 <div style={{fontWeight:700,fontSize:16,color:"#f1f3f9",marginBottom:6}}>Sin marcas todavía</div>
-                <div style={{fontSize:13,marginBottom:18}}>Crea tu primera marca para empezar a organizar la documentación interna por modelo</div>
-                <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Crear primera marca</button>
+                <div style={{fontSize:13,marginBottom:18}}>La documentación interna se organiza por marca y modelo</div>
+                {puedeEditar&&<button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>+ Crear primera marca</button>}
               </div>
             )}
 
@@ -10993,7 +10999,9 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
                     onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
                     onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
                     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                      <div style={{width:44,height:44,borderRadius:11,background:"#e2b71415",border:"1px solid #e2b71433",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🏭</div>
+                      <div style={{width:44,height:44,borderRadius:11,background:"#e2b71415",border:"1px solid #e2b71433",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0,overflow:"hidden"}}>
+                        {marca.logo ? <img src={marca.logo} alt={marca.nombre} style={{width:"100%",height:"100%",objectFit:"contain",padding:4}}/> : "🏭"}
+                      </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{color:"#f1f3f9",fontWeight:800,fontSize:17,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{marca.nombre}</div>
                         <div style={{color:"#e4e9f6",fontSize:12,marginTop:1}}>{nModelos} modelo{nModelos!==1?"s":""} · {nDocs} documento{nDocs!==1?"s":""}</div>
@@ -11017,8 +11025,29 @@ const Documentacion = ({ data, setData, filtroInicial, onFiltroConsumido }) => {
 
       {/* Modales Doc. Interna */}
       {modalDI==="marca" && (
-        <Modal title={formDI.id?"Renombrar marca":"Nueva marca"} onClose={()=>setModalDI(null)}>
+        <Modal title={formDI.id?"Editar marca":"Nueva marca"} onClose={()=>setModalDI(null)}>
           <Field label="Nombre de la marca *"><Input value={formDI.nombre||""} onChange={e=>setFormDI(p=>({...p,nombre:e.target.value}))} placeholder="Ej: Masterwood, Casadei, SCM..."/></Field>
+          <Field label="Logo de la marca (opcional)">
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              {formDI.logo
+                ? <img src={formDI.logo} alt="logo" style={{width:56,height:56,borderRadius:10,objectFit:"contain",background:"#0d1117",border:"1px solid #2a3550",padding:4}}/>
+                : <div style={{width:56,height:56,borderRadius:10,background:"#0d1117",border:"1px dashed #2a3550",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🏭</div>
+              }
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <label style={{background:"#e2b71415",border:"1px solid #e2b71444",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e2b714",fontSize:12,fontWeight:700,display:"inline-block"}}>
+                  📎 {formDI.logo?"Cambiar logo":"Subir logo"}
+                  <input type="file" accept="image/*,image/heic,image/heif" onChange={async e=>{
+                    const f0=e.target.files[0]; if(!f0)return;
+                    const f=await comprimirImagen(f0,400,0.85); if(!f)return;
+                    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});
+                    try{const up=await apiUploadFile({base64:b64,filename:f.name,mime:f.type});setFormDI(p=>({...p,logo:up.url}));}catch(er){alert("Error al subir el logo: "+er.message);}
+                    e.target.value="";
+                  }} style={{display:"none"}}/>
+                </label>
+                {formDI.logo&&<button onClick={()=>setFormDI(p=>({...p,logo:""}))} style={{background:"none",border:"none",color:"#dc2626",fontSize:12,cursor:"pointer",padding:0,textAlign:"left"}}>× Quitar logo</button>}
+              </div>
+            </div>
+          </Field>
           <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
             <button onClick={()=>setModalDI(null)} style={btnOutline}>Cancelar</button>
             <button onClick={saveMarca} style={{...btnPrimary,background:"#e2b714",color:"#000",fontWeight:800}}>{formDI.id?"Guardar":"Crear marca"}</button>
@@ -13891,7 +13920,7 @@ function AppInner() {
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
-          {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
+          {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} userActual={user} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso} isMobile={isMobile}/>}
           {active==="chat"&&puedeVer(user.rol,"chat")&&<Chat data={data} setData={setData} userActual={user} addNotif={addNotif} isMobile={isMobile}/>}
           {active==="fichaje"&&puedeVer(user.rol,"fichaje")&&<Fichaje data={data} setData={setData} userActual={user}/>}
