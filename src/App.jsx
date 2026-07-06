@@ -6816,7 +6816,6 @@ async function generarPDFFacturaDoc(factura, empresa) {
     ["Fecha",factura.fecha?new Date(factura.fecha).toLocaleDateString("es-ES"):""],
     ...(!esProforma&&!esPresupuesto&&factura.fechaVencimiento?[["Vencimiento",new Date(factura.fechaVencimiento).toLocaleDateString("es-ES")]]:[] ),
     ...(esPresupuesto&&factura.validezHasta?[["Válido hasta",new Date(factura.validezHasta).toLocaleDateString("es-ES")]]:[] ),
-    ...(factura.formaPago?[["Forma de pago",factura.formaPago]]:[] ),
   ],y);
 
   // ── Tabla líneas ──
@@ -6890,15 +6889,64 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.text(nL,mg+4,y); y+=nL.length*5+6;
   }
 
-  // ── Datos bancarios (todos los bancos configurados en empresa) ──
-  const cuentasPDF=(empresa.cuentasBancarias||[]);
-  if(cuentasPDF.length>0){
-    const multi=cuentasPDF.length>1;
-    const filasB=cuentasPDF.flatMap((c,i)=>[
-      [multi?`Banco ${i+1}`:"Banco", c.banco],
-      [multi?`IBAN ${i+1}`:"IBAN",  c.iban],
-    ]);
-    y=box("Datos bancarios para el pago",filasB,y);
+  // ── Condiciones de pago (forma de pago + cuentas bancarias) ──
+  {
+    const cuentasPDF = (empresa.cuentasBancarias||[]);
+    const tieneFormaPago = !!factura.formaPago;
+    const tieneCuentas = cuentasPDF.length > 0;
+    if (tieneFormaPago || tieneCuentas) {
+      // Estimar altura: header 8 + formaPago 8 + separador 5 + cada banco ~14
+      const altEstim = 10 + (tieneFormaPago ? 8 : 0) + (tieneCuentas ? 6 + cuentasPDF.length * 14 : 0);
+      ensureSpace(altEstim + 10);
+      const bx = mg, bw = W - mg * 2;
+      // Cabecera azul oscuro
+      doc.setFillColor(28,44,80); doc.roundedRect(bx, y, bw, 8, 2, 2, "F");
+      doc.setTextColor(245,158,11); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text("CONDICIONES DE PAGO", bx+5, y+5.5);
+      y += 10;
+      // Fondo claro del bloque
+      const yBlocIni = y;
+      // Forma de pago
+      if (tieneFormaPago) {
+        doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+        doc.text("Forma de pago:", bx+5, y+4.5);
+        doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
+        doc.text(factura.formaPago, bx+45, y+4.5);
+        y += 8;
+      }
+      // Cuentas bancarias
+      if (tieneCuentas) {
+        if (tieneFormaPago) {
+          doc.setDrawColor(200,210,230); doc.setLineWidth(0.3);
+          doc.line(bx+4, y+1, bx+bw-4, y+1);
+          y += 4;
+        }
+        cuentasPDF.forEach((c, i) => {
+          if (i > 0) {
+            doc.setDrawColor(220,225,235); doc.setLineWidth(0.2);
+            doc.line(bx+4, y, bx+bw-4, y);
+            y += 3;
+          }
+          // Nombre del banco
+          doc.setTextColor(80,100,140); doc.setFontSize(7); doc.setFont("helvetica","normal");
+          doc.text(cuentasPDF.length > 1 ? `Banco ${i+1}:` : "Banco:", bx+5, y+4);
+          doc.setTextColor(20,35,65); doc.setFontSize(8); doc.setFont("helvetica","bold");
+          doc.text(c.banco||"", bx+28, y+4);
+          y += 6;
+          // IBAN resaltado
+          doc.setTextColor(80,100,140); doc.setFontSize(7); doc.setFont("helvetica","normal");
+          doc.text("IBAN:", bx+5, y+4);
+          doc.setFillColor(240,244,255); doc.roundedRect(bx+25, y, bw-30, 7, 1, 1, "F");
+          doc.setTextColor(28,44,80); doc.setFontSize(9); doc.setFont("helvetica","bold");
+          doc.text(c.iban||"", bx+28, y+4.8);
+          y += 10;
+        });
+      }
+      // Borde exterior del bloque
+      doc.setDrawColor(180,195,225); doc.setLineWidth(0.4);
+      doc.roundedRect(bx, yBlocIni-2, bw, y-yBlocIni+4, 1, 1, "S");
+      y += 5;
+    }
   }
 
   // ── Aviso no fiscal ──
@@ -7042,9 +7090,10 @@ const Contabilidad = ({ data, setData, userActual }) => {
   // ── CRUD ──
   const abrirNuevo = (tipo) => {
     const hoy = today();
-    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false });
-    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true });
-    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"" });
+    const fpDef = "Transferencia bancaria";
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, formaPago:fpDef });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, formaPago:fpDef });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", formaPago:fpDef });
     setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
@@ -7076,7 +7125,15 @@ const Contabilidad = ({ data, setData, userActual }) => {
       const prefijo = esPresupuesto ? "PRS" : esProforma ? "PRO" : "FAC";
       const lista = contab[clave]||[];
       const numero = form.id ? form.numero : nextNumContabilidad(lista, prefijo);
-      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total, ...verifactuExtra };
+      // Para presupuestos: guardar snapshot de empresa (para página pública de aceptación)
+      const empresaSnap = esPresupuesto ? {
+        razonSocial: d.empresa?.razonSocial||"", nif: d.empresa?.nif||"",
+        dirFiscal: d.empresa?.dirFiscal||"", cpFiscal: d.empresa?.cpFiscal||"",
+        localidad: d.empresa?.localidad||"", telefono: d.empresa?.telefono||"",
+        email: d.empresa?.email||"", web: d.empresa?.web||"",
+        cuentasBancarias: d.empresa?.cuentasBancarias||[]
+      } : {};
+      const doc = { ...form, id: form.id||Date.now(), numero, lineas:[...lineas], baseImponible, cuotaIVA, total, ...verifactuExtra, ...(esPresupuesto?{empresa:empresaSnap}:{}) };
       const nuevaLista = form.id ? lista.map(x=>x.id===form.id?doc:x) : [...lista, doc];
       return { ...d, contabilidad: { ...contab, [clave]: nuevaLista } };
     });
