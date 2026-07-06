@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
+import heic2any from "heic2any";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -12292,64 +12293,70 @@ async function comprimirImagen(file, maxDim = 600, calidad = 0.60) {
   const esHEIC = mimeEsHEIC || (!mimeEsImgConocida && /\.(heic|heif)$/i.test(file.name));
   if (esHEIC) {
     let convertido = false;
-    // Método 1: createImageBitmap nativo (Safari macOS/iOS con soporte HEIC nativo)
+    // Comprueba que el canvas tiene contenido real (no cuadrado negro).
+    // Un canvas negro uniforme indica que el navegador aceptó el HEIC pero no lo decodificó.
+    const canvasEsValido = (cv) => {
+      try {
+        const ctx = cv.getContext("2d");
+        // Muestreamos 5 puntos: centro + cuatro cuadrantes
+        const pts = [[0.25,0.25],[0.75,0.25],[0.5,0.5],[0.25,0.75],[0.75,0.75]];
+        let suma = 0;
+        for (const [fx,fy] of pts) {
+          const d = ctx.getImageData(Math.floor(cv.width*fx), Math.floor(cv.height*fy), 1, 1).data;
+          suma += d[0]+d[1]+d[2]+d[3]; // R+G+B+Alpha
+        }
+        // Si todos los píxeles son negros/transparentes (suma muy baja), el decode falló
+        return suma > 50;
+      } catch(_){ return true; } // Si hay error de seguridad, aceptamos el resultado
+    };
+    // Método 1: createImageBitmap nativo (Safari macOS/iOS)
     try {
       const bmp = await createImageBitmap(file);
       const cv = document.createElement("canvas");
-      // Escalamos a maxDim para evitar problemas de memoria con fotos de 12 MP
       let w = bmp.width, h = bmp.height;
       if (w > maxDim || h > maxDim) { const r = Math.min(maxDim/w, maxDim/h); w=Math.round(w*r); h=Math.round(h*r); }
       cv.width = w; cv.height = h;
       cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
       if (bmp.close) bmp.close();
+      if (!canvasEsValido(cv)) throw new Error("canvas negro — HEIC no decodificado");
       const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
       if (!blob) throw new Error("toBlob null");
-      const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-      file = new File([blob], nombre, { type: "image/jpeg" });
+      file = new File([blob], file.name.replace(/\.[^.]+$/, "")+".jpg", { type:"image/jpeg" });
       convertido = true;
-    } catch (_bmpErr) { console.warn("createImageBitmap HEIC: probando img+canvas"); }
-    // Método 2: <img> + canvas (iOS Safari renderiza HEIC en <img> aunque createImageBitmap falle)
+    } catch (_bmpErr) { console.warn("createImageBitmap HEIC:", _bmpErr.message); }
+    // Método 2: <img> + canvas (iOS Safari / macOS Safari)
     if (!convertido) {
       try {
         const tempUrl = URL.createObjectURL(file);
         const img = await new Promise((res, rej) => {
-          const el = new Image();
-          el.onload = () => res(el);
-          el.onerror = rej;
-          el.src = tempUrl;
+          const el = new Image(); el.onload=()=>res(el); el.onerror=rej; el.src=tempUrl;
         });
         URL.revokeObjectURL(tempUrl);
         if (!img.naturalWidth || !img.naturalHeight) throw new Error("img sin dimensiones");
         const cv = document.createElement("canvas");
-        // Escalamos a maxDim para evitar problemas de memoria con fotos de 12 MP
         let w = img.naturalWidth, h = img.naturalHeight;
         if (w > maxDim || h > maxDim) { const r = Math.min(maxDim/w, maxDim/h); w=Math.round(w*r); h=Math.round(h*r); }
         cv.width = w; cv.height = h;
         cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        if (!canvasEsValido(cv)) throw new Error("canvas negro — HEIC no decodificado");
         const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
         if (!blob) throw new Error("toBlob null");
-        const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-        file = new File([blob], nombre, { type: "image/jpeg" });
+        file = new File([blob], file.name.replace(/\.[^.]+$/, "")+".jpg", { type:"image/jpeg" });
         convertido = true;
-      } catch (_imgErr) { console.warn("img+canvas HEIC: probando heic2any como fallback"); }
+      } catch (_imgErr) { console.warn("img+canvas HEIC:", _imgErr.message); }
     }
-    // Método 3: heic2any (navegadores sin soporte HEIC nativo)
+    // Método 3: heic2any — import estático para garantizar que Vite lo bundlea correctamente
     if (!convertido) {
       try {
-        const mod = await import("heic2any");
-        const h2a = mod.default || mod;
-        let converted = await h2a({ blob: file, toType: "image/jpeg", quality: 0.85 });
+        let converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
         if (Array.isArray(converted)) converted = converted[0];
-        const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-        file = new File([converted], nombre, { type: "image/jpeg" });
+        file = new File([converted], file.name.replace(/\.[^.]+$/, "")+".jpg", { type:"image/jpeg" });
         convertido = true;
       } catch (heicErr) { console.warn("heic2any fallo:", heicErr); }
     }
     if (!convertido) {
-      // La conversión JS falló en este navegador. Enviamos el archivo HEIC original:
-      // el servidor (upload.php) intentará convertirlo con Imagick server-side.
-      // Si tampoco puede, lo almacenará como .heic (visible en Safari/iOS, no en Chrome).
-      console.warn("Todos los métodos de conversión HEIC fallaron — enviando HEIC original al servidor.");
+      alert("No se pudo convertir la imagen HEIC a JPEG en este navegador.\n\nSolución: abre la foto en tu galería, compártela o expórtala como JPEG, e inténtalo de nuevo.");
+      return null;
     }
   }
   if (!file) return null;
