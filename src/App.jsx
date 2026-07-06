@@ -13320,6 +13320,16 @@ function AppInner() {
                 return;
               }
             }
+            // SEGURIDAD: nunca sobreescribir datos reales del servidor con arrays vacíos.
+            // Si el remoto tiene elementos y lo que vamos a guardar está vacío, es una
+            // señal clara de borrado accidental (localStorage sin baseline válido).
+            if(Array.isArray(aGuardar) && aGuardar.length === 0 &&
+               Array.isArray(remoteData) && remoteData.length > 0){
+              console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} vacío sobre ${remoteData.length} elementos del servidor.`);
+              lastSyncedRef.current[seccion] = remoteJson; // aceptar remoto como base
+              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              continue;
+            }
             const resp = await apiGuardarSeccion(seccion, aGuardar, lastVersionRef.current[seccion]??null);
             if(resp && resp.conflict){
               // 409: alguien guardó justo antes; buscar versión fresca y reintentar en el siguiente ciclo
@@ -13359,10 +13369,19 @@ function AppInner() {
   useEffect(()=>{
     const flushUrgente = ()=>{
       if(saveTimerRef.current){ clearTimeout(saveTimerRef.current); saveTimerRef.current=null; }
+      // No guardar si la carga inicial no terminó (syncStatus==="cargando") o si no
+      // tenemos ninguna baseline — significaría enviar initialData vacío al servidor.
+      if(syncStatusRef.current === "cargando") return;
+      if(Object.keys(lastSyncedRef.current).length === 0) return;
       for(const s of TODAS_SECCIONES){
         const sd = extraerSeccion(dataRef.current, s);
         const j = JSON.stringify(sd);
         if(j === lastSyncedRef.current[s]) continue;
+        // SEGURIDAD: nunca sobreescribir con array vacío si el baseline tenía datos.
+        if(Array.isArray(sd) && sd.length === 0){
+          const baseData = lastSyncedRef.current[s] ? JSON.parse(lastSyncedRef.current[s]) : null;
+          if(Array.isArray(baseData) && baseData.length > 0) continue;
+        }
         // keepalive tiene límite de ~64KB: solo lo usamos para secciones pequeñas.
         // Secciones grandes (clientes con fotos, inventario…) usamos fetch normal.
         const usarKeepalive = j.length < 60000;
