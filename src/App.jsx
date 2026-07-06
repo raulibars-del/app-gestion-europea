@@ -13232,7 +13232,26 @@ function AppInner() {
           }
           setData(prepararDatos(mergedData));
         } else {
-          // Primera vez: subir todas las secciones al servidor
+          // El servidor no devuelve secciones.
+          // SEGURIDAD: si hay datos locales (localStorage de sesión anterior o initialData
+          // no vacío), NO sobreescribimos el servidor — podría ser un fallo temporal de la
+          // API o un arranque en dominio nuevo. Solo inicializamos si realmente no hay nada.
+          const hayDatosLocales = TODAS_SECCIONES.some(s=>{
+            const sd = extraerSeccion(dataRef.current, s);
+            return Array.isArray(sd) ? sd.length > 0 : Object.keys(sd||{}).length > 0;
+          });
+          if(hayDatosLocales){
+            // Servidor vacío pero hay datos locales: situación anómala.
+            // Establecemos baseline para que el guardado automático no machaque el servidor.
+            TODAS_SECCIONES.forEach(s=>{
+              lastSyncedRef.current[s] = JSON.stringify(extraerSeccion(dataRef.current, s));
+            });
+            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+            setSyncStatus("error");
+            setLastSaveError("El servidor no devolvió datos. Comprueba la conexión antes de continuar.");
+            return;
+          }
+          // Primera vez real (BD vacía): subir initialData al servidor
           for(const s of TODAS_SECCIONES){
             const sd = extraerSeccion(dataRef.current, s);
             try{
@@ -13244,7 +13263,17 @@ function AppInner() {
           try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
         }
         setSyncStatus("ok");
-      }catch(e){ setSyncStatus("offline"); }
+      }catch(e){
+        // Si la carga inicial falla (sin conexión, SSL no listo, error de red…),
+        // establecemos el estado local actual como baseline para que el efecto de
+        // guardado no lo interprete como "cambios pendientes" y sobreescriba el
+        // servidor con datos vacíos cuando la conexión vuelva.
+        TODAS_SECCIONES.forEach(s=>{
+          if(!lastSyncedRef.current[s])
+            lastSyncedRef.current[s] = JSON.stringify(extraerSeccion(dataRef.current, s));
+        });
+        setSyncStatus("offline");
+      }
     })();
     return()=>{ cancelled=true; };
   },[]);
@@ -13361,12 +13390,21 @@ function AppInner() {
         if(res.sections){
           let dataActual = dataRef.current;
           let changed = false;
+          // Si no tenemos ninguna baseline (p.ej. primer arranque en dominio nuevo
+          // tras un fallo de la carga inicial), el remoto es la fuente de verdad y
+          // lo cargamos directamente sin comparar — evita que datos vacíos se guarden.
+          const sinBaseline = Object.keys(lastSyncedRef.current).length === 0;
           for(const [seccion, remoteData] of Object.entries(res.sections)){
             const remoteJson = JSON.stringify(remoteData);
             const localData = extraerSeccion(dataActual, seccion);
             const localJson = JSON.stringify(localData);
             const lastSynced = lastSyncedRef.current[seccion];
-            if(remoteJson !== localJson && localJson === lastSynced){
+            if(sinBaseline){
+              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              lastSyncedRef.current[seccion] = remoteJson;
+              lastVersionRef.current[seccion] = res.versions?.[seccion];
+              changed = true;
+            } else if(remoteJson !== localJson && localJson === lastSynced){
               dataActual = aplicarSeccion(dataActual, seccion, remoteData);
               lastSyncedRef.current[seccion] = remoteJson;
               lastVersionRef.current[seccion] = res.versions?.[seccion];
