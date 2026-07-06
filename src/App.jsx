@@ -12286,15 +12286,22 @@ async function cargarFotoParaPDF(src){
 async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
   if (!file) return file;
   // Convertir HEIC/HEIF a JPEG antes de cualquier procesado (iPhone, etc.)
-  const esHEIC = file.type==="image/heic"||file.type==="image/heif"||/\.(heic|heif)$/i.test(file.name);
+  // OJO: no usamos el nombre de archivo como criterio si el MIME ya dice que es
+  // una imagen conocida (p.ej. iOS entrega JPEG con extensión .heic → no es HEIC).
+  const mimeEsHEIC = file.type==="image/heic"||file.type==="image/heif";
+  const mimeEsImgConocida = file.type && file.type.startsWith("image/") && !mimeEsHEIC;
+  const esHEIC = mimeEsHEIC || (!mimeEsImgConocida && /\.(heic|heif)$/i.test(file.name));
   if (esHEIC) {
     let convertido = false;
-    // Método 1: createImageBitmap nativo (Chrome/Safari en macOS e iOS con soporte HEIC nativo)
+    // Método 1: createImageBitmap nativo (Safari macOS/iOS con soporte HEIC nativo)
     try {
       const bmp = await createImageBitmap(file);
       const cv = document.createElement("canvas");
-      cv.width = bmp.width; cv.height = bmp.height;
-      cv.getContext("2d").drawImage(bmp, 0, 0);
+      // Escalamos a maxDim para evitar problemas de memoria con fotos de 12 MP
+      let w = bmp.width, h = bmp.height;
+      if (w > maxDim || h > maxDim) { const r = Math.min(maxDim/w, maxDim/h); w=Math.round(w*r); h=Math.round(h*r); }
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(bmp, 0, 0, w, h);
       if (bmp.close) bmp.close();
       const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
       if (!blob) throw new Error("toBlob null");
@@ -12302,7 +12309,7 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
       file = new File([blob], nombre, { type: "image/jpeg" });
       convertido = true;
     } catch (_bmpErr) { console.warn("createImageBitmap HEIC: probando img+canvas"); }
-    // Método 2: <img> element + canvas (iOS Safari puede renderizar HEIC en <img> aunque createImageBitmap falle)
+    // Método 2: <img> + canvas (iOS Safari renderiza HEIC en <img> aunque createImageBitmap falle)
     if (!convertido) {
       try {
         const tempUrl = URL.createObjectURL(file);
@@ -12315,8 +12322,11 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
         URL.revokeObjectURL(tempUrl);
         if (!img.naturalWidth || !img.naturalHeight) throw new Error("img sin dimensiones");
         const cv = document.createElement("canvas");
-        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
-        cv.getContext("2d").drawImage(img, 0, 0);
+        // Escalamos a maxDim para evitar problemas de memoria con fotos de 12 MP
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > maxDim || h > maxDim) { const r = Math.min(maxDim/w, maxDim/h); w=Math.round(w*r); h=Math.round(h*r); }
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
         const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
         if (!blob) throw new Error("toBlob null");
         const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
@@ -12337,8 +12347,10 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
       } catch (heicErr) { console.warn("heic2any fallo:", heicErr); }
     }
     if (!convertido) {
-      alert("No se pudo convertir la imagen HEIC/HEIF a JPEG.\nPor favor, conviértela a JPG antes de subirla.");
-      return null;
+      // La conversión JS falló en este navegador. Enviamos el archivo HEIC original:
+      // el servidor (upload.php) intentará convertirlo con Imagick server-side.
+      // Si tampoco puede, lo almacenará como .heic (visible en Safari/iOS, no en Chrome).
+      console.warn("Todos los métodos de conversión HEIC fallaron — enviando HEIC original al servidor.");
     }
   }
   if (!file) return null;

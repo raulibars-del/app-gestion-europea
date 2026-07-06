@@ -40,9 +40,10 @@ $mime = $input['mime'] ?? 'application/octet-stream';
 $permitidos = [
     'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
     'image/gif' => 'gif',
-    // HEIC/HEIF eliminados: el cliente debe convertir a JPEG antes de subir.
-    // Si llega un HEIC sin convertir, el servidor lo rechaza con tipo_no_permitido
-    // en lugar de almacenarlo como archivo no-renderizable en el navegador.
+    // HEIC/HEIF: aceptados y convertidos a JPEG server-side vía Imagick si está disponible.
+    // Si Imagick no está instalado, se almacenan tal cual (Safari/iOS los muestra sin problema).
+    'image/heic' => 'heic',
+    'image/heif' => 'heif',
     'application/pdf' => 'pdf',
     'application/msword' => 'doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
@@ -53,7 +54,7 @@ $permitidos = [
 ];
 // Extensiones permitidas por sufijo del nombre original, para archivos cuyo
 // MIME el navegador no informa de forma fiable (p.ej. .dwg).
-$extsPorNombre = ['dwg' => 'dwg', 'dxf' => 'dxf'];
+$extsPorNombre = ['dwg' => 'dwg', 'dxf' => 'dxf', 'heic' => 'heic', 'heif' => 'heif'];
 
 $ext = $permitidos[$mime] ?? null;
 if ($ext === null) {
@@ -81,6 +82,27 @@ if (strlen($data) > $maxBytes) {
     echo json_encode(['error' => 'archivo_demasiado_grande']);
     exit;
 }
+
+// ── Conversión HEIC/HEIF → JPEG server-side ──────────────────────────────────
+// El cliente intenta convertir en el navegador, pero en Chrome/Firefox sin
+// soporte nativo de HEIC la conversión JS falla. Aquí lo intentamos con Imagick.
+if (($ext === 'heic' || $ext === 'heif') && extension_loaded('imagick')) {
+    try {
+        $im = new Imagick();
+        $im->readImageBlob($data);
+        $im->setImageFormat('jpeg');
+        $im->setImageCompressionQuality(85);
+        $im->stripImage(); // elimina metadatos EXIF para reducir tamaño
+        $data = $im->getImageBlob();
+        $im->destroy();
+        $ext  = 'jpg';
+        $mime = 'image/jpeg';
+    } catch (Exception $e) {
+        // Imagick falló (HEIC no compilado en esta versión). Se guarda el HEIC original.
+        // Safari/iOS lo mostrará sin problema; Chrome mostrará el icono de imagen rota.
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 $dir = __DIR__ . '/uploads';
 if (!is_dir($dir)) {

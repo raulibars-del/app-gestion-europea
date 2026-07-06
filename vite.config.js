@@ -26,4 +26,9 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(fechaBuild),
     __BUILD_ID__: JSON.stringify(buildId),
   },
+  optimizeDeps: {
+    // heic2any es un módulo UMD antiguo; sin esto Vite puede fallar al cargarlo
+    // como dynamic import en producción (el chunk queda mal enlazado).
+    include: ['heic2any'],
+  },
 })
