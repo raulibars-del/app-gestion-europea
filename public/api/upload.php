@@ -39,7 +39,10 @@ if (!$input || empty($input['base64']) || empty($input['filename'])) {
 $mime = $input['mime'] ?? 'application/octet-stream';
 $permitidos = [
     'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
-    'image/gif' => 'gif', 'image/heic' => 'heic', 'image/heif' => 'heif',
+    'image/gif' => 'gif',
+    // HEIC/HEIF eliminados: el cliente debe convertir a JPEG antes de subir.
+    // Si llega un HEIC sin convertir, el servidor lo rechaza con tipo_no_permitido
+    // en lugar de almacenarlo como archivo no-renderizable en el navegador.
     'application/pdf' => 'pdf',
     'application/msword' => 'doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',

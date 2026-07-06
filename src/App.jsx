@@ -1421,7 +1421,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const delM=mid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,maquinas:c.maquinas.filter(m=>m.id!==mid)})}));
   const delCo=cid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,contactos:c.contactos.filter(x=>x.id!==cid)})}));
   const delCliente=cid=>{ setData(d=>({...d,clientes:d.clientes.filter(c=>c.id!==cid)})); setVista(null); };
-  const handleFoto=async e=>{ const f0=e.target.files[0]; if(!f0)return; const f=await comprimirImagen(f0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f);}); try{const up=await apiUploadFile({base64:b64,filename:f.name,mime:f.type});setFormM(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
+  const handleFoto=async e=>{ const f0=e.target.files[0]; if(!f0)return; const f=await comprimirImagen(f0); if(!f)return; const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f);}); try{const up=await apiUploadFile({base64:b64,filename:f.name,mime:f.type});setFormM(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
   if(vista===null) return (
     <div>
@@ -2137,6 +2137,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     setSubiendo(true);
     try{
       const fileFinal=await comprimirImagen(file);
+      if(!fileFinal){setSubiendo(false);if(fileRef.current)fileRef.current.value="";return;}
       const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(fileFinal);});
       const up=await apiUploadFile({base64,filename:fileFinal.name,mime:fileFinal.type});
       pushMsg({id:uid(),autorId:userActual.id,texto:"",ts:new Date().toISOString(),adjunto:{url:up.url,nombre:up.nombre,mime:up.mime}});
@@ -2364,7 +2365,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
     setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==clienteId?c:{...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)})}));
     setVista(null);
   };
-  const handleFoto = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
+  const handleFoto = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); if(!file)return; const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const imprimirQR = (m) => {
     // El QR apunta a una página real de la app (https://dominio/?maquina=CODIGO).
     // Esa página pide login antes de mostrar ningún dato (igual que la ficha de
@@ -2404,8 +2405,8 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     setModal(false);
   };
   // Alta completa de máquina nueva desde esta pantalla: elige cliente, datos y documentación opcional.
-  const handleFotoNueva = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setFormNueva(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
-  const handleArchivosNueva = e => Array.from(e.target.files).forEach(async file0=>{ const file=await comprimirImagen(file0); const r=new FileReader(); r.onload=ev=>setArchivosNueva(p=>[...p,{id:Date.now()+Math.random(),nombre:file.name,tipo:"Otro",tamanyo:file.size,data:ev.target.result}]); r.readAsDataURL(file); });
+  const handleFotoNueva = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); if(!file)return; const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setFormNueva(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
+  const handleArchivosNueva = e => Array.from(e.target.files).forEach(async file0=>{ const file=await comprimirImagen(file0); if(!file)return; const r=new FileReader(); r.onload=ev=>setArchivosNueva(p=>[...p,{id:Date.now()+Math.random(),nombre:file.name,tipo:"Otro",tamanyo:file.size,data:ev.target.result}]); r.readAsDataURL(file); });
   const abrirNuevaMaquina = () => { setFormNueva({clienteId:"",nombre:"",marca:"",modelo:"",serie:"",anyo:"",notas:"",foto:null}); setArchivosNueva([]); setModalNueva(true); };
   const saveNueva = () => {
     if(!formNueva.clienteId){ alert("Selecciona un cliente."); return; }
@@ -4188,7 +4189,7 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   const firmaPersonaHtml = opts.firmaNombre
     ? "<table cellpadding=\"0\" cellspacing=\"0\"><tr>"
       + (opts.firmaFoto
-          ? "<td style=\"width:" + AVATAR_PX + "px;padding-right:14px;vertical-align:top;\"><img src=\"" + opts.firmaFoto + "\" width=\"" + AVATAR_PX + "\" height=\"" + AVATAR_PX + "\" style=\"display:block;width:" + AVATAR_PX + "px;height:" + AVATAR_PX + "px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);\" alt=\"" + opts.firmaNombre + "\"/></td>"
+          ? "<td style=\"width:" + AVATAR_PX + "px;padding-right:14px;vertical-align:top;\"><img src=\"" + urlAbs(opts.firmaFoto) + "\" width=\"" + AVATAR_PX + "\" height=\"" + AVATAR_PX + "\" style=\"display:block;width:" + AVATAR_PX + "px;height:" + AVATAR_PX + "px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);\" alt=\"" + opts.firmaNombre + "\"/></td>"
           : "")
       + "<td style=\"vertical-align:middle;\">"
       + "<div style=\"font-weight:700;font-size:16px;margin-bottom:3px;\">" + opts.firmaNombre + "</div>"
@@ -4279,6 +4280,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       // Las fotos de móvil pueden pesar varios MB o venir en HEIC: se redimensionan
       // y convierten a JPEG ligero antes de subir, para evitar errores de subida.
       const fileFinal = await comprimirImagen(file);
+      if (!fileFinal) return;
       const base64 = await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(fileFinal);});
       const up = await apiUploadFile({base64,filename:fileFinal.name,mime:fileFinal.type});
       setForm(p=>({...p,adjuntos:[...(p.adjuntos||[]),{url:up.url,nombre:up.nombre||fileFinal.name,mime:up.mime||fileFinal.type}]}));
@@ -9211,7 +9213,7 @@ const venderMaquina=()=>{
   setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
 };
 const delMaquina=id=>{setMaqStock(ms=>ms.filter(m=>m.id!==id));setVista(null);};
-const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:up.url,principal:!(p.fotos&&p.fotos.length>0)}]}));}catch(er){alert("Error al subir la foto: "+er.message);}});
+const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);if(!file)return;const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:up.url,principal:!(p.fotos&&p.fotos.length>0)}]}));}catch(er){alert("Error al subir la foto: "+er.message);}});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
 const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
@@ -9555,6 +9557,7 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
   const handleFotoArt = async e => {
     const file0 = e.target.files[0]; if (!file0) return;
     const file = await comprimirImagen(file0);
+    if (!file) return;
     const r = new FileReader();
     r.onload = ev => setForm(p => ({...p, foto: ev.target.result}));
     r.readAsDataURL(file);
@@ -11939,14 +11942,38 @@ async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
   // Convertir HEIC/HEIF a JPEG antes de cualquier procesado (iPhone, etc.)
   const esHEIC = file.type==="image/heic"||file.type==="image/heif"||/\.(heic|heif)$/i.test(file.name);
   if (esHEIC) {
+    let convertido = false;
+    // Método 1: createImageBitmap nativo (Chrome/Safari en macOS e iOS con soporte HEIC nativo)
     try {
-      const heic2any = (await import("heic2any")).default;
-      let converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
-      if (Array.isArray(converted)) converted = converted[0];
+      const bmp = await createImageBitmap(file);
+      const cv = document.createElement("canvas");
+      cv.width = bmp.width; cv.height = bmp.height;
+      cv.getContext("2d").drawImage(bmp, 0, 0);
+      if (bmp.close) bmp.close();
+      const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", 0.85));
+      if (!blob) throw new Error("toBlob null");
       const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-      file = new File([converted], nombre, { type: "image/jpeg" });
-    } catch (heicErr) { console.warn("heic2any fallo, continuando:", heicErr); }
+      file = new File([blob], nombre, { type: "image/jpeg" });
+      convertido = true;
+    } catch (_bmpErr) { console.warn("createImageBitmap HEIC: probando heic2any como fallback"); }
+    // Método 2: heic2any (navegadores sin soporte HEIC nativo)
+    if (!convertido) {
+      try {
+        const mod = await import("heic2any");
+        const h2a = mod.default || mod;
+        let converted = await h2a({ blob: file, toType: "image/jpeg", quality: 0.85 });
+        if (Array.isArray(converted)) converted = converted[0];
+        const nombre = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+        file = new File([converted], nombre, { type: "image/jpeg" });
+        convertido = true;
+      } catch (heicErr) { console.warn("heic2any fallo:", heicErr); }
+    }
+    if (!convertido) {
+      alert("No se pudo convertir la imagen HEIC/HEIF a JPEG.\nPor favor, conviértela a JPG antes de subirla.");
+      return null;
+    }
   }
+  if (!file) return null;
   if (!file.type || !file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
   let url;
   try {
