@@ -12280,10 +12280,9 @@ async function cargarFotoParaPDF(src){
 // Redimensiona y comprime una imagen en el navegador antes de subirla: las
 // fotos hechas con el móvil pueden pesar varios MB (o venir en HEIC, que el
 // servidor no admite). Si el navegador puede decodificarla, la reescalamos a
-// un máximo de 1024px y la convertimos a JPEG ligero; si no puede (algunos
-// navegadores no decodifican HEIC), devolvemos el archivo original tal cual
-// y será el servidor quien decida si lo admite.
-async function comprimirImagen(file, maxDim = 800, calidad = 0.72) {
+// un máximo de 600px y la convertimos a JPEG muy comprimido para no saturar
+// el servidor. Si no puede decodificarla, se sube el original y el servidor decide.
+async function comprimirImagen(file, maxDim = 600, calidad = 0.60) {
   if (!file) return file;
   // Convertir HEIC/HEIF a JPEG antes de cualquier procesado (iPhone, etc.)
   // OJO: no usamos el nombre de archivo como criterio si el MIME ya dice que es
