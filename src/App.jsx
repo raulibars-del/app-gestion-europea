@@ -12300,13 +12300,13 @@ async function comprimirImagen(file, maxDim = 600, calidad = 0.60) {
         const ctx = cv.getContext("2d");
         // Muestreamos 5 puntos: centro + cuatro cuadrantes
         const pts = [[0.25,0.25],[0.75,0.25],[0.5,0.5],[0.25,0.75],[0.75,0.75]];
-        let suma = 0;
+        let rgbSuma = 0;
         for (const [fx,fy] of pts) {
           const d = ctx.getImageData(Math.floor(cv.width*fx), Math.floor(cv.height*fy), 1, 1).data;
-          suma += d[0]+d[1]+d[2]+d[3]; // R+G+B+Alpha
+          rgbSuma += d[0]+d[1]+d[2]; // Solo RGB — el alfa es 255 incluso en canvas negro opaco
         }
-        // Si todos los píxeles son negros/transparentes (suma muy baja), el decode falló
-        return suma > 50;
+        // Si el brillo RGB total de los 5 puntos es casi cero → decode fallido (negro uniforme)
+        return rgbSuma > 80;
       } catch(_){ return true; } // Si hay error de seguridad, aceptamos el resultado
     };
     // Método 1: createImageBitmap nativo (Safari macOS/iOS)
