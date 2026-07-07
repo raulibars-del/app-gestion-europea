@@ -323,27 +323,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     $existeStmt->execute(['s' => $section]);
     $existe = $existeStmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($existe) {
-        if ($expectedVersion !== null) {
-            // Guardado condicional: solo actualiza si la versión que el cliente cree
-            // vigente sigue siendo la actual (comprobación atómica en una sola sentencia).
-            $upd = $pdo->prepare("UPDATE app_sections SET data = :data, version = version + 1 WHERE section = :s AND version = :expected");
-            $upd->execute(['data' => $raw, 's' => $section, 'expected' => $expectedVersion]);
-            if ($upd->rowCount() === 0) {
-                $actStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
-                $actStmt->execute(['s' => $section]);
-                $act = $actStmt->fetch(PDO::FETCH_ASSOC);
-                http_response_code(409);
-                echo json_encode(['error' => 'conflict', 'version' => $act ? (int)$act['version'] : null, 'section' => $section]);
-                exit;
-            }
-        } else {
-            // El cliente no envía versión (arranque offline, versión desconocida).
-            // Devolvemos 409 con la versión actual para que el cliente la aprenda y
-            // reintente con control de versión. Esto evita que datos obsoletos
-            // machaquen cambios recientes de otros usuarios (p.ej. tareas borradas
-            // que vuelven a aparecer porque un cliente con caché antigua sobreescribe
-            // el servidor sin comprobar la versión).
+    if ($existe && $expectedVersion !== null) {
+        // Guardado condicional: solo actualiza si la versión que el cliente cree
+        // vigente sigue siendo la actual (comprobación atómica en una sola sentencia).
+        $upd = $pdo->prepare("UPDATE app_sections SET data = :data, version = version + 1 WHERE section = :s AND version = :expected");
+        $upd->execute(['data' => $raw, 's' => $section, 'expected' => $expectedVersion]);
+        if ($upd->rowCount() === 0) {
             $actStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
             $actStmt->execute(['s' => $section]);
             $act = $actStmt->fetch(PDO::FETCH_ASSOC);
@@ -352,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
             exit;
         }
     } else {
-        // Sección nueva: INSERT (primera vez o migración)
+        // Upsert sin control de versión (primera vez, migración, o versión desconocida)
         $upsert = $pdo->prepare(
             "INSERT INTO app_sections (section, data, version) VALUES (:s, :d, 1)
              ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
