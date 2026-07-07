@@ -4279,6 +4279,23 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
 // en clientes de correo como Outlook o Gmail.
 // Es una función global (no solo de Tareas) porque también la usa Calendario
 // para el email de evento creado, con el mismo diseño.
+// Sube una foto de perfil (base64 data URL o URL relativa) al servidor y devuelve
+// su URL absoluta lista para usar en emails. Los emails HTML no admiten fotos base64
+// inline (Gmail y Outlook las bloquean), así que siempre se necesita una URL pública.
+const resolverFotoEmail = async (foto) => {
+  if (!foto) return null;
+  if (foto.startsWith("http")) return foto; // ya es absoluta
+  if (!foto.startsWith("data:")) return "https://gestion-europea.com" + foto; // URL relativa
+  // Es base64: subirla al servidor para obtener una URL pública
+  try {
+    const mime = foto.match(/^data:([^;]+);/)?.[1] || "image/jpeg";
+    const b64 = foto.split(",")[1];
+    const up = await apiUploadFile({ base64: b64, filename: "avatar-email.jpg", mime });
+    return "https://gestion-europea.com" + up.url;
+  } catch(e) {
+    return null; // si falla, la firma saldrá sin foto (mejor que foto rota)
+  }
+};
 const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
   const filaHtml = ([l, v]) =>
     "<tr>"
@@ -4286,7 +4303,7 @@ const htmlEmailTarea = (lineas, nueva, intro, incluirBotonApp, opts = {}) => {
     + "<td style=\"padding:4px 0;color:#1a1a1a;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;\">" + String(v).replace(/\n/g, "<br/>") + "</td>"
     + "</tr>";
   const SITE_URL = "https://gestion-europea.com";
-  const urlAbs = u => (u.startsWith("http") ? u : SITE_URL + u);
+  const urlAbs = u => (!u ? u : u.startsWith("http") || u.startsWith("data:") ? u : SITE_URL + u);
   const fotos = (nueva.adjuntos || []).filter(a => a.mime?.startsWith("image/"));
   const otrosAdj = (nueva.adjuntos || []).filter(a => !a.mime?.startsWith("image/"));
   const fotosHtml = fotos.length
@@ -4568,6 +4585,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       if (!destinatarios.length) return;
       const creador = data.usuarios.find(u => u.id === parseInt(nueva.creadoPor));
       const nombreCreador = uN(nueva.creadoPor);
+      const firmaFotoCreador = await resolverFotoEmail(creador?.foto);
       const lineas = [
         ["Título", nueva.titulo],
         ["Tipo", esEmpresaFlag ? "Tarea de empresa (todos los miembros)" : "Tarea individual"],
@@ -4583,7 +4601,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
-        firmaFoto: creador?.foto,
+        firmaFoto: firmaFotoCreador,
       });
       // Se informa siempre del resultado (enviado/fallido) para poder detectar a simple
       // vista si el SMTP no está respondiendo, en vez de fallar en silencio.
@@ -4618,6 +4636,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     try {
       const nombreCreador = uN(nueva.creadoPor);
       const creador = data.usuarios.find(u => u.id === parseInt(nueva.creadoPor));
+      const firmaFotoCreadorR = await resolverFotoEmail(creador?.foto);
       // Solo título, prioridad y notas: el vencimiento es un dato interno de
       // gestión de la tarea que no tiene sentido mandarle a un externo.
       const lineas = [
@@ -4632,7 +4651,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         firmaPuesto: creador?.puesto?.trim(),
         firmaTelefono: creador?.telefono?.trim(),
         firmaEmail: creador?.email?.trim(),
-        firmaFoto: creador?.foto,
+        firmaFoto: firmaFotoCreadorR,
       });
       const emailCreador = creador?.email?.trim();
       await apiSendMail({
@@ -4657,6 +4676,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       const creador = data.usuarios.find(u => u.id === parseInt(t.creadoPor));
       if (!creador?.email?.trim()) return;
       const nombreQuienCompleta = userActual.nombre;
+      const firmaFotoCompleta = await resolverFotoEmail(userActual.foto);
       const lineas = [
         ["Título", t.titulo],
         ["Tipo", t.esEmpresa ? "Tarea de empresa (todos)" : "Tarea individual"],
@@ -4669,7 +4689,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         firmaPuesto: userActual.puesto?.trim(),
         firmaTelefono: userActual.telefono?.trim(),
         firmaEmail: userActual.email?.trim(),
-        firmaFoto: userActual.foto,
+        firmaFoto: firmaFotoCompleta,
       });
       await apiSendMail({
         to: creador.email.trim(),
@@ -11336,6 +11356,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       const destinatarios = data.usuarios.filter(u=>idsEvento(evento).includes(u.id)&&u.email?.trim());
       if(!destinatarios.length) return;
       const nombreCreador = userActual.nombre;
+      const firmaFotoEvento = await resolverFotoEmail(userActual.foto);
       const fechaTxt = (evento.fechaFin&&evento.fechaFin!==evento.fecha) ? fmtFecha(evento.fecha)+" — "+fmtFecha(evento.fechaFin) : fmtFecha(evento.fecha);
       const personasTxt = nombresEvento(evento).join(", ");
       const lineas = [
@@ -11351,7 +11372,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
         firmaPuesto: userActual.puesto?.trim(),
         firmaTelefono: userActual.telefono?.trim(),
         firmaEmail: userActual.email?.trim(),
-        firmaFoto: userActual.foto,
+        firmaFoto: firmaFotoEvento,
       });
       const enviados = [];
       const fallos = [];
