@@ -2313,6 +2313,8 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const fN=k=>e=>setFormNueva(p=>({...p,[k]:e.target.value}));
   const [modalInstalacion,setModalInstalacion]=useState(false);
   const [fechaInstalacionForm,setFechaInstalacionForm]=useState("");
+  const [modalTransferirMaq,setModalTransferirMaq]=useState(null); // {maquinaId, clienteOrigenId, maquinaNombre} | null
+  const [transferNuevoClienteId,setTransferNuevoClienteId]=useState("");
 
   const todas = (data.clientes||[]).flatMap(c=>(c.maquinas||[]).map(m=>({...m, _clienteId:c.id, _clienteNombre:c.nombreEmpresa, _clienteRevendedor:!!c.revendedor})));
   // Distingue las máquinas del "parque propio" de Europea de Maquinaria: las que vienen
@@ -2431,6 +2433,28 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const delMaquinaFicha = (clienteId, maquinaId) => {
     setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==clienteId?c:{...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)})}));
     setVista(null);
+  };
+  const ejecutarTransferirMaq = (maquinaId, clienteOrigenId, nuevoClienteId) => {
+    if(!nuevoClienteId || nuevoClienteId===clienteOrigenId) return;
+    setData(d=>{
+      const maquina=(d.clientes.find(c=>c.id===clienteOrigenId)?.maquinas||[]).find(m=>m.id===maquinaId);
+      if(!maquina) return d;
+      const nuevosClientes=d.clientes.map(c=>{
+        if(c.id===clienteOrigenId) return {...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)};
+        if(c.id===nuevoClienteId){
+          if((c.maquinas||[]).some(m=>m.id===maquinaId)) return c;
+          return {...c,maquinas:[...(c.maquinas||[]),{...maquina,origenStock:false,fechaTransferencia:today()}]};
+        }
+        return c;
+      });
+      const nuevaDoc=(d.documentacion||[]).map(x=>
+        x._maquinaClienteId===maquinaId&&x.clienteId===clienteOrigenId?{...x,clienteId:nuevoClienteId}:x
+      );
+      return {...d,clientes:nuevosClientes,documentacion:nuevaDoc};
+    });
+    setVista({clienteId:nuevoClienteId,maquinaId});
+    setModalTransferirMaq(null);
+    setTransferNuevoClienteId("");
   };
   const handleFoto = async e => { const file0=e.target.files[0]; if(!file0) return; const file=await comprimirImagen(file0); if(!file)return; const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);}); try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const imprimirQR = (m) => {
@@ -2672,6 +2696,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
         <button onClick={generarPDFMaquinaFicha} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>PDF</button>
         <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
         {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina? Esta acción no se puede deshacer."))delMaquinaFicha(cliente.id,m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
+        <button onClick={()=>{setTransferNuevoClienteId("");setModalTransferirMaq({maquinaId:m.id,clienteOrigenId:cliente.id,maquinaNombre:m.nombre||`${m.marca||""} ${m.modelo||""}`.trim()});}} style={{background:"#2d1b4e",border:"1px solid #7c3aed44",borderRadius:8,padding:"7px 13px",cursor:"pointer",color:"#a78bfa",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>🔄 Cambiar propietario</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
         <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
@@ -2752,6 +2777,42 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
           <button onClick={save} style={btnPrimary}>Guardar</button>
         </div>
       </Modal>}
+      {modalTransferirMaq&&(()=>{
+        const clienteOrigen=(data.clientes||[]).find(c=>c.id===modalTransferirMaq.clienteOrigenId);
+        const clienteDestino=transferNuevoClienteId!==""?(data.clientes||[]).find(c=>c.id===Number(transferNuevoClienteId)):null;
+        return (
+          <Modal title="Cambiar propietario de la máquina" onClose={()=>{setModalTransferirMaq(null);setTransferNuevoClienteId("");}}>
+            <div style={{background:"#1a1230",border:"1px solid #7c3aed44",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+              <div style={{color:"#a78bfa",fontSize:12,fontWeight:700,marginBottom:4}}>Máquina</div>
+              <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{modalTransferirMaq.maquinaNombre||"—"}</div>
+              <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>Propietario actual: <span style={{color:"#f59e0b",fontWeight:700}}>{clienteOrigen?.nombreEmpresa||"—"}</span></div>
+            </div>
+            <Field label="Nuevo propietario">
+              <select value={transferNuevoClienteId} onChange={e=>setTransferNuevoClienteId(e.target.value)} style={{...inputStyle,width:"100%"}}>
+                <option value="">— Selecciona un cliente —</option>
+                {(data.clientes||[]).filter(c=>c.id!==modalTransferirMaq.clienteOrigenId).sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"")).map(c=>(
+                  <option key={c.id} value={c.id}>{c.nombreEmpresa}</option>
+                ))}
+              </select>
+            </Field>
+            {transferNuevoClienteId!==""&&clienteDestino&&(
+              <div style={{background:"#0d1f17",border:"1px solid #10b98144",borderRadius:10,padding:"12px 14px",marginTop:4}}>
+                <div style={{color:"#10b981",fontSize:12,fontWeight:700,marginBottom:6}}>Confirmación de transferencia</div>
+                <div style={{color:"#e4e9f6",fontSize:13}}>
+                  La máquina <strong style={{color:"#f1f3f9"}}>{modalTransferirMaq.maquinaNombre||"—"}</strong> pasará de
+                  {" "}<strong style={{color:"#f59e0b"}}>{clienteOrigen?.nombreEmpresa||"—"}</strong> a
+                  {" "}<strong style={{color:"#10b981"}}>{clienteDestino.nombreEmpresa}</strong>.
+                </div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Los partes e historial de la máquina permanecen intactos.</div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+              <button onClick={()=>{setModalTransferirMaq(null);setTransferNuevoClienteId("");}} style={btnOutline}>Cancelar</button>
+              <button disabled={!transferNuevoClienteId} onClick={()=>ejecutarTransferirMaq(modalTransferirMaq.maquinaId,modalTransferirMaq.clienteOrigenId,Number(transferNuevoClienteId))} style={{...btnPrimary,opacity:transferNuevoClienteId?"1":"0.4",cursor:transferNuevoClienteId?"pointer":"default",background:"#7c3aed",borderColor:"#7c3aed"}}>✅ Confirmar cambio de propietario</button>
+            </div>
+          </Modal>
+        );
+      })()}
       {modalInstalacion&&<Modal title="Fecha de instalación" onClose={()=>setModalInstalacion(false)}>
         <Field label="Fecha de instalación"><Input type="date" value={fechaInstalacionForm} onChange={e=>setFechaInstalacionForm(e.target.value)}/></Field>
         <div style={{background:"#f59e0b12",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#f59e0b",fontSize:12}}>Desde esta fecha empieza a contar el año de garantía de la máquina.</div>
