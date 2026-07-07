@@ -3009,7 +3009,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     if (soloAntiguos) l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
     if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
     if (ft !== "Todos") l = l.filter(a => a.tipo === ft);
-    if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => a.titulo.toLowerCase().includes(q) || cN(a.clienteId).toLowerCase().includes(q)); }
+    if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => [a.titulo, a.descripcion, a.notas, a.numeroAviso, cN(a.clienteId), a.marca, a.modelo, a.matricula, a.tipo, a.prioridad, a.estado, a.dadoPor, a.metodoAviso, a.creadoPor, listaNombres(a,"asignados","asignado")].some(c=>(c||"").toString().toLowerCase().includes(q))); }
     return l.sort((a, b) => {
       // Una vez cerrado (Resuelto/Cancelado) el aviso ya no compite por prioridad:
       // se ordena por la fecha en que se cerró, el más reciente primero.
