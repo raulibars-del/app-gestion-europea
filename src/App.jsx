@@ -10482,12 +10482,35 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
             </div>
             <Field label="Nuevo propietario">
               <ClientePicker clientes={data.clientes} value={doc.clienteId||""} onChange={id=>{
-                setData(d=>({...d,documentacion:(d.documentacion||[]).map(x=>x.id===doc.id?{...x,clienteId:id}:x)}));
+                if(!id || id===doc.clienteId){ setModalPropietario(false); return; }
+                setData(d=>{
+                  const oldClienteId = doc.clienteId;
+                  const maqId = doc._maquinaClienteId;
+                  // Buscar la máquina en el cliente actual
+                  const oldCliente = d.clientes.find(c=>c.id===oldClienteId);
+                  const maquina = oldCliente?.maquinas?.find(m=>m.id===maqId);
+                  // Mover la máquina: quitarla del cliente anterior y añadirla al nuevo
+                  const nuevosClientes = d.clientes.map(c=>{
+                    if(c.id===oldClienteId){
+                      return {...c, maquinas:(c.maquinas||[]).filter(m=>m.id!==maqId)};
+                    }
+                    if(c.id===id && maquina){
+                      const yaExiste=(c.maquinas||[]).some(m=>m.id===maqId);
+                      const maqTransferida={...maquina, fechaTransferencia:today(), origenStock:false};
+                      if(yaExiste) return c; // no duplicar
+                      return {...c, maquinas:[...(c.maquinas||[]), maqTransferida]};
+                    }
+                    return c;
+                  });
+                  // Actualizar el clienteId en documentación
+                  const nuevaDoc=(d.documentacion||[]).map(x=>x.id===doc.id?{...x,clienteId:id}:x);
+                  return {...d, clientes:nuevosClientes, documentacion:nuevaDoc};
+                });
                 setModalPropietario(false);
               }}/>
             </Field>
             <div style={{background:"#f59e0b12",border:"1px solid #f59e0b33",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#f59e0b",marginTop:8}}>
-              Al cambiar el propietario la maquina quedara vinculada al nuevo cliente. El historial de partes no cambia.
+              La máquina desaparecerá de la ficha del cliente anterior y aparecerá en la del nuevo. El historial de partes no cambia.
             </div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
               <button onClick={()=>setModalPropietario(false)} style={btnOutline}>Cancelar</button>
