@@ -5363,7 +5363,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setNuevoMat({material:"",cantidad:"1"});
   };
   const añadirMaterialInventario = (item) => {
-    setListaMateriales(p => [...p, {id:Date.now(), material:item.nombre, codigo:item.codigo, inventarioId:item.id, cantidad:nuevoMat.cantidad||"1", esInventario:true}]);
+    setListaMateriales(p => [...p, {id:Date.now(), material:item.nombre, codigo:item.codigo, descripcion:item.descripcion||"", categoria:item.categoria||"", inventarioId:item.id, cantidad:nuevoMat.cantidad||"1", esInventario:true}]);
     setBuscarArt(""); setNuevoMat(p => ({...p, cantidad:"1"}));
   };
   // Deshace el efecto sobre stock/historial que un parte concreto hubiera dejado en el
@@ -5693,7 +5693,15 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       ],y);
       // Tabla materiales de esta intervencion
       if(pz.materialesList?.length>0){
-        asegurarEspacio(14+pz.materialesList.length*7);
+        // Calcular alto total de las filas (las de inventario tienen 2 líneas)
+        const altoFila = (m) => {
+          const invItem = m.inventarioId ? (data.inventario||[]).find(it=>it.id===m.inventarioId) : null;
+          const cat = m.categoria || invItem?.categoria || "";
+          const desc = m.descripcion || invItem?.descripcion || "";
+          return (cat||desc) ? 12 : 7;
+        };
+        const altoTotal = pz.materialesList.reduce((s,m)=>s+altoFila(m),0);
+        asegurarEspacio(18+altoTotal);
         // Cabecera sección materiales
         doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
         doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
@@ -5704,17 +5712,31 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         doc.setFillColor(40,60,110); doc.rect(mg,y,W-mg*2,6,"F");
         doc.setDrawColor(255,255,255);
         doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont("helvetica","bold");
-        doc.text("MATERIAL",mg+3,y+4.5);
+        doc.text("MATERIAL / CATEGORÍA / DESCRIPCIÓN",mg+3,y+4.5);
         doc.text("CANTIDAD",W-mg-3,y+4.5,{align:"right"}); y+=7;
         // Filas
         pz.materialesList.forEach((m,j)=>{
+          const invItem = m.inventarioId ? (data.inventario||[]).find(it=>it.id===m.inventarioId) : null;
+          const cat  = m.categoria  || invItem?.categoria  || "";
+          const desc = m.descripcion|| invItem?.descripcion|| "";
+          const tieneDetalle = !!(cat||desc);
+          const h = tieneDetalle ? 12 : 7;
           const bgClr = j%2===0 ? [248,250,255] : [255,255,255];
-          doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
-          doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","normal");
+          doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,h+1,"F");
+          // Nombre (línea 1)
+          doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","bold");
           doc.text(m.material,mg+3,y+4);
+          // Cantidad (alineada al centro vertical del bloque)
           doc.setFont("helvetica","bold"); doc.setTextColor(15,100,55);
-          doc.text(String(m.cantidad),W-mg-3,y+4,{align:"right"});
-          y+=7;
+          doc.text(String(m.cantidad),W-mg-3,y+(tieneDetalle?6.5:4),{align:"right"});
+          if(tieneDetalle){
+            // Línea 2: categoría · descripción
+            const detalleTxt = [cat,desc].filter(Boolean).join("  ·  ");
+            doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(100,115,150);
+            const detLines = doc.splitTextToSize(detalleTxt, W-mg*2-20);
+            doc.text(detLines,mg+3,y+9);
+          }
+          y+=h;
         });
         y+=5;
       }
