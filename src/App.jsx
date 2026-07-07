@@ -13345,6 +13345,12 @@ function AppInner() {
             const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
             const lastSynced = lastSyncedRef.current[seccion] || null;
             let aGuardar = localData;
+            // Si no tenemos versión (arranque offline), aprenderla del GET que acabamos
+            // de hacer. Así el guardado usa siempre control de versión y el servidor
+            // nunca recibe una sobreescritura ciega que podría resucitar datos borrados.
+            if(lastVersionRef.current[seccion] == null && remoto.versions?.[seccion] != null){
+              lastVersionRef.current[seccion] = remoto.versions[seccion];
+            }
             // Pre-merge si el remoto cambió respecto a lo que conocíamos
             if(remoteJson !== null && remoteJson !== lastSynced){
               const base = lastSynced ? JSON.parse(lastSynced) : null;
@@ -13430,6 +13436,11 @@ function AppInner() {
             lastSyncedRef.current[s] = j;
             lastVersionRef.current[s] = resp.version;
             try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+          } else if(resp && resp.conflict && resp.version != null){
+            // Conflicto de versión: aprendemos la versión actual del servidor para que
+            // el siguiente guardado (cuando el usuario vuelva al primer plano) use el
+            // número correcto y dispare la fusión en vez de otro sobreescritura ciega.
+            lastVersionRef.current[s] = resp.version;
           }
         }).catch(()=>{});
       }
@@ -13464,11 +13475,24 @@ function AppInner() {
               lastVersionRef.current[seccion] = res.versions?.[seccion];
               changed = true;
             } else if(remoteJson !== localJson && localJson === lastSynced){
+              // Remoto cambió, nosotros no: tomamos el remoto directamente.
               dataActual = aplicarSeccion(dataActual, seccion, remoteData);
               lastSyncedRef.current[seccion] = remoteJson;
               lastVersionRef.current[seccion] = res.versions?.[seccion];
               changed = true;
+            } else if(remoteJson !== lastSynced && localJson !== lastSynced && remoteJson !== localJson){
+              // Ambos lados cambiaron desde la última sincronización: fusionamos.
+              // Sin esto el borrado remoto (p.ej. tarea eliminada por otro usuario)
+              // queda invisible mientras haya cambios locales pendientes, y la
+              // tarea puede reaparecer si el cliente guarda antes de recibir el pull.
+              const base = lastSynced ? JSON.parse(lastSynced) : null;
+              const combined = combinarDatosRemotos(base, localData, remoteData, seccion, []);
+              dataActual = aplicarSeccion(dataActual, seccion, combined);
+              lastSyncedRef.current[seccion] = remoteJson;
+              lastVersionRef.current[seccion] = res.versions?.[seccion];
+              changed = true;
             } else if(localJson === lastSynced){
+              // Sin cambios locales ni remotos: solo actualizamos el número de versión.
               lastVersionRef.current[seccion] = res.versions?.[seccion];
             }
           }
