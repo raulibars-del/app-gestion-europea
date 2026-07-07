@@ -1058,6 +1058,8 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
     onAbrirClienteId && onAbrirClienteId();
   },[abrirClienteId]);
   const [modalC,setModalC]=useState(null); const [modalM,setModalM]=useState(null); const [modalCo,setModalCo]=useState(null);
+  const [modalTransferirMaq,setModalTransferirMaq]=useState(null); // {maquinaId, clienteOrigenId} | null
+  const [transferNuevoClienteId,setTransferNuevoClienteId]=useState("");
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
   const [modalEscaner,setModalEscaner]=useState(false); const [resumenEscaneo,setResumenEscaneo]=useState(null);
   const [modalExportar,setModalExportar]=useState(false);
@@ -1422,6 +1424,29 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
   const delM=mid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,maquinas:c.maquinas.filter(m=>m.id!==mid)})}));
   const delCo=cid=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id!==vista?c:{...c,contactos:c.contactos.filter(x=>x.id!==cid)})}));
   const delCliente=cid=>{ setData(d=>({...d,clientes:d.clientes.filter(c=>c.id!==cid)})); setVista(null); };
+  const ejecutarTransferencia=(maquinaId,clienteOrigenId,nuevoClienteId)=>{
+    if(!nuevoClienteId||nuevoClienteId===clienteOrigenId) return;
+    setData(d=>{
+      const maquina=(d.clientes.find(c=>c.id===clienteOrigenId)?.maquinas||[]).find(m=>m.id===maquinaId);
+      if(!maquina) return d;
+      const nuevosClientes=d.clientes.map(c=>{
+        if(c.id===clienteOrigenId) return {...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)};
+        if(c.id===nuevoClienteId){
+          if((c.maquinas||[]).some(m=>m.id===maquinaId)) return c; // evitar duplicado
+          return {...c,maquinas:[...(c.maquinas||[]),{...maquina,origenStock:false,fechaTransferencia:today()}]};
+        }
+        return c;
+      });
+      // Actualizar clienteId en documentación si existe
+      const nuevaDoc=(d.documentacion||[]).map(x=>
+        x._maquinaClienteId===maquinaId&&x.clienteId===clienteOrigenId?{...x,clienteId:nuevoClienteId}:x
+      );
+      return {...d,clientes:nuevosClientes,documentacion:nuevaDoc};
+    });
+    setTabM(null);
+    setModalTransferirMaq(null);
+    setTransferNuevoClienteId("");
+  };
   const handleFoto=async e=>{ const f0=e.target.files[0]; if(!f0)return; const f=await comprimirImagen(f0); if(!f)return; const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f);}); try{const up=await apiUploadFile({base64:b64,filename:f.name,mime:f.type});setFormM(p=>({...p,foto:up.url}));}catch(er){alert("Error al subir la foto: "+er.message);}};
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
   if(vista===null) return (
@@ -1741,6 +1766,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                     {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} style={{background:"#1e3a5f",border:"1px solid #3b82f644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#3b82f6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="documentacion" size={14}/>Ver documentación</button>}
+                    <button onClick={()=>{setTransferNuevoClienteId("");setModalTransferirMaq({maquinaId:m.id,clienteOrigenId:c.id,maquinaNombre:m.nombre||`${m.marca||""} ${m.modelo||""}`.trim()});}} style={{background:"#2d1b4e",border:"1px solid #7c3aed44",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#a78bfa",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>🔄 Cambiar propietario</button>
                     <button onClick={()=>{setFormM({...m});setModalM(true);}} style={{background:"#2a3550",border:"1px solid #3a4570",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#e6ebf6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="edit" size={14}/>Editar</button>
                     {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="trash" size={14}/>Eliminar</button>}
                   </div>
@@ -1915,6 +1941,46 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
         </Field>
         <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button onClick={()=>setModalM(null)} style={btnOutline}>Cancelar</button><button onClick={saveM} style={btnPrimary}>Guardar</button></div>
       </Modal>}
+      {modalTransferirMaq&&(()=>{
+        const clienteOrigen=data.clientes.find(c=>c.id===modalTransferirMaq.clienteOrigenId);
+        const clienteDestino=data.clientes.find(c=>c.id===transferNuevoClienteId);
+        return(
+          <Modal title="Cambiar propietario de la máquina" onClose={()=>setModalTransferirMaq(null)}>
+            <div style={{background:"#0d1117",borderRadius:9,padding:"12px 14px",marginBottom:14}}>
+              <div style={{fontSize:11,color:"#e4e9f6",marginBottom:2}}>Máquina</div>
+              <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{modalTransferirMaq.maquinaNombre}</div>
+              <div style={{fontSize:11,color:"#e4e9f6",marginTop:6,marginBottom:2}}>Propietario actual</div>
+              <div style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>{clienteOrigen?.nombreEmpresa||"—"}</div>
+            </div>
+            <Field label="Nuevo propietario">
+              <ClientePicker
+                clientes={data.clientes.filter(c=>c.id!==modalTransferirMaq.clienteOrigenId)}
+                value={transferNuevoClienteId}
+                onChange={id=>setTransferNuevoClienteId(id)}
+              />
+            </Field>
+            {clienteDestino&&(
+              <div style={{background:"#0f2a1a",border:"1px solid #10b98144",borderRadius:8,padding:"12px 14px",marginTop:10}}>
+                <div style={{color:"#10b981",fontWeight:700,fontSize:13,marginBottom:4}}>¿Confirmar transferencia?</div>
+                <div style={{color:"#e4e9f6",fontSize:12,lineHeight:1.5}}>
+                  La máquina <strong style={{color:"#f1f3f9"}}>{modalTransferirMaq.maquinaNombre}</strong> dejará de aparecer en{" "}
+                  <strong style={{color:"#f59e0b"}}>{clienteOrigen?.nombreEmpresa}</strong> y pasará a{" "}
+                  <strong style={{color:"#10b981"}}>{clienteDestino.nombreEmpresa}</strong>.<br/>
+                  <span style={{color:"#94a3b8",fontSize:11}}>El historial de partes y la documentación existente quedan intactos.</span>
+                </div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
+              <button onClick={()=>setModalTransferirMaq(null)} style={btnOutline}>Cancelar</button>
+              <button
+                disabled={!clienteDestino}
+                onClick={()=>ejecutarTransferencia(modalTransferirMaq.maquinaId,modalTransferirMaq.clienteOrigenId,transferNuevoClienteId)}
+                style={{...btnPrimary,background:clienteDestino?"#7c3aed":"#2a2a3a",color:clienteDestino?"#fff":"#555",cursor:clienteDestino?"pointer":"not-allowed"}}
+              >✅ Confirmar cambio de propietario</button>
+            </div>
+          </Modal>
+        );
+      })()}
       {modalCo&&<Modal title={formCo.id?"Editar Contacto":"Nuevo Contacto"} onClose={()=>setModalCo(null)}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:12}}>
           <Field label="Nombre completo"><Input value={formCo.nombre} onChange={fco("nombre")}/></Field>
@@ -10444,6 +10510,7 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
 
   // Vista detalle (solo tab "maquinas")
   const [modalPropietario, setModalPropietario] = useState(false);
+  const [propietarioTemp, setPropietarioTemp] = useState("");
   if (vista && tabDoc==="maquinas") {
     const doc = (data.documentacion||[]).find(d => d.id === vista);
     if (!doc) { setVista(null); return null; }
@@ -10481,39 +10548,51 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
               <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{propietario?.nombreEmpresa||"Sin propietario"}</div>
             </div>
             <Field label="Nuevo propietario">
-              <ClientePicker clientes={data.clientes} value={doc.clienteId||""} onChange={id=>{
-                if(!id || id===doc.clienteId){ setModalPropietario(false); return; }
-                setData(d=>{
-                  const oldClienteId = doc.clienteId;
-                  const maqId = doc._maquinaClienteId;
-                  // Buscar la máquina en el cliente actual
-                  const oldCliente = d.clientes.find(c=>c.id===oldClienteId);
-                  const maquina = oldCliente?.maquinas?.find(m=>m.id===maqId);
-                  // Mover la máquina: quitarla del cliente anterior y añadirla al nuevo
-                  const nuevosClientes = d.clientes.map(c=>{
-                    if(c.id===oldClienteId){
-                      return {...c, maquinas:(c.maquinas||[]).filter(m=>m.id!==maqId)};
-                    }
-                    if(c.id===id && maquina){
-                      const yaExiste=(c.maquinas||[]).some(m=>m.id===maqId);
-                      const maqTransferida={...maquina, fechaTransferencia:today(), origenStock:false};
-                      if(yaExiste) return c; // no duplicar
-                      return {...c, maquinas:[...(c.maquinas||[]), maqTransferida]};
-                    }
-                    return c;
-                  });
-                  // Actualizar el clienteId en documentación
-                  const nuevaDoc=(d.documentacion||[]).map(x=>x.id===doc.id?{...x,clienteId:id}:x);
-                  return {...d, clientes:nuevosClientes, documentacion:nuevaDoc};
-                });
-                setModalPropietario(false);
-              }}/>
+              <ClientePicker
+                clientes={data.clientes.filter(c=>c.id!==doc.clienteId)}
+                value={propietarioTemp}
+                onChange={id=>setPropietarioTemp(id)}
+              />
             </Field>
-            <div style={{background:"#f59e0b12",border:"1px solid #f59e0b33",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#f59e0b",marginTop:8}}>
-              La máquina desaparecerá de la ficha del cliente anterior y aparecerá en la del nuevo. El historial de partes no cambia.
-            </div>
+            {propietarioTemp&&(()=>{
+              const destino=data.clientes.find(c=>c.id===propietarioTemp);
+              return destino?(
+                <div style={{background:"#0f2a1a",border:"1px solid #10b98144",borderRadius:8,padding:"12px 14px",marginTop:10}}>
+                  <div style={{color:"#10b981",fontWeight:700,fontSize:13,marginBottom:4}}>¿Confirmar transferencia?</div>
+                  <div style={{color:"#e4e9f6",fontSize:12,lineHeight:1.5}}>
+                    La máquina <strong style={{color:"#f1f3f9"}}>{doc.marca} {doc.modelo}</strong> dejará de estar en{" "}
+                    <strong style={{color:"#f59e0b"}}>{propietario?.nombreEmpresa||"cliente actual"}</strong> y pasará a{" "}
+                    <strong style={{color:"#10b981"}}>{destino.nombreEmpresa}</strong>.<br/>
+                    <span style={{color:"#94a3b8",fontSize:11}}>Partes e historial quedan intactos.</span>
+                  </div>
+                </div>
+              ):null;
+            })()}
             <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}>
-              <button onClick={()=>setModalPropietario(false)} style={btnOutline}>Cancelar</button>
+              <button onClick={()=>{setModalPropietario(false);setPropietarioTemp("");}} style={btnOutline}>Cancelar</button>
+              <button
+                disabled={!propietarioTemp}
+                onClick={()=>{
+                  if(!propietarioTemp||propietarioTemp===doc.clienteId){setModalPropietario(false);return;}
+                  setData(d=>{
+                    const oldClienteId=doc.clienteId;
+                    const maqId=doc._maquinaClienteId;
+                    const maquina=(d.clientes.find(c=>c.id===oldClienteId)?.maquinas||[]).find(m=>m.id===maqId);
+                    const nuevosClientes=d.clientes.map(c=>{
+                      if(c.id===oldClienteId) return {...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maqId)};
+                      if(c.id===propietarioTemp&&maquina){
+                        if((c.maquinas||[]).some(m=>m.id===maqId)) return c;
+                        return {...c,maquinas:[...(c.maquinas||[]),{...maquina,fechaTransferencia:today(),origenStock:false}]};
+                      }
+                      return c;
+                    });
+                    const nuevaDoc=(d.documentacion||[]).map(x=>x.id===doc.id?{...x,clienteId:propietarioTemp}:x);
+                    return {...d,clientes:nuevosClientes,documentacion:nuevaDoc};
+                  });
+                  setModalPropietario(false);setPropietarioTemp("");
+                }}
+                style={{...btnPrimary,background:propietarioTemp?"#7c3aed":"#2a2a3a",color:propietarioTemp?"#fff":"#555",cursor:propietarioTemp?"pointer":"not-allowed"}}
+              >✅ Confirmar cambio de propietario</button>
             </div>
           </Modal>
         )}
