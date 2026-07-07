@@ -336,8 +336,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
             echo json_encode(['error' => 'conflict', 'version' => $act ? (int)$act['version'] : null, 'section' => $section]);
             exit;
         }
+    } elseif ($existe) {
+        // La sección ya existe en BD pero el cliente no envió versión esperada.
+        // Rechazamos con 409 para evitar que sesiones obsoletas sobreescriban datos
+        // nuevos (el cliente aprende la versión actual y reintenta con control de versión).
+        $actStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
+        $actStmt->execute(['s' => $section]);
+        $act = $actStmt->fetch(PDO::FETCH_ASSOC);
+        http_response_code(409);
+        echo json_encode(['error' => 'conflict', 'version' => $act ? (int)$act['version'] : null, 'section' => $section]);
+        exit;
     } else {
-        // Upsert sin control de versión (primera vez, migración, o versión desconocida)
+        // La sección no existe todavía: primera inserción (nueva instalación o sección nueva).
         $upsert = $pdo->prepare(
             "INSERT INTO app_sections (section, data, version) VALUES (:s, :d, 1)
              ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
