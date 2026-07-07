@@ -49,8 +49,14 @@ $hoyEspana   = $nowSpain->format('Y-m-d'); // "2026-07-04"
 $ahoraEspana = $nowSpain->format('H:i');   // "09:30"
 
 // ─── Leer sección partes ─────────────────────────────────────────────────────
-$stmtP = $pdo->query("SELECT data, version FROM app_sections WHERE section = 'partes'");
-$rowP  = $stmtP->fetch(PDO::FETCH_ASSOC);
+try {
+    $stmtP = $pdo->query("SELECT data, version FROM app_sections WHERE section = 'partes'");
+    $rowP  = $stmtP->fetch(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'db_query_failed', 'detail' => $e->getMessage(), 'ts' => "$hoyEspana $ahoraEspana"]);
+    exit;
+}
 if (!$rowP) {
     echo json_encode(['ok' => true, 'msg' => 'no partes section', 'ts' => "$hoyEspana $ahoraEspana"]);
     exit;
@@ -58,16 +64,39 @@ if (!$rowP) {
 $partes  = json_decode($rowP['data'], true) ?? [];
 $version = (int)$rowP['version'];
 
-// ─── Leer SMTP desde sección config ─────────────────────────────────────────
-$stmtC  = $pdo->query("SELECT data FROM app_sections WHERE section = 'config'");
-$rowC   = $stmtC->fetch(PDO::FETCH_ASSOC);
-$config = json_decode($rowC['data'] ?? '{}', true) ?? [];
-$smtp   = $config['smtp'] ?? null;
+// ─── Leer SMTP desde sección config (o desde app_data como fallback) ────────
+$smtp = null;
+try {
+    $stmtC = $pdo->query("SELECT data FROM app_sections WHERE section = 'config'");
+    $rowC  = $stmtC->fetch(PDO::FETCH_ASSOC);
+    if ($rowC) {
+        $config = json_decode($rowC['data'], true) ?? [];
+        $smtp   = $config['smtp'] ?? null;
+    }
+    // Fallback: leer desde app_data (tabla legada donde send-mail.php también mira)
+    if (!$smtp || empty($smtp['host'])) {
+        $stmtLeg = $pdo->query("SELECT data FROM app_data WHERE id = 1");
+        $rowLeg  = $stmtLeg->fetch(PDO::FETCH_ASSOC);
+        if ($rowLeg) {
+            $appData = json_decode($rowLeg['data'], true) ?? [];
+            if (!empty($appData['smtp']['host'])) {
+                $smtp = $appData['smtp'];
+            }
+        }
+    }
+} catch (Exception $e) {
+    // Si no se puede leer la config, reportar error pero sin detener (SMTP puede no estar)
+    error_log("cron-partes.php: no se pudo leer config SMTP: " . $e->getMessage());
+}
 
 // ─── Leer avisos (para cerrarlos cuando se envíe el email) ───────────────────
-$stmtA   = $pdo->query("SELECT data, version FROM app_sections WHERE section = 'avisos'");
-$rowA    = $stmtA->fetch(PDO::FETCH_ASSOC);
-$avisos  = $rowA ? (json_decode($rowA['data'], true) ?? []) : [];
+try {
+    $stmtA = $pdo->query("SELECT data, version FROM app_sections WHERE section = 'avisos'");
+    $rowA  = $stmtA->fetch(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $rowA = null;
+}
+$avisos        = $rowA ? (json_decode($rowA['data'], true) ?? []) : [];
 $versionAvisos = $rowA ? (int)$rowA['version'] : 0;
 $avisosChanged = false;
 
@@ -95,7 +124,33 @@ foreach ($partes as $p) {
 }
 
 if (empty($pendingIds)) {
-    echo json_encode(['ok' => true, 'processed' => 0, 'ts' => "$hoyEspana $ahoraEspana"]);
+    // Diagnóstico: contar partes con envío programado y razones por las que se saltan
+    $diagTotal  = 0;
+    $diagNoFecha = 0;
+    $diagYaEnviado = 0;
+    $diagFuturo  = 0;
+    $diagSinPDF  = 0;
+    foreach ($partes as $p) {
+        $diagTotal++;
+        if (empty($p['envioProgFecha']))  { $diagNoFecha++;   continue; }
+        if (!empty($p['emailEnviado']))   { $diagYaEnviado++; continue; }
+        $fecha = $p['envioProgFecha'];
+        $hora  = $p['envioProgHora'] ?? '00:00';
+        if ($fecha > $hoyEspana || ($fecha === $hoyEspana && $hora > $ahoraEspana)) { $diagFuturo++; continue; }
+        if (empty($p['envioProgPDFBase64'])) { $diagSinPDF++; continue; }
+    }
+    echo json_encode([
+        'ok'        => true,
+        'processed' => 0,
+        'ts'        => "$hoyEspana $ahoraEspana",
+        'diag'      => [
+            'total_partes'   => $diagTotal,
+            'sin_fecha_prog' => $diagNoFecha,
+            'ya_enviados'    => $diagYaEnviado,
+            'hora_futura'    => $diagFuturo,
+            'sin_pdf'        => $diagSinPDF,
+        ],
+    ]);
     exit;
 }
 
