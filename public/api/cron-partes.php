@@ -105,6 +105,19 @@ if (!$smtp || empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'
     exit;
 }
 
+// ─── Limpiar partes atascados: emailEnviado=true pero envioProgFecha no se borró ─
+// Ocurre cuando la app JS re-sobreescribe el campo tras el envío del cron.
+// Los limpiamos aquí para que vuelvan a aparecer en la UI como "enviados".
+$camposProgr = ['envioProgFecha','envioProgHora','envioProgEmail','envioProgFirmaNombre',
+                'envioProgFirmaImagen','envioProgConforme','envioProgNotas',
+                'envioProgPDFBase64','envioProgEmailHtml','envioProgCadenaIds'];
+foreach ($partes as $i => $p) {
+    if (!empty($p['emailEnviado']) && !empty($p['envioProgFecha'])) {
+        foreach ($camposProgr as $campo) $partes[$i][$campo] = null;
+        $changed = true;
+    }
+}
+
 // ─── Buscar partes programados cuya hora haya llegado ───────────────────────
 $pendingIds = [];
 foreach ($partes as $p) {

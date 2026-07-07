@@ -13438,6 +13438,25 @@ function AppInner() {
               }
             }catch(e){}
           }
+          // Saneamiento post-merge para partes: si el servidor marcó emailEnviado=true,
+          // los campos envioProg* siempre se limpian aunque el merge local los restaure.
+          // Evita que el estado "programado" reaparezca después de que el cron lo envió.
+          const CAMPOS_PROG = ['envioProgFecha','envioProgHora','envioProgEmail',
+            'envioProgFirmaNombre','envioProgFirmaImagen','envioProgConforme',
+            'envioProgNotas','envioProgPDFBase64','envioProgEmailHtml','envioProgCadenaIds'];
+          const sanitizarPartes = (partesArr, remotePartesArr) => {
+            if(!Array.isArray(partesArr)) return partesArr;
+            const remoteById = new Map((remotePartesArr||[]).map(p=>[p.id,p]));
+            return partesArr.map(p => {
+              const pr = remoteById.get(p.id);
+              if(pr?.emailEnviado && p.envioProgFecha) {
+                const limpio = {...p};
+                CAMPOS_PROG.forEach(c => { limpio[c] = null; });
+                return limpio;
+              }
+              return p;
+            });
+          };
           let mergedData = {...dataRef.current};
           const newSynced = {};
           const conflictos = [];
@@ -13449,7 +13468,8 @@ function AppInner() {
             if(baseJson && localJson !== baseJson && remoteJson !== localJson){
               // Había cambios pendientes que no llegaron al servidor: combinar
               const base = JSON.parse(baseJson);
-              const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
+              let combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
+              if(seccion === 'partes') combined = sanitizarPartes(combined, remoteData);
               mergedData = aplicarSeccion(mergedData, seccion, combined);
             } else {
               mergedData = aplicarSeccion(mergedData, seccion, remoteData);
