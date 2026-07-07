@@ -2435,7 +2435,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
     setVista(null);
   };
   const ejecutarTransferirMaq = (maquinaId, clienteOrigenId, nuevoClienteId) => {
-    if(!nuevoClienteId || nuevoClienteId===clienteOrigenId) return;
+    if(nuevoClienteId===""||nuevoClienteId===null||nuevoClienteId===undefined||nuevoClienteId===clienteOrigenId) return;
     setData(d=>{
       const maquina=(d.clientes.find(c=>c.id===clienteOrigenId)?.maquinas||[]).find(m=>m.id===maquinaId);
       if(!maquina) return d;
@@ -2779,7 +2779,9 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       </Modal>}
       {modalTransferirMaq&&(()=>{
         const clienteOrigen=(data.clientes||[]).find(c=>c.id===modalTransferirMaq.clienteOrigenId);
-        const clienteDestino=transferNuevoClienteId!==""?(data.clientes||[]).find(c=>c.id===Number(transferNuevoClienteId)):null;
+        const hayDestino=transferNuevoClienteId!==""&&transferNuevoClienteId!==null&&transferNuevoClienteId!==undefined;
+        const clienteDestino=hayDestino?(data.clientes||[]).find(c=>c.id===transferNuevoClienteId):null;
+        const clientesFiltrados=(data.clientes||[]).filter(c=>c.id!==modalTransferirMaq.clienteOrigenId);
         return (
           <Modal title="Cambiar propietario de la máquina" onClose={()=>{setModalTransferirMaq(null);setTransferNuevoClienteId("");}}>
             <div style={{background:"#1a1230",border:"1px solid #7c3aed44",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
@@ -2788,14 +2790,9 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
               <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>Propietario actual: <span style={{color:"#f59e0b",fontWeight:700}}>{clienteOrigen?.nombreEmpresa||"—"}</span></div>
             </div>
             <Field label="Nuevo propietario">
-              <select value={transferNuevoClienteId} onChange={e=>setTransferNuevoClienteId(e.target.value)} style={{...inputStyle,width:"100%"}}>
-                <option value="">— Selecciona un cliente —</option>
-                {(data.clientes||[]).filter(c=>c.id!==modalTransferirMaq.clienteOrigenId).sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"")).map(c=>(
-                  <option key={c.id} value={c.id}>{c.nombreEmpresa}</option>
-                ))}
-              </select>
+              <ClientePicker clientes={clientesFiltrados} value={hayDestino?transferNuevoClienteId:""} onChange={id=>{setTransferNuevoClienteId(id===""?"":(typeof id==="number"?id:parseInt(id)));}} placeholder="Buscar cliente..."/>
             </Field>
-            {transferNuevoClienteId!==""&&clienteDestino&&(
+            {hayDestino&&clienteDestino&&(
               <div style={{background:"#0d1f17",border:"1px solid #10b98144",borderRadius:10,padding:"12px 14px",marginTop:4}}>
                 <div style={{color:"#10b981",fontSize:12,fontWeight:700,marginBottom:6}}>Confirmación de transferencia</div>
                 <div style={{color:"#e4e9f6",fontSize:13}}>
@@ -2808,7 +2805,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             )}
             <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
               <button onClick={()=>{setModalTransferirMaq(null);setTransferNuevoClienteId("");}} style={btnOutline}>Cancelar</button>
-              <button disabled={!transferNuevoClienteId} onClick={()=>ejecutarTransferirMaq(modalTransferirMaq.maquinaId,modalTransferirMaq.clienteOrigenId,Number(transferNuevoClienteId))} style={{...btnPrimary,opacity:transferNuevoClienteId?"1":"0.4",cursor:transferNuevoClienteId?"pointer":"default",background:"#7c3aed",borderColor:"#7c3aed"}}>✅ Confirmar cambio de propietario</button>
+              <button disabled={!hayDestino||!clienteDestino} onClick={()=>ejecutarTransferirMaq(modalTransferirMaq.maquinaId,modalTransferirMaq.clienteOrigenId,transferNuevoClienteId)} style={{...btnPrimary,opacity:(hayDestino&&clienteDestino)?"1":"0.4",cursor:(hayDestino&&clienteDestino)?"pointer":"default",background:"#7c3aed",borderColor:"#7c3aed"}}>✅ Confirmar cambio de propietario</button>
             </div>
           </Modal>
         );
