@@ -670,8 +670,9 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
     const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
-  const filtrados = value.trim().length === 0 ? clientes.slice(0, 8) :
-    clientes.filter(c => { const q = value.toLowerCase(); return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q); }).slice(0, 10);
+  const clientesReales = clientes.filter(c => !c.esPropia);
+  const filtrados = value.trim().length === 0 ? clientesReales.slice(0, 8) :
+    clientesReales.filter(c => { const q = value.toLowerCase(); return c.nombreEmpresa?.toLowerCase().includes(q) || c.nombreFiscal?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q) || c.localidad?.toLowerCase().includes(q); }).slice(0, 10);
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
@@ -755,13 +756,21 @@ const LocalidadPicker = ({ provincia, value, onChange }) => {
     if(!p){setLista([]);return;}
     if(_muniCache[p.code]){setLista(_muniCache[p.code]);setApiKo(false);return;}
     setCargando(true);setApiKo(false);
-    fetch(`https://servicios.ine.es/wstempus/js/es/MUNICIPIOS_PROVINCIA?id=${parseInt(p.code,10)}`)
-      .then(r=>r.json())
-      .then(d=>{
-        const ns=[...new Set(d.map(m=>m.Nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-        _muniCache[p.code]=ns;setLista(ns);setCargando(false);
-      })
-      .catch(()=>{setApiKo(true);setCargando(false);});
+    const ineUrl = `https://servicios.ine.es/wstempus/js/es/MUNICIPIOS_PROVINCIA?id=${parseInt(p.code,10)}`;
+    const parsear = d => {
+      const ns=[...new Set(d.map(m=>m.Nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+      _muniCache[p.code]=ns; setLista(ns); setCargando(false);
+    };
+    // Intento directo; si falla por CORS (frecuente en producción) reintentamos via proxy
+    fetch(ineUrl)
+      .then(r=>{ if(!r.ok) throw new Error('ko'); return r.json(); })
+      .then(parsear)
+      .catch(()=>
+        fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ineUrl)}`)
+          .then(r=>r.json())
+          .then(parsear)
+          .catch(()=>{setApiKo(true);setCargando(false);})
+      );
   },[provincia]);
   useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
@@ -9381,7 +9390,13 @@ const Albaran = ({ data, setData, userActual }) => {
         </div>
         {/* Líneas de productos */}
         <div style={{marginTop:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px"}}>Productos / Mercancía</div>
+            <button onClick={() => {
+              if (!form.clienteId) { alert("Selecciona primero el receptor (debe ser un cliente registrado) para poder asignarle la máquina."); return; }
+              setModalMaquina(true); setBusqMaquina("");
+            }} style={{background:"none",border:"1px solid #f9731666",borderRadius:7,padding:"4px 11px",color:"#f97316",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔧 Añadir máquina</button>
+          </div>
           {lineas.map((l, i) => (
             <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<lineas.length-1?"1px solid #1a2236":"none"}}>
               {l.esMaquina ? (
@@ -9422,13 +9437,7 @@ const Albaran = ({ data, setData, userActual }) => {
               )}
             </div>
           ))}
-          <div style={{display:"flex",gap:7,marginTop:3}}>
-            <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",flex:1}}>+ Añadir línea</button>
-            <button onClick={() => {
-              if (!form.clienteId) { alert("Selecciona primero el receptor (debe ser un cliente registrado) para poder asignarle la máquina."); return; }
-              setModalMaquina(true); setBusqMaquina("");
-            }} style={{background:"none",border:"1px dashed #f9731666",borderRadius:7,padding:"6px 14px",color:"#f97316",fontSize:12,cursor:"pointer",flexShrink:0}}>🔧 Añadir máquina</button>
-          </div>
+          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
         </div>
         <Field label="Observaciones"><Textarea value={form.notas} onChange={f("notas")} placeholder="Instrucciones, condiciones de entrega..."/></Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
