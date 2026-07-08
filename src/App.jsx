@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { MUNICIPIOS_ES } from "./municipios-data.js";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import heic2any from "heic2any";
@@ -734,7 +735,6 @@ const PROVINCIAS_ES = [
   {code:"49",name:"Zamora"},{code:"50",name:"Zaragoza"},
   {code:"51",name:"Ceuta"},{code:"52",name:"Melilla"},
 ];
-const _muniCache = {}; // Cache de municipios por código INE
 
 const ProvinciaPicker = ({ value, onChange }) => (
   <select value={value||""} onChange={e=>onChange(e.target.value)} style={{...inputStyle,cursor:"pointer"}}>
@@ -745,43 +745,18 @@ const ProvinciaPicker = ({ value, onChange }) => (
 );
 
 const LocalidadPicker = ({ provincia, value, onChange }) => {
-  const [lista, setLista] = useState([]);
-  const [cargando, setCargando] = useState(false);
   const [open, setOpen] = useState(false);
-  const [apiKo, setApiKo] = useState(false);
   const ref = useRef(null);
-  useEffect(()=>{
-    if(!provincia){setLista([]);return;}
-    const p=PROVINCIAS_ES.find(x=>x.name===provincia);
-    if(!p){setLista([]);return;}
-    if(_muniCache[p.code]){setLista(_muniCache[p.code]);setApiKo(false);return;}
-    setCargando(true);setApiKo(false);
-    const ineUrl = `https://servicios.ine.es/wstempus/js/es/MUNICIPIOS_PROVINCIA?id=${parseInt(p.code,10)}`;
-    const parsear = d => {
-      const ns=[...new Set(d.map(m=>m.Nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
-      _muniCache[p.code]=ns; setLista(ns); setCargando(false);
-    };
-    // Intento directo; si falla por CORS (frecuente en producción) reintentamos via proxy
-    fetch(ineUrl)
-      .then(r=>{ if(!r.ok) throw new Error('ko'); return r.json(); })
-      .then(parsear)
-      .catch(()=>
-        fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(ineUrl)}`)
-          .then(r=>r.json())
-          .then(parsear)
-          .catch(()=>{setApiKo(true);setCargando(false);})
-      );
-  },[provincia]);
   useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
     document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
   },[]);
+  const pObj = provincia ? PROVINCIAS_ES.find(x=>x.name===provincia) : null;
+  const lista = pObj ? (MUNICIPIOS_ES[pObj.code] || []) : [];
   const q=(value||"").toLowerCase();
   const filtrados=q.length>=1?lista.filter(m=>m.toLowerCase().includes(q)).slice(0,15):lista.slice(0,12);
   if(!provincia)
     return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder="Selecciona primero una provincia" disabled style={{...inputStyle,opacity:.5}}/>;
-  if(apiKo)
-    return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder="Escribe la localidad..." style={inputStyle}/>;
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
