@@ -704,6 +704,96 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
     </div>
   );
 };
+// ── Geografía España ─────────────────────────────────────────────────────────
+const PROVINCIAS_ES = [
+  {code:"01",name:"Álava / Araba"},{code:"02",name:"Albacete"},
+  {code:"03",name:"Alicante / Alacant"},{code:"04",name:"Almería"},
+  {code:"05",name:"Ávila"},{code:"06",name:"Badajoz"},
+  {code:"07",name:"Balears (Illes)"},{code:"08",name:"Barcelona"},
+  {code:"09",name:"Burgos"},{code:"10",name:"Cáceres"},
+  {code:"11",name:"Cádiz"},{code:"12",name:"Castellón / Castelló"},
+  {code:"13",name:"Ciudad Real"},{code:"14",name:"Córdoba"},
+  {code:"15",name:"A Coruña"},{code:"16",name:"Cuenca"},
+  {code:"17",name:"Girona"},{code:"18",name:"Granada"},
+  {code:"19",name:"Guadalajara"},{code:"20",name:"Gipuzkoa"},
+  {code:"21",name:"Huelva"},{code:"22",name:"Huesca"},
+  {code:"23",name:"Jaén"},{code:"24",name:"León"},
+  {code:"25",name:"Lleida"},{code:"26",name:"La Rioja"},
+  {code:"27",name:"Lugo"},{code:"28",name:"Madrid"},
+  {code:"29",name:"Málaga"},{code:"30",name:"Murcia"},
+  {code:"31",name:"Navarra"},{code:"32",name:"Ourense"},
+  {code:"33",name:"Asturias"},{code:"34",name:"Palencia"},
+  {code:"35",name:"Las Palmas"},{code:"36",name:"Pontevedra"},
+  {code:"37",name:"Salamanca"},{code:"38",name:"Santa Cruz de Tenerife"},
+  {code:"39",name:"Cantabria"},{code:"40",name:"Segovia"},
+  {code:"41",name:"Sevilla"},{code:"42",name:"Soria"},
+  {code:"43",name:"Tarragona"},{code:"44",name:"Teruel"},
+  {code:"45",name:"Toledo"},{code:"46",name:"Valencia / València"},
+  {code:"47",name:"Valladolid"},{code:"48",name:"Bizkaia"},
+  {code:"49",name:"Zamora"},{code:"50",name:"Zaragoza"},
+  {code:"51",name:"Ceuta"},{code:"52",name:"Melilla"},
+];
+const _muniCache = {}; // Cache de municipios por código INE
+
+const ProvinciaPicker = ({ value, onChange }) => (
+  <select value={value||""} onChange={e=>onChange(e.target.value)} style={{...inputStyle,cursor:"pointer"}}>
+    <option value="">— Selecciona provincia —</option>
+    {PROVINCIAS_ES.map(p=><option key={p.code} value={p.name}>{p.name}</option>)}
+    {value && !PROVINCIAS_ES.find(p=>p.name===value) && <option value={value}>{value} (valor previo)</option>}
+  </select>
+);
+
+const LocalidadPicker = ({ provincia, value, onChange }) => {
+  const [lista, setLista] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [apiKo, setApiKo] = useState(false);
+  const ref = useRef(null);
+  useEffect(()=>{
+    if(!provincia){setLista([]);return;}
+    const p=PROVINCIAS_ES.find(x=>x.name===provincia);
+    if(!p){setLista([]);return;}
+    if(_muniCache[p.code]){setLista(_muniCache[p.code]);setApiKo(false);return;}
+    setCargando(true);setApiKo(false);
+    fetch(`https://servicios.ine.es/wstempus/js/es/MUNICIPIOS_PROVINCIA?id=${parseInt(p.code,10)}`)
+      .then(r=>r.json())
+      .then(d=>{
+        const ns=[...new Set(d.map(m=>m.Nombre).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+        _muniCache[p.code]=ns;setLista(ns);setCargando(false);
+      })
+      .catch(()=>{setApiKo(true);setCargando(false);});
+  },[provincia]);
+  useEffect(()=>{
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const q=(value||"").toLowerCase();
+  const filtrados=q.length>=1?lista.filter(m=>m.toLowerCase().includes(q)).slice(0,15):lista.slice(0,12);
+  if(!provincia)
+    return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder="Selecciona primero una provincia" disabled style={{...inputStyle,opacity:.5}}/>;
+  if(apiKo)
+    return <input value={value||""} onChange={e=>onChange(e.target.value)} placeholder="Escribe la localidad..." style={inputStyle}/>;
+  return (
+    <div ref={ref} style={{position:"relative"}}>
+      <div style={{position:"relative"}}>
+        {cargando&&<span style={{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6",fontSize:11}}>⏳</span>}
+        <input value={value||""} onChange={e=>{onChange(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)}
+          placeholder={cargando?"Cargando municipios...":"Buscar localidad..."} style={inputStyle}/>
+      </div>
+      {open&&filtrados.length>0&&(
+        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,zIndex:300,boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflow:"hidden",maxHeight:220,overflowY:"auto"}}>
+          {filtrados.map(m=>(
+            <div key={m} onMouseDown={()=>{onChange(m);setOpen(false);}}
+              style={{padding:"8px 13px",cursor:"pointer",color:"#f1f3f9",fontSize:13,borderBottom:"1px solid #1a2236"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#151b2a"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{m}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ClientePicker = ({ clientes, value, onChange, placeholder="Buscar cliente por nombre, fiscal, CIF/DNI o localidad..." }) => {
   const sel = clientes.find(c => c.id === parseInt(value)) || null;
   const [busq, setBusq] = useState(sel?.nombreEmpresa || "");
@@ -1554,9 +1644,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Direccion Fiscal</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
             <Field label="Calle y numero"><Input value={formC.dirFiscal||""} onChange={fc("dirFiscal")} placeholder="Calle Mayor 1..."/></Field>
-            <Field label="Localidad"><Input value={formC.localidad||""} onChange={fc("localidad")}/></Field>
+            <Field label="Provincia"><ProvinciaPicker value={formC.provinciaFiscal||""} onChange={v=>setFormC(p=>({...p,provinciaFiscal:v,localidad:""}))}/></Field>
+            <Field label="Localidad"><LocalidadPicker provincia={formC.provinciaFiscal||""} value={formC.localidad||""} onChange={v=>setFormC(p=>({...p,localidad:v}))}/></Field>
             <Field label="CP"><Input value={formC.cpFiscal||""} onChange={fc("cpFiscal")} placeholder="46000"/></Field>
-            <Field label="Provincia"><Input value={formC.provinciaFiscal||""} onChange={fc("provinciaFiscal")}/></Field>
           </div>
         </div>
         <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px"}}>
@@ -1569,9 +1659,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
             <Field label="Calle y numero"><Input value={formC.dirFabrica||""} onChange={fc("dirFabrica")} placeholder="Calle Mayor 1..."/></Field>
-            <Field label="Localidad"><Input value={formC.localidadFabrica||""} onChange={fc("localidadFabrica")}/></Field>
+            <Field label="Provincia"><ProvinciaPicker value={formC.provinciaFabrica||""} onChange={v=>setFormC(p=>({...p,provinciaFabrica:v,localidadFabrica:""}))}/></Field>
+            <Field label="Localidad"><LocalidadPicker provincia={formC.provinciaFabrica||""} value={formC.localidadFabrica||""} onChange={v=>setFormC(p=>({...p,localidadFabrica:v}))}/></Field>
             <Field label="CP"><Input value={formC.cpFabrica||""} onChange={fc("cpFabrica")} placeholder="46000"/></Field>
-            <Field label="Provincia"><Input value={formC.provinciaFabrica||""} onChange={fc("provinciaFabrica")}/></Field>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
@@ -1866,9 +1956,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Direccion Fiscal</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
             <Field label="Calle y numero"><Input value={formC.dirFiscal||""} onChange={fc("dirFiscal")} placeholder="Calle Mayor 1..."/></Field>
-            <Field label="Localidad"><Input value={formC.localidad||""} onChange={fc("localidad")}/></Field>
+            <Field label="Provincia"><ProvinciaPicker value={formC.provinciaFiscal||""} onChange={v=>setFormC(p=>({...p,provinciaFiscal:v,localidad:""}))}/></Field>
+            <Field label="Localidad"><LocalidadPicker provincia={formC.provinciaFiscal||""} value={formC.localidad||""} onChange={v=>setFormC(p=>({...p,localidad:v}))}/></Field>
             <Field label="CP"><Input value={formC.cpFiscal||""} onChange={fc("cpFiscal")} placeholder="46000"/></Field>
-            <Field label="Provincia"><Input value={formC.provinciaFiscal||""} onChange={fc("provinciaFiscal")}/></Field>
           </div>
         </div>
         <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px"}}>
@@ -1881,9 +1971,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
             <Field label="Calle y numero"><Input value={formC.dirFabrica||""} onChange={fc("dirFabrica")} placeholder="Calle Mayor 1..."/></Field>
-            <Field label="Localidad"><Input value={formC.localidadFabrica||""} onChange={fc("localidadFabrica")}/></Field>
+            <Field label="Provincia"><ProvinciaPicker value={formC.provinciaFabrica||""} onChange={v=>setFormC(p=>({...p,provinciaFabrica:v,localidadFabrica:""}))}/></Field>
+            <Field label="Localidad"><LocalidadPicker provincia={formC.provinciaFabrica||""} value={formC.localidadFabrica||""} onChange={v=>setFormC(p=>({...p,localidadFabrica:v}))}/></Field>
             <Field label="CP"><Input value={formC.cpFabrica||""} onChange={fc("cpFabrica")} placeholder="46000"/></Field>
-            <Field label="Provincia"><Input value={formC.provinciaFabrica||""} onChange={fc("provinciaFabrica")}/></Field>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
