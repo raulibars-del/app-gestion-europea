@@ -760,9 +760,8 @@ const LocalidadPicker = ({ provincia, value, onChange }) => {
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div style={{position:"relative"}}>
-        {cargando&&<span style={{position:"absolute",right:9,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6",fontSize:11}}>⏳</span>}
         <input value={value||""} onChange={e=>{onChange(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)}
-          placeholder={cargando?"Cargando municipios...":"Buscar localidad..."} style={inputStyle}/>
+          placeholder="Buscar localidad..." style={inputStyle}/>
       </div>
       {open&&filtrados.length>0&&(
         <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,zIndex:300,boxShadow:"0 8px 32px rgba(0,0,0,.6)",overflow:"hidden",maxHeight:220,overflowY:"auto"}}>
@@ -6018,7 +6017,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         attachmentMime: "application/pdf",
       });
       const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
-      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
+      const nuevaFirmaImg = capturarFirmaImagen();
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
       setEnviado(true);
     }catch(e){
       alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
@@ -9167,6 +9167,9 @@ const Albaran = ({ data, setData, userActual }) => {
         tctx.drawImage(canvasRef.current,0,0);
         doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28); y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32; }
+    } else if (conFirma && alb.firmaImagen) {
+      try { doc.addImage(alb.firmaImagen,"JPEG",mg,y,80,28); y+=32; }
+      catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32; }
     } else {
       doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32;
     }
@@ -9193,9 +9196,21 @@ const Albaran = ({ data, setData, userActual }) => {
     const alb = data.albaranes.find(a => a.id === modalFirma);
     if (!alb) return;
     setEnviando(true);
+    // Capturar firma del canvas ANTES de que el modal se cierre y lo destruya
+    let firmaImagen = null;
+    if (firmada && canvasRef.current) {
+      try {
+        const tmp = document.createElement("canvas");
+        tmp.width = canvasRef.current.width; tmp.height = canvasRef.current.height;
+        const tctx = tmp.getContext("2d");
+        tctx.fillStyle = "#ffffff"; tctx.fillRect(0, 0, tmp.width, tmp.height);
+        tctx.drawImage(canvasRef.current, 0, 0);
+        firmaImagen = tmp.toDataURL("image/jpeg", 0.85);
+      } catch(e) {}
+    }
     try{
       const dataUri = await generarPDF(alb, firmada, "descargar");
-      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "" } : a) }));
+      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),firmaImagen: firmaImagen || a.firmaImagen || null,receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "" } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
