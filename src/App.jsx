@@ -4820,7 +4820,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           return campos.some(c => (c||"").toString().toLowerCase().includes(q));
         });
       })();
-  // Activas primero por prioridad/fecha, completadas al final tachadas
+  // Activas primero por prioridad/fecha, completadas al final tachadas (más reciente primero)
   const ordenar = lista => {
     const activas = lista.filter(t => t.estado !== "Completada");
     const comp = lista.filter(t => t.estado === "Completada");
@@ -4829,7 +4829,13 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
       if(po !== pb) return po - pb;
       return new Date(a.vence) - new Date(b.vence);
     });
-    return [...byPrioDate(activas), ...byPrioDate(comp)];
+    // Completadas: más reciente primero (por fechaCompletada, luego por id)
+    const byCompletada = arr => [...arr].sort((a, b) => {
+      const fa = a.fechaCompletada||"", fb = b.fechaCompletada||"";
+      if(fa !== fb) return fb.localeCompare(fa);
+      return b.id - a.id;
+    });
+    return [...byPrioDate(activas), ...byCompletada(comp)];
   };
   const sorted = ordenar(mostrar);
   // Tareas que yo he asignado a otra persona
