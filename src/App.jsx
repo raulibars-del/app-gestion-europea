@@ -8870,9 +8870,7 @@ const Albaran = ({ data, setData, userActual }) => {
   const [enviando,   setEnviando]   = useState(false);
   const [enviado,    setEnviado]    = useState(false);
   const canvasRef = useRef(null);
-  const canvasFormRef = useRef(null);
-  const [conformidadOpen, setConformidadOpen] = useState(false);
-  const [firmadaForm, setFirmadaForm] = useState(false);
+  const [firmaDni, setFirmaDni] = useState("");
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
   // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
@@ -8886,8 +8884,6 @@ const Albaran = ({ data, setData, userActual }) => {
   const openNew = () => {
     setForm({ numero: nextNum(),fecha: today(),emisorId: userActual.id,receptorNombre:"",receptorEmail:"",receptorDireccion:"",notas:"",firmada:false,fechaFirma:"" });
     setLineas([{ desc:"",cant:1,unidad:"ud",inventarioId:null }]);
-    setConformidadOpen(false);
-    setFirmadaForm(false);
     setModal(true);
   };
   const saveAlbaran = () => {
@@ -8895,19 +8891,7 @@ const Albaran = ({ data, setData, userActual }) => {
     if (lineas.every(l => !l.desc.trim())) return alert("Añade al menos un producto.");
     const albaranId = form.id || Date.now();
     const lineasFinal = lineas.filter(l => l.desc.trim());
-    // Capturar firma de conformidad (si se dibujó en el formulario)
-    let firmaImgConf = form.firmaImagenConformidad || null;
-    if (firmadaForm && canvasFormRef.current) {
-      try {
-        const tmp = document.createElement("canvas");
-        tmp.width = canvasFormRef.current.width; tmp.height = canvasFormRef.current.height;
-        const tctx = tmp.getContext("2d");
-        tctx.fillStyle = "#ffffff"; tctx.fillRect(0, 0, tmp.width, tmp.height);
-        tctx.drawImage(canvasFormRef.current, 0, 0);
-        firmaImgConf = tmp.toDataURL("image/jpeg", 0.85);
-      } catch(e) {}
-    }
-    const item = { ...form,id: albaranId,lineas: lineasFinal,emisorId: userActual.id,firmaImagenConformidad: firmaImgConf };
+    const item = { ...form,id: albaranId,lineas: lineasFinal,emisorId: userActual.id };
     setData(d => {
       let nuevo = {...d};
       if (!form.id) nuevo.albaranes = [...nuevo.albaranes, item];
@@ -8947,6 +8931,7 @@ const Albaran = ({ data, setData, userActual }) => {
     setModalFirma(alb.id);
     setFirmEmail(alb.receptorEmail || "");
     setFirmaNombre(alb.receptorNombre || "");
+    setFirmaDni(alb.firmaDni || "");
     setFirmada(false); setEnviado(false);
     setTimeout(() => { if (canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,160); }, 80);
   };
@@ -8984,10 +8969,10 @@ const Albaran = ({ data, setData, userActual }) => {
     // ── Datos del cliente ──
     seccion("Datos del cliente", y); y += 11;
     const filasDest = [
-      ["Empresa / Receptor", alb.receptorNombre],
-      ["Dirección entrega",  alb.receptorDireccion || "—"],
-      ["Email",              alb.receptorEmail || "—"],
-      ["Entregado por",      data.usuarios.find(u=>u.id===alb.emisorId)?.nombre || "—"],
+      ["Razón social",      alb.receptorNombreFiscal || alb.receptorNombre || "—"],
+      ["CIF / NIF",         alb.receptorCif || "—"],
+      ["Dirección fiscal",  alb.receptorDireccionFiscal || alb.receptorDireccion || "—"],
+      ["Entregado por",     data.usuarios.find(u=>u.id===alb.emisorId)?.nombre || "—"],
     ];
     filasDest.forEach(([l,v]) => {
       doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
@@ -9027,77 +9012,51 @@ const Albaran = ({ data, setData, userActual }) => {
       const notasLines = doc.splitTextToSize(alb.notas, W-mg*2-8);
       doc.text(notasLines, mg+4, y); y += notasLines.length*5 + 6;
     }
-    y += 2;
-    // ── Conformidad de recepción ──
+    y += 4;
     // Salto de página preventivo si queda poco espacio
-    if (y > 195) { doc.addPage(); doc.setFillColor(255,255,255); doc.rect(0,0,W,297,"F"); y = 18; }
-    seccion("Conformidad de recepción", y); y += 11;
-    // Datos fiscales del cliente (si el albarán tiene clienteId vinculado)
-    const clConf = alb.clienteId != null ? (data.clientes||[]).find(c => c.id === alb.clienteId) : null;
-    if (clConf) {
-      const filasFisc = [
-        ["Razón social", clConf.nombreFiscal||clConf.nombreEmpresa||""],
-        ["CIF / NIF empresa", clConf.cif||""],
-        ["Dirección fiscal", [clConf.dirFiscal, clConf.cpFiscal, clConf.localidad].filter(Boolean).join(", ")||""],
-      ].filter(([,v]) => v);
-      filasFisc.forEach(([l,v]) => {
-        doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
-        doc.text(l+":", mg+4, y);
-        doc.setTextColor(25,35,60); doc.setFontSize(8.5); doc.setFont("helvetica","bold");
-        doc.text(String(v), mg+44, y);
-        doc.setFont("helvetica","normal");
-        y += 5.5;
-      });
-      y += 3;
-    }
-    // Texto de conformidad
+    if (y > 200) { doc.addPage(); doc.setFillColor(255,255,255); doc.rect(0,0,W,297,"F"); y = 18; }
+    // ── Texto de conformidad ──
     doc.setFillColor(235,240,255); doc.roundedRect(mg, y, W-mg*2, 9, 1, 1, "F");
     doc.setTextColor(35,55,105); doc.setFontSize(7.5); doc.setFont("helvetica","bolditalic");
     doc.text("El cliente ha comprobado el estado de la mercancía y la recibe en conformidad.", mg+4, y+5.5);
     doc.setFont("helvetica","normal");
     y += 13;
-    // Nombre y DNI del receptor
-    const nomConf = alb.receptorNombreFirma || firmaNombre || alb.receptorNombre;
+    // ── Nombre, DNI y fecha ──
+    const nomFirma = firmaNombre || alb.receptorNombre || "—";
+    const dniFirma = firmaDni || alb.firmaDni || "";
     doc.setTextColor(100,115,145); doc.setFontSize(7.5);
-    doc.text("Nombre del receptor:", mg+4, y);
+    doc.text("Nombre:", mg+4, y);
     doc.setTextColor(25,35,60); doc.setFontSize(8.5); doc.setFont("helvetica","bold");
-    doc.text(String(nomConf||"—"), mg+50, y);
+    doc.text(String(nomFirma), mg+22, y);
     doc.setFont("helvetica","normal");
-    y += 6;
-    if (alb.receptorDni) {
+    if (dniFirma) {
       doc.setTextColor(100,115,145); doc.setFontSize(7.5);
-      doc.text("DNI / NIF receptor:", mg+4, y);
+      doc.text("DNI/NIF:", mg+90, y);
       doc.setTextColor(25,35,60); doc.setFontSize(8.5); doc.setFont("helvetica","bold");
-      doc.text(String(alb.receptorDni), mg+50, y);
+      doc.text(String(dniFirma), mg+108, y);
       doc.setFont("helvetica","normal");
-      y += 6;
     }
+    y += 6;
     doc.setTextColor(100,115,145); doc.setFontSize(7.5);
-    doc.text("Fecha de recepción:", mg+4, y);
+    doc.text("Fecha:", mg+4, y);
     doc.setTextColor(25,35,60); doc.setFontSize(8.5);
-    doc.text(fmtFecha(alb.fechaFirma||today()), mg+50, y);
+    doc.text(fmtFecha(alb.fechaFirma||today()), mg+22, y);
     y += 10;
-    // Firma: usar imagen guardada > canvas live > recuadro vacío
-    const dibujarFirma = (imgData) => {
-      try { doc.addImage(imgData,"JPEG",mg,y,80,28); y+=32; }
-      catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32; }
-    };
-    if (alb.firmaImagenConformidad) {
-      dibujarFirma(alb.firmaImagenConformidad);
-    } else if (conFirma && canvasRef.current) {
+    // ── Espacio de firma ──
+    if (conFirma && canvasRef.current) {
       try {
         const tmp=document.createElement("canvas");
         tmp.width=canvasRef.current.width; tmp.height=canvasRef.current.height;
         const tctx=tmp.getContext("2d");
         tctx.fillStyle="#ffffff"; tctx.fillRect(0,0,tmp.width,tmp.height);
         tctx.drawImage(canvasRef.current,0,0);
-        dibujarFirma(tmp.toDataURL("image/jpeg",1.0));
+        doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28); y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32; }
     } else {
       doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32;
     }
     doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
-    doc.text("Firma y sello del receptor", mg, y);
+    doc.text("Firma del receptor", mg, y);
     // ── Pie ──
     doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
     doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
@@ -9121,7 +9080,7 @@ const Albaran = ({ data, setData, userActual }) => {
     setEnviando(true);
     try{
       const dataUri = await generarPDF(alb, firmada, "descargar");
-      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail } : a) }));
+      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "" } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
@@ -9165,13 +9124,13 @@ const Albaran = ({ data, setData, userActual }) => {
           <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
           <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
           {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>✍️ Firmar y enviar</button>}
-          <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setConformidadOpen(false); setFirmadaForm(false); setModal(true); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+          <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:12}}>
           <div style={{display:"grid",gap:10}}>
             <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"15px 17px"}}>
               <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:11}}>Receptor</div>
-              {[["Empresa/receptor", alb.receptorNombre], ["Email", alb.receptorEmail||"—"], ["Dirección", alb.receptorDireccion||"—"], ["Entregado por", emisor?.nombre||"—"]].map(([l,v]) => (
+              {[["Razón social", alb.receptorNombreFiscal||alb.receptorNombre||"—"], ["CIF / NIF", alb.receptorCif||"—"], ["Dirección fiscal", alb.receptorDireccionFiscal||alb.receptorDireccion||"—"], ["Entregado por", emisor?.nombre||"—"]].map(([l,v]) => (
                 <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}>
                   <span style={{color:"#e4e9f6",fontSize:12}}>{l}</span>
                   <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
@@ -9245,7 +9204,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",fontWeight:700,fontSize:11}}>✍️ Firmar</button>}
                 <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
                 <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
-                <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setConformidadOpen(false); setFirmadaForm(false); setModal(true); }} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={11}/></button>
+                <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={11}/></button>
                 <button onClick={() => { if (window.confirm("¿Eliminar este albarán? Esta acción no se puede deshacer.")) setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)})); }} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
             </div>
@@ -9264,12 +9223,30 @@ const Albaran = ({ data, setData, userActual }) => {
             value={form.receptorNombre || ""}
             email={form.receptorEmail || ""}
             direccion={form.receptorDireccion || ""}
-            onChange={(nombre, email, direccion, clienteId) => setForm(p => ({ ...p,receptorNombre: nombre,receptorEmail: email || p.receptorEmail,receptorDireccion: direccion || p.receptorDireccion,clienteId: clienteId||p.clienteId||null }))}
+            onChange={(nombre, email, direccion, clienteId) => {
+            const cl = clienteId ? data.clientes.find(c => c.id === clienteId) : null;
+            setForm(p => ({
+              ...p,
+              receptorNombre: nombre,
+              receptorEmail: email || p.receptorEmail,
+              receptorDireccion: direccion || p.receptorDireccion,
+              clienteId: clienteId || p.clienteId || null,
+              receptorNombreFiscal: cl ? (cl.nombreFiscal || cl.nombreEmpresa || nombre) : (p.receptorNombreFiscal || nombre),
+              receptorCif: cl ? (cl.cif || "") : p.receptorCif || "",
+              receptorDireccionFiscal: cl ? [cl.dirFiscal, cl.cpFiscal, cl.localidad].filter(Boolean).join(", ") : p.receptorDireccionFiscal || "",
+            }));
+          }}
           />
         </Field>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-          <Field label="Email receptor"><Input type="email" value={form.receptorEmail} onChange={f("receptorEmail")} placeholder="para envío del albarán"/></Field>
-          <Field label="Dirección entrega"><Input value={form.receptorDireccion} onChange={f("receptorDireccion")} placeholder="Calle, número, ciudad"/></Field>
+        {/* Datos fiscales del cliente */}
+        <div style={{background:"#0f1520",border:"1px solid #2a3550",borderRadius:9,padding:"13px 15px",display:"grid",gap:9}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".6px"}}>Datos fiscales del cliente</div>
+          <Field label="Razón social"><Input value={form.receptorNombreFiscal||""} onChange={f("receptorNombreFiscal")} placeholder="Nombre o razón social fiscal..."/></Field>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(190px,100%),1fr))",gap:9}}>
+            <Field label="CIF / NIF"><Input value={form.receptorCif||""} onChange={f("receptorCif")} placeholder="B12345678 / 12345678A"/></Field>
+            <Field label="Dirección fiscal"><Input value={form.receptorDireccionFiscal||""} onChange={f("receptorDireccionFiscal")} placeholder="Calle, CP, localidad..."/></Field>
+          </div>
+          <Field label="Email (para envío del albarán)"><Input type="email" value={form.receptorEmail||""} onChange={f("receptorEmail")} placeholder="email@cliente.com"/></Field>
         </div>
         {/* Líneas de productos */}
         <div style={{marginTop:4}}>
@@ -9300,54 +9277,6 @@ const Albaran = ({ data, setData, userActual }) => {
           <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
         </div>
         <Field label="Observaciones"><Textarea value={form.notas} onChange={f("notas")} placeholder="Instrucciones, condiciones de entrega..."/></Field>
-        {/* ── Conformidad de recepción ──────────────────────────────── */}
-        <div style={{marginTop:8}}>
-          <button type="button" onClick={() => setConformidadOpen(p => !p)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:9,padding:"11px 14px",color:"#e4e9f6",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",textAlign:"left"}}>
-            <span>📋 Conformidad de recepción {form.firmaImagenConformidad && <span style={{color:"#10b981",fontSize:11}}>✓ firma guardada</span>}</span>
-            <span style={{color:"#e4e9f6",fontSize:12,fontWeight:400}}>{conformidadOpen ? "▲ ocultar" : "▼ añadir"}</span>
-          </button>
-          {conformidadOpen && (
-            <div style={{background:"#0f1520",border:"1px solid #2a3550",borderRadius:"0 0 9px 9px",padding:"14px 16px",display:"grid",gap:12}}>
-              {/* Datos fiscales del cliente seleccionado */}
-              {form.clienteId != null && (() => {
-                const cl = data.clientes.find(c => c.id === form.clienteId);
-                if (!cl) return null;
-                return (
-                  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"11px 13px"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".6px",marginBottom:8}}>Datos fiscales del cliente</div>
-                    {[["Razón social", cl.nombreFiscal||cl.nombreEmpresa||"—"], ["CIF / NIF empresa", cl.cif||"—"], ["Dirección fiscal", [cl.dirFiscal, cl.cpFiscal, cl.localidad].filter(Boolean).join(", ")||"—"]].map(([l,v]) => (
-                      <div key={l} style={{display:"flex",gap:8,padding:"3px 0",borderBottom:"1px solid #1a2236"}}>
-                        <span style={{color:"#e4e9f6",fontSize:11,minWidth:120,flexShrink:0}}>{l}</span>
-                        <span style={{color:"#f1f3f9",fontSize:12,fontWeight:600}}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-              {/* Texto de conformidad */}
-              <div style={{background:"#0a1020",border:"1px solid #f97316",borderRadius:8,padding:"10px 13px"}}>
-                <div style={{color:"#e4e9f6",fontSize:12,fontStyle:"italic"}}>"El cliente ha comprobado el estado de la mercancía y la recibe en conformidad."</div>
-              </div>
-              {/* Nombre y DNI del receptor */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10}}>
-                <Field label="Nombre completo del receptor">
-                  <Input value={form.receptorNombreFirma||""} onChange={f("receptorNombreFirma")} placeholder="Nombre y apellidos..."/>
-                </Field>
-                <Field label="DNI / NIF del receptor">
-                  <Input value={form.receptorDni||""} onChange={f("receptorDni")} placeholder="12345678A"/>
-                </Field>
-              </div>
-              {/* Firma */}
-              <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
-                  ✍️ Firma del receptor {firmadaForm && <span style={{color:"#10b981"}}>· Capturada ✓</span>}
-                  {!firmadaForm && form.firmaImagenConformidad && <span style={{color:"#f59e0b",fontWeight:400,textTransform:"none"}}> · (firma previa guardada — dibuja para actualizar)</span>}
-                </div>
-                <SignaturePad canvasRef={canvasFormRef} onSave={() => setFirmadaForm(true)} onClear={() => setFirmadaForm(false)}/>
-              </div>
-            </div>
-          )}
-        </div>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
           <button onClick={() => setModal(false)} style={btnOutline}>Cancelar</button>
           <button onClick={saveAlbaran} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar":"Crear albarán"}</button>
@@ -9373,10 +9302,15 @@ const Albaran = ({ data, setData, userActual }) => {
                   <div style={{fontSize:11,fontWeight:700,color:"#f97316",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Mercancía a confirmar</div>
                   {alb.lineas.map((l,i) => <div key={i} style={{color:"#ecf0f6",fontSize:12,padding:"3px 0"}}><span style={{color:"#f97316",fontWeight:800}}>{l.cant} {l.unidad}</span> · {l.desc}</div>)}
                 </div>
-                {/* Nombre receptor */}
-                <Field label="Nombre completo del receptor">
-                  <input value={firmaNombre} onChange={e => setFirmaNombre(e.target.value)} placeholder={alb.receptorNombre} style={inputStyle}/>
-                </Field>
+                {/* Nombre y DNI receptor */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10}}>
+                  <Field label="Nombre completo del receptor">
+                    <input value={firmaNombre} onChange={e => setFirmaNombre(e.target.value)} placeholder={alb.receptorNombre} style={inputStyle}/>
+                  </Field>
+                  <Field label="DNI / NIF del receptor">
+                    <input value={firmaDni} onChange={e => setFirmaDni(e.target.value)} placeholder="12345678A" style={inputStyle}/>
+                  </Field>
+                </div>
                 {/* Firma */}
                 <div style={{marginBottom:16}}>
                   <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>
