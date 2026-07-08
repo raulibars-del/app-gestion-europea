@@ -8967,6 +8967,8 @@ const Albaran = ({ data, setData, userActual }) => {
   const [enviado,    setEnviado]    = useState(false);
   const canvasRef = useRef(null);
   const [firmaDni, setFirmaDni] = useState("");
+  const [modalMaquina, setModalMaquina] = useState(false);
+  const [busqMaquina, setBusqMaquina] = useState("");
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
   // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
@@ -9019,6 +9021,28 @@ const Albaran = ({ data, setData, userActual }) => {
       }
       nuevo.inventario = inv;
       nuevo.notificaciones = notifsInv;
+      // Transferencia de máquinas: cada línea con esMaquina:true pasa de propietario actual al receptor
+      const lineasMaq = lineasFinal.filter(l => l.esMaquina && l.maquinaId != null && l.maquinaClienteOrigenId != null);
+      if (lineasMaq.length > 0 && item.clienteId) {
+        const nuevoClienteId = parseInt(item.clienteId);
+        lineasMaq.forEach(l => {
+          const origenId = l.maquinaClienteOrigenId;
+          const maqId    = l.maquinaId;
+          const maquina  = (nuevo.clientes.find(c=>c.id===origenId)?.maquinas||[]).find(m=>m.id===maqId);
+          if (!maquina) return;
+          nuevo.clientes = nuevo.clientes.map(c => {
+            if (c.id === origenId)       return {...c, maquinas: (c.maquinas||[]).filter(m=>m.id!==maqId)};
+            if (c.id === nuevoClienteId) {
+              if ((c.maquinas||[]).some(m=>m.id===maqId)) return c; // evitar duplicado
+              return {...c, maquinas: [...(c.maquinas||[]), {...maquina, origenStock:false, fechaTransferencia:today()}]};
+            }
+            return c;
+          });
+          nuevo.documentacion = (nuevo.documentacion||[]).map(x =>
+            x._maquinaClienteId===maqId && x.clienteId===origenId ? {...x, clienteId:nuevoClienteId} : x
+          );
+        });
+      }
       return nuevo;
     });
     setModal(false);
@@ -9089,16 +9113,27 @@ const Albaran = ({ data, setData, userActual }) => {
     doc.text("DESCRIPCIÓN", mg+32, y+4.5);
     y += 7;
     alb.lineas.forEach((l, i) => {
-      const bgClr = i%2===0 ? [248,250,255] : [255,255,255];
+      const bgClr = l.esMaquina ? [255,247,235] : (i%2===0 ? [248,250,255] : [255,255,255]);
       doc.setFillColor(...bgClr); doc.rect(mg,y-1,W-mg*2,7,"F");
       doc.setTextColor(25,35,70); doc.setFontSize(9); doc.setFont("helvetica","bold");
       doc.text(String(l.cant), mg+4, y+4);
       doc.setFont("helvetica","normal"); doc.setTextColor(80,90,110);
-      doc.text(l.unidad, mg+18, y+4);
-      doc.setTextColor(25,35,60); doc.setFont("helvetica","normal");
-      const lines = doc.splitTextToSize(l.desc, W-mg*2-36);
-      doc.text(lines, mg+32, y+4);
-      y += Math.max(lines.length*5, 7);
+      doc.text(l.esMaquina?"máq.":l.unidad, mg+18, y+4);
+      if (l.esMaquina) {
+        // badge "MÁQUINA" en naranja
+        doc.setFillColor(249,115,22); doc.roundedRect(mg+32, y+0.5, 14, 4.5, 1, 1, "F");
+        doc.setTextColor(255,255,255); doc.setFontSize(6); doc.setFont("helvetica","bold");
+        doc.text("MÁQUINA", mg+33, y+3.8);
+        doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.setTextColor(25,35,60);
+        const lines = doc.splitTextToSize(l.desc, W-mg*2-52);
+        doc.text(lines, mg+48, y+4);
+        y += Math.max(lines.length*5, 7);
+      } else {
+        doc.setTextColor(25,35,60); doc.setFont("helvetica","normal");
+        const lines = doc.splitTextToSize(l.desc, W-mg*2-36);
+        doc.text(lines, mg+32, y+4);
+        y += Math.max(lines.length*5, 7);
+      }
     });
     y += 6;
     // ── Observaciones ──
@@ -9349,28 +9384,51 @@ const Albaran = ({ data, setData, userActual }) => {
           <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Productos / Mercancía</div>
           {lineas.map((l, i) => (
             <div key={i} style={{marginBottom:8,paddingBottom:8,borderBottom:i<lineas.length-1?"1px solid #1a2236":"none"}}>
-              {/* Solo los consumibles recurrentes (clave) aparecen en este desplegable: con el
-                  inventario completo (potencialmente cientos de artículos) un selector así sería
-                  inmanejable. El resto de líneas se escriben siempre a mano. */}
-              <select value={l.inventarioId!=null?String(l.inventarioId):""} onChange={e=>{
-                const raw = e.target.value;
-                const it = raw ? data.inventario.find(x=>String(x.id)===raw) : null;
-                setLineas(p => p.map((x,j)=>j===i?{...x, inventarioId: it?it.id:null, desc: it?it.nombre:x.desc, unidad: it?(it.unidad||"ud"):x.unidad}:x));
-              }} style={{...inputStyle,fontSize:11,padding:"5px 9px",marginBottom:6,width:"100%"}}>
-                <option value="">— Producto manual (escribe la descripción abajo) —</option>
-                {data.inventario.filter(it=>it.consumibleClave).map(it=>(<option key={it.id} value={String(it.id)}>{it.nombre} (stock: {it.stock||0} {it.unidad||"ud"})</option>))}
-              </select>
-              <div style={{display:"grid",gridTemplateColumns:"60px 70px 1fr 32px",gap:6}}>
-                <Field label={i===0?"Cant.":""}><input type="number" value={l.cant} min="1" onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,cant:e.target.value}:x))} style={{...inputStyle}}/></Field>
-                <Field label={i===0?"Unidad":""}><input value={l.unidad} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,unidad:e.target.value}:x))} style={{...inputStyle}}/></Field>
-                <Field label={i===0?"Descripción":""}><input value={l.desc} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,desc:e.target.value}:x))} placeholder="Producto, modelo, referencia..." style={{...inputStyle,width:"100%"}}/></Field>
-                <div style={{display:"flex",alignItems:i===0?"flex-end":"flex-start",paddingBottom:i===0?0:0}}>
-                  <button onClick={() => setLineas(p => p.filter((_,j)=>j!==i))} disabled={lineas.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626",marginTop:i===0?20:0}}><Icon name="trash" size={12}/></button>
+              {l.esMaquina ? (
+                /* Línea de máquina — muestra info + badge, no permite editar inventario */
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{flex:1,background:"#0d1a00",border:"1px solid #f9731644",borderRadius:8,padding:"9px 13px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔧 MÁQUINA</span>
+                      <span style={{color:"#f1f3f9",fontSize:13,fontWeight:600}}>{l.desc}</span>
+                    </div>
+                    <div style={{color:"#8899aa",fontSize:11,marginTop:4}}>Transferencia automática de propiedad al guardar el albarán</div>
+                  </div>
+                  <button onClick={() => setLineas(p => p.filter((_,j)=>j!==i))} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626",flexShrink:0}}><Icon name="trash" size={12}/></button>
                 </div>
-              </div>
+              ) : (
+                /* Línea normal de producto/mercancía */
+                <>
+                  {/* Solo los consumibles recurrentes (clave) aparecen en este desplegable: con el
+                      inventario completo (potencialmente cientos de artículos) un selector así sería
+                      inmanejable. El resto de líneas se escriben siempre a mano. */}
+                  <select value={l.inventarioId!=null?String(l.inventarioId):""} onChange={e=>{
+                    const raw = e.target.value;
+                    const it = raw ? data.inventario.find(x=>String(x.id)===raw) : null;
+                    setLineas(p => p.map((x,j)=>j===i?{...x, inventarioId: it?it.id:null, desc: it?it.nombre:x.desc, unidad: it?(it.unidad||"ud"):x.unidad}:x));
+                  }} style={{...inputStyle,fontSize:11,padding:"5px 9px",marginBottom:6,width:"100%"}}>
+                    <option value="">— Producto manual (escribe la descripción abajo) —</option>
+                    {data.inventario.filter(it=>it.consumibleClave).map(it=>(<option key={it.id} value={String(it.id)}>{it.nombre} (stock: {it.stock||0} {it.unidad||"ud"})</option>))}
+                  </select>
+                  <div style={{display:"grid",gridTemplateColumns:"60px 70px 1fr 32px",gap:6}}>
+                    <Field label={i===0?"Cant.":""}><input type="number" value={l.cant} min="1" onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,cant:e.target.value}:x))} style={{...inputStyle}}/></Field>
+                    <Field label={i===0?"Unidad":""}><input value={l.unidad} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,unidad:e.target.value}:x))} style={{...inputStyle}}/></Field>
+                    <Field label={i===0?"Descripción":""}><input value={l.desc} onChange={e => setLineas(p => p.map((x,j)=>j===i?{...x,desc:e.target.value}:x))} placeholder="Producto, modelo, referencia..." style={{...inputStyle,width:"100%"}}/></Field>
+                    <div style={{display:"flex",alignItems:i===0?"flex-end":"flex-start"}}>
+                      <button onClick={() => setLineas(p => p.filter((_,j)=>j!==i))} disabled={lineas.length===1&&!l.esMaquina} style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"7px",cursor:"pointer",color:"#dc2626",marginTop:i===0?20:0}}><Icon name="trash" size={12}/></button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ))}
-          <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir línea</button>
+          <div style={{display:"flex",gap:7,marginTop:3}}>
+            <button onClick={() => setLineas(p => [...p, {desc:"",cant:1,unidad:"ud",inventarioId:null}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",flex:1}}>+ Añadir línea</button>
+            <button onClick={() => {
+              if (!form.clienteId) { alert("Selecciona primero el receptor (debe ser un cliente registrado) para poder asignarle la máquina."); return; }
+              setModalMaquina(true); setBusqMaquina("");
+            }} style={{background:"none",border:"1px dashed #f9731666",borderRadius:7,padding:"6px 14px",color:"#f97316",fontSize:12,cursor:"pointer",flexShrink:0}}>🔧 Añadir máquina</button>
+          </div>
         </div>
         <Field label="Observaciones"><Textarea value={form.notas} onChange={f("notas")} placeholder="Instrucciones, condiciones de entrega..."/></Field>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
@@ -9378,6 +9436,55 @@ const Albaran = ({ data, setData, userActual }) => {
           <button onClick={saveAlbaran} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar":"Crear albarán"}</button>
         </div>
       </Modal>}
+      {/* Modal selección de máquina para albarán */}
+      {modalMaquina && (() => {
+        const clientesPropios = data.clientes.filter(c => c.esPropia);
+        const todasMaquinas = clientesPropios.flatMap(c => (c.maquinas||[]).map(m => ({...m, _clienteId:c.id, _clienteNombre:c.nombreEmpresa})));
+        const q = busqMaquina.toLowerCase();
+        const filtradas = q ? todasMaquinas.filter(m => [m.nombre,m.marca,m.modelo,m.serie,m.codigo].filter(Boolean).some(v=>v.toLowerCase().includes(q))) : todasMaquinas;
+        return (
+          <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.8)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:18,width:"100%",maxWidth:560,maxHeight:"85vh",overflow:"auto",boxShadow:"0 32px 80px rgba(0,0,0,.7)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 22px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
+                <div>
+                  <div style={{fontWeight:800,fontSize:17,color:"#f1f3f9"}}>🔧 Seleccionar máquina</div>
+                  <div style={{color:"#f97316",fontSize:12,marginTop:2}}>La máquina cambiará de propietario al guardar el albarán</div>
+                </div>
+                <button onClick={() => setModalMaquina(false)} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#e6ebf6",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
+              </div>
+              <div style={{padding:"14px 22px"}}>
+                <input value={busqMaquina} onChange={e=>setBusqMaquina(e.target.value)} placeholder="Buscar por nombre, marca, modelo, serie..." style={{...inputStyle,marginBottom:12}}/>
+                {filtradas.length === 0 && <div style={{color:"#8899aa",fontSize:13,textAlign:"center",padding:"24px 0"}}>No hay máquinas disponibles{q?" con ese criterio":""}</div>}
+                {filtradas.map(m => {
+                  const yaEnLineas = lineas.some(l => l.esMaquina && l.maquinaId === m.id);
+                  return (
+                    <div key={m.id} onClick={() => {
+                      if (yaEnLineas) return;
+                      const label = [m.nombre||m.modelo||m.marca, m.marca&&m.nombre?m.marca:null, m.modelo&&m.nombre?m.modelo:null, m.serie?`S/N:${m.serie}`:null].filter(Boolean).join(" · ");
+                      setLineas(p => [...p, {desc:label, cant:1, unidad:"ud", inventarioId:null, esMaquina:true, maquinaId:m.id, maquinaClienteOrigenId:m._clienteId}]);
+                      setModalMaquina(false);
+                    }} style={{background: yaEnLineas?"#1a1a1a":"#0d1117",border:`1px solid ${yaEnLineas?"#2a3550":"#2a355088"}`,borderRadius:10,padding:"12px 15px",marginBottom:8,cursor:yaEnLineas?"not-allowed":"pointer",opacity:yaEnLineas?.5:1,transition:"border-color .15s"}}
+                      onMouseEnter={e=>{if(!yaEnLineas)e.currentTarget.style.borderColor="#f97316";}}
+                      onMouseLeave={e=>{if(!yaEnLineas)e.currentTarget.style.borderColor="#2a355088";}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{m.nombre||m.modelo||"—"}</span>
+                        {m.marca&&<span style={{background:"#2a3550",color:"#b0bec5",borderRadius:5,padding:"1px 7px",fontSize:11}}>{m.marca}</span>}
+                        {m.modelo&&m.nombre&&<span style={{background:"#2a3550",color:"#b0bec5",borderRadius:5,padding:"1px 7px",fontSize:11}}>{m.modelo}</span>}
+                        {yaEnLineas&&<span style={{background:"#f9731633",color:"#f97316",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>Ya añadida</span>}
+                      </div>
+                      <div style={{color:"#8899aa",fontSize:11,marginTop:4}}>
+                        {m.serie&&<span>S/N: {m.serie} · </span>}
+                        {m.anyo&&<span>Año: {m.anyo} · </span>}
+                        <span style={{color:"#f9731699"}}>Propietario actual: {m._clienteNombre}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {/* Modal firma y envío */}
       {modalFirma && (() => {
         const alb = data.albaranes.find(a => a.id === modalFirma);
