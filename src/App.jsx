@@ -8953,6 +8953,9 @@ const Albaran = ({ data, setData, userActual }) => {
   const [firmaDni, setFirmaDni] = useState("");
   const [modalMaquina, setModalMaquina] = useState(false);
   const [busqMaquina, setBusqMaquina] = useState("");
+  const [modalPrevia, setModalPrevia] = useState(null);
+  const [pdfPreviaUri, setPdfPreviaUri] = useState(null);
+  const [cargandoPrevia, setCargandoPrevia] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
   // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
@@ -9030,6 +9033,16 @@ const Albaran = ({ data, setData, userActual }) => {
       return nuevo;
     });
     setModal(false);
+  };
+  const abrirPrevia = async (alb) => {
+    setModalPrevia(alb.id);
+    setCargandoPrevia(true);
+    setPdfPreviaUri(null);
+    try {
+      const uri = await generarPDF(alb, alb.firmada, null);
+      setPdfPreviaUri(uri);
+    } catch(e) { console.error(e); }
+    setCargandoPrevia(false);
   };
   const abrirFirma = alb => {
     setModalFirma(alb.id);
@@ -9314,7 +9327,7 @@ const Albaran = ({ data, setData, userActual }) => {
         {[...data.albaranes].reverse().map(alb => {
           const emisor = data.usuarios.find(u => u.id === alb.emisorId);
           return (
-            <div key={alb.id} onClick={() => setVista(alb.id)} style={{background:"#151b2a",border:"1px solid #2a3550",borderLeft:`4px solid #f97316`,borderRadius:11,padding:"13px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}
+            <div key={alb.id} onClick={() => abrirPrevia(alb)} style={{background:"#151b2a",border:"1px solid #2a3550",borderLeft:`4px solid #f97316`,borderRadius:11,padding:"13px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}
               onMouseEnter={e=>e.currentTarget.style.borderColor="#f9731666"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2a3550"}>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:3}}>
@@ -9341,6 +9354,36 @@ const Albaran = ({ data, setData, userActual }) => {
           );
         })}
       </div>
+      {/* Modal vista previa PDF */}
+      {modalPrevia && (() => {
+        const alb = data.albaranes.find(a => a.id === modalPrevia);
+        if (!alb) return null;
+        const cerrar = () => { setModalPrevia(null); setPdfPreviaUri(null); };
+        return (
+          <div style={{position:"fixed",inset:0,background:"rgba(5,10,20,.93)",zIndex:1000,display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#0d1117",borderBottom:"1px solid #2a3550",flexShrink:0,flexWrap:"wrap"}}>
+              <button onClick={cerrar} style={{background:"#2a3550",border:"none",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#e6ebf6",display:"flex",alignItems:"center"}}><Icon name="back" size={14}/></button>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                  <span style={{color:"#f97316",fontWeight:800,fontSize:15}}>{alb.numero}</span>
+                  <span style={{background:alb.firmada?"#16a34a20":"#f59e0b20",color:alb.firmada?"#16a34a":"#f59e0b",border:`1px solid ${alb.firmada?"#16a34a44":"#f59e0b44"}`,borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:700}}>{alb.firmada?"✅ Firmado":"⏳ Sin firmar"}</span>
+                </div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{alb.receptorNombre} · {alb.fecha}</div>
+              </div>
+              <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#0ea5e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar</button>
+              <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#10b981",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
+              {!alb.firmada && <button onClick={() => { cerrar(); abrirFirma(alb); }} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontWeight:700,fontSize:12}}>✍️ Firmar</button>}
+              <button onClick={() => { cerrar(); setVista(alb.id); }} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e4e9f6",fontWeight:700,fontSize:12}}>Detalles</button>
+            </div>
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",background:"#0a0f1a"}}>
+              {cargandoPrevia && <div style={{color:"#e4e9f6",fontSize:14}}>⏳ Generando vista previa...</div>}
+              {!cargandoPrevia && pdfPreviaUri && (
+                <iframe src={pdfPreviaUri} style={{width:"100%",height:"100%",border:"none"}} title="Vista previa albarán"/>
+              )}
+            </div>
+          </div>
+        );
+      })()}
       {/* Modal nuevo/editar albarán */}
       {modal && <Modal title={form.id ? "Editar albarán" : "Nuevo albarán de entrega"} onClose={() => setModal(false)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
