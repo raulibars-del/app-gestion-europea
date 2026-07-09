@@ -1885,7 +1885,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
               {ords.length===0&&<div style={{color:"#e4e9f6",fontSize:12}}>Sin órdenes registradas.</div>}
               {ords.map(r=>(
                 <div key={r.id} style={{background:"#0d1117",borderRadius:9,padding:"11px 13px",marginBottom:7,display:"flex",justifyContent:"space-between"}}>
-                  <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#e4e9f6",fontSize:11}}>{r.fecha}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#e4e9f6",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
+                  <div><div style={{display:"flex",gap:7,alignItems:"center",marginBottom:3}}><Badge text={r.estado}/><span style={{color:"#e4e9f6",fontSize:11}}>{fmtFecha(r.fecha)}</span></div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,marginBottom:2}}>{r.descripcion}</div><div style={{color:"#e4e9f6",fontSize:11}}>🔧 {r.tecnico}{r.notas&&" · "+r.notas}</div></div>
                   <div style={{color:"#10b981",fontWeight:700,fontSize:14,flexShrink:0,marginLeft:10}}>€{r.presupuesto}</div>
                 </div>
               ))}
@@ -2842,7 +2842,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
             <span style={{background:h.tipo==="Aviso"?"#f59e0b20":"#3b82f620",color:h.tipo==="Aviso"?"#f59e0b":"#3b82f6",border:"1px solid "+(h.tipo==="Aviso"?"#f59e0b44":"#3b82f644"),borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800}}>{h.tipo}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{color:"#f1f3f9",fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{h.titulo||"—"}</div>
-              <div style={{color:"#e4e9f6",fontSize:11}}>{h.fecha} {h.estado&&("· "+h.estado)}</div>
+              <div style={{color:"#e4e9f6",fontSize:11}}>{fmtFecha(h.fecha)} {h.estado&&("· "+h.estado)}</div>
             </div>
             {esParteClicable&&<span style={{color:"#e4e9f6",fontSize:11,display:"flex",alignItems:"center",gap:3}}><Icon name="parts" size={12}/>PDF</span>}
             {esClicable&&<span style={{color:"#e4e9f6",fontSize:13}}>→</span>}
