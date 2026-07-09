@@ -8957,7 +8957,7 @@ const Albaran = ({ data, setData, userActual }) => {
   const [pdfPreviaUri, setPdfPreviaUri] = useState(null);
   const [cargandoPrevia, setCargandoPrevia] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
-  const nextNum = () => generarNum("PT", today(), data.albaranes, "numero");
+  const nextNum = () => generarNum("AB", today(), data.albaranes, "numero");
   // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
   // inventario (se usa al editar un albarán —antes de reaplicar— y al eliminarlo).
   const revertirInventarioAlbaran = (inventario, albaranId) => (inventario||[]).map(it => {
