@@ -275,7 +275,11 @@ const migrateContabilidad = (d) => {
 // la app justo tras guardar el parte). Se ejecuta en cada carga y pull.
 const repararEstadosAvisos = (d) => {
   if (!d.partes || !d.avisos) return d;
-  const finalizados = d.partes.filter(p => p.estadoParte === "Finalizado" && p.avisoId);
+  // Cierra el aviso si el parte está Finalizado O si el email fue enviado
+  // (emailEnviado cubre casos donde estadoParte no se guardó correctamente)
+  const finalizados = d.partes.filter(p =>
+    p.avisoId && (p.estadoParte === "Finalizado" || p.emailEnviado === true)
+  );
   if (finalizados.length === 0) return d;
   let changed = false;
   const nuevosAvisos = d.avisos.map(a => {
@@ -6036,6 +6040,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
       const nuevaFirmaImg = capturarFirmaImagen();
       setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
+      // Forzar guardado inmediato para que emailEnviado llegue al servidor
+      // antes de que el técnico cierre la app (sin esperar el debounce de 1200ms).
+      window.dispatchEvent(new Event("em-save-now"));
       setEnviado(true);
     }catch(e){
       alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
@@ -13868,83 +13875,85 @@ function AppInner() {
     if(cambiadas.length === 0) return;
     setSyncStatus("guardando");
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(()=>{
-      (async()=>{
-        try{
-          let dataActual = {...data};
-          const conflictos = [];
-          // Un único GET para ver el estado remoto de todas las secciones
-          const remoto = await apiGetSecciones();
-          for(const seccion of cambiadas){
-            const localData = extraerSeccion(dataActual, seccion);
-            const remoteData = remoto.sections?.[seccion];
-            const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
-            const lastSynced = lastSyncedRef.current[seccion] || null;
-            let aGuardar = localData;
-            // Si no tenemos versión (arranque offline), aprenderla del GET que acabamos
-            // de hacer. Así el guardado usa siempre control de versión y el servidor
-            // nunca recibe una sobreescritura ciega que podría resucitar datos borrados.
-            if(lastVersionRef.current[seccion] == null && remoto.versions?.[seccion] != null){
-              lastVersionRef.current[seccion] = remoto.versions[seccion];
-            }
-            // Pre-merge si el remoto cambió respecto a lo que conocíamos
-            if(remoteJson !== null && remoteJson !== lastSynced){
-              const base = lastSynced ? JSON.parse(lastSynced) : null;
-              const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
-              aGuardar = combined;
-              dataActual = aplicarSeccion(dataActual, seccion, combined);
-              lastSyncedRef.current[seccion] = remoteJson;
-              lastVersionRef.current[seccion] = remoto.versions?.[seccion];
-              if(conflictos.length){
-                setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
-                setData(prepararDatos(dataActual));
-                window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
-                return;
-              }
-            }
-            // SEGURIDAD: nunca sobreescribir datos reales del servidor con arrays vacíos.
-            // Si el remoto tiene elementos y lo que vamos a guardar está vacío, es una
-            // señal clara de borrado accidental (localStorage sin baseline válido).
-            if(Array.isArray(aGuardar) && aGuardar.length === 0 &&
-               Array.isArray(remoteData) && remoteData.length > 0){
-              console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} vacío sobre ${remoteData.length} elementos del servidor.`);
-              lastSyncedRef.current[seccion] = remoteJson; // aceptar remoto como base
-              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
-              continue;
-            }
-            const resp = await apiGuardarSeccion(seccion, aGuardar, lastVersionRef.current[seccion]??null);
-            if(resp && resp.conflict){
-              // 409: alguien guardó justo antes; buscar versión fresca y reintentar en el siguiente ciclo
-              const fresco = await apiGetSecciones();
-              if(fresco.sections && fresco.sections[seccion] !== undefined){
-                const frescoData = fresco.sections[seccion];
-                const base2 = lastSyncedRef.current[seccion] ? JSON.parse(lastSyncedRef.current[seccion]) : null;
-                const combined2 = combinarDatosRemotos(base2, aGuardar, frescoData, seccion, []);
-                dataActual = aplicarSeccion(dataActual, seccion, combined2);
-                lastSyncedRef.current[seccion] = JSON.stringify(frescoData);
-                lastVersionRef.current[seccion] = fresco.versions?.[seccion];
-              }
-              continue; // La sección se reintentará en el siguiente ciclo del efecto
-            }
-            lastSyncedRef.current[seccion] = JSON.stringify(aGuardar);
-            lastVersionRef.current[seccion] = resp.version;
-            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+    // Función de guardado reutilizable (normal y urgente)
+    const doSave = async () => {
+      try{
+        let dataActual = {...data};
+        const conflictos = [];
+        const remoto = await apiGetSecciones();
+        for(const seccion of cambiadas){
+          const localData = extraerSeccion(dataActual, seccion);
+          const remoteData = remoto.sections?.[seccion];
+          const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
+          const lastSynced = lastSyncedRef.current[seccion] || null;
+          let aGuardar = localData;
+          if(lastVersionRef.current[seccion] == null && remoto.versions?.[seccion] != null){
+            lastVersionRef.current[seccion] = remoto.versions[seccion];
           }
-          if(dataActual !== data) setData(prepararDatos(dataActual));
-          setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
-        }catch(e){
-          setSyncStatus("error");
-          const motivo = (e && e.message) ? e.message : String(e);
-          setLastSaveError(motivo);
-          saveFailCountRef.current += 1;
-          if(saveFailCountRef.current === 3){
-            const sMax = TODAS_SECCIONES.reduce((a,s)=>{ const l=JSON.stringify(extraerSeccion(data,s)).length; return l>a?l:a; },0);
-            window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"; sección más grande: "+(sMax/1024/1024).toFixed(1)+" MB). Sigo reintentando, pero si persiste avisa para no perder cambios.");
+          if(remoteJson !== null && remoteJson !== lastSynced){
+            const base = lastSynced ? JSON.parse(lastSynced) : null;
+            const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
+            aGuardar = combined;
+            dataActual = aplicarSeccion(dataActual, seccion, combined);
+            lastSyncedRef.current[seccion] = remoteJson;
+            lastVersionRef.current[seccion] = remoto.versions?.[seccion];
+            if(conflictos.length){
+              setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
+              setData(prepararDatos(dataActual));
+              window.alert("Otro dispositivo ha editado al mismo tiempo lo mismo que tú. Se han combinado los cambios dando prioridad a tu edición; revisa que todo esté correcto.");
+              return;
+            }
           }
+          if(Array.isArray(aGuardar) && aGuardar.length === 0 &&
+             Array.isArray(remoteData) && remoteData.length > 0){
+            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} vacío sobre ${remoteData.length} elementos del servidor.`);
+            lastSyncedRef.current[seccion] = remoteJson;
+            dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+            continue;
+          }
+          const resp = await apiGuardarSeccion(seccion, aGuardar, lastVersionRef.current[seccion]??null);
+          if(resp && resp.conflict){
+            const fresco = await apiGetSecciones();
+            if(fresco.sections && fresco.sections[seccion] !== undefined){
+              const frescoData = fresco.sections[seccion];
+              const base2 = lastSyncedRef.current[seccion] ? JSON.parse(lastSyncedRef.current[seccion]) : null;
+              const combined2 = combinarDatosRemotos(base2, aGuardar, frescoData, seccion, []);
+              dataActual = aplicarSeccion(dataActual, seccion, combined2);
+              lastSyncedRef.current[seccion] = JSON.stringify(frescoData);
+              lastVersionRef.current[seccion] = fresco.versions?.[seccion];
+            }
+            continue;
+          }
+          lastSyncedRef.current[seccion] = JSON.stringify(aGuardar);
+          lastVersionRef.current[seccion] = resp.version;
+          try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
         }
-      })();
-    }, 1200);
-    return()=>clearTimeout(saveTimerRef.current);
+        if(dataActual !== data) setData(prepararDatos(dataActual));
+        setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
+      }catch(e){
+        setSyncStatus("error");
+        const motivo = (e && e.message) ? e.message : String(e);
+        setLastSaveError(motivo);
+        saveFailCountRef.current += 1;
+        if(saveFailCountRef.current === 3){
+          const sMax = TODAS_SECCIONES.reduce((a,s)=>{ const l=JSON.stringify(extraerSeccion(data,s)).length; return l>a?l:a; },0);
+          window.alert("No se están guardando tus cambios en el servidor (error: "+motivo+"; sección más grande: "+(sMax/1024/1024).toFixed(1)+" MB). Sigo reintentando, pero si persiste avisa para no perder cambios.");
+        }
+      }
+    };
+    // em-save-now: componentes internos (Parte, Albaran) pueden forzar guardado
+    // inmediato sin esperar el debounce — evita pérdida si el técnico cierra la app
+    // justo después de enviar el email del parte.
+    const handleSaveNow = () => {
+      if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(doSave, 0);
+    };
+    window.addEventListener("em-save-now", handleSaveNow, {once:true});
+    saveTimerRef.current = setTimeout(doSave, 1200);
+    return()=>{
+      clearTimeout(saveTimerRef.current);
+      window.removeEventListener("em-save-now", handleSaveNow);
+    };
   },[data, syncStatus]);
 
   // ─── Guardado de emergencia (app pasa a segundo plano o se cierra) ──────────
