@@ -270,8 +270,25 @@ const migrateContabilidad = (d) => {
   if (!changed) return d;
   return { ...d, contabilidad: { ...defaults, ...c } };
 };
+// Cierra automáticamente los avisos cuyo parte vinculado ya está Finalizado pero
+// el save de la sección "avisos" no llegó a completarse (p.ej. el técnico cerró
+// la app justo tras guardar el parte). Se ejecuta en cada carga y pull.
+const repararEstadosAvisos = (d) => {
+  if (!d.partes || !d.avisos) return d;
+  const finalizados = d.partes.filter(p => p.estadoParte === "Finalizado" && p.avisoId);
+  if (finalizados.length === 0) return d;
+  let changed = false;
+  const nuevosAvisos = d.avisos.map(a => {
+    if (a.estado === "Resuelto" || a.estado === "Cancelado") return a;
+    const parte = finalizados.find(p => String(p.avisoId) === String(a.id));
+    if (!parte) return a;
+    changed = true;
+    return { ...a, estado: "Resuelto", fechaResuelto: parte.fecha || a.fechaResuelto, fechaUltimaIntervencion: parte.fecha || a.fechaUltimaIntervencion };
+  });
+  return changed ? { ...d, avisos: nuevosAvisos } : d;
+};
 // Función que aplica todas las migraciones/backfills al cargar datos.
-const prepararDatos = d => migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d))));
+const prepararDatos = d => repararEstadosAvisos(migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d)))));
 
 // ── Verifactu: hash SHA-256 encadenado (RD 1007/2023, Ley 11/2021 antifraude) ──
 // Campos: IDEmisorFactura & NumSerieFactura & FechaExpedicion & TipoFactura & CuotaTotal & ImporteTotal & HuellaAnterior
