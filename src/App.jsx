@@ -3313,14 +3313,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                       ⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>
                   )}
                   <span style={{color:"#e4e9f6",fontSize:11}}>👤 {av.dadoPor}</span>
-                  <span style={{color:"#e4e9f6",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
+                  <span style={{color:"#e4e9f6",fontSize:11}}>📅 Aviso: {fmtFecha(av.fechaAviso)}</span>
                   {av.fechaUltimaIntervencion && (
                     <span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>
-                      🔧 Última intervención: {av.fechaUltimaIntervencion}
+                      🔧 Última intervención: {fmtFecha(av.fechaUltimaIntervencion)}
                     </span>
                   )}
                   {listaNombres(av,"asignados","asignado").length>0 && <span style={{color:"#e4e9f6",fontSize:11}}>🔧 {fmtNombres(av,"asignados","asignado")}</span>}
-                  {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
+                  {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
               <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:"auto",maxWidth:"38%"}}>
@@ -3380,9 +3380,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           ["Máquina", maqD==="—" ? "—" : <span onClick={()=>{if(irAMaquina&&detalle.maquinaId){setDetalle(null);irAMaquina(detalle.clienteId,detalle.maquinaId);}}} style={{cursor:(irAMaquina&&detalle.maquinaId)?"pointer":"default",color:(irAMaquina&&detalle.maquinaId)?"#60a5fa":"#f1f3f9",textDecoration:(irAMaquina&&detalle.maquinaId)?"underline":"none",textUnderlineOffset:2}} title={(irAMaquina&&detalle.maquinaId)?"Ir a la ficha de la máquina":undefined}>{maqD}</span>],
           ["Dado por", detalle.dadoPor],
           ["Metodo de aviso", detalle.metodoAviso||"—"],
-          ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`],
-          ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []),
-          ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []),
+          ["Fecha aviso", `${fmtFecha(detalle.fechaAviso)} (${diasDesde(detalle.fechaAviso)} días)`],
+          ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {fmtFecha(detalle.fechaResolucion)}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []),
+          ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {fmtFecha(detalle.fechaUltimaIntervencion)}</span>]] : []),
           ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"],
           ["Registrado por", detalle.creadoPor||"—"],
         ];
@@ -3407,7 +3407,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         )}
         {detalle.estado === "Cancelado" && detalle.motivoCancelacion && (
           <div style={{background:"#dc26260d",border:"1px solid #dc262633",borderRadius:8,padding:"10px 12px",marginBottom:11}}>
-            <div style={{fontSize:11,color:"#dc2626",textTransform:"uppercase",marginBottom:3}}>Motivo de cancelación{detalle.fechaCancelacion?" · "+detalle.fechaCancelacion:""}</div>
+            <div style={{fontSize:11,color:"#dc2626",textTransform:"uppercase",marginBottom:3}}>Motivo de cancelación{detalle.fechaCancelacion?" · "+fmtFecha(detalle.fechaCancelacion):""}</div>
             <div style={{color:"#ecf0f6",fontSize:12}}>{detalle.motivoCancelacion}</div>
           </div>
         )}
@@ -8827,7 +8827,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                 <div key={alb.id} onClick={()=>importarAlbaran(alb)} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:"10px 14px",cursor:"pointer"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor="#16a34a"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2a3550"}>
                   <div style={{fontWeight:700,color:"#f1f3f9",fontSize:13}}>{alb.numero||`ALB-${alb.id}`}</div>
-                  <div style={{color:"#e4e9f6",fontSize:12}}>{cli?.nombreEmpresa||"Sin cliente"} · {alb.fecha?new Date(alb.fecha).toLocaleDateString("es-ES"):""} · {(alb.lineas||[]).length} línea(s)</div>
+                  <div style={{color:"#e4e9f6",fontSize:12}}>{cli?.nombreEmpresa||"Sin cliente"} · {fmtFecha(alb.fecha)} · {(alb.lineas||[]).length} línea(s)</div>
                 </div>
               );
             })}
@@ -9337,7 +9337,7 @@ const Albaran = ({ data, setData, userActual }) => {
               <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{alb.numero}</h2>
               <span style={{background:alb.firmada ? "#16a34a20":"#f59e0b20",color:alb.firmada?"#16a34a":"#f59e0b",border:`1px solid ${alb.firmada?"#16a34a44":"#f59e0b44"}`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{alb.firmada ? "✅ Firmado":"⏳ Pendiente firma"}</span>
             </div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>📅 {alb.fecha} · 👤 {emisor?.nombre || "—"}</div>
+            <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>📅 {fmtFecha(alb.fecha)} · 👤 {emisor?.nombre || "—"}</div>
           </div>
           <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
           <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
@@ -9360,7 +9360,7 @@ const Albaran = ({ data, setData, userActual }) => {
               <div style={{color:"#e1e6f2",fontSize:13}}>{alb.notas}</div>
             </div>}
             {alb.firmada && <div style={{background:"#16a34a12",border:"1px solid #16a34a33",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#16a34a",textTransform:"uppercase",letterSpacing:".7px",marginBottom:5}}>✅ Firmado el {alb.fechaFirma}</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#16a34a",textTransform:"uppercase",letterSpacing:".7px",marginBottom:5}}>✅ Firmado el {fmtFecha(alb.fechaFirma)}</div>
               <div style={{color:"#e4e9f6",fontSize:12}}>{alb.emailEnviado?("Email enviado a "+(alb.emailEnviadoA||alb.receptorEmail||"—")+", con copia a "+(alb.emailEnviadoCC||"—")):"Firmado, sin envío de email registrado"}</div>
             </div>}
           </div>
@@ -9411,7 +9411,7 @@ const Albaran = ({ data, setData, userActual }) => {
                 </div>
                 <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:3}}>{alb.receptorNombre}</div>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-                  <span style={{color:"#e4e9f6",fontSize:11}}>📅 {alb.fecha}</span>
+                  <span style={{color:"#e4e9f6",fontSize:11}}>📅 {fmtFecha(alb.fecha)}</span>
                   <span style={{color:"#e4e9f6",fontSize:11}}>👤 {emisor?.nombre||"—"}</span>
                   <span style={{color:"#e4e9f6",fontSize:11}}>📦 {alb.lineas.length} artículo{alb.lineas.length!==1?"s":""}</span>
                   {alb.receptorEmail && <span style={{color:"#e4e9f6",fontSize:11}}>✉️ {alb.receptorEmail}</span>}
@@ -9443,7 +9443,7 @@ const Albaran = ({ data, setData, userActual }) => {
                   <span style={{color:"#f97316",fontWeight:800,fontSize:15}}>{alb.numero}</span>
                   <span style={{background:alb.firmada?"#16a34a20":"#f59e0b20",color:alb.firmada?"#16a34a":"#f59e0b",border:`1px solid ${alb.firmada?"#16a34a44":"#f59e0b44"}`,borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:700}}>{alb.firmada?"✅ Firmado":"⏳ Sin firmar"}</span>
                 </div>
-                <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{alb.receptorNombre} · {alb.fecha}</div>
+                <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{alb.receptorNombre} · {fmtFecha(alb.fecha)}</div>
               </div>
               <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#0ea5e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar</button>
               <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#10b981",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
@@ -12032,8 +12032,8 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                       <span style={{background:av.prioridad==="Alta"?"#ef444420":av.prioridad==="Media"?"#f59e0b20":"#10b98120",color:av.prioridad==="Alta"?"#ef4444":av.prioridad==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{av.prioridad}</span>
                     </div>
                     <div style={{color:"#e4e9f6",fontSize:11}}>
-                      📅 Aviso: {av.fechaAviso}
-                      {av.fechaResolucion&&<span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {av.fechaResolucion}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
+                      📅 Aviso: {fmtFecha(av.fechaAviso)}
+                      {av.fechaResolucion&&<span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                     </div>
                     {cl&&<div style={{color:"#e4e9f6",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
                     {maq&&<div style={{color:"#e4e9f6",fontSize:11}}>🔧 {maq.nombre}</div>}
