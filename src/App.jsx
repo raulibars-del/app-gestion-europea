@@ -2391,7 +2391,7 @@ const Chat = ({ data, setData, userActual, addNotif, isMobile }) => {
     </div>
   );
 };
-const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente, irAAviso, irAParte }) => {
+const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquinaCodigo, irACliente, irAAviso, irAParte, abrirMaquinaVista, onAbrirMaquinaVista }) => {
   const [vista,setVista]=useState(null); // {clienteId, maquinaId}
   const [busq,setBusq]=useState("");
   const [filtroCliente,setFiltroCliente]=useState("");
@@ -2442,6 +2442,11 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
     if(m) setVista({clienteId:m._clienteId, maquinaId:m.id});
     onAbrirMaquinaCodigo && onAbrirMaquinaCodigo();
   },[abrirMaquinaCodigo]);
+  useEffect(()=>{
+    if(!abrirMaquinaVista) return;
+    setVista({clienteId:abrirMaquinaVista.clienteId, maquinaId:abrirMaquinaVista.maquinaId});
+    onAbrirMaquinaVista && onAbrirMaquinaVista();
+  },[abrirMaquinaVista]);
 
   // Geocodifica (una sola vez, y en cola respetando ~1 req/seg) las direcciones de
   // los clientes con máquinas que aún no tengan lat/lng guardadas, sólo cuando se
@@ -3065,7 +3070,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     </Modal>}
   </div>);
 };
-const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoId, onAbrirAvisoId }) => {
+const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoId, onAbrirAvisoId, irACliente, irAMaquina }) => {
   const [modalAv, setModalAv] = useState(null);
   const [detalle, setDetalle] = useState(null);
   useEffect(() => {
@@ -3291,12 +3296,19 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <Badge text={av.tipo}/><Badge text={av.prioridad}/>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:5}}>
-                  <span style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word"}}>🏢 {cN(av.clienteId)}</span>
+                  <span onClick={e=>{e.stopPropagation();irACliente&&irACliente(av.clienteId);}}
+                    style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word",cursor:irACliente?"pointer":"default",textDecoration:irACliente?"underline":"none",textUnderlineOffset:2}}
+                    title="Ir a la ficha del cliente">🏢 {cN(av.clienteId)}</span>
                   {(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>CLIENTE</span>}</>;})()}
                 </div>
                 <div style={{color:"#e1e6f2",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{av.descripcion}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  {(av.marca||av.modelo||av.matricula) && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700}}>⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>}
+                  {(av.marca||av.modelo||av.matricula) && (
+                    <span onClick={e=>{e.stopPropagation();irAMaquina&&av.maquinaId&&irAMaquina(av.clienteId,av.maquinaId);}}
+                      style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:4,padding:"1px 7px",fontSize:11,fontWeight:700,cursor:(irAMaquina&&av.maquinaId)?"pointer":"default",textDecoration:(irAMaquina&&av.maquinaId)?"underline":"none",textUnderlineOffset:2}}
+                      title={av.maquinaId?"Ir a la ficha de la máquina":undefined}>
+                      ⚙️ {[av.marca,av.modelo].filter(Boolean).join(" ")||"Máquina"}{av.matricula?` (${av.matricula})`:""}</span>
+                  )}
                   <span style={{color:"#e4e9f6",fontSize:11}}>👤 {av.dadoPor}</span>
                   <span style={{color:"#e4e9f6",fontSize:11}}>📅 Aviso: {av.fechaAviso}</span>
                   {av.fechaUltimaIntervencion && (
@@ -3358,9 +3370,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         const telD = contactoD?.tel ? `${contactoD.tel} (${contactoD.nombre})` : "—";
         const dirD = [clD?.dirFiscal,clD?.cpFiscal,clD?.localidad,clD?.provinciaFiscal].filter(Boolean).join(", ") || "—";
         const maqD = [detalle.marca, detalle.modelo, detalle.matricula?("(" + detalle.matricula + ")"):""].filter(Boolean).join(" ") || "—";
+        const detalleRows = [
+          ["Cliente", <span onClick={()=>{if(irACliente){setDetalle(null);irACliente(detalle.clienteId);} }} style={{display:"flex",alignItems:"center",gap:6,cursor:irACliente?"pointer":"default",color:irACliente?"#60a5fa":"#f1f3f9",textDecoration:irACliente?"underline":"none",textUnderlineOffset:2}} title={irACliente?"Ir a la ficha del cliente":undefined}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>],
+          ["Teléfono cliente", telD],
+          ["Dirección", dirD],
+          ["Máquina", maqD==="—" ? "—" : <span onClick={()=>{if(irAMaquina&&detalle.maquinaId){setDetalle(null);irAMaquina(detalle.clienteId,detalle.maquinaId);}}} style={{cursor:(irAMaquina&&detalle.maquinaId)?"pointer":"default",color:(irAMaquina&&detalle.maquinaId)?"#60a5fa":"#f1f3f9",textDecoration:(irAMaquina&&detalle.maquinaId)?"underline":"none",textUnderlineOffset:2}} title={(irAMaquina&&detalle.maquinaId)?"Ir a la ficha de la máquina":undefined}>{maqD}</span>],
+          ["Dado por", detalle.dadoPor],
+          ["Metodo de aviso", detalle.metodoAviso||"—"],
+          ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`],
+          ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []),
+          ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []),
+          ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"],
+          ["Registrado por", detalle.creadoPor||"—"],
+        ];
         return <Modal title="Detalle del aviso" onClose={() => setDetalle(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9,marginBottom:11}}>
-          {[["Cliente", <span style={{display:"flex",alignItems:"center",gap:6}}>{cN(detalle.clienteId)}{clD?.esCliente?<span style={{background:"#faff00",color:"#1a1a00",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:900}}>CLIENTE</span>:null}</span>], ["Teléfono cliente", telD], ["Dirección", dirD], ["Máquina", maqD], ["Dado por", detalle.dadoPor], ["Metodo de aviso", detalle.metodoAviso||"—"], ["Fecha aviso", `${detalle.fechaAviso} (${diasDesde(detalle.fechaAviso)} días)`], ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {detalle.fechaResolucion}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []), ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {detalle.fechaUltimaIntervencion}</span>]] : []), ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"], ["Registrado por", detalle.creadoPor||"—"]].map(([l, v]) => (
+          {detalleRows.map(([l, v]) => (
             <div key={l} style={{background:"#0d1117",borderRadius:8,padding:"10px 12px"}}>
               <div style={{fontSize:11,color:"#e4e9f6",textTransform:"uppercase",marginBottom:2}}>{l}</div>
               <div style={{color:"#f1f3f9",fontWeight:700}}>{v}</div>
@@ -5523,6 +5548,16 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               item.maquinaId = nuevaMaquina.id;
             }
           }
+          // Si la máquina ya estaba registrada pero sin matrícula y el técnico la ha
+          // rellenado en el parte, actualizarla también en la ficha del cliente.
+          if (item.maquinaId && item.matricula?.trim()) {
+            const maqExistente = (cli.maquinas||[]).find(m => m.id === parseInt(item.maquinaId));
+            if (maqExistente && !maqExistente.serie?.trim()) {
+              cli = { ...cli, maquinas: (cli.maquinas||[]).map(m =>
+                m.id === maqExistente.id ? { ...m, serie: item.matricula.trim() } : m
+              )};
+            }
+          }
           const cn = item.contactoNombre?.trim(), ce = item.contactoEmail?.trim(), ctel = item.contactoTel?.trim();
           if (cn || ce) {
             const yaContacto = (cli.contactos||[]).some(x =>
@@ -6160,18 +6195,31 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           const cl=data.clientes.find(c=>c.id===form.clienteDirectoId);
           const maquinas=cl?.maquinas||[];
           if(!maquinas.length) return null;
+          const maqSel = form.maquinaId ? maquinas.find(m=>m.id===parseInt(form.maquinaId)) : null;
+          const sinMatricula = maqSel && !maqSel.serie?.trim();
           return(
+            <>
             <Field label={form.avisoId?"Maquina del cliente (del aviso)":"Maquina del cliente"}>
               <select value={form.maquinaId||""} onChange={e=>{
                 if(form.avisoId) return; // locked when aviso selected
                 const maq=maquinas.find(m=>m.id===parseInt(e.target.value));
-                setForm(p=>({...p,maquinaId:e.target.value,marca:maq?.marca||"",modelo:maq?.modelo||"",matricula:maq?.serie||maq?.nombre||""}));
+                setForm(p=>({...p,maquinaId:e.target.value,marca:maq?.marca||"",modelo:maq?.modelo||"",matricula:maq?.serie||""}));
               }} style={{...inputStyle,opacity:form.avisoId?0.6:1,cursor:form.avisoId?"not-allowed":"auto"}}>
                 <option value="">Seleccionar maquina...</option>
-                {maquinas.map(m=><option key={m.id} value={m.id}>{m.nombre} {m.serie?"("+m.serie+")":""}</option>)}
+                {maquinas.map(m=><option key={m.id} value={m.id}>{m.nombre} {m.serie?"("+m.serie+")":"⚠️ sin matrícula"}</option>)}
               </select>
               {form.avisoId&&<div style={{color:"#f59e0b",fontSize:10,marginTop:3}}>Maquina fijada por el aviso vinculado</div>}
+              {sinMatricula&&!form.avisoId&&(
+                <div style={{background:"#f59e0b15",border:"1px solid #f59e0b44",borderRadius:7,padding:"8px 11px",marginTop:6,display:"flex",alignItems:"flex-start",gap:8}}>
+                  <span style={{fontSize:16,lineHeight:1}}>⚠️</span>
+                  <div>
+                    <div style={{color:"#f59e0b",fontWeight:800,fontSize:12}}>Esta máquina no tiene matrícula registrada</div>
+                    <div style={{color:"#e4e9f6",fontSize:11,marginTop:2}}>Rellena la matrícula/serie abajo — al guardar el parte se actualizará también en la ficha del cliente.</div>
+                  </div>
+                </div>
+              )}
             </Field>
+            </>
           );
         })()}
 
@@ -14345,6 +14393,8 @@ function AppInner() {
   const irACliente=id=>{setClienteAAbrir(id);setActive("clientes");};
   const [parteAAbrir,setParteAAbrir]=useState(null);
   const irAParte=id=>{setParteAAbrir(id);setActive("partes");};
+  const [maquinaVistaAbrir,setMaquinaVistaAbrir]=useState(null); // {clienteId, maquinaId}
+  const irAMaquina=(clienteId,maquinaId)=>{setMaquinaVistaAbrir({clienteId,maquinaId});setActive("maquinas");};
   const [tareaAAbrir,setTareaAAbrir]=useState(null);
   const irATarea=id=>{setTareaAAbrir(id);setActive("tareas");};
   // Si se ha llegado con ?tarea=ID en la URL (enlace del email automático), en
@@ -14575,10 +14625,10 @@ function AppInner() {
         {!isMobile&&<Sidebar/>}
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
-          {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)}/>}
+          {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
           {active==="proveedores"&&puedeVer(user.rol,"proveedores")&&<Proveedores data={data} setData={setData} userActual={user}/>}
-          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte}/>}
+          {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte} abrirMaquinaVista={maquinaVistaAbrir} onAbrirMaquinaVista={()=>setMaquinaVistaAbrir(null)}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="visitas"&&puedeVer(user.rol,"visitas")&&<DiarioVisitas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user} abrirTareaId={tareaAAbrir} onAbrirTareaId={()=>setTareaAAbrir(null)}/>}
