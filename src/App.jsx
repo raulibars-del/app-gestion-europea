@@ -2444,7 +2444,10 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   },[abrirMaquinaCodigo]);
   useEffect(()=>{
     if(!abrirMaquinaVista) return;
-    setVista({clienteId:abrirMaquinaVista.clienteId, maquinaId:abrirMaquinaVista.maquinaId});
+    // Asegurar IDs numéricos para que el find con === funcione correctamente.
+    // maquinaId puede ser un float (Date.now()+Math.random()) — Number() lo preserva,
+    // parseInt lo truncaría y el find fallaría.
+    setVista({clienteId:Number(abrirMaquinaVista.clienteId), maquinaId:Number(abrirMaquinaVista.maquinaId)});
     onAbrirMaquinaVista && onAbrirMaquinaVista();
   },[abrirMaquinaVista]);
 
