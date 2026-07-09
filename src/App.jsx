@@ -11648,6 +11648,13 @@ const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#
 
 const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
+  // Jerarquía de visibilidad del calendario:
+  // manager(0) ve a todos; admin(1) ve a todos menos manager;
+  // técnico y comercial(2) se ven entre ellos pero no a admin ni manager.
+  const NIVEL_CAL = {manager:0,admin:1,tecnico:2,comercial:2};
+  const nivelCal = rol => NIVEL_CAL[rol]??999;
+  const uRolCal = id => data.usuarios.find(u=>u.id===id)?.rol;
+  const puedeVerEventoDe = ownerId => { const r=uRolCal(ownerId); if(!r) return true; return nivelCal(userActual.rol)<=nivelCal(r); };
   // Vista: "semana" (la de siempre) o "mes" (cuadricula del mes completo, tipo Google Calendar).
   const [vista, setVista] = useState("semana");
   const [offset, setOffset] = useState(0); // en "semana": numero de semanas; en "mes": numero de meses
@@ -11655,7 +11662,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
-  const [usuarioFiltro, setUsuarioFiltro] = useState(esAdmin?"todos":userActual.id);
+  const [usuarioFiltro, setUsuarioFiltro] = useState("todos");
 
   // Calcular dias de la semana actual + offset
   const getLunes = (offsetSemanas) => {
@@ -11716,7 +11723,13 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       prioridad:a.prioridad,
     })));
 
-  const todosEventos = [...avisosEventos, ...eventos];
+  // Filtrar eventos según jerarquía: cada usuario solo ve los eventos de quienes
+  // están en su mismo nivel o por debajo (nivel más alto = número más grande).
+  const todosEventos = [...avisosEventos, ...eventos].filter(ev=>{
+    const ids=(Array.isArray(ev.usuarioIds)&&ev.usuarioIds.length)?ev.usuarioIds:(ev.usuarioId?[ev.usuarioId]:[]);
+    if(!ids.length) return true; // sin asignar: visible a todos
+    return ids.some(puedeVerEventoDe);
+  });
 
   // Personas asignadas a un evento: soporta el array nuevo (varias) y el id legacy (uno solo).
   // A diferencia de Avisos/Partes, aqui se guardan ids numericos (no nombres), porque el campo
@@ -11727,10 +11740,9 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const eventosDia = (fecha, uid) => todosEventos.filter(e=>{
     const enRango = fecha>=e.fecha && fecha<=(e.fechaFin||e.fecha);
     if(!enRango) return false;
+    if(uid==="todos") return true; // todosEventos ya está filtrado por jerarquía
     const ids = idsEvento(e);
-    if(!esAdmin && uid==="todos") return ids.includes(userActual.id)||!ids.length;
-    if(uid!=="todos") return ids.includes(parseInt(uid))||(!ids.length&&esAdmin);
-    return true;
+    return ids.includes(Number(uid))||!ids.length;
   });
 
   const abrirNuevo = (fecha) => {
@@ -11821,11 +11833,11 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0",textTransform:"capitalize"}}>{mesActual}</p>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {esAdmin&&(
+          {(userActual.rol==="manager"||userActual.rol==="admin")&&(
             <select value={usuarioFiltro} onChange={e=>setUsuarioFiltro(e.target.value)}
               style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",color:"#f1f3f9",fontSize:12,outline:"none"}}>
               <option value="todos">Todos los usuarios</option>
-              {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+              {data.usuarios.filter(u=>u.activo&&puedeVerEventoDe(u.id)).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           )}
           <div style={{display:"flex",gap:4,background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:2}}>
