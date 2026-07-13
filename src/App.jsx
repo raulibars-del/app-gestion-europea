@@ -6908,6 +6908,10 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [cargandoHist,setCargandoHist]=useState(false);
   const [errorHist,setErrorHist]=useState("");
   const [restaurandoId,setRestaurandoId]=useState(null);
+  const [piBackups,setPiBackups]=useState(null);
+  const [cargandoPi,setCargandoPi]=useState(false);
+  const [errorPi,setErrorPi]=useState("");
+  const [restaurandoPiId,setRestaurandoPiId]=useState(null);
   const cargarHistorial=async()=>{
     setCargandoHist(true); setErrorHist("");
     try{ const res=await apiListHistory(); setHistorial(res.items||[]); }
@@ -6926,6 +6930,25 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
       window.alert("Error al restaurar: "+e.message);
     }
     setRestaurandoId(null);
+  };
+  const cargarPiBackups=async()=>{
+    setCargandoPi(true); setErrorPi("");
+    try{ const res=await apiListPiBackups(); setPiBackups(res.items||[]); }
+    catch(e){ setErrorPi("No se pudo conectar: "+e.message); }
+    setCargandoPi(false);
+  };
+  const restaurarPi=async(item)=>{
+    const fecha=new Date(item.created_at).toLocaleString('es-ES');
+    if(!window.confirm(`¿Restaurar la copia Raspberry del ${fecha}?\n\nSustituirá TODOS los datos del servidor. Esta acción afecta a todos los usuarios.`)) return;
+    setRestaurandoPiId(item.id);
+    try{
+      await apiRestorePiBackup(item.id);
+      window.alert("Copia Raspberry restaurada correctamente. La página se recargará.");
+      window.location.reload();
+    }catch(e){
+      window.alert("Error al restaurar: "+e.message);
+    }
+    setRestaurandoPiId(null);
   };
   return (<div>
     <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,marginBottom:3}}>Ajustes</h2>
@@ -7029,6 +7052,29 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
               </div>
               <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
                 {restaurandoId===item.id?"Restaurando...":"Restaurar"}
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>}
+    {esManager && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:6,display:"flex",alignItems:"center",gap:6}}><Icon name="settings" size={15}/>Copias de seguridad Raspberry Pi</div>
+      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:11}}>La Raspberry Pi sube una copia cada hora al servidor. Aquí puedes ver y restaurar esas copias (últimos 7 días).</p>
+      <button onClick={cargarPiBackups} disabled={cargandoPi} style={{...btnOutline,marginBottom:11}}>{cargandoPi?"Cargando...":"Ver copias Raspberry"}</button>
+      {errorPi && <div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{errorPi}</div>}
+      {piBackups && (piBackups.length===0 ? (
+        <div style={{color:"#e4e9f6",fontSize:12}}>Todavía no hay copias Raspberry. Se generará la primera en la próxima hora.</div>
+      ) : (
+        <div style={{display:"grid",gap:7,maxHeight:320,overflowY:"auto"}}>
+          {piBackups.map(item=>(
+            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0d1117",borderRadius:8,padding:"8px 12px",flexWrap:"wrap",gap:8}}>
+              <div style={{minWidth:0}}>
+                <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{new Date(item.created_at).toLocaleString('es-ES')}</div>
+                <div style={{color:"#e4e9f6",fontSize:11}}>{item.tam?(item.tam/1024/1024).toFixed(2)+" MB":"tamaño desconocido"}</div>
+              </div>
+              <button onClick={()=>restaurarPi(item)} disabled={restaurandoPiId===item.id} style={{background:"#1c2a3b",border:"1px solid #0ea5e944",borderRadius:7,padding:"6px 12px",color:"#0ea5e9",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
+                {restaurandoPiId===item.id?"Restaurando...":"Restaurar"}
               </button>
             </div>
           ))}
@@ -12784,6 +12830,22 @@ async function apiRestoreHistory(historyId){
   });
   const json = await res.json().catch(()=>({}));
   if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
+  return json;
+}
+async function apiListPiBackups(){
+  const res = await fetch(API_URL+"?action=pi-backups-list", { headers: { "X-Api-Key": API_KEY } });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error) throw new Error(json.error || ("HTTP "+res.status));
+  return json; // { items: [{id, created_at, tam}] }
+}
+async function apiRestorePiBackup(id){
+  const res = await fetch(API_URL+"?action=restore-pi-backup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify({ id }),
+  });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error) throw new Error(json.error || ("HTTP "+res.status));
   return json;
 }
 // ─── API por secciones ───────────────────────────────────────────────────────

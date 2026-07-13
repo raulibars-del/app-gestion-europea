@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $accionTemp = $_GET['action'] ?? '';
-if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup']) && !hash_equals(API_KEY, $apiKey)) {
+if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup','pi-upload']) && !hash_equals(API_KEY, $apiKey)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
@@ -80,6 +80,13 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_sections (
 // Añadir columnas de auditoría si no existen (para bases de datos ya creadas)
 try { $pdo->exec("ALTER TABLE app_sections ADD COLUMN saved_by VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
 try { $pdo->exec("ALTER TABLE app_sections ADD COLUMN saved_count INT NOT NULL DEFAULT 0"); } catch (Exception $e) {}
+
+// Tabla de backups subidos por la Raspberry Pi
+$pdo->exec("CREATE TABLE IF NOT EXISTS app_pi_backups (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    data LONGTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 // ─── Helper: migrar blob monolítico → secciones ──────────────────────────────
 function migrarBlobASecciones($pdo, $blob) {
@@ -141,6 +148,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'pi-backup') {
         http_response_code(500);
         echo json_encode(['error' => 'server_error']);
     }
+    exit;
+}
+
+// ─── POST ?action=pi-upload ──────────────────────────────────────────────────
+// La Raspberry Pi sube el backup al servidor. Clave separada (PI_BACKUP_KEY).
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'pi-upload') {
+    $piKey = $_GET['key'] ?? '';
+    if (!defined('PI_BACKUP_KEY') || !hash_equals(PI_BACKUP_KEY, $piKey)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'unauthorized']);
+        exit;
+    }
+    $raw = file_get_contents('php://input');
+    if (strlen($raw) < 100) {
+        http_response_code(400);
+        echo json_encode(['error' => 'empty_data']);
+        exit;
+    }
+    $pdo->prepare("INSERT INTO app_pi_backups (data) VALUES (:d)")->execute(['d' => $raw]);
+    // Conservar solo los últimos 168 backups (7 días × 24 h)
+    $pdo->exec("DELETE FROM app_pi_backups WHERE id NOT IN (SELECT id FROM (SELECT id FROM app_pi_backups ORDER BY id DESC LIMIT 168) t)");
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
+// ─── GET ?action=pi-backups-list ─────────────────────────────────────────────
+// Lista los backups subidos por el Pi (usa API key normal).
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'pi-backups-list') {
+    $stmt = $pdo->query("SELECT id, created_at, LENGTH(data) AS tam FROM app_pi_backups ORDER BY id DESC LIMIT 168");
+    $items = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $items[] = ['id' => (int)$row['id'], 'created_at' => $row['created_at'], 'tam' => (int)$row['tam']];
+    }
+    echo json_encode(['items' => $items]);
+    exit;
+}
+
+// ─── POST ?action=restore-pi-backup ──────────────────────────────────────────
+// Restaura un backup del Pi sobreescribiendo todas las secciones.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore-pi-backup') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = (int)($input['id'] ?? 0);
+    if (!$id) { http_response_code(400); echo json_encode(['error' => 'missing_id']); exit; }
+    $stmt = $pdo->prepare("SELECT data FROM app_pi_backups WHERE id = :id");
+    $stmt->execute(['id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) { http_response_code(404); echo json_encode(['error' => 'not_found']); exit; }
+    $blob = json_decode($row['data'], true);
+    if (!$blob) { http_response_code(500); echo json_encode(['error' => 'invalid_json']); exit; }
+    $secciones = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $config = [];
+    foreach ($blob as $k => $v) {
+        if (str_starts_with($k, '_')) continue;
+        if (in_array($k, $secciones)) {
+            $d = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $pdo->prepare("INSERT INTO app_sections (section, data, version, saved_by) VALUES (:s, :d, 1, 'pi-restore')
+                ON DUPLICATE KEY UPDATE data = :d2, version = version + 1, saved_by = 'pi-restore'"
+            )->execute(['s' => $k, 'd' => $d, 'd2' => $d]);
+        } else {
+            $config[$k] = $v;
+        }
+    }
+    $dc = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $pdo->prepare("INSERT INTO app_sections (section, data, version, saved_by) VALUES ('config', :d, 1, 'pi-restore')
+        ON DUPLICATE KEY UPDATE data = :d2, version = version + 1, saved_by = 'pi-restore'"
+    )->execute(['d' => $dc, 'd2' => $dc]);
+    echo json_encode(['ok' => true]);
     exit;
 }
 
