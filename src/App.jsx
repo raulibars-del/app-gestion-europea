@@ -12081,9 +12081,20 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             </label>
             {form.todoDia===false&&(
               <div style={{display:"flex",alignItems:"center",gap:7}}>
-                <span style={{color:"#e4e9f6",fontSize:13}}>Hora:</span>
-                <input type="time" value={form.hora||""} onChange={e=>setForm(p=>({...p,hora:e.target.value}))}
-                  style={{...inputStyle,width:120,padding:"6px 10px"}}/>
+                <span style={{color:"#e4e9f6",fontSize:13}}>🕐 Hora:</span>
+                <select
+                  value={(form.hora||"08:00").split(":")[0]}
+                  onChange={e=>setForm(p=>({...p,hora:e.target.value+":"+(p.hora||"08:00").split(":")[1]}))}
+                  style={{...inputStyle,width:68,padding:"6px 8px",textAlign:"center"}}>
+                  {Array.from({length:24},(_,i)=><option key={i} value={String(i).padStart(2,"0")}>{String(i).padStart(2,"0")}h</option>)}
+                </select>
+                <span style={{color:"#e4e9f6",fontSize:16,fontWeight:700}}>:</span>
+                <select
+                  value={(form.hora||"08:00").split(":")[1]||"00"}
+                  onChange={e=>setForm(p=>({...p,hora:(p.hora||"08:00").split(":")[0]+":"+e.target.value}))}
+                  style={{...inputStyle,width:68,padding:"6px 8px",textAlign:"center"}}>
+                  {["00","05","10","15","20","25","30","35","40","45","50","55"].map(m=><option key={m} value={m}>{m} min</option>)}
+                </select>
               </div>
             )}
           </div>
