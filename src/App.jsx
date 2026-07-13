@@ -11648,13 +11648,6 @@ const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#
 
 const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
-  // Jerarquía de visibilidad del calendario:
-  // manager(0) ve a todos; admin(1) ve a todos menos manager;
-  // técnico y comercial(2) se ven entre ellos pero no a admin ni manager.
-  const NIVEL_CAL = {manager:0,admin:1,tecnico:2,comercial:2};
-  const nivelCal = rol => NIVEL_CAL[rol]??999;
-  const uRolCal = id => data.usuarios.find(u=>u.id===id)?.rol;
-  const puedeVerEventoDe = ownerId => { const r=uRolCal(ownerId); if(!r) return true; return nivelCal(userActual.rol)<=nivelCal(r); };
   // Vista: "semana" (la de siempre) o "mes" (cuadricula del mes completo, tipo Google Calendar).
   const [vista, setVista] = useState("semana");
   const [offset, setOffset] = useState(0); // en "semana": numero de semanas; en "mes": numero de meses
@@ -11723,12 +11716,11 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
       prioridad:a.prioridad,
     })));
 
-  // Filtrar eventos según jerarquía: cada usuario solo ve los eventos de quienes
-  // están en su mismo nivel o por debajo (nivel más alto = número más grande).
+  // Visibilidad: público (por defecto) = visible a todos; privado = solo el usuario asignado.
   const todosEventos = [...avisosEventos, ...eventos].filter(ev=>{
+    if(ev.publico!==false) return true; // público o sin definir: visible a todos
     const ids=(Array.isArray(ev.usuarioIds)&&ev.usuarioIds.length)?ev.usuarioIds:(ev.usuarioId?[ev.usuarioId]:[]);
-    if(!ids.length) return true; // sin asignar: visible a todos
-    return ids.some(puedeVerEventoDe);
+    return ids.includes(userActual.id)||!ids.length;
   });
 
   // Personas asignadas a un evento: soporta el array nuevo (varias) y el id legacy (uno solo).
@@ -11747,13 +11739,13 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
 
   const abrirNuevo = (fecha) => {
     const f = fecha||today();
-    setForm({fecha:f,fechaFin:f,titulo:"",tipo:"Visita",usuarioIds:[userActual.id],notas:""});
+    setForm({fecha:f,fechaFin:f,titulo:"",tipo:"Visita",usuarioIds:[userActual.id],notas:"",todoDia:true,hora:"",publico:true});
     setModal(true);
   };
 
   const abrirEditar = (ev) => {
     if(ev.readOnly) return;
-    setForm({...ev, fechaFin:ev.fechaFin||ev.fecha, usuarioIds:idsEvento(ev).length?idsEvento(ev):[userActual.id]});
+    setForm({...ev, fechaFin:ev.fechaFin||ev.fecha, usuarioIds:idsEvento(ev).length?idsEvento(ev):[userActual.id], todoDia:ev.todoDia!==false, hora:ev.hora||"", publico:ev.publico!==false});
     setModal(true);
   };
 
@@ -11806,7 +11798,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
     if(!form.titulo?.trim()){alert("Escribe un titulo para el evento");return;}
     const ids = (Array.isArray(form.usuarioIds)&&form.usuarioIds.length) ? form.usuarioIds : [userActual.id];
     const fechaFin = (form.fechaFin && form.fechaFin>=form.fecha) ? form.fechaFin : form.fecha;
-    const item = {...form, usuarioId:ids[0], usuarioIds:ids, fechaFin};
+    const item = {...form, usuarioId:ids[0], usuarioIds:ids, fechaFin, hora:form.todoDia!==false?"":(form.hora||""), publico:form.publico!==false};
     if(!item.id){
       const nuevoItem = {...item,id:Date.now()};
       setData(d=>({...d,calendario:[...(d.calendario||[]),nuevoItem]}));
@@ -11833,11 +11825,11 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0",textTransform:"capitalize"}}>{mesActual}</p>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          {(userActual.rol==="manager"||userActual.rol==="admin")&&(
+          {esAdmin&&(
             <select value={usuarioFiltro} onChange={e=>setUsuarioFiltro(e.target.value)}
               style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,padding:"7px 11px",color:"#f1f3f9",fontSize:12,outline:"none"}}>
               <option value="todos">Todos los usuarios</option>
-              {data.usuarios.filter(u=>u.activo&&puedeVerEventoDe(u.id)).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
+              {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
             </select>
           )}
           <div style={{display:"flex",gap:4,background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:2}}>
@@ -11918,7 +11910,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                     return(
                       <div key={ev.id} onClick={()=>abrirEditar(ev)}
                         style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:6,padding:"6px 8px",cursor:ev.readOnly?"default":"pointer"}}>
-                        <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
+                        <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.publico===false?"🔒 ":""}{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                         <div style={{color:"#e2e8f0",fontSize:12,fontWeight:600}}>{ev.titulo}</div>
                         {ev.clienteNombre&&<div style={{color:"#dfe4f1",fontSize:10}}>{ev.clienteNombre}</div>}
                         {nombres&&<div style={{color:"#e4e9f6",fontSize:10}}>{nombres}</div>}
@@ -11955,7 +11947,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                       return(
                         <div key={ev.id} onClick={()=>abrirEditar(ev)}
                           style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:6,padding:"6px 8px",cursor:ev.readOnly?"default":"pointer"}}>
-                          <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
+                          <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.publico===false?"🔒 ":""}{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                           <div style={{color:"#e2e8f0",fontSize:12,fontWeight:600}}>{ev.titulo}</div>
                           {ev.clienteNombre&&<div style={{color:"#dfe4f1",fontSize:10}}>{ev.clienteNombre}</div>}
                           {nombres&&<div style={{color:"#e4e9f6",fontSize:10}}>{nombres}</div>}
@@ -12001,7 +11993,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                   return(
                     <div key={ev.id} onClick={e=>{e.stopPropagation();abrirEditar(ev);}}
                       style={{background:COLOR_EVENTO[ev.tipo]+"22",border:"1px solid "+COLOR_EVENTO[ev.tipo]+"44",borderRadius:5,padding:"3px 5px",cursor:ev.readOnly?"default":"pointer"}}>
-                      <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
+                      <div style={{color:COLOR_EVENTO[ev.tipo],fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:".3px"}}>{ev.publico===false?"🔒 ":""}{ev.hora?ev.hora+" — ":""}{ev.tipo}</div>
                       <div style={{color:"#e2e8f0",fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.titulo}</div>
                       {!esVistaMes&&ev.clienteNombre&&<div style={{color:"#dfe4f1",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.clienteNombre}</div>}
                       {!esVistaMes&&(()=>{const nombres=nombresEvento(ev).join(", "); return nombres?<div style={{color:"#e4e9f6",fontSize:9,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nombres}</div>:null;})()}
@@ -12078,6 +12070,35 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                 {TIPOS_EVENTO.filter(t=>t!=="Aviso").map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </Field>
+          </div>
+          {/* Horario */}
+          <div style={{display:"flex",alignItems:"center",gap:16,padding:"4px 0"}}>
+            <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",color:"#e4e9f6",fontSize:13,userSelect:"none"}}>
+              <input type="checkbox" checked={form.todoDia!==false}
+                onChange={e=>setForm(p=>({...p,todoDia:e.target.checked,hora:e.target.checked?"":p.hora}))}
+                style={{width:16,height:16,accentColor:"#f97316",cursor:"pointer"}}/>
+              Todo el día
+            </label>
+            {form.todoDia===false&&(
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <span style={{color:"#e4e9f6",fontSize:13}}>Hora:</span>
+                <input type="time" value={form.hora||""} onChange={e=>setForm(p=>({...p,hora:e.target.value}))}
+                  style={{...inputStyle,width:120,padding:"6px 10px"}}/>
+              </div>
+            )}
+          </div>
+          {/* Visibilidad */}
+          <div style={{display:"flex",gap:8,padding:"4px 0"}}>
+            <button type="button" onClick={()=>setForm(p=>({...p,publico:true}))}
+              style={{flex:1,padding:"9px 12px",borderRadius:8,border:"2px solid "+(form.publico!==false?"#10b981":"#2a3550"),background:form.publico!==false?"#10b98115":"#0d1117",color:form.publico!==false?"#10b981":"#8899b4",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+              <span>🌐 Público</span>
+              <span style={{fontSize:10,fontWeight:400,opacity:.8}}>Lo ven todos</span>
+            </button>
+            <button type="button" onClick={()=>setForm(p=>({...p,publico:false}))}
+              style={{flex:1,padding:"9px 12px",borderRadius:8,border:"2px solid "+(form.publico===false?"#8b5cf6":"#2a3550"),background:form.publico===false?"#8b5cf615":"#0d1117",color:form.publico===false?"#a78bfa":"#8899b4",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+              <span>🔒 Privado</span>
+              <span style={{fontSize:10,fontWeight:400,opacity:.8}}>Solo yo</span>
+            </button>
           </div>
           <Field label="Personas (puedes elegir varias, por ejemplo un viaje de 2 personas)">
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
