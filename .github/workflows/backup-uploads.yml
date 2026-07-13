@@ -57,6 +57,9 @@ jobs:
 
       - name: Commit y push
         run: |
-          git -c user.name="backup-bot" -c user.email="backup-bot@users.noreply.github.com" \
-            commit -m "Backup semanal de api/uploads/ - $(date +%Y-%m-%d)" || echo "Nada nuevo que respaldar esta semana"
-          git push origin backups
+          if git -c user.name="backup-bot" -c user.email="backup-bot@users.noreply.github.com" \
+            commit -m "Backup semanal de api/uploads/ - $(date +%Y-%m-%d)"; then
+            git push origin backups
+          else
+            echo "Nada nuevo que respaldar esta semana — no se hace push."
+          fi
