@@ -39,6 +39,7 @@ jobs:
           define('DB_PASS', '$DB_PASS');
           define('API_KEY', '$API_KEY');
           define('GEMINI_API_KEY', '$GEMINI_API_KEY');
+          define('PI_BACKUP_KEY', 'rpi-gestion-europea-2026');
           EOF
           echo "VITE_API_KEY=$API_KEY" > .env.production
 

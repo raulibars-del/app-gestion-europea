@@ -122,6 +122,28 @@ function leerBlobDeSecciones($pdo) {
 
 $accion = $_GET['action'] ?? '';
 
+// ─── GET ?action=pi-backup ───────────────────────────────────────────────────
+// Endpoint de solo lectura para la Raspberry Pi. Usa una clave separada
+// (PI_BACKUP_KEY) para no exponer la API key principal.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'pi-backup') {
+    $piKey = $_GET['key'] ?? '';
+    if (!defined('PI_BACKUP_KEY') || !hash_equals(PI_BACKUP_KEY, $piKey)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'unauthorized']);
+        exit;
+    }
+    try {
+        $blob = leerBlobDeSecciones($pdo);
+        $blob['_backup_at'] = date('c');
+        $blob['_backup_by'] = 'raspberry-pi';
+        echo json_encode($blob, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'server_error']);
+    }
+    exit;
+}
+
 // ─── GET ?action=history ─────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'history') {
     try {
