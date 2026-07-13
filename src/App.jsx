@@ -12794,6 +12794,8 @@ async function apiGetSecciones(){
   return res.json();
 }
 // POST con X-Section: guarda solo la sección indicada con control de versión atómico.
+// savedByUser se establece desde App antes de llamar a apiGuardarSeccion
+let _savedByUser = "desconocido";
 async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
   const res = await fetch(API_URL, {
     method:"POST",
@@ -12801,6 +12803,7 @@ async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
       "Content-Type":"application/json",
       "X-Api-Key":API_KEY,
       "X-Section":seccion,
+      "X-Saved-By":_savedByUser,
       ...(typeof versionEsperada==="number" ? {"X-Expected-Version":String(versionEsperada)} : {}),
     },
     body:JSON.stringify(datos),
@@ -14029,8 +14032,14 @@ function AppInner() {
           }
           const aGuardarEsInitial = JSON.stringify(aGuardar) === JSON.stringify(extraerSeccion(initialData, seccion));
           const aGuardarVacioSobreReal = Array.isArray(aGuardar) && aGuardar.length === 0 && Array.isArray(remoteData) && remoteData.length > 0;
-          if(aGuardarVacioSobreReal || (aGuardarEsInitial && Array.isArray(remoteData) && remoteData.length > 0)){
-            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de muestra/vacíos sobre ${Array.isArray(remoteData)?remoteData.length:"?"} elementos del servidor.`);
+          // PROTECCIÓN: si vamos a guardar significativamente menos registros que el servidor
+          // (menos del 70% de lo que hay), es muy probable que sea un estado obsoleto o corrupto.
+          // Bloqueamos y usamos los datos del servidor para no machacar registros válidos.
+          const aGuardarPocosRegistros = Array.isArray(aGuardar) && Array.isArray(remoteData)
+            && remoteData.length >= 5
+            && aGuardar.length < Math.floor(remoteData.length * 0.7);
+          if(aGuardarVacioSobreReal || (aGuardarEsInitial && Array.isArray(remoteData) && remoteData.length > 0) || aGuardarPocosRegistros){
+            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con ${Array.isArray(aGuardar)?aGuardar.length:"?"} items sobre ${Array.isArray(remoteData)?remoteData.length:"?"} del servidor (datos vacíos, de muestra, u obsoletos).`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             continue;
@@ -14311,6 +14320,8 @@ function AppInner() {
     if(!user)return;
     const actual=data.usuarios.find(u=>u.id===user.id);
     if(actual&&JSON.stringify(actual)!==JSON.stringify(user))setUser(actual);
+    // Actualizar el identificador de auditoría para que cada guardado lleve el usuario real
+    _savedByUser = (user.id||"?")+":" + (user.nombre||"desconocido");
   },[data.usuarios,user]);
   const [active,setActive]=useState("asistencia");
   const [notifOpen,setNotifOpen]=useState(false);

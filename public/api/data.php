@@ -73,8 +73,13 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_sections (
     section VARCHAR(50) NOT NULL PRIMARY KEY,
     data LONGTEXT NOT NULL,
     version INT NOT NULL DEFAULT 1,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    saved_by VARCHAR(100) DEFAULT NULL,
+    saved_count INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Añadir columnas de auditoría si no existen (para bases de datos ya creadas)
+try { $pdo->exec("ALTER TABLE app_sections ADD COLUMN saved_by VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE app_sections ADD COLUMN saved_count INT NOT NULL DEFAULT 0"); } catch (Exception $e) {}
 
 // ─── Helper: migrar blob monolítico → secciones ──────────────────────────────
 function migrarBlobASecciones($pdo, $blob) {
@@ -319,6 +324,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     $expectedVersion = isset($_SERVER['HTTP_X_EXPECTED_VERSION']) && $_SERVER['HTTP_X_EXPECTED_VERSION'] !== ''
         ? (int)$_SERVER['HTTP_X_EXPECTED_VERSION'] : null;
 
+    // Auditoría: quién guardó (userId:nombre enviado en cabecera X-Saved-By)
+    $savedBy = substr(trim($_SERVER['HTTP_X_SAVED_BY'] ?? 'desconocido'), 0, 100);
+
     $existeStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
     $existeStmt->execute(['s' => $section]);
     $existe = $existeStmt->fetch(PDO::FETCH_ASSOC);
@@ -326,8 +334,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     if ($existe && $expectedVersion !== null) {
         // Guardado condicional: solo actualiza si la versión que el cliente cree
         // vigente sigue siendo la actual (comprobación atómica en una sola sentencia).
-        $upd = $pdo->prepare("UPDATE app_sections SET data = :data, version = version + 1 WHERE section = :s AND version = :expected");
-        $upd->execute(['data' => $raw, 's' => $section, 'expected' => $expectedVersion]);
+        $upd = $pdo->prepare("UPDATE app_sections SET data = :data, version = version + 1, saved_by = :sb, saved_count = saved_count + 1 WHERE section = :s AND version = :expected");
+        $upd->execute(['data' => $raw, 's' => $section, 'expected' => $expectedVersion, 'sb' => $savedBy]);
         if ($upd->rowCount() === 0) {
             $actStmt = $pdo->prepare("SELECT version FROM app_sections WHERE section = :s");
             $actStmt->execute(['s' => $section]);
@@ -349,10 +357,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     } else {
         // La sección no existe todavía: primera inserción (nueva instalación o sección nueva).
         $upsert = $pdo->prepare(
-            "INSERT INTO app_sections (section, data, version) VALUES (:s, :d, 1)
-             ON DUPLICATE KEY UPDATE data = :d2, version = version + 1"
+            "INSERT INTO app_sections (section, data, version, saved_by, saved_count) VALUES (:s, :d, 1, :sb, 1)
+             ON DUPLICATE KEY UPDATE data = :d2, version = version + 1, saved_by = :sb2, saved_count = saved_count + 1"
         );
-        $upsert->execute(['s' => $section, 'd' => $raw, 'd2' => $raw]);
+        $upsert->execute(['s' => $section, 'd' => $raw, 'd2' => $raw, 'sb' => $savedBy, 'sb2' => $savedBy]);
     }
 
     // Copia de seguridad diaria: combinar secciones en blob, guardar en
