@@ -13879,7 +13879,11 @@ function AppInner() {
             const localData = extraerSeccion(dataRef.current, seccion);
             const localJson = JSON.stringify(localData);
             const baseJson = savedSynced[seccion] || null;
-            if(baseJson && localJson !== baseJson && remoteJson !== localJson){
+            // PROTECCIÓN CRÍTICA: si localData es igual a initialData significa que
+            // localStorage.em_data se perdió o corrompió. En ese caso no se combina
+            // nunca — usar siempre el remoto para no borrar datos reales por error.
+            const localEsInitial = localJson === JSON.stringify(extraerSeccion(initialData, seccion));
+            if(!localEsInitial && baseJson && localJson !== baseJson && remoteJson !== localJson){
               // Había cambios pendientes que no llegaron al servidor: combinar
               const base = JSON.parse(baseJson);
               let combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
@@ -14000,9 +14004,10 @@ function AppInner() {
               return;
             }
           }
-          if(Array.isArray(aGuardar) && aGuardar.length === 0 &&
-             Array.isArray(remoteData) && remoteData.length > 0){
-            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} vacío sobre ${remoteData.length} elementos del servidor.`);
+          const aGuardarEsInitial = JSON.stringify(aGuardar) === JSON.stringify(extraerSeccion(initialData, seccion));
+          const aGuardarVacioSobreReal = Array.isArray(aGuardar) && aGuardar.length === 0 && Array.isArray(remoteData) && remoteData.length > 0;
+          if(aGuardarVacioSobreReal || (aGuardarEsInitial && Array.isArray(remoteData) && remoteData.length > 0)){
+            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de muestra/vacíos sobre ${Array.isArray(remoteData)?remoteData.length:"?"} elementos del servidor.`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             continue;
