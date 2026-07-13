@@ -13855,12 +13855,11 @@ function AppInner() {
     }
     (async()=>{
       try{
-        // Timeout de 15 s: si el API no responde (mala cobertura), pasamos a modo
-        // offline para que el técnico pueda seguir trabajando con datos locales
-        // en vez de ver la pantalla en blanco durante 5-10 minutos.
+        // Timeout de 25 s: si el API no responde pasamos a modo offline.
+        // 25 s en vez de 15 porque IONOS puede tardar en responder en horas punta.
         const res = await Promise.race([
           apiGetSecciones(),
-          new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout_inicial")),15000))
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout_inicial")),25000))
         ]);
         if(cancelled) return;
         if(res.sections && Object.keys(res.sections).length > 0){
@@ -13960,16 +13959,13 @@ function AppInner() {
         setSyncStatus("ok");
       }catch(e){
         // Si la carga inicial falla (sin conexión, timeout…):
-        // Usamos savedSynced[s] (último estado conocido del servidor) como baseline
-        // para que cuando vuelva la conexión, las ediciones hechas offline se detecten
-        // como cambios pendientes y se sincronicen automáticamente.
-        // Si no hay base conocida (primera sesión), usamos los datos actuales para
-        // no sobreescribir el servidor con un estado vacío.
+        // Usamos el estado actual como baseline para que cambiadas=[] y no
+        // se lance ningún guardado con datos potencialmente obsoletos.
+        // Las ediciones offline sí se detectan porque el usuario las hace DESPUÉS
+        // de que se fija este baseline, por lo que data diverge de lastSyncedRef.
         TODAS_SECCIONES.forEach(s=>{
-          if(!lastSyncedRef.current[s]){
-            lastSyncedRef.current[s] = savedSynced[s]
-              || JSON.stringify(extraerSeccion(dataRef.current, s));
-          }
+          if(!lastSyncedRef.current[s])
+            lastSyncedRef.current[s] = JSON.stringify(extraerSeccion(dataRef.current, s));
         });
         setSyncStatus("offline");
       }
