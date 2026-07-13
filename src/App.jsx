@@ -14076,6 +14076,15 @@ function AppInner() {
           }
           if(remoteJson !== null && remoteJson !== lastSynced){
             const base = lastSynced ? JSON.parse(lastSynced) : null;
+            // Sin base (dispositivo sin em_last_synced_v2 para esta sección):
+            // no podemos distinguir cambios locales reales de datos obsoletos.
+            // Aceptamos el remoto directamente y no guardamos nada en este ciclo.
+            if(!base){
+              lastSyncedRef.current[seccion] = remoteJson;
+              lastVersionRef.current[seccion] = remoto.versions?.[seccion];
+              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              continue;
+            }
             const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
             aGuardar = combined;
             dataActual = aplicarSeccion(dataActual, seccion, combined);
