@@ -359,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     // app_data_history Y actualizar app_data (para que restore_blob sea siempre reciente).
     try {
         $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        if (!$ultima || strtotime($ultima['created_at']) < time() - 86400) {
+        if (!$ultima || strtotime($ultima['created_at']) < time() - 14400) {  // cada 4 horas (antes: 86400 = 1 día)
             $blob = leerBlobDeSecciones($pdo);
             if ($blob) {
                 $blobJson = json_encode($blob, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -442,7 +442,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $ultima = $pdo->query("SELECT created_at FROM app_data_history ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 86400);
+        $debeCopiar = !$ultima || (strtotime($ultima['created_at']) < time() - 14400);  // cada 4 horas (antes: 86400 = 1 día)
         if ($debeCopiar) {
             $insHist = $pdo->prepare("INSERT INTO app_data_history (data) VALUES (:data)");
             $insHist->execute(['data' => $raw]);
