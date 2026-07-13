@@ -13819,6 +13819,7 @@ function AppInner() {
   useEffect(()=>{ syncStatusRef.current = syncStatus; },[syncStatus]);
   const [lastSaveError,setLastSaveError]=useState(null); // motivo real del último fallo de guardado, para no quedarnos solo con el punto rojo sin explicación
   const saveFailCountRef = useRef(0); // fallos consecutivos de guardado; si se acumulan, avisamos en vez de fallar en silencio para siempre
+  const [retryTick, setRetryTick] = useState(0); // se incrementa cada 30 s cuando estamos offline/error para forzar reintento de guardado
   const lastSyncedRef = useRef({}); // {clientes:"[…]", avisos:"[…]", config:"{…}"} — JSON por sección
   const lastVersionRef = useRef({}); // {clientes:5, avisos:3, config:1} — versión BD por sección
   const dataRef = useRef(data);
@@ -13834,24 +13835,32 @@ function AppInner() {
   // ─── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(()=>{
     let cancelled=false;
+    // Cargar el último estado sincronizado ANTES de llamar al API,
+    // para que el catch (timeout / sin cobertura) pueda usarlo como baseline
+    // y preservar así los cambios offline cuando vuelva la conexión.
+    let savedSynced = {};
+    try{ savedSynced = JSON.parse(localStorage.getItem("em_last_synced_v2")||"{}"); }catch(e){}
+    // Compatibilidad con formato legacy (un único JSON blob)
+    if(Object.keys(savedSynced).length === 0){
+      try{
+        const legacyBase = localStorage.getItem("em_last_synced");
+        if(legacyBase){
+          const ld = JSON.parse(legacyBase);
+          TODAS_SECCIONES.forEach(s=>{ savedSynced[s] = JSON.stringify(extraerSeccion(ld, s)); });
+        }
+      }catch(e){}
+    }
     (async()=>{
       try{
-        const res = await apiGetSecciones();
+        // Timeout de 15 s: si el API no responde (mala cobertura), pasamos a modo
+        // offline para que el técnico pueda seguir trabajando con datos locales
+        // en vez de ver la pantalla en blanco durante 5-10 minutos.
+        const res = await Promise.race([
+          apiGetSecciones(),
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout_inicial")),15000))
+        ]);
         if(cancelled) return;
         if(res.sections && Object.keys(res.sections).length > 0){
-          // Cargar bases de comparación guardadas (para detectar cambios pendientes)
-          let savedSynced = {};
-          try{ savedSynced = JSON.parse(localStorage.getItem("em_last_synced_v2")||"{}"); }catch(e){}
-          // Compatibilidad con formato legacy (un único JSON blob)
-          if(Object.keys(savedSynced).length === 0){
-            try{
-              const legacyBase = localStorage.getItem("em_last_synced");
-              if(legacyBase){
-                const ld = JSON.parse(legacyBase);
-                TODAS_SECCIONES.forEach(s=>{ savedSynced[s] = JSON.stringify(extraerSeccion(ld, s)); });
-              }
-            }catch(e){}
-          }
           // Saneamiento post-merge para partes: si el servidor marcó emailEnviado=true,
           // los campos envioProg* siempre se limpian aunque el merge local los restaure.
           // Evita que el estado "programado" reaparezca después de que el cron lo envió.
@@ -13947,19 +13956,33 @@ function AppInner() {
         }
         setSyncStatus("ok");
       }catch(e){
-        // Si la carga inicial falla (sin conexión, SSL no listo, error de red…),
-        // establecemos el estado local actual como baseline para que el efecto de
-        // guardado no lo interprete como "cambios pendientes" y sobreescriba el
-        // servidor con datos vacíos cuando la conexión vuelva.
+        // Si la carga inicial falla (sin conexión, timeout…):
+        // Usamos savedSynced[s] (último estado conocido del servidor) como baseline
+        // para que cuando vuelva la conexión, las ediciones hechas offline se detecten
+        // como cambios pendientes y se sincronicen automáticamente.
+        // Si no hay base conocida (primera sesión), usamos los datos actuales para
+        // no sobreescribir el servidor con un estado vacío.
         TODAS_SECCIONES.forEach(s=>{
-          if(!lastSyncedRef.current[s])
-            lastSyncedRef.current[s] = JSON.stringify(extraerSeccion(dataRef.current, s));
+          if(!lastSyncedRef.current[s]){
+            lastSyncedRef.current[s] = savedSynced[s]
+              || JSON.stringify(extraerSeccion(dataRef.current, s));
+          }
         });
         setSyncStatus("offline");
       }
     })();
     return()=>{ cancelled=true; };
   },[]);
+
+  // Reintento automático: cuando estamos sin conexión o con error de guardado,
+  // incrementamos retryTick cada 30 s para que el efecto de guardado vuelva a intentarlo.
+  // Cuando la conexión vuelve y el guardado tiene éxito, syncStatus pasa a "ok"
+  // y el intervalo se cancela solo.
+  useEffect(()=>{
+    if(syncStatus !== "offline" && syncStatus !== "error") return;
+    const id = setInterval(()=>setRetryTick(t=>t+1), 30000);
+    return ()=>clearInterval(id);
+  },[syncStatus]);
 
   // Persist ALL data to localStorage on every change (caché local / modo offline)
   useEffect(()=>{
@@ -14055,7 +14078,7 @@ function AppInner() {
       clearTimeout(saveTimerRef.current);
       window.removeEventListener("em-save-now", handleSaveNow);
     };
-  },[data, syncStatus]);
+  },[data, syncStatus, retryTick]);
 
   // ─── Guardado de emergencia (app pasa a segundo plano o se cierra) ──────────
   useEffect(()=>{
