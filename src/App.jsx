@@ -355,7 +355,14 @@ function parsearCSVContabilidad(text) {
 // nuestra edición, pero se devuelve en "conflictos" para poder avisar solo en ese caso).
 const mismoJSON = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
-  if (mismoJSON(local, base)) return remoto; // no lo tocamos -> manda el remoto
+  // Atajo "local sin cambios → tomar remoto", PERO no aplica si hay ítems con _ts
+  // porque el _ts en un ítem indica que fue modificado intencionalmente aquí y su
+  // versión supera a la del remoto. Sin esta excepción, cuando doSave actualiza
+  // lastSyncedRef a {Completada,_ts:T1} y otro dispositivo guarda Pendiente al servidor,
+  // el pull detecta local===base y devuelve el remoto (Pendiente) sin hacer merge por ítem,
+  // perdiendo la protección del _ts.
+  const localTieneTs = Array.isArray(local) && local.some(x => x && x._ts);
+  if (mismoJSON(local, base) && !localTieneTs) return remoto; // no lo tocamos -> manda el remoto
   if (mismoJSON(local, remoto)) return remoto; // el remoto ya tiene lo mismo que nosotros
   if (Array.isArray(local) && Array.isArray(remoto)) {
     const conIds = local.every(x => x && typeof x === "object" && "id" in x) && remoto.every(x => x && typeof x === "object" && "id" in x);
