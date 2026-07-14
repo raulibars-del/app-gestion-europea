@@ -6044,6 +6044,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           attachmentMime: "application/pdf",
         });
         const idsAfectados = cadenaCompleta ? cadena.map(c => c.id) : [p.id];
+        const tsEnvioProg = Date.now();
         setData(d => ({
           ...d,
           partes: d.partes.map(pt => idsAfectados.includes(pt.id) ? {
@@ -6064,6 +6065,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             envioProgFirmaImagen: null,
             envioProgConforme: null,
             envioProgNotas: null,
+            _ts: tsEnvioProg,
           } : pt),
           // Cerrar el aviso vinculado ahora que el email ha llegado al cliente
           avisos: p.avisoId
@@ -6106,7 +6108,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       });
       const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
       const nuevaFirmaImg = capturarFirmaImagen();
-      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today()}:pt)}));
+      const tsAhora = Date.now();
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today(),_ts:tsAhora}:pt)}));
       // Forzar guardado inmediato para que emailEnviado llegue al servidor
       // antes de que el técnico cierre la app (sin esperar el debounce de 1200ms).
       window.dispatchEvent(new Event("em-save-now"));
