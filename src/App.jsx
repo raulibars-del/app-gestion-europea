@@ -9678,7 +9678,7 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     }
     try{
       const dataUri = await generarPDF(alb, firmada, "descargar");
-      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),firmaImagen: firmaImagen || a.firmaImagen || null,receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "" } : a) }));
+      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),firmaImagen: firmaImagen || a.firmaImagen || null,receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "",_ts: Date.now() } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
