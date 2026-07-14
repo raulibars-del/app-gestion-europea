@@ -4556,7 +4556,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   // entrar en esta pantalla.
   useEffect(() => {
     if (!abrirTareaId) return;
-    const t = data.tareas.find(x => x.id === abrirTareaId);
+    const t = data.tareas.find(x => x.id === abrirTareaId && !x._deleted);
     if (t) setVistaPrevia(t);
     onAbrirTareaId && onAbrirTareaId();
   }, [abrirTareaId]);
@@ -4850,7 +4850,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   };
   // Las tareas de empresa son visibles para todos los miembros activos, no solo para el asignado.
   const diasVence = vence => Math.ceil((new Date(vence) - new Date(today())) / 86400000);
-  const misTareas = data.tareas.filter(t => t.asignadoId === userActual.id || t.esEmpresa);
+  const misTareas = data.tareas.filter(t => !t._deleted && (t.asignadoId === userActual.id || t.esEmpresa));
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const vencidasTareas = pendientes.filter(t => diasVence(t.vence) < 0);
@@ -4896,7 +4896,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   };
   const sorted = ordenar(mostrar);
   // Tareas que yo he asignado a otra persona
-  const asignadasPorMi = data.tareas.filter(t => t.creadoPor === userActual.id && t.asignadoId !== userActual.id && !t.esEmpresa);
+  const asignadasPorMi = data.tareas.filter(t => !t._deleted && t.creadoPor === userActual.id && t.asignadoId !== userActual.id && !t.esEmpresa);
   const asigPendientes = asignadasPorMi.filter(t => t.estado !== "Completada");
   const asigSorted = ordenar(asignadasPorMi);
   const uN = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "—";
@@ -4965,7 +4965,10 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   };
   const del = (id, titulo) => {
     if (!window.confirm(`¿Seguro que desea eliminar la tarea "${titulo || ""}"? Esta acción no se puede deshacer.`)) return;
-    setData(d => ({ ...d,tareas: d.tareas.filter(t => t.id !== id) }));
+    // Tombstone: marcamos como _deleted en vez de borrar físicamente.
+    // Así el merge basado en _ts sabe que fue eliminada intencionalmente y no
+    // la restaura cuando otro dispositivo guarda la sección tareas con ella incluida.
+    setData(d => ({ ...d, tareas: d.tareas.map(t => t.id === id ? {...t, _deleted: true, _ts: Date.now()} : t) }));
   };
   const venceColor = vence => {
     const d = diasVence(vence);
@@ -9188,7 +9191,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
   const criticos = activos.filter(a => a.prioridad === "Alta");
   const faltaMaterial = activos.filter(a => a.estado === "A falta de material");
   const presupuestoEspera = activos.filter(a => a.estado === "Enviado presupuesto a espera aceptacion");
-  const misTareas = data.tareas.filter(t => (t.asignadoId === userActual.id || t.esEmpresa) && t.estado !== "Completada");
+  const misTareas = data.tareas.filter(t => !t._deleted && (t.asignadoId === userActual.id || t.esEmpresa) && t.estado !== "Completada");
   const misTareasHoy = misTareas.filter(t => {
     const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
     return d <= 0;
@@ -14743,8 +14746,18 @@ function AppInner() {
               lastVersionRef.current[seccion] = res.versions?.[seccion];
               changed = true;
             } else if(remoteJson !== localJson && localJson === lastSynced){
-              // Remoto cambió, nosotros no: tomamos el remoto directamente.
-              dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              // Remoto cambió, nosotros no: normalmente tomamos el remoto.
+              // PERO si hay items con _ts (tareas modificadas/borradas intencionalmente),
+              // pasamos por el merge para que el _ts más reciente gane y no se revierta
+              // un Completada → Pendiente ni un borrado ya guardado en server.
+              const hasTsItems = Array.isArray(localData) && localData.some(x => x._ts);
+              if(hasTsItems){
+                const base = lastSynced ? JSON.parse(lastSynced) : null;
+                const combined = combinarDatosRemotos(base, localData, remoteData, seccion, []);
+                dataActual = aplicarSeccion(dataActual, seccion, combined);
+              } else {
+                dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              }
               lastSyncedRef.current[seccion] = remoteJson;
               lastVersionRef.current[seccion] = res.versions?.[seccion];
               changed = true;
@@ -15010,7 +15023,7 @@ function AppInner() {
     // vencimiento). Antes salía una por una, lo que era muy repetitivo si había
     // varias; ahora se agrupan en una sola pantalla, scrolleable si hay más de 8.
     // Se repite en cada conexión mientras sigan pendientes (es una consulta en vivo, no "nueva").
-    const tareasPend=data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada");
+    const tareasPend=data.tareas.filter(t=>!t._deleted&&(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada");
     if(tareasPend.length>0){
       const listaTareas=tareasPend.map(t=>({texto:t.titulo,vence:t.vence?fmtVenceCompleto(t.vence):null}));
       cola.push({
@@ -15146,7 +15159,7 @@ function AppInner() {
   // también el recuento de "reparaciones" (un dato antiguo que no se gestiona desde ninguna
   // pantalla), lo que hacía que con p.ej. 2 avisos activos el número mostrado fuera 4.
   const asistenciaActiva=avisosActivos;
-  const misTareasPend=data.tareas.filter(t=>(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").length;
+  const misTareasPend=data.tareas.filter(t=>!t._deleted&&(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada").length;
   const navV=NAV_ITEMS.filter(n=>puedeVer(user.rol,n.id));
   const bottomNav = navV.slice(0,4);
   const moreNav   = navV.slice(4);
