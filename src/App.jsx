@@ -605,6 +605,8 @@ const Icon = ({ name, size=18 }) => {
     lock:"M5 11a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1z M7 11V7a5 5 0 0 1 10 0v4",
     receipt:"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1z M16 8H8 M16 12H8 M12 16H8",
     euro:"M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z M14.5 8.5A4 4 0 0 0 9 12a4 4 0 0 0 5.5 3.7 M8 12h5",
+    eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+    download:"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
   };
   const d = P[name]||"";
   return (
@@ -7468,6 +7470,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [showPedidoModal, setShowPedidoModal] = useState(false);
   const [pedidoEsMaquina, setPedidoEsMaquina] = useState(false);
   const [enviandoPedido, setEnviandoPedido] = useState(null);
+  const [pdfPedidoPreview, setPdfPedidoPreview] = useState(null);
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -8125,7 +8128,11 @@ const Contabilidad = ({ data, setData, userActual }) => {
           {lista.map(p=>{
             const ec = ESTADO_COLOR[p.estado]||"#8899b4";
             return (
-              <div key={p.id} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              <div key={p.id}
+                onClick={async()=>{ const url=await generarPDFPedido(p); setPdfPedidoPreview({url,numero:p.numero,p}); }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor="#60a5fa"}
+                onMouseLeave={e=>e.currentTarget.style.borderColor="#2a3550"}
+                style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,cursor:"pointer",transition:"border-color .15s"}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
                     <span style={{fontFamily:"monospace",fontWeight:800,color:"#f59e0b",fontSize:14}}>{p.numero}</span>
@@ -8141,7 +8148,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   </div>
                   {p.notas&&<div style={{color:"#8899b4",fontSize:11,marginTop:2,fontStyle:"italic"}}>{p.notas}</div>}
                 </div>
-                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                   <select value={p.estado} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:e.target.value}:x)}}))} style={{...inputStyle,width:"auto",padding:"5px 10px",fontSize:12}}>
                     {["Borrador","Enviado","Recibido","Cancelado"].map(s=><option key={s}>{s}</option>)}
                   </select>
@@ -8162,7 +8169,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                     setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...nuevas]}:c)}));
                     alert(`${nuevas.length} máquina${nuevas.length!==1?"s":""} añadida${nuevas.length!==1?"s":""} a Stock Maquinaria Nueva. Ve a esa sección para completar los datos.`);
                   }} style={{...btnSm("#f9731622","#f97316"),fontSize:11,padding:"5px 8px"}}>→ Stock</button>}
-                  <button onClick={()=>descargarPDFPedido(p)} style={btnSm("#1e3a5f","#60a5fa")} title="Descargar PDF"><Icon name="file-text" size={12}/></button>
+                  <button onClick={()=>descargarPDFPedido(p)} style={btnSm("#1e3a5f","#60a5fa")} title="Descargar PDF"><Icon name="download" size={12}/></button>
                   <button onClick={()=>enviarPDFPedido(p)} disabled={enviandoPedido===p.id} style={{...btnSm("#1a3320","#10b981"),opacity:enviandoPedido===p.id?0.6:1}} title="Enviar al proveedor">{enviandoPedido===p.id?"...":"✉️"}</button>
                   <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setPedidoEsMaquina(!!p.esMaquinaNueva);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
                   <button onClick={()=>{if(!window.confirm("¿Eliminar pedido "+p.numero+"?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).filter(x=>x.id!==p.id)}}));}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
@@ -8171,6 +8178,20 @@ const Contabilidad = ({ data, setData, userActual }) => {
             );
           })}
         </div>
+        {pdfPedidoPreview&&(
+          <div onClick={()=>setPdfPedidoPreview(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"#151b2a",borderRadius:12,overflow:"hidden",width:"min(95vw,900px)",height:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 48px #0008"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",borderBottom:"1px solid #2a3550",background:"#0f1623",flexShrink:0}}>
+                <span style={{color:"#f1f3f9",fontWeight:700,fontSize:15}}>📄 {pdfPedidoPreview.numero}</span>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{const a=document.createElement("a");a.href=pdfPedidoPreview.url;a.download=pdfPedidoPreview.numero+".pdf";a.click();}} style={{...btnSm("#1e3a5f","#60a5fa"),padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="download" size={13}/>Descargar</button>
+                  <button onClick={()=>setPdfPedidoPreview(null)} style={{...btnSm("#2a3550","#e6ebf6"),padding:"6px 10px"}}><Icon name="close" size={14}/></button>
+                </div>
+              </div>
+              <iframe src={pdfPedidoPreview.url} style={{flex:1,border:"none",width:"100%"}} title="Vista previa pedido"/>
+            </div>
+          </div>
+        )}
         {showPedidoModal&&(
           <Modal title={pedidoForm.id?"Editar pedido":"Nuevo pedido de compra"} onClose={()=>setShowPedidoModal(false)} wide>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
