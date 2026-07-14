@@ -10987,6 +10987,10 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
   const [busqModelo, setBusqModelo] = useState("");
   const [busqMatricula, setBusqMatricula] = useState("");
   const [busqAnyo, setBusqAnyo] = useState("");
+  const [busqClienteId, setBusqClienteId] = useState("");
+  const [busqClienteNombre, setBusqClienteNombre] = useState("");
+  const [modalPicker, setModalPicker] = useState(false);
+  const [pickerBusq, setPickerBusq] = useState("");
   const [archivosAbiertos, setArchivosAbiertos] = useState({});
   // Edicion del tipo de un documento ya subido y persistido: {docId, idx, tipo, tipoLibre}
   const [editandoArchivo, setEditandoArchivo] = useState(null);
@@ -11098,7 +11102,8 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
 
   const filtrados = (data.documentacion||[]).filter(d => {
     const q = (v, s) => !s || v?.toLowerCase().includes(s.toLowerCase());
-    return q(d.marca, busqMarca) && q(d.modelo, busqModelo) && q(d.matricula, busqMatricula) && q(d.anyo, busqAnyo);
+    const clienteOk = !busqClienteId || d.clienteId === busqClienteId;
+    return q(d.marca, busqMarca) && q(d.modelo, busqModelo) && q(d.matricula, busqMatricula) && q(d.anyo, busqAnyo) && clienteOk;
   });
 
   // Al seleccionar archivos no se adjuntan directamente: primero se piden los datos
@@ -11510,7 +11515,7 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
           <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Manuales · Despiece · Esquemas · Repuestos</p>
         </div>
         {tabDoc==="maquinas" && puedeEditar
-          ? <button onClick={()=>{setForm({marca:"",modelo:"",matricula:"",anyo:"",descripcion:"",notas:""});setArchivos([]);setModal(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva maquina</button>
+          ? <button onClick={()=>{setPickerBusq("");setModalPicker(true);}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Añadir documentación</button>
           : tabDoc==="interna" && puedeEditar
             ? !vistaDI
               ? <button onClick={()=>{setFormDI({});setModalDI("marca");}} style={{background:"linear-gradient(135deg,#e2b714,#f59e0b)",color:"#000",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva marca</button>
@@ -11545,9 +11550,42 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
                 </div>
               </div>
             ))}
+            {/* Filtro por cliente */}
+            <div style={{position:"relative"}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:4}}>Cliente</div>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={11}/></span>
+                <input
+                  value={busqClienteNombre}
+                  onChange={e=>{
+                    const v=e.target.value;
+                    setBusqClienteNombre(v);
+                    if(!v){setBusqClienteId("");}
+                  }}
+                  placeholder="Nombre cliente..."
+                  style={{...inputStyle,paddingLeft:26,width:"100%",boxSizing:"border-box"}}
+                />
+              </div>
+              {/* Dropdown de coincidencias */}
+              {busqClienteNombre && !busqClienteId && (()=>{
+                const matches=(data.clientes||[]).filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(busqClienteNombre.toLowerCase())).slice(0,6);
+                if(!matches.length) return null;
+                return (
+                  <div style={{position:"absolute",zIndex:99,top:"100%",left:0,right:0,background:"#151b2a",border:"1px solid #2a3550",borderRadius:8,marginTop:2,boxShadow:"0 4px 16px #0005",maxHeight:220,overflowY:"auto"}}>
+                    {matches.map(c=>(
+                      <div key={c.id} onClick={()=>{setBusqClienteId(c.id);setBusqClienteNombre(c.nombreEmpresa);}} style={{padding:"9px 13px",cursor:"pointer",color:"#f1f3f9",fontSize:13,borderBottom:"1px solid #2a3550"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#1e3a5f"}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        {c.nombreEmpresa}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
-          {(busqMarca||busqModelo||busqMatricula||busqAnyo) && (
-            <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#e4e9f6",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
+          {(busqMarca||busqModelo||busqMatricula||busqAnyo||busqClienteId) && (
+            <button onClick={()=>{setBusqMarca("");setBusqModelo("");setBusqMatricula("");setBusqAnyo("");setBusqClienteId("");setBusqClienteNombre("");}} style={{marginTop:10,background:"none",border:"1px solid #2a3550",borderRadius:6,padding:"4px 12px",color:"#e4e9f6",fontSize:12,cursor:"pointer"}}>Limpiar filtros ×</button>
           )}
         </div>
 
@@ -11577,19 +11615,32 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
           {filtrados.map(doc => {
             const nArchivos = (doc.archivos||[]).length;
             const tiposUnicos = [...new Set((doc.archivos||[]).map(a=>a.tipo))];
+            const clienteDoc = doc.clienteId ? (data.clientes||[]).find(c=>c.id===doc.clienteId) : null;
             return (
               <div key={doc.id} onClick={()=>setVista(doc.id)} style={{background:"#151b2a",border:"1px solid #e2b71433",borderRadius:12,padding:"15px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                  <div>
+                  <div style={{flex:1,minWidth:0}}>
                     <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{doc.marca} <span style={{fontWeight:400}}>{doc.modelo}</span></div>
                     <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
                       {doc.matricula && <span style={{color:"#e4e9f6",fontSize:11}}>Matr. {doc.matricula}</span>}
                       {doc.anyo && <span style={{color:"#e4e9f6",fontSize:11}}>Año {doc.anyo}</span>}
                     </div>
+                    {clienteDoc && (
+                      <div style={{marginTop:5}}>
+                        <span style={{background:"#faff0015",color:"#faff00",border:"1px solid #faff0033",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:700}}>
+                          👤 {clienteDoc.nombreEmpresa}
+                        </span>
+                      </div>
+                    )}
+                    {!clienteDoc && (
+                      <div style={{marginTop:5}}>
+                        <span style={{color:"#e4e9f6",fontSize:10,fontStyle:"italic"}}>Sin cliente asignado</span>
+                      </div>
+                    )}
                   </div>
-                  <div style={{background:"#e2b71420",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0}}>{nArchivos} doc{nArchivos!==1?"s":""}</div>
+                  <div style={{background:"#e2b71420",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:7,padding:"4px 10px",fontSize:12,fontWeight:800,flexShrink:0,marginLeft:8}}>{nArchivos} doc{nArchivos!==1?"s":""}</div>
                 </div>
                 {doc.descripcion && <div style={{color:"#e1e6f2",fontSize:12,marginBottom:8}}>{doc.descripcion}</div>}
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
@@ -11598,15 +11649,108 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
                   ))}
                   {tiposUnicos.length>4 && <span style={{color:"#e4e9f6",fontSize:10}}>+{tiposUnicos.length-4} mas</span>}
                 </div>
-                {nArchivos===0 && <div style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic"}}>Sin documentos todavia</div>}
+                {nArchivos===0 && <div style={{color:"#e4e9f6",fontSize:11,fontStyle:"italic",marginTop:4}}>Sin documentos todavia</div>}
               </div>
             );
           })}
         </div>
 
+        {/* Modal picker: seleccionar máquina existente para añadirle documentación */}
+        {modalPicker && (
+          <Modal title="Selecciona la máquina" onClose={()=>setModalPicker(false)} wide>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:12,color:"#e4e9f6",marginBottom:10}}>Busca por marca, modelo o cliente para añadir documentación a una máquina existente.</div>
+              <div style={{position:"relative"}}>
+                <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span>
+                <input
+                  value={pickerBusq}
+                  onChange={e=>setPickerBusq(e.target.value)}
+                  placeholder="Buscar por marca, modelo o cliente..."
+                  autoFocus
+                  style={{...inputStyle,paddingLeft:32,width:"100%",boxSizing:"border-box",fontSize:14}}
+                />
+              </div>
+            </div>
+            {(()=>{
+              const todasMaquinas = (data.clientes||[]).flatMap(c=>
+                (c.maquinas||[]).map(m=>({
+                  ...m,
+                  _clienteId: c.id,
+                  _clienteNombre: c.nombreEmpresa||""
+                }))
+              );
+              const q = pickerBusq.toLowerCase();
+              const filtradas = pickerBusq.length>=1
+                ? todasMaquinas.filter(m=>
+                    (m.marca||"").toLowerCase().includes(q)||
+                    (m.modelo||"").toLowerCase().includes(q)||
+                    (m._clienteNombre||"").toLowerCase().includes(q)||
+                    (m.serie||"").toLowerCase().includes(q)
+                  )
+                : todasMaquinas;
+              if(!filtradas.length) return (
+                <div style={{textAlign:"center",padding:"32px 0",color:"#e4e9f6"}}>
+                  <div style={{fontSize:24,marginBottom:8}}>🔍</div>
+                  <div style={{fontSize:13}}>{todasMaquinas.length===0?"No hay máquinas creadas. Crea primero la máquina en la sección Máquinas.":"Sin resultados para esta búsqueda"}</div>
+                </div>
+              );
+              return (
+                <div style={{display:"grid",gap:7,maxHeight:420,overflowY:"auto"}}>
+                  {filtradas.slice(0,50).map(m=>{
+                    const docExiste = (data.documentacion||[]).find(d=>d._maquinaClienteId===m.id && d.clienteId===m._clienteId);
+                    return (
+                      <div key={m.id+"-"+m._clienteId}
+                        onClick={()=>{
+                          setModalPicker(false);
+                          if(docExiste){
+                            openEdit(docExiste);
+                          } else {
+                            setForm({
+                              marca: m.marca||"",
+                              modelo: m.modelo||"",
+                              matricula: m.serie||"",
+                              anyo: m.anyo||"",
+                              descripcion: "",
+                              notas: "",
+                              clienteId: m._clienteId,
+                              _maquinaClienteId: m.id
+                            });
+                            setArchivos([]);
+                            setModal(true);
+                          }
+                        }}
+                        style={{background:"#0d1117",border:"1px solid "+(docExiste?"#3b82f644":"#2a3550"),borderRadius:10,padding:"12px 15px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor="#e2b71488"}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor=docExiste?"#3b82f644":"#2a3550"}
+                      >
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:"#f1f3f9",fontWeight:700,fontSize:14}}>{m.marca||"—"} <span style={{fontWeight:400,color:"#e4e9f6"}}>{m.modelo||""}</span></div>
+                          <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
+                            {m.serie && <span style={{color:"#e4e9f6",fontSize:11}}>Nº {m.serie}</span>}
+                            {m.anyo && <span style={{color:"#e4e9f6",fontSize:11}}>Año {m.anyo}</span>}
+                            <span style={{background:"#faff0015",color:"#faff00",borderRadius:4,padding:"1px 7px",fontSize:10,fontWeight:700}}>👤 {m._clienteNombre}</span>
+                          </div>
+                        </div>
+                        {docExiste
+                          ? <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f644",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>Ya tiene ficha →</span>
+                          : <span style={{background:"#e2b71415",color:"#e2b714",border:"1px solid #e2b71444",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>+ Añadir doc</span>
+                        }
+                      </div>
+                    );
+                  })}
+                  {filtradas.length>50 && <div style={{textAlign:"center",color:"#e4e9f6",fontSize:12,padding:"8px 0"}}>Mostrando 50 de {filtradas.length} — afina la búsqueda</div>}
+                </div>
+              );
+            })()}
+            <div style={{marginTop:14,display:"flex",justifyContent:"flex-end"}}>
+              <button onClick={()=>setModalPicker(false)} style={btnOutline}>Cancelar</button>
+            </div>
+          </Modal>
+        )}
+
         {/* Modal nueva/editar maquina */}
         {modal && (
-          <Modal title={form.id?"Editar maquina":"Nueva maquina"} onClose={()=>setModal(false)} wide>
+          <Modal title={form.id?"Editar maquina":"Nueva ficha de documentacion"} onClose={()=>setModal(false)} wide>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(170px,100%),1fr))",gap:11}}>
               <Field label="Marca *"><Input value={form.marca||""} onChange={f("marca")} placeholder="Casadei, Busellato..."/></Field>
               <Field label="Modelo *"><Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3, Jet Start..."/></Field>
