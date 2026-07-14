@@ -1143,7 +1143,7 @@ const Login = ({ usuarios, onLogin }) => {
     </div>
   );
 };
-const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId, userActual }) => {
+const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId, userActual, onVenderMaquina }) => {
   const puedeEliminar = userActual?.rol==="manager";
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   useEffect(()=>{
@@ -1860,6 +1860,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   </div>
                   <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                     {onIrADocMaquina&&<button onClick={()=>onIrADocMaquina({clienteId:c.id,maquinaId:m.id,marca:m.marca,modelo:m.modelo,serie:m.serie})} style={{background:"#1e3a5f",border:"1px solid #3b82f644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#3b82f6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="documentacion" size={14}/>Ver documentación</button>}
+                    {/* Botón especial para maquinaria de stock: crea el albarán de venta directamente */}
+                    {c.id===CLIENTE_STOCK_ID&&onVenderMaquina&&<button onClick={()=>{
+                      const maqNombre=[m.nombre||(m.marca&&m.modelo?`${m.marca} ${m.modelo}`:m.marca||m.modelo||"Máquina"),m.serie?`S/N:${m.serie}`:null].filter(Boolean).join(" · ");
+                      onVenderMaquina({maquinaId:m.id,maquinaClienteOrigenId:c.id,maquinaNombre:maqNombre,clienteId:null,clienteNombre:"",clienteEmail:""});
+                    }} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#f97316",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>🚚 Vender y crear albarán</button>}
                     <button onClick={()=>{setTransferNuevoClienteId("");setModalTransferirMaq({maquinaId:m.id,clienteOrigenId:c.id,maquinaNombre:m.nombre||`${m.marca||""} ${m.modelo||""}`.trim()});}} style={{background:"#2d1b4e",border:"1px solid #7c3aed44",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#a78bfa",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}>🔄 Cambiar propietario</button>
                     <button onClick={()=>{setFormM({...m});setModalM(true);}} style={{background:"#2a3550",border:"1px solid #3a4570",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#e6ebf6",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="edit" size={14}/>Editar</button>
                     {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina?")){delM(m.id);setTabM(null);}}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"8px 14px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:6}}><Icon name="trash" size={14}/>Eliminar</button>}
@@ -9059,7 +9064,7 @@ const Dashboard = ({ data, setActive, userActual }) => {
 const EMPRESA = {
   nombre:    "Europea de Maquinaria PMM SL",direccion: "Carrer Mas del Jutge 33",cp:        "46900 Torrent",pais:      "España",cif:       "B98527583",web:       "europeademaquinaria.com",email:     "info@europeademaquinaria.com",
 };
-const Albaran = ({ data, setData, userActual }) => {
+const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaranPendienteUsado }) => {
   const [vista,   setVista]   = useState(null);
   const [modal,   setModal]   = useState(false);
   const [form,    setForm]    = useState({});
@@ -9079,6 +9084,37 @@ const Albaran = ({ data, setData, userActual }) => {
   const [cargandoPrevia, setCargandoPrevia] = useState(false);
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const nextNum = () => generarNum("AB", today(), data.albaranes, "numero");
+  // Flujo "Vender máquina → Albarán": cuando el componente recibe datos de una máquina de stock
+  // pendiente (enviados por Clientes via AppInner), abre automáticamente el modal de nuevo albarán
+  // con la máquina ya cargada en la primera línea. El usuario solo tiene que rellenar el receptor.
+  useEffect(() => {
+    if (!albaranPendienteMaquina) return;
+    const { maquinaId, maquinaClienteOrigenId, maquinaNombre, clienteId, clienteNombre, clienteEmail } = albaranPendienteMaquina;
+    setForm({
+      numero: nextNum(),
+      fecha: today(),
+      emisorId: userActual.id,
+      receptorNombre: clienteNombre || "",
+      receptorEmail: clienteEmail || "",
+      receptorDireccion: "",
+      notas: "",
+      firmada: false,
+      fechaFirma: "",
+      ...(clienteId ? { clienteId } : {}),
+    });
+    setLineas([{
+      desc: maquinaNombre,
+      cant: 1,
+      unidad: "ud",
+      inventarioId: null,
+      esMaquina: true,
+      maquinaId,
+      maquinaClienteOrigenId,
+    }]);
+    setModal(true);
+    onAlbaranPendienteUsado && onAlbaranPendienteUsado();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [albaranPendienteMaquina]);
   // Deshace el efecto sobre stock/historial que un albarán concreto hubiera dejado en el
   // inventario (se usa al editar un albarán —antes de reaplicar— y al eliminarlo).
   const revertirInventarioAlbaran = (inventario, albaranId) => (inventario||[]).map(it => {
@@ -9129,13 +9165,16 @@ const Albaran = ({ data, setData, userActual }) => {
       }
       nuevo.inventario = inv;
       nuevo.notificaciones = notifsInv;
-      // Transferencia de máquinas: cada línea con esMaquina:true pasa de propietario actual al receptor
+      // Transferencia de máquinas: cada línea con esMaquina:true pasa de propietario actual al receptor.
+      // Si la máquina ya pertenece al receptor (se añadió al albarán directamente desde su ficha de
+      // cliente, no desde stock) se omite la transferencia — el albarán solo documenta la entrega.
       const lineasMaq = lineasFinal.filter(l => l.esMaquina && l.maquinaId != null && l.maquinaClienteOrigenId != null);
       if (lineasMaq.length > 0 && item.clienteId) {
         const nuevoClienteId = parseInt(item.clienteId);
         lineasMaq.forEach(l => {
           const origenId = l.maquinaClienteOrigenId;
           const maqId    = l.maquinaId;
+          if (parseInt(origenId) === nuevoClienteId) return; // ya es del receptor, no transferir
           const maquina  = (nuevo.clientes.find(c=>c.id===origenId)?.maquinas||[]).find(m=>m.id===maqId);
           if (!maquina) return;
           nuevo.clientes = nuevo.clientes.map(c => {
@@ -14551,6 +14590,15 @@ function AppInner() {
   const irAMaquina=(clienteId,maquinaId)=>{setMaquinaVistaAbrir({clienteId,maquinaId});setActive("maquinas");};
   const [tareaAAbrir,setTareaAAbrir]=useState(null);
   const irATarea=id=>{setTareaAAbrir(id);setActive("tareas");};
+  // Flujo "Vender máquina de stock → Crear albarán": cuando el usuario pulsa
+  // "Vender y crear albarán" en la ficha de una máquina de Maquinaria Nueva,
+  // guardamos los datos de la máquina y navegamos a Albaranes, que los usa
+  // para abrir el modal pre-relleno con la máquina y el cliente de destino.
+  const [albaranPendienteMaquina,setAlbaranPendienteMaquina]=useState(null);
+  const irAAlbaranConMaquina=({maquinaId,maquinaClienteOrigenId,clienteId,clienteNombre,clienteEmail,maquinaNombre})=>{
+    setAlbaranPendienteMaquina({maquinaId,maquinaClienteOrigenId,clienteId,clienteNombre,clienteEmail,maquinaNombre});
+    setActive("albaran");
+  };
   // Si se ha llegado con ?tarea=ID en la URL (enlace del email automático), en
   // cuanto haya sesión abierta navegamos directamente a esa tarea.
   useEffect(()=>{
@@ -14780,14 +14828,14 @@ function AppInner() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
           {active==="proveedores"&&puedeVer(user.rol,"proveedores")&&<Proveedores data={data} setData={setData} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte} abrirMaquinaVista={maquinaVistaAbrir} onAbrirMaquinaVista={()=>setMaquinaVistaAbrir(null)}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
           {active==="visitas"&&puedeVer(user.rol,"visitas")&&<DiarioVisitas data={data} setData={setData} userActual={user}/>}
           {active==="tareas"&&puedeVer(user.rol,"tareas")&&<Tareas data={data} setData={setData} userActual={user} abrirTareaId={tareaAAbrir} onAbrirTareaId={()=>setTareaAAbrir(null)}/>}
           {puedeVer(user.rol,"partes")&&<div style={{display:active==="partes"?"block":"none"}}><Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/></div>}
-          {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user}/>}
+          {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user} albaranPendienteMaquina={albaranPendienteMaquina} onAlbaranPendienteUsado={()=>setAlbaranPendienteMaquina(null)}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} userActual={user} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
