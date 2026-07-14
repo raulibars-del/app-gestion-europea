@@ -382,6 +382,9 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
           continue;
         }
         if (itemB && mismoJSON(itemL, itemB)) { resultado.push(itemR); continue; } // no tocamos este registro
+        // Sin baseline para este ítem: no podemos saber si los cambios locales son
+        // intencionales o datos obsoletos. El servidor es la fuente de verdad.
+        if (!itemB) { resultado.push(itemR); continue; }
         resultado.push(combinarDatosRemotos(itemB, itemL, itemR, ruta + "." + itemR.id, conflictos));
       }
       for (const itemL of local) {
