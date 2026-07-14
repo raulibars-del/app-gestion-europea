@@ -14447,6 +14447,11 @@ function AppInner() {
     if(saveTimerRef.current) clearTimeout(saveTimerRef.current);
     // Función de guardado reutilizable (normal y urgente)
     const doSave = async () => {
+      // Snapshot de lastSyncedRef ANTES de empezar: si el guardado falla con un error
+      // de red o 409, restauramos este snapshot para que el mismatch temporal (lastSynced
+      // actualizado por el merge pero data sin actualizar porque setData no se llamó)
+      // no persista y cause que el siguiente reintento suba un estado obsoleto al servidor.
+      const lastSyncedAntes = {...lastSyncedRef.current};
       try{
         // CRÍTICO: usar dataRef.current (estado más reciente) en vez de la closure `data`.
         // Si el usuario cambia algo (p.ej. marca una tarea Completada) mientras doSave
@@ -14534,6 +14539,13 @@ function AppInner() {
         if(mergeOcurrido) setData(prepararDatos(dataActual));
         setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
       }catch(e){
+        // Restaurar lastSyncedRef al estado anterior al intento de guardado.
+        // Esto evita que el mismatch entre lastSynced (ya actualizado por el merge)
+        // y data (no actualizado porque setData no llegó a llamarse) persista y
+        // cause que el próximo reintento interprete el estado local como un "cambio
+        // pendiente" y suba datos obsoletos al servidor (p.ej. tareas revertidas).
+        Object.assign(lastSyncedRef.current, lastSyncedAntes);
+        try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(err){}
         setSyncStatus("error");
         const motivo = (e && e.message) ? e.message : String(e);
         setLastSaveError(motivo);
