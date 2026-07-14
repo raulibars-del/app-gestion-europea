@@ -5059,7 +5059,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
               return (
                 <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : t.esEmpresa ? "#f59e0b44" : PCOLOR[t.prioridad] + "33"),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:9,opacity:t.estado === "Completada" ? 0.55 : 1,transition:"opacity .2s"}}>
                   {t.estado === "Completada"
-                    ? <div style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800}}>✓</div>
+                    ? <button onClick={(e) => { e.stopPropagation(); toggle(t); }} title="Marcar como pendiente" style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800,cursor:"pointer",transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=".65"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>✓</button>
                     : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:20,height:20,borderRadius:5,border:"2px solid " + (PCOLOR[t.prioridad] || "#8b5cf6"),background:"transparent",cursor:esMia ? "pointer" : "default",flexShrink:0,transition:"all .15s"}} />
                   }
                   <div style={{flex:1,minWidth:0}}>
@@ -5147,7 +5147,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
               return (
                 <div key={t.id} onClick={() => setVistaPrevia(t)} style={{cursor:"pointer",background:"#151b2a",border:"1px solid " + (t.estado === "Completada" ? "#2a3550" : PCOLOR[t.prioridad] + "33"),borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:9,opacity:t.estado === "Completada" ? 0.55 : 1,transition:"opacity .2s"}}>
                   {t.estado === "Completada"
-                    ? <div style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800}}>✓</div>
+                    ? <button onClick={(e) => { e.stopPropagation(); toggle(t); }} title="Marcar como pendiente" style={{width:20,height:20,borderRadius:5,border:"2px solid #10b981",background:"#10b981",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",flexShrink:0,fontSize:10,fontWeight:800,cursor:"pointer",transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=".65"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>✓</button>
                     : <button onClick={(e) => { e.stopPropagation(); toggle(t); }} style={{width:20,height:20,borderRadius:5,border:"2px solid " + (PCOLOR[t.prioridad] || "#3b82f6"),background:"transparent",cursor:"pointer",flexShrink:0,transition:"all .15s"}} />
                   }
                   <div style={{flex:1,minWidth:0}}>
