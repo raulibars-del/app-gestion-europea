@@ -14282,10 +14282,21 @@ function AppInner() {
     // Función de guardado reutilizable (normal y urgente)
     const doSave = async () => {
       try{
-        let dataActual = {...data};
+        // CRÍTICO: usar dataRef.current (estado más reciente) en vez de la closure `data`.
+        // Si el usuario cambia algo (p.ej. marca una tarea Completada) mientras doSave
+        // espera el fetch del servidor, `data` de la closure está obsoleto y subiría el
+        // estado antiguo al servidor, revirtiendo el cambio del usuario.
+        let dataActual = {...dataRef.current};
+        let mergeOcurrido = false;
         const conflictos = [];
         const remoto = await apiGetSecciones();
-        for(const seccion of cambiadas){
+        // Recomputar qué secciones siguen teniendo cambios pendientes con los datos actuales.
+        // `cambiadas` del exterior puede estar desfasado si el estado cambió durante el fetch.
+        const seccionesAGuardar = TODAS_SECCIONES.filter(s =>
+          cambiadas.includes(s) ||
+          JSON.stringify(extraerSeccion(dataRef.current, s)) !== lastSyncedRef.current[s]
+        );
+        for(const seccion of seccionesAGuardar){
           const localData = extraerSeccion(dataActual, seccion);
           const remoteData = remoto.sections?.[seccion];
           const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
@@ -14303,11 +14314,13 @@ function AppInner() {
               lastSyncedRef.current[seccion] = remoteJson;
               lastVersionRef.current[seccion] = remoto.versions?.[seccion];
               dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+              mergeOcurrido = true;
               continue;
             }
             const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
             aGuardar = combined;
             dataActual = aplicarSeccion(dataActual, seccion, combined);
+            mergeOcurrido = true;
             lastSyncedRef.current[seccion] = remoteJson;
             lastVersionRef.current[seccion] = remoto.versions?.[seccion];
             if(conflictos.length){
@@ -14329,8 +14342,11 @@ function AppInner() {
             console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de plantilla inicial sobre datos reales del servidor.`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+            mergeOcurrido = true;
             continue;
           }
+          // Si no hay cambio real que guardar (localData === lastSynced), saltar.
+          if(JSON.stringify(localData) === lastSynced) continue;
           const resp = await apiGuardarSeccion(seccion, aGuardar, lastVersionRef.current[seccion]??null);
           if(resp && resp.conflict){
             const fresco = await apiGetSecciones();
@@ -14339,6 +14355,7 @@ function AppInner() {
               const base2 = lastSyncedRef.current[seccion] ? JSON.parse(lastSyncedRef.current[seccion]) : null;
               const combined2 = combinarDatosRemotos(base2, aGuardar, frescoData, seccion, []);
               dataActual = aplicarSeccion(dataActual, seccion, combined2);
+              mergeOcurrido = true;
               lastSyncedRef.current[seccion] = JSON.stringify(frescoData);
               lastVersionRef.current[seccion] = fresco.versions?.[seccion];
             }
@@ -14348,7 +14365,7 @@ function AppInner() {
           lastVersionRef.current[seccion] = resp.version;
           try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
         }
-        if(dataActual !== data) setData(prepararDatos(dataActual));
+        if(mergeOcurrido) setData(prepararDatos(dataActual));
         setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
       }catch(e){
         setSyncStatus("error");
