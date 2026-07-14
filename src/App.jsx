@@ -2610,9 +2610,10 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
     w.document.close();
   };
   const save = () => {
+    const tsMaq = Date.now();
     setData(d=>({...d, clientes: d.clientes.map(c=>{
       if(c.id!==vista.clienteId) return c;
-      return {...c, maquinas: (c.maquinas||[]).map(m=>m.id===form.id?{...m,...form}:m)};
+      return {...c, maquinas: (c.maquinas||[]).map(m=>m.id===form.id?{...m,...form,_ts:tsMaq}:m), _ts:tsMaq};
     })}));
     setModal(false);
   };
@@ -2644,7 +2645,8 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
   // contar el año de garantía.
   const guardarFechaInstalacion = () => {
     if(!fechaInstalacionForm){ alert("Indica una fecha."); return; }
-    setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==vista.clienteId?c:{...c,maquinas:(c.maquinas||[]).map(x=>x.id===vista.maquinaId?{...x,fechaInstalacion:fechaInstalacionForm}:x)})}));
+    const tsInst = Date.now();
+    setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==vista.clienteId?c:{...c,maquinas:(c.maquinas||[]).map(x=>x.id===vista.maquinaId?{...x,fechaInstalacion:fechaInstalacionForm,_ts:tsInst}:x),_ts:tsInst})}));
     setModalInstalacion(false);
   };
 
@@ -3168,11 +3170,11 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       setData(d => ({ ...d,avisos: [...d.avisos, n] }));
       onNuevoAviso(n);
     }
-    else setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === item.id ? item : a) }));
+    else setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === item.id ? {...item,_ts:Date.now()} : a) }));
     setModalAv(null); setDetalle(null);
   };
-  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre } : a) }));
-  const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today() } : a) }));
+  const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre,_ts:Date.now() } : a) }));
+  const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today(),_ts:Date.now() } : a) }));
   const confirmarCancelacion = () => {
     if (!motivoCancel.trim()) { alert("Indica el motivo de la cancelación"); return; }
     cancelarAv(cancelTarget, motivoCancel.trim());
@@ -4223,6 +4225,7 @@ const DiarioVisitas = ({ data, setData, userActual }) => {
       interesAsistencia: !!form.interesAsistencia,
       sinInteres: !!form.sinInteres,
       creadoEn: orig ? orig.creadoEn : new Date().toISOString(),
+      _ts: Date.now(),
     };
     setData(d => ({
       ...d,
@@ -6828,7 +6831,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de generar el PDF.");return;}
                       const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
                       const nuevaFirmaImg = capturarFirmaImagen();
-                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
+                      const tsFirmaDesc = Date.now();
+                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,_ts:tsFirmaDesc}:pt)}));
                       generarYDescargarPDF({...p,firmaNombre:form.firmaNombre,conforme,notasConformidad},firmada,true,modalPDFCadena);
                     }} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944"}}>
                       <span style={{display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF{modalPDFCadena?" (cadena completa)":""}</span>
@@ -6842,7 +6846,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       if(!form.firmaNombre?.trim()){alert("Introduce el nombre de quien firma antes de enviar.");return;}
                       const idsAfectados = modalPDFCadena ? modalPDFCadena.map(c=>c.id) : [p.id];
                       const nuevaFirmaImg = capturarFirmaImagen();
-                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma}:pt)}));
+                      const tsFirmaEnv = Date.now();
+                      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,_ts:tsFirmaEnv}:pt)}));
                       enviarEmail();
                     }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
                       {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
@@ -7666,7 +7671,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         </div>`,
         attachmentBase64:base64, attachmentName:doc.numero+".pdf", attachmentMime:"application/pdf",
       });
-      setData(d => { const contab=d.contabilidad||{}; return { ...d, contabilidad:{ ...contab, [clave]:(contab[clave]||[]).map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email}:x) } }; });
+      setData(d => { const contab=d.contabilidad||{}; return { ...d, contabilidad:{ ...contab, [clave]:(contab[clave]||[]).map(x=>x.id===doc.id?{...x,emailEnviado:true,emailEnviadoA:email,_ts:Date.now()}:x) } }; });
       alert("Email enviado correctamente a " + email);
     } catch(e) { alert("Error al enviar: " + e.message); }
     finally { setEnviando(null); }
@@ -7756,8 +7761,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
             {!anulada&&esProforma&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 13px",fontSize:12,background:"#d9770622",color:"#f59e0b",borderColor:"#f59e0b55",fontWeight:700}}>→ Emitir factura</button>}
             {!anulada&&esPresupuesto&&!convertida&&<button onClick={()=>convertirAFactura(doc,clave)} style={{...btnOutline,padding:"5px 13px",fontSize:12,background:"#16a34a22",color:"#16a34a",borderColor:"#16a34a55",fontWeight:700}}>→ Emitir factura</button>}
             {!anulada&&esPresupuesto&&doc.estado==="Pendiente"&&<>
-              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Aceptado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#16a34a",borderColor:"#16a34a44"}}>✓</button>
-              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Rechazado"}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>✗</button>
+              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Aceptado",_ts:Date.now()}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#16a34a",borderColor:"#16a34a44"}}>✓</button>
+              <button onClick={()=>setData(d=>({...d,contabilidad:{...d.contabilidad,presupuestos:(d.contabilidad.presupuestos||[]).map(x=>x.id===doc.id?{...x,estado:"Rechazado",_ts:Date.now()}:x)}}))} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>✗</button>
             </>}
             {!anulada&&<button onClick={()=>anularDoc(doc,clave)} style={{...btnOutline,padding:"5px 11px",fontSize:12,color:"#dc2626",borderColor:"#dc262644"}}>Anular</button>}
             <button
@@ -8137,7 +8142,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         attachmentMime:"application/pdf",
       })});
       // Marcar pedido como Enviado
-      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:"Enviado"}:x)}}));
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:"Enviado",_ts:Date.now()}:x)}}));
       alert("Pedido enviado a "+email.trim());
     } catch(e) { alert("Error al enviar: "+e.message); }
     finally { setEnviandoPedido(null); }
@@ -8180,7 +8185,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   {p.notas&&<div style={{color:"#8899b4",fontSize:11,marginTop:2,fontStyle:"italic"}}>{p.notas}</div>}
                 </div>
                 <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                  <select value={p.estado} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:e.target.value}:x)}}))} style={{...inputStyle,width:"auto",padding:"5px 10px",fontSize:12}}>
+                  <select value={p.estado} onChange={e=>setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:e.target.value,_ts:Date.now()}:x)}}))} style={{...inputStyle,width:"auto",padding:"5px 10px",fontSize:12}}>
                     {["Borrador","Enviado","Recibido","Cancelado"].map(s=><option key={s}>{s}</option>)}
                   </select>
                   {p.esMaquinaNueva&&<button onClick={()=>{
@@ -9695,7 +9700,7 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
           attachmentName: "albaran-"+alb.numero+".pdf",
           attachmentMime: "application/pdf",
         });
-        setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,emailEnviado:true,emailEnviadoA:destino,emailEnviadoCC:ccUsada } : a) }));
+        setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,emailEnviado:true,emailEnviadoA:destino,emailEnviadoCC:ccUsada,_ts:Date.now() } : a) }));
         alert("Email enviado a "+destino+", con copia a "+ccUsada+".");
       }
       setEnviado(true);
@@ -10592,8 +10597,8 @@ const Inventario = ({ data, setData, userActual, isMobile }) => {
     const item = {...form, precioCompra: parseNum(form.precioCompra)||0, precioVenta: parseNum(form.precioVenta)||0, stock: parseInt(form.stock)||0,
       precioCompraProveedor1: form.precioCompraProveedor1!==undefined&&form.precioCompraProveedor1!==""?parseNum(form.precioCompraProveedor1)||0:"",
       precioCompraProveedor2: form.precioCompraProveedor2!==undefined&&form.precioCompraProveedor2!==""?parseNum(form.precioCompraProveedor2)||0:""};
-    if (!item.id) setData(d => ({...d, inventario: [...d.inventario, {...item, id: Date.now()}]}));
-    else setData(d => ({...d, inventario: d.inventario.map(i => i.id===item.id ? item : i)}));
+    if (!item.id) setData(d => ({...d, inventario: [...d.inventario, {...item, id: Date.now(), _ts: Date.now()}]}));
+    else setData(d => ({...d, inventario: d.inventario.map(i => i.id===item.id ? {...item,_ts:Date.now()} : i)}));
     setModal(false);
   };
 
@@ -11357,8 +11362,8 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
   const save = () => {
     if (!form.marca || !form.modelo) return alert("Marca y modelo son obligatorios");
     const item = {...form, archivos: archivos, fechaAlta: today()};
-    if (!item.id) setData(d => ({...d, documentacion: [...(d.documentacion||[]), {...item, id: Date.now()}]}));
-    else setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===item.id ? item : x)}));
+    if (!item.id) setData(d => ({...d, documentacion: [...(d.documentacion||[]), {...item, id: Date.now(), _ts: Date.now()}]}));
+    else setData(d => ({...d, documentacion: (d.documentacion||[]).map(x => x.id===item.id ? {...item,_ts:Date.now()} : x)}));
     setModal(false);
   };
 
