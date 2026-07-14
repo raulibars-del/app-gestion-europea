@@ -381,7 +381,19 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
           resultado.push(itemR); // nuevo en el remoto, no relacionado con un borrado nuestro
           continue;
         }
-        if (itemB && mismoJSON(itemL, itemB)) { resultado.push(itemR); continue; } // no tocamos este registro
+        if (itemB && mismoJSON(itemL, itemB)) {
+          // Local sin cambios respecto al base → normalmente tomamos el remoto.
+          // EXCEPCIÓN: si el local tiene _ts más reciente que el remoto, mantenemos
+          // el local — el base puede estar desactualizado (guardado fallido silencioso).
+          if (itemL._ts && (!itemR._ts || itemL._ts > itemR._ts)) { resultado.push(itemL); }
+          else { resultado.push(itemR); }
+          continue;
+        }
+        // Ambos lados difieren del base: si tienen _ts, el más reciente gana.
+        if ((itemL._ts || itemR._ts) && (itemL._ts||0) !== (itemR._ts||0)) {
+          resultado.push((itemL._ts||0) >= (itemR._ts||0) ? itemL : itemR);
+          continue;
+        }
         resultado.push(combinarDatosRemotos(itemB, itemL, itemR, ruta + "." + itemR.id, conflictos));
       }
       for (const itemL of local) {
@@ -4944,7 +4956,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
     if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
     if (nuevoEstado === "Pendiente" && !window.confirm(`¿Seguro que esta tarea no ha sido completada? Volverá a tareas pendientes.`)) return;
-    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null } : x) }));
+    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: Date.now() } : x) }));
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
@@ -7475,6 +7487,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [subiendoPedidoId, setSubiendoPedidoId] = useState(null);
   const [adjuntandoPedidoId, setAdjuntandoPedidoId] = useState(null);
   const [nuevoAdjuntoTipo, setNuevoAdjuntoTipo] = useState("Factura proforma");
+  const [pedidoFormAdjTipo, setPedidoFormAdjTipo] = useState("Factura proforma");
+  const [pedidoFormAdjSubiendo, setPedidoFormAdjSubiendo] = useState(false);
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -8299,26 +8313,24 @@ const Contabilidad = ({ data, setData, userActual }) => {
                   );})}
                 </div>
               )}
-              {(()=>{const [tipoNuevo,setTipoNuevo]=React.useState("Factura proforma");const [subiendo,setSubiendo]=React.useState(false);return(
-                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                  <select value={tipoNuevo} onChange={e=>setTipoNuevo(e.target.value)} style={{...inputStyle,width:"auto",padding:"6px 10px",fontSize:12}}>
-                    {TIPOS_ADJ_PEDIDO.map(t=><option key={t}>{t}</option>)}
-                  </select>
-                  <label style={{cursor:subiendo?"wait":"pointer",opacity:subiendo?0.6:1,...btnSm("#0a2318","#10b981"),display:"flex",alignItems:"center",gap:5,userSelect:"none"}}>
-                    {subiendo?"⏳ Subiendo...":<><Icon name="plus" size={12}/>Añadir documento</>}
-                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={subiendo} onChange={async e=>{
-                      const file=e.target.files[0]; if(!file) return;
-                      setSubiendo(true);
-                      try {
-                        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-                        const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
-                        setPedidoAdjuntos(prev=>[...prev,{id:String(Date.now()),url:up.url,nombre:file.name,mime:file.type,tipo:tipoNuevo}]);
-                      } catch(er){ alert("Error al subir: "+er.message); }
-                      finally { setSubiendo(false); e.target.value=""; }
-                    }}/>
-                  </label>
-                </div>
-              );})()}
+              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                <select value={pedidoFormAdjTipo} onChange={e=>setPedidoFormAdjTipo(e.target.value)} style={{...inputStyle,width:"auto",padding:"6px 10px",fontSize:12}}>
+                  {TIPOS_ADJ_PEDIDO.map(t=><option key={t}>{t}</option>)}
+                </select>
+                <label style={{cursor:pedidoFormAdjSubiendo?"wait":"pointer",opacity:pedidoFormAdjSubiendo?0.6:1,...btnSm("#0a2318","#10b981"),display:"flex",alignItems:"center",gap:5,userSelect:"none"}}>
+                  {pedidoFormAdjSubiendo?"⏳ Subiendo...":<><Icon name="plus" size={12}/>Añadir documento</>}
+                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={pedidoFormAdjSubiendo} onChange={async e=>{
+                    const file=e.target.files[0]; if(!file) return;
+                    setPedidoFormAdjSubiendo(true);
+                    try {
+                      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+                      const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
+                      setPedidoAdjuntos(prev=>[...prev,{id:String(Date.now()),url:up.url,nombre:file.name,mime:file.type,tipo:pedidoFormAdjTipo}]);
+                    } catch(er){ alert("Error al subir: "+er.message); }
+                    finally { setPedidoFormAdjSubiendo(false); e.target.value=""; }
+                  }}/>
+                </label>
+              </div>
             </div>
             <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4}}>
               <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
@@ -14434,7 +14446,11 @@ function AppInner() {
             // localStorage.em_data se perdió o corrompió. En ese caso no se combina
             // nunca — usar siempre el remoto para no borrar datos reales por error.
             const localEsInitial = localJson === JSON.stringify(extraerSeccion(initialData, seccion));
-            if(!localEsInitial && baseJson && localJson !== baseJson && remoteJson !== localJson){
+            // Para secciones con items que tienen _ts (como tareas), forzamos el merge
+            // aunque local===base: el merge usará _ts para preservar cambios locales
+            // recientes aunque lastSyncedRef esté desactualizado por un guardado fallido.
+            const tieneItemsConTs = Array.isArray(localData) && localData.some(x=>x._ts);
+            if(!localEsInitial && baseJson && (localJson !== baseJson || (tieneItemsConTs && remoteJson !== localJson)) && remoteJson !== localJson){
               // Había cambios pendientes que no llegaron al servidor: combinar
               const base = JSON.parse(baseJson);
               let combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
