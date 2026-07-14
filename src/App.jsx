@@ -7471,9 +7471,10 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [pedidoEsMaquina, setPedidoEsMaquina] = useState(false);
   const [enviandoPedido, setEnviandoPedido] = useState(null);
   const [pdfPedidoPreview, setPdfPedidoPreview] = useState(null);
-  const [pedidoAdjunto, setPedidoAdjunto] = useState(null);
-  const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
+  const [pedidoAdjuntos, setPedidoAdjuntos] = useState([]);
   const [subiendoPedidoId, setSubiendoPedidoId] = useState(null);
+  const [adjuntandoPedidoId, setAdjuntandoPedidoId] = useState(null);
+  const [nuevoAdjuntoTipo, setNuevoAdjuntoTipo] = useState("Factura proforma");
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -7761,6 +7762,10 @@ const Contabilidad = ({ data, setData, userActual }) => {
   };
 
   // ── Render gastos ──
+  const TIPOS_ADJ_PEDIDO = ["Factura proforma","Oferta","Factura final","Albarán proveedor","Otro"];
+  const TIPO_ADJ_COLOR = {"Factura proforma":"#0ea5e9","Oferta":"#f59e0b","Factura final":"#10b981","Albarán proveedor":"#8b5cf6","Otro":"#8899b4"};
+  const normalizarAdjuntos = (p) => p.adjuntos?.length ? p.adjuntos : p.adjunto ? [{...p.adjunto, id:String(p.adjunto.url||Date.now()), tipo:"Factura proforma"}] : [];
+
   const guardarPedido = () => {
     if (!pedidoForm.proveedor?.trim()) { alert("Introduce el proveedor."); return; }
     if (!pedidoLineas.length || pedidoLineas.every(l=>!l.descripcion?.trim())) { alert("Añade al menos una línea."); return; }
@@ -7768,15 +7773,15 @@ const Contabilidad = ({ data, setData, userActual }) => {
     const cont = data.contabilidad||{};
     const lista = cont.pedidos||[];
     if (pedidoForm.id) {
-      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(p=>p.id===pedidoForm.id?{...pedidoForm,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,adjunto:pedidoAdjunto||p.adjunto||null}:p)}}));
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(p=>p.id===pedidoForm.id?{...pedidoForm,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,adjuntos:pedidoAdjuntos,adjunto:undefined}:p)}}));
     } else {
       const numero = nextNumContabilidad(lista,"PED");
-      const pedido = {...pedidoForm,id:Date.now(),numero,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador",adjunto:pedidoAdjunto||null};
+      const pedido = {...pedidoForm,id:Date.now(),numero,esMaquinaNueva:pedidoEsMaquina,lineas:[...pedidoLineas],baseImponible,cuotaIVA,total,estado:pedidoForm.estado||"Borrador",adjuntos:pedidoAdjuntos};
       setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:[...(d.contabilidad.pedidos||[]),pedido]}}));
     }
     setShowPedidoModal(false);
     setPedidoEsMaquina(false);
-    setPedidoAdjunto(null);
+    setPedidoAdjuntos([]);
   };
 
   const exportCSV = (filename, headers, rows) => {
@@ -8125,7 +8130,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div style={{color:"#e4e9f6",fontSize:13}}>{lista.length} pedido{lista.length!==1?"s":""}</div>
-          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setPedidoEsMaquina(false);setPedidoAdjunto(null);setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
+          <button onClick={()=>{setPedidoForm({fecha:today(),estado:"Borrador",tipoIVA:21,notas:""});setPedidoLineas([{id:Date.now(),descripcion:"",cantidad:1,precioUnitario:0,descuento:0,precioNeto:0,subtotal:0}]);setPedidoEsMaquina(false);setPedidoAdjuntos([]);setShowPedidoModal(true);}} style={btnPrimary}><Icon name="plus" size={14}/> Nuevo pedido</button>
         </div>
         {!lista.length&&<div style={{color:"#e4e9f6",fontSize:13,padding:"24px 0",textAlign:"center"}}>No hay pedidos registrados.</div>}
         <div style={{display:"grid",gap:8}}>
@@ -8143,7 +8148,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
                     <span style={{fontSize:10,background:ec+"22",color:ec,borderRadius:4,padding:"2px 7px",fontWeight:700}}>{p.estado}</span>
                     {p.categoria&&<span style={{fontSize:10,background:"#2a355022",color:"#8899b4",borderRadius:4,padding:"1px 6px"}}>{p.categoria}</span>}
                     {p.esMaquinaNueva&&<span style={{fontSize:10,background:"#f9731622",color:"#f97316",borderRadius:4,padding:"2px 7px",fontWeight:700}}>🆕 Máquina stock</span>}
-                    {p.adjunto&&<span title={p.adjunto.nombre} style={{fontSize:10,background:"#0ea5e922",color:"#0ea5e9",borderRadius:4,padding:"2px 7px",fontWeight:700,display:"flex",alignItems:"center",gap:3}}><Icon name="parts" size={10}/>Factura adjunta</span>}
+                    {normalizarAdjuntos(p).map(a=>{const c=TIPO_ADJ_COLOR[a.tipo]||"#8899b4";return(<span key={a.id||a.url} title={a.nombre} style={{fontSize:10,background:c+"22",color:c,borderRadius:4,padding:"2px 7px",fontWeight:700,display:"flex",alignItems:"center",gap:3,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setPdfPedidoPreview({url:a.url,numero:a.nombre||a.tipo});}}><Icon name="parts" size={10}/>{a.tipo}</span>);})}
+
                   </div>
                   <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13}}>{p.proveedor}</div>
                   <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>
@@ -8174,29 +8180,34 @@ const Contabilidad = ({ data, setData, userActual }) => {
                     setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...nuevas]}:c)}));
                     alert(`${nuevas.length} máquina${nuevas.length!==1?"s":""} añadida${nuevas.length!==1?"s":""} a Stock Maquinaria Nueva. Ve a esa sección para completar los datos.`);
                   }} style={{...btnSm("#f9731622","#f97316"),fontSize:11,padding:"5px 8px"}}>→ Stock</button>}
-                  {p.adjunto ? (
-                    <>
-                      <button onClick={()=>setPdfPedidoPreview({url:p.adjunto.url,numero:p.adjunto.nombre})} style={{...btnSm("#0c2a3a","#0ea5e9"),display:"flex",alignItems:"center",gap:4}} title={`Ver factura: ${p.adjunto.nombre}`}><Icon name="eye" size={12}/>Factura</button>
-                      <button onClick={()=>{if(!window.confirm("¿Quitar la factura adjunta?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,adjunto:null}:x)}}));}} style={btnSm("#3b1c1c","#dc2626")} title="Quitar factura adjunta"><Icon name="close" size={12}/></button>
-                    </>
+                  {adjuntandoPedidoId===p.id ? (
+                    <div style={{display:"flex",gap:4,alignItems:"center",background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"4px 8px"}}>
+                      <select value={nuevoAdjuntoTipo} onChange={e=>setNuevoAdjuntoTipo(e.target.value)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,color:"#e4e9f6",fontSize:11,padding:"3px 6px"}}>
+                        {TIPOS_ADJ_PEDIDO.map(t=><option key={t}>{t}</option>)}
+                      </select>
+                      <label style={{cursor:subiendoPedidoId===p.id?"wait":"pointer",background:"#1a3320",border:"1px solid #10b98144",borderRadius:6,padding:"3px 8px",color:"#10b981",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:4,userSelect:"none",opacity:subiendoPedidoId===p.id?0.6:1}}>
+                        {subiendoPedidoId===p.id?"⏳ Subiendo...":<><Icon name="plus" size={11}/>Elegir archivo</>}
+                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={!!subiendoPedidoId} onChange={async e=>{
+                          const file=e.target.files[0]; if(!file) return;
+                          setSubiendoPedidoId(p.id);
+                          try {
+                            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+                            const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
+                            const nuevoAdj={id:String(Date.now()),url:up.url,nombre:file.name,mime:file.type,tipo:nuevoAdjuntoTipo};
+                            setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>{if(x.id!==p.id)return x;const base=normalizarAdjuntos(x);return{...x,adjuntos:[...base,nuevoAdj],adjunto:undefined};})}}));
+                            setAdjuntandoPedidoId(null);
+                          } catch(er){ alert("Error al subir: "+er.message); }
+                          finally { setSubiendoPedidoId(null); e.target.value=""; }
+                        }}/>
+                      </label>
+                      <button onClick={()=>setAdjuntandoPedidoId(null)} style={{background:"none",border:"none",color:"#8899b4",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}}>×</button>
+                    </div>
                   ) : (
-                    <label title="Adjuntar factura proforma del proveedor" style={{...btnSm("#0a2318","#10b981"),cursor:subiendoPedidoId===p.id?"wait":"pointer",opacity:subiendoPedidoId===p.id?0.6:1,display:"flex",alignItems:"center",gap:4,userSelect:"none"}}>
-                      {subiendoPedidoId===p.id ? "⏳" : <><Icon name="parts" size={12}/>Adjuntar</>}
-                      <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={!!subiendoPedidoId} onChange={async e=>{
-                        const file=e.target.files[0]; if(!file) return;
-                        setSubiendoPedidoId(p.id);
-                        try {
-                          const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-                          const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
-                          setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,adjunto:{url:up.url,nombre:file.name,mime:file.type}}:x)}}));
-                        } catch(er){ alert("Error al subir: "+er.message); }
-                        finally { setSubiendoPedidoId(null); e.target.value=""; }
-                      }}/>
-                    </label>
+                    <button onClick={()=>{setAdjuntandoPedidoId(p.id);setNuevoAdjuntoTipo("Factura proforma");}} style={{...btnSm("#0a2318","#10b981"),display:"flex",alignItems:"center",gap:4}} title="Adjuntar documento del proveedor"><Icon name="plus" size={11}/>Doc</button>
                   )}
                   <button onClick={()=>descargarPDFPedido(p)} style={btnSm("#1e3a5f","#60a5fa")} title="Descargar PDF pedido"><Icon name="download" size={12}/></button>
                   <button onClick={()=>enviarPDFPedido(p)} disabled={enviandoPedido===p.id} style={{...btnSm("#1a3320","#10b981"),opacity:enviandoPedido===p.id?0.6:1}} title="Enviar al proveedor">{enviandoPedido===p.id?"...":"✉️"}</button>
-                  <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setPedidoEsMaquina(!!p.esMaquinaNueva);setPedidoAdjunto(p.adjunto||null);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
+                  <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setPedidoEsMaquina(!!p.esMaquinaNueva);setPedidoAdjuntos(normalizarAdjuntos(p));setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
                   <button onClick={()=>{if(!window.confirm("¿Eliminar pedido "+p.numero+"?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).filter(x=>x.id!==p.id)}}));}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
                 </div>
               </div>
@@ -8275,30 +8286,39 @@ const Contabilidad = ({ data, setData, userActual }) => {
             );})()}
             <Field label="Notas"><textarea value={pedidoForm.notas||""} onChange={e=>setPedidoForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical"}} placeholder="Referencia, condiciones de entrega..."/></Field>
             <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4,marginBottom:12}}>
-              <div style={{color:"#e4e9f6",fontWeight:700,fontSize:12,marginBottom:8}}>📎 Factura del proveedor</div>
-              {pedidoAdjunto ? (
-                <div style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px"}}>
-                  <span style={{color:"#60a5fa",fontSize:12,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📄 {pedidoAdjunto.nombre}</span>
-                  <button onClick={()=>setPdfPedidoPreview({url:pedidoAdjunto.url,numero:pedidoAdjunto.nombre})} style={{...btnSm("#1e3a5f","#60a5fa"),padding:"4px 8px",fontSize:11}}><Icon name="eye" size={11}/></button>
-                  <button onClick={()=>setPedidoAdjunto(null)} style={{...btnSm("#3b1c1c","#dc2626"),padding:"4px 8px",fontSize:11}}><Icon name="close" size={11}/></button>
+              <div style={{color:"#e4e9f6",fontWeight:700,fontSize:12,marginBottom:8}}>📎 Documentos adjuntos del proveedor</div>
+              {pedidoAdjuntos.length > 0 && (
+                <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+                  {pedidoAdjuntos.map((a,i)=>{const c=TIPO_ADJ_COLOR[a.tipo]||"#8899b4";return(
+                    <div key={a.id||i} style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:`1px solid ${c}33`,borderRadius:8,padding:"7px 12px"}}>
+                      <span style={{fontSize:11,background:c+"22",color:c,borderRadius:4,padding:"2px 8px",fontWeight:700,whiteSpace:"nowrap"}}>{a.tipo}</span>
+                      <span style={{color:"#8899b4",fontSize:11,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📄 {a.nombre}</span>
+                      <button onClick={()=>setPdfPedidoPreview({url:a.url,numero:a.nombre||a.tipo})} style={{...btnSm("#1e3a5f","#60a5fa"),padding:"3px 7px",fontSize:11}}><Icon name="eye" size={11}/></button>
+                      <button onClick={()=>setPedidoAdjuntos(prev=>prev.filter((_,j)=>j!==i))} style={{...btnSm("#3b1c1c","#dc2626"),padding:"3px 7px",fontSize:11}}><Icon name="close" size={11}/></button>
+                    </div>
+                  );})}
                 </div>
-              ) : (
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:subiendoAdjunto?"wait":"pointer",opacity:subiendoAdjunto?0.6:1}}>
-                  <div style={{background:"#1a2236",border:"1px dashed #3a4d6b",borderRadius:8,padding:"10px 16px",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#8899b4"}}>
-                    {subiendoAdjunto ? "Subiendo..." : <><Icon name="plus" size={12}/> Adjuntar factura proforma (PDF / imagen)</>}
-                  </div>
-                  <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={subiendoAdjunto} onChange={async e=>{
-                    const file=e.target.files[0]; if(!file) return;
-                    setSubiendoAdjunto(true);
-                    try {
-                      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-                      const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
-                      setPedidoAdjunto({url:up.url,nombre:file.name,mime:file.type});
-                    } catch(er){ alert("Error al subir: "+er.message); }
-                    finally { setSubiendoAdjunto(false); e.target.value=""; }
-                  }}/>
-                </label>
               )}
+              {(()=>{const [tipoNuevo,setTipoNuevo]=React.useState("Factura proforma");const [subiendo,setSubiendo]=React.useState(false);return(
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  <select value={tipoNuevo} onChange={e=>setTipoNuevo(e.target.value)} style={{...inputStyle,width:"auto",padding:"6px 10px",fontSize:12}}>
+                    {TIPOS_ADJ_PEDIDO.map(t=><option key={t}>{t}</option>)}
+                  </select>
+                  <label style={{cursor:subiendo?"wait":"pointer",opacity:subiendo?0.6:1,...btnSm("#0a2318","#10b981"),display:"flex",alignItems:"center",gap:5,userSelect:"none"}}>
+                    {subiendo?"⏳ Subiendo...":<><Icon name="plus" size={12}/>Añadir documento</>}
+                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" style={{display:"none"}} disabled={subiendo} onChange={async e=>{
+                      const file=e.target.files[0]; if(!file) return;
+                      setSubiendo(true);
+                      try {
+                        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+                        const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});
+                        setPedidoAdjuntos(prev=>[...prev,{id:String(Date.now()),url:up.url,nombre:file.name,mime:file.type,tipo:tipoNuevo}]);
+                      } catch(er){ alert("Error al subir: "+er.message); }
+                      finally { setSubiendo(false); e.target.value=""; }
+                    }}/>
+                  </label>
+                </div>
+              );})()}
             </div>
             <div style={{borderTop:"1px solid #2a3550",paddingTop:12,marginTop:4}}>
               <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
