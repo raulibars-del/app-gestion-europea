@@ -382,9 +382,6 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
           continue;
         }
         if (itemB && mismoJSON(itemL, itemB)) { resultado.push(itemR); continue; } // no tocamos este registro
-        // Sin baseline para este ítem: no podemos saber si los cambios locales son
-        // intencionales o datos obsoletos. El servidor es la fuente de verdad.
-        if (!itemB) { resultado.push(itemR); continue; }
         resultado.push(combinarDatosRemotos(itemB, itemL, itemR, ruta + "." + itemR.id, conflictos));
       }
       for (const itemL of local) {
@@ -14100,16 +14097,16 @@ function AppInner() {
               return;
             }
           }
-          const aGuardarEsInitial = JSON.stringify(aGuardar) === JSON.stringify(extraerSeccion(initialData, seccion));
-          const aGuardarVacioSobreReal = Array.isArray(aGuardar) && aGuardar.length === 0 && Array.isArray(remoteData) && remoteData.length > 0;
-          // PROTECCIÓN: si vamos a guardar significativamente menos registros que el servidor
-          // (menos del 70% de lo que hay), es muy probable que sea un estado obsoleto o corrupto.
-          // Bloqueamos y usamos los datos del servidor para no machacar registros válidos.
-          const aGuardarPocosRegistros = Array.isArray(aGuardar) && Array.isArray(remoteData)
-            && remoteData.length >= 5
-            && aGuardar.length < Math.floor(remoteData.length * 0.7);
-          if(aGuardarVacioSobreReal || (aGuardarEsInitial && Array.isArray(remoteData) && remoteData.length > 0) || aGuardarPocosRegistros){
-            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con ${Array.isArray(aGuardar)?aGuardar.length:"?"} items sobre ${Array.isArray(remoteData)?remoteData.length:"?"} del servidor (datos vacíos, de muestra, u obsoletos).`);
+          // PROTECCIÓN: solo bloqueamos si lo que vamos a guardar coincide exactamente con
+          // el estado vacío/inicial de la app Y el servidor tiene datos reales. Esto evita
+          // que un dispositivo sin em_data guardado (p.ej. sesión nueva) machaque el servidor.
+          // Los chequeos de "70%" y "vacío sobre real" se eliminaron porque bloqueaban borrados
+          // legítimos del usuario (borraba varias tareas y el bloqueo las restauraba inmediatamente).
+          const initialSection = extraerSeccion(initialData, seccion);
+          const aGuardarEsInitialNoVacio = JSON.stringify(aGuardar) === JSON.stringify(initialSection)
+            && !(Array.isArray(initialSection) && initialSection.length === 0);
+          if(aGuardarEsInitialNoVacio && Array.isArray(remoteData) && remoteData.length > 0){
+            console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de plantilla inicial sobre datos reales del servidor.`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             continue;
