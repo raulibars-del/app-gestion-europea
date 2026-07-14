@@ -2957,7 +2957,13 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
 
   return (<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-      <div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Máquinas</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Ficha de cada máquina de cliente: datos, código interno e historial completo</p></div>
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Máquinas</h2>
+          <span style={{background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",borderRadius:8,padding:"3px 10px",fontSize:13,fontWeight:800}}>{todas.length} máquinas</span>
+        </div>
+        <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Ficha de cada máquina de cliente: datos, código interno e historial completo</p>
+      </div>
       <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         <button onClick={abrirNuevaMaquina} style={{background:"linear-gradient(135deg,#0ea5e9,#0284c7)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Nueva máquina</button>
         <div style={{display:"flex",gap:3,background:"#151b2a",border:"1px solid #2a3550",borderRadius:9,padding:3}}>
@@ -11258,6 +11264,10 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
     const doc = (data.documentacion||[]).find(d => d.id === vista);
     if (!doc) { setVista(null); return null; }
     const propietario = doc.clienteId ? data.clientes.find(c=>c.id===doc.clienteId) : null;
+    const maqLinkedDetalle = doc._maquinaClienteId && propietario
+      ? (propietario.maquinas||[]).find(m=>m.id===doc._maquinaClienteId)
+      : null;
+    const codigoDetalle = maqLinkedDetalle?.codigo || "";
     // Partes vinculados a esta matricula
     const partesDoc = doc.matricula
       ? (data.partes||[]).filter(p=>p.matricula&&p.matricula.trim().toLowerCase()===doc.matricula.trim().toLowerCase())
@@ -11267,6 +11277,7 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
           <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
           <div style={{flex:1}}>
+            {codigoDetalle && <div style={{color:"#0ea5e9",fontWeight:800,fontSize:11,letterSpacing:".5px",marginBottom:2}}>{codigoDetalle}</div>}
             <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{doc.marca} {doc.modelo}</h2>
             <div style={{display:"flex",gap:10,marginTop:2,flexWrap:"wrap"}}>
               {doc.matricula && <span style={{color:"#e4e9f6",fontSize:12}}>Matr. {doc.matricula}</span>}
@@ -11342,7 +11353,13 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
 
         {/* Resumen */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:10,marginBottom:16}}>
-          {[["Marca",doc.marca,"#e2b714"],["Modelo",doc.modelo,"#3b82f6"],["Matricula",doc.matricula||"—","#10b981"],["Año",doc.anyo||"—","#f59e0b"]].map(([l,v,c])=>(
+          {[
+            ...(codigoDetalle?[["Nº Máquina",codigoDetalle,"#0ea5e9"]]:  []),
+            ["Marca",doc.marca,"#e2b714"],
+            ["Modelo",doc.modelo,"#3b82f6"],
+            ["Matricula",doc.matricula||"—","#10b981"],
+            ["Año",doc.anyo||"—","#f59e0b"]
+          ].map(([l,v,c])=>(
             <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 14px"}}>
               <div style={{color:"#e4e9f6",fontSize:10,textTransform:"uppercase",marginBottom:3}}>{l}</div>
               <div style={{color:c,fontWeight:800,fontSize:16}}>{v}</div>
@@ -11592,9 +11609,8 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
         {/* KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:14}}>
           {[
-            ["Maquinas",(data.documentacion||[]).length,"#e2b714"],
-            ["Documentos",(data.documentacion||[]).reduce((s,d)=>s+(d.archivos||[]).length,0),"#3b82f6"],
-            ["Resultados",filtrados.length,"#10b981"],
+            ["Máquinas con ficha",(data.documentacion||[]).length,"#e2b714"],
+            ["Documentos totales",(data.documentacion||[]).reduce((s,d)=>s+(d.archivos||[]).length,0),"#3b82f6"],
           ].map(([l,v,c])=>(
             <div key={l} style={{background:"#151b2a",border:`1px solid ${c}33`,borderRadius:11,padding:"11px 14px"}}>
               <div style={{color:c,fontWeight:800,fontSize:18,lineHeight:1}}>{v}</div>
@@ -11616,12 +11632,17 @@ const Documentacion = ({ data, setData, userActual, filtroInicial, onFiltroConsu
             const nArchivos = (doc.archivos||[]).length;
             const tiposUnicos = [...new Set((doc.archivos||[]).map(a=>a.tipo))];
             const clienteDoc = doc.clienteId ? (data.clientes||[]).find(c=>c.id===doc.clienteId) : null;
+            const maqLinked = doc._maquinaClienteId && clienteDoc
+              ? (clienteDoc.maquinas||[]).find(m=>m.id===doc._maquinaClienteId)
+              : null;
+            const codigoMaq = maqLinked?.codigo || "";
             return (
               <div key={doc.id} onClick={()=>setVista(doc.id)} style={{background:"#151b2a",border:"1px solid #e2b71433",borderRadius:12,padding:"15px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor="#e2b71488";e.currentTarget.style.transform="translateY(-1px)";}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor="#e2b71433";e.currentTarget.style.transform="none";}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                   <div style={{flex:1,minWidth:0}}>
+                    {codigoMaq && <div style={{color:"#0ea5e9",fontWeight:800,fontSize:11,letterSpacing:".5px",marginBottom:3}}>{codigoMaq}</div>}
                     <div style={{color:"#f1f3f9",fontWeight:800,fontSize:15}}>{doc.marca} <span style={{fontWeight:400}}>{doc.modelo}</span></div>
                     <div style={{display:"flex",gap:8,marginTop:3,flexWrap:"wrap"}}>
                       {doc.matricula && <span style={{color:"#e4e9f6",fontSize:11}}>Matr. {doc.matricula}</span>}
