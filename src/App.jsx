@@ -7460,6 +7460,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const [pedidoLineas, setPedidoLineas] = useState([]);
   const [showPedidoModal, setShowPedidoModal] = useState(false);
   const [pedidoEsMaquina, setPedidoEsMaquina] = useState(false);
+  const [enviandoPedido, setEnviandoPedido] = useState(null);
   const [showAlbModal, setShowAlbModal] = useState(false);
 
   // ── CRUD ──
@@ -7925,6 +7926,184 @@ const Contabilidad = ({ data, setData, userActual }) => {
     );
   };
 
+  const generarPDFPedido = async (p) => {
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const W = 210; const mg = 18;
+    // ── Header ──
+    doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
+    doc.setFillColor(245,158,11); doc.rect(0,32,W,2.5,"F");
+    try { doc.addImage(LOGO_CIRCULO,"JPEG",mg,3,26,26); } catch(e) {}
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont("helvetica","bold");
+    doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+30,12);
+    doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(190,200,220);
+    const dirEmp=[emp.dirFiscal,emp.cpFiscal?(emp.cpFiscal+" "+(emp.localidad||"")):(emp.localidad||""),emp.provincia?("("+emp.provincia+")"):""].filter(Boolean).join("  ·  ");
+    doc.text((dirEmp||"Carrer Mas del Jutge 33  ·  46900 Torrent (Valencia)")+"  ·  CIF: "+(emp.nif||"B98527583"),mg+30,18);
+    doc.text((emp.web||"europeademaquinaria.com")+"  ·  admin@europeademaquinaria.com"+(emp.telefono?"  ·  Tel: "+emp.telefono:"  ·  Tel: 961550707"),mg+30,24);
+    doc.setTextColor(245,158,11); doc.setFontSize(14); doc.setFont("helvetica","bold");
+    doc.text("PEDIDO DE COMPRA",W-mg,13,{align:"right"});
+    doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+    doc.text("Nº: "+p.numero,W-mg,21,{align:"right"});
+    doc.text("Fecha: "+(p.fecha?new Date(p.fecha).toLocaleDateString("es-ES"):""),W-mg,27,{align:"right"});
+    doc.setFillColor(255,255,255); doc.rect(0,34,W,264,"F");
+    let y = 42;
+    const SAFE_BOTTOM = 252;
+    const addPageBreak = () => {
+      doc.addPage();
+      doc.setFillColor(255,255,255); doc.rect(0,0,W,297,"F");
+      doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+      doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+      doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+      doc.text((emp.razonSocial||"Europea de Maquinaria PMM SL")+"  ·  CIF "+(emp.nif||"B98527583")+"  ·  "+(emp.web||"europeademaquinaria.com"),W/2,291,{align:"center"});
+      y = 20;
+    };
+    const ensureSpace = (needed) => { if (y + needed > SAFE_BOTTOM) addPageBreak(); };
+    const box = (tit, filas) => {
+      const visibles = filas.filter(([,v])=>v||v===0).length;
+      ensureSpace(7 + visibles * 7 + 8);
+      const yS = y;
+      doc.setFillColor(230,235,245); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"F");
+      doc.setDrawColor(180,190,210); doc.roundedRect(mg,yS,W-mg*2,7,1,1,"S");
+      doc.setTextColor(40,60,110); doc.setFontSize(8); doc.setFont("helvetica","bold");
+      doc.text(tit.toUpperCase(),mg+4,yS+5);
+      let fy = yS+13;
+      filas.forEach(([l,v])=>{
+        if(!v&&v!==0) return;
+        doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+        doc.text(l+":",mg+4,fy);
+        doc.setTextColor(25,35,60); doc.setFontSize(9); doc.setFont("helvetica","bold");
+        const lines=doc.splitTextToSize(String(v),W-mg*2-52);
+        doc.text(lines,mg+52,fy);
+        fy+=Math.max(lines.length*5.5,6.5);
+      });
+      y = fy+4;
+    };
+    // ── Proveedor ──
+    const provObj=(data.proveedores||[]).find(pv=>pv.razonSocial===p.proveedor);
+    const dirProv=[provObj?.dirFiscal,[provObj?.cpFiscal,provObj?.localidad,provObj?.provincia].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    box("Datos del proveedor",[
+      ["Empresa",p.proveedor||"—"],
+      ["NIF/CIF",p.nifProveedor||provObj?.nif||""],
+      ...(dirProv?[["Dirección",dirProv]]:[]),
+      ...(provObj?.email?[["Email",provObj.email]]:[]),
+      ...(provObj?.tel?[["Teléfono",provObj.tel]]:[]),
+    ]);
+    box("Datos del pedido",[
+      ["Número",p.numero],
+      ["Fecha",p.fecha?new Date(p.fecha).toLocaleDateString("es-ES"):""],
+      ["Estado",p.estado||""],
+      ...(p.categoria?[["Categoría",p.categoria]]:[]),
+      ...(p.formaPago?[["Forma de pago",p.formaPago]]:[]),
+    ]);
+    // ── Tabla líneas ──
+    const lins=p.lineas||[];
+    if(lins.length){
+      const tW=W-mg*2;
+      const cD=mg,cC=mg+80,cP=mg+95,cDt=mg+127,cS=mg+143;
+      ensureSpace(12);
+      doc.setFillColor(40,60,110); doc.rect(cD,y,tW,6,"F");
+      doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont("helvetica","bold");
+      doc.text("DESCRIPCIÓN",cD+3,y+4.5);
+      doc.text("CANT.",cC+12,y+4.5,{align:"right"});
+      doc.text("P.UNIT.",cP+29,y+4.5,{align:"right"});
+      doc.text("DTO%",cS-1,y+4.5,{align:"right"});
+      doc.text("SUBTOTAL",W-mg-2,y+4.5,{align:"right"});
+      y+=8;
+      lins.forEach((ln,i)=>{
+        const desc=ln.descripcion||"";
+        const descLines=doc.splitTextToSize(desc,cC-cD-5);
+        const rowH=Math.max(descLines.length*5+4,7);
+        ensureSpace(rowH+2);
+        if(i%2===0){doc.setFillColor(245,248,255);doc.rect(cD,y,tW,rowH,"F");}
+        doc.setTextColor(25,35,60); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
+        doc.text(descLines,cD+3,y+4.5);
+        doc.text(String(ln.cantidad||1),cC+12,y+4.5,{align:"right"});
+        doc.text(fmtEur(ln.precioUnitario||0),cP+29,y+4.5,{align:"right"});
+        doc.text((ln.descuento||0)+"%",cS-1,y+4.5,{align:"right"});
+        doc.setFont("helvetica","bold");
+        doc.text(fmtEur(ln.subtotal||0),W-mg-2,y+4.5,{align:"right"});
+        y+=rowH;
+      });
+      y+=4;
+    }
+    // ── Totales ──
+    ensureSpace(32);
+    const xL=mg+(W-mg*2)*0.55; const xR=W-mg;
+    const rowT=(label,val,bold)=>{
+      doc.setFontSize(9);
+      if(bold){doc.setFont("helvetica","bold");doc.setTextColor(25,35,60);}
+      else{doc.setFont("helvetica","normal");doc.setTextColor(80,95,120);}
+      doc.text(label,xL,y); doc.text(fmtEur(val),xR,y,{align:"right"}); y+=6;
+    };
+    rowT("Base imponible:",p.baseImponible||0,false);
+    rowT("IVA ("+(p.tipoIVA||21)+"%):",p.cuotaIVA||0,false);
+    doc.setFillColor(40,60,110); doc.roundedRect(xL-4,y-2,xR-xL+8,9,1,1,"F");
+    doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
+    doc.text("TOTAL:",xL,y+5); doc.text(fmtEur(p.total||0),xR,y+5,{align:"right"}); y+=14;
+    // ── Notas ──
+    if(p.notas){
+      ensureSpace(20);
+      doc.setFillColor(245,248,255); doc.roundedRect(mg,y,W-mg*2,14,1,1,"F");
+      doc.setTextColor(80,95,120); doc.setFontSize(7.5); doc.setFont("helvetica","italic");
+      const nLines=doc.splitTextToSize("Notas: "+p.notas,W-mg*2-8);
+      doc.text(nLines,mg+4,y+5); y+=nLines.length*5+8;
+    }
+    // ── Footer ──
+    doc.setFillColor(245,158,11); doc.rect(0,281,W,1.5,"F");
+    doc.setFillColor(15,23,42); doc.rect(0,282.5,W,14.5,"F");
+    doc.setTextColor(190,200,220); doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text((emp.razonSocial||"Europea de Maquinaria PMM SL")+"  ·  CIF "+(emp.nif||"B98527583")+"  ·  "+(emp.web||"europeademaquinaria.com"),W/2,291,{align:"center"});
+    return doc.output("datauristring");
+  };
+
+  const descargarPDFPedido = async (p) => {
+    const uri = await generarPDFPedido(p);
+    const a = document.createElement("a");
+    a.href = uri; a.download = p.numero+".pdf"; a.click();
+  };
+
+  const enviarPDFPedido = async (p) => {
+    const provObj=(data.proveedores||[]).find(pv=>pv.razonSocial===p.proveedor);
+    const email = provObj?.email || prompt("Email del proveedor:");
+    if (!email?.trim()) return;
+    setEnviandoPedido(p.id);
+    try {
+      const uri = await generarPDFPedido(p);
+      const base64 = uri.split(",")[1];
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:24px;border-radius:12px">
+          <div style="background:#0f172a;border-radius:10px 10px 0 0;padding:20px 24px;margin-bottom:0">
+            <h2 style="color:#f59e0b;margin:0;font-size:18px">PEDIDO DE COMPRA ${p.numero}</h2>
+            <p style="color:#cbd5e1;margin:6px 0 0;font-size:13px">Europea de Maquinaria PMM SL</p>
+          </div>
+          <div style="background:#fff;border-radius:0 0 10px 10px;padding:24px">
+            <p style="color:#334155;font-size:14px">Estimados señores,</p>
+            <p style="color:#334155;font-size:14px">Adjuntamos el pedido de compra <strong>${p.numero}</strong> con fecha ${p.fecha?new Date(p.fecha).toLocaleDateString("es-ES"):""} para su tramitación.</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+              <tr style="background:#f1f5f9"><td style="padding:8px 12px;color:#64748b">Pedido nº</td><td style="padding:8px 12px;font-weight:700">${p.numero}</td></tr>
+              ${p.categoria?`<tr><td style="padding:8px 12px;color:#64748b">Categoría</td><td style="padding:8px 12px">${p.categoria}</td></tr>`:""}
+              ${p.formaPago?`<tr style="background:#f1f5f9"><td style="padding:8px 12px;color:#64748b">Forma de pago</td><td style="padding:8px 12px">${p.formaPago}</td></tr>`:""}
+              <tr><td style="padding:8px 12px;color:#64748b">Total</td><td style="padding:8px 12px;font-weight:700;font-size:15px;color:#16a34a">${fmtEur(p.total||0)}</td></tr>
+            </table>
+            <p style="color:#334155;font-size:14px">Quedamos a su disposición para cualquier consulta.</p>
+            <p style="color:#334155;font-size:14px;margin-bottom:0">Un saludo,<br/><strong>Europea de Maquinaria PMM SL</strong><br/><span style="color:#64748b;font-size:12px">${emp.web||"europeademaquinaria.com"}</span></p>
+          </div>
+        </div>`;
+      await fetch(MAIL_API_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Api-Key":API_KEY},body:JSON.stringify({
+        to:email.trim(),
+        toName:p.proveedor||"",
+        subject:"Pedido de compra "+p.numero+" — Europea de Maquinaria",
+        html,
+        attachmentBase64:base64,
+        attachmentName:p.numero+".pdf",
+        attachmentMime:"application/pdf",
+      })});
+      // Marcar pedido como Enviado
+      setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).map(x=>x.id===p.id?{...x,estado:"Enviado"}:x)}}));
+      alert("Pedido enviado a "+email.trim());
+    } catch(e) { alert("Error al enviar: "+e.message); }
+    finally { setEnviandoPedido(null); }
+  };
+
   const renderPedidos = () => {
     const lista = (cont.pedidos||[]).slice().sort((a,b)=>(b.fecha||"").localeCompare(a.fecha||""));
     const ESTADO_COLOR = {Borrador:"#8899b4",Enviado:"#f59e0b",Recibido:"#10b981",Cancelado:"#dc2626"};
@@ -7976,6 +8155,8 @@ const Contabilidad = ({ data, setData, userActual }) => {
                     setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),...nuevas]}:c)}));
                     alert(`${nuevas.length} máquina${nuevas.length!==1?"s":""} añadida${nuevas.length!==1?"s":""} a Stock Maquinaria Nueva. Ve a esa sección para completar los datos.`);
                   }} style={{...btnSm("#f9731622","#f97316"),fontSize:11,padding:"5px 8px"}}>→ Stock</button>}
+                  <button onClick={()=>descargarPDFPedido(p)} style={btnSm("#1e3a5f","#60a5fa")} title="Descargar PDF"><Icon name="file-text" size={12}/></button>
+                  <button onClick={()=>enviarPDFPedido(p)} disabled={enviandoPedido===p.id} style={{...btnSm("#1a3320","#10b981"),opacity:enviandoPedido===p.id?0.6:1}} title="Enviar al proveedor">{enviandoPedido===p.id?"...":"✉️"}</button>
                   <button onClick={()=>{setPedidoForm({...p});setPedidoLineas(p.lineas?[...p.lineas]:[]);setPedidoEsMaquina(!!p.esMaquinaNueva);setShowPedidoModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>
                   <button onClick={()=>{if(!window.confirm("¿Eliminar pedido "+p.numero+"?"))return;setData(d=>({...d,contabilidad:{...d.contabilidad,pedidos:(d.contabilidad.pedidos||[]).filter(x=>x.id!==p.id)}}));}} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={12}/></button>
                 </div>
