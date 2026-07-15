@@ -12743,15 +12743,17 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                     </div>
                     {cl&&<div style={{color:"#e4e9f6",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
                     {maq&&<div style={{color:"#e4e9f6",fontSize:11}}>🔧 {maq.nombre}</div>}
-                    {nombresAsig
-                      ? <div style={{color:"#3b82f6",fontSize:11}}>👤 {nombresAsig}</div>
-                      : <div style={{color:"#f59e0b",fontSize:11}}>👤 Sin técnico asignado</div>}
-                    {(sinFecha||sinAsignado)&&(
-                      <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
-                        style={{marginTop:7,background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:6,padding:"4px 10px",color:"#3b82f6",fontSize:11,fontWeight:700,cursor:"pointer",width:"100%"}}>
-                        📅 Asignar fecha y técnico
-                      </button>
-                    )}
+                    {(!sinFecha&&!sinAsignado)
+                      ? <div style={{marginTop:7,background:"#10b98118",border:"1px solid #10b98144",borderRadius:6,padding:"5px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                          <span style={{color:"#10b981",fontSize:11,fontWeight:700}}>✅ {nombresAsig} · {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" "+av.horaResolucion:""}</span>
+                          <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
+                            style={{background:"none",border:"none",color:"#3b82f6",fontSize:10,cursor:"pointer",padding:0,flexShrink:0,textDecoration:"underline",textDecorationStyle:"dotted"}}>Cambiar</button>
+                        </div>
+                      : <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
+                          style={{marginTop:7,background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:6,padding:"5px 10px",color:"#3b82f6",fontSize:11,fontWeight:700,cursor:"pointer",width:"100%"}}>
+                          📅 Asignar fecha y técnico
+                        </button>
+                    }
                   </div>
                 );
               })}
