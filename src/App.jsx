@@ -1269,7 +1269,7 @@ const Login = ({ usuarios, onLogin }) => {
   );
 };
 const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId, userActual, onVenderMaquina }) => {
-  const puedeEliminar = userActual?.rol==="manager";
+  const puedeEliminar = userActual?.rol==="manager" || userActual?.rol==="admin";
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   useEffect(()=>{
     if(!abrirClienteId) return;
