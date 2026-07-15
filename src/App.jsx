@@ -3458,7 +3458,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                     </span>
                   )}
                   {listaNombres(av,"asignados","asignado").length>0 && <span style={{color:"#e4e9f6",fontSize:11}}>🔧 {fmtNombres(av,"asignados","asignado")}</span>}
-                  {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
+                  {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {fmtFecha(av.fechaResolucion)}{av.turnoResolucion?" · "+av.turnoResolucion:av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
               <div style={{display:"flex",alignItems:"center",flexShrink:0,marginLeft:"auto",gap:0}}>
@@ -3535,7 +3535,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           ["Dado por", detalle.dadoPor],
           ["Metodo de aviso", detalle.metodoAviso||"—"],
           ["Fecha aviso", `${fmtFecha(detalle.fechaAviso)} (${diasDesde(detalle.fechaAviso)} días)`],
-          ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {fmtFecha(detalle.fechaResolucion)}{detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []),
+          ...(detalle.fechaResolucion ? [["Fecha estimada de reparación", <span style={{color:"#3b82f6",fontWeight:800}}>📅 {fmtFecha(detalle.fechaResolucion)}{detalle.turnoResolucion?" · "+detalle.turnoResolucion:detalle.horaResolucion?" · "+detalle.horaResolucion:""}</span>]] : []),
           ...(detalle.fechaUltimaIntervencion ? [["Última intervención", <span style={{color:"#f59e0b",fontWeight:800}}>🔧 {fmtFecha(detalle.fechaUltimaIntervencion)}</span>]] : []),
           ["Asignado", listaNombres(detalle,"asignados","asignado").join(" y ") || "Sin asignar"],
           ["Registrado por", detalle.creadoPor||"—"],
@@ -12754,18 +12754,18 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                     <div style={{color:"#e4e9f6",fontSize:11,marginBottom:4}}>
                       📅 Aviso: {fmtFecha(av.fechaAviso)}
                       {av.fechaResolucion
-                        ? <span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>
+                        ? <span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {fmtFecha(av.fechaResolucion)}{av.turnoResolucion?" · "+av.turnoResolucion:av.horaResolucion?" · "+av.horaResolucion:""}</span>
                         : <span style={{color:"#f59e0b",fontWeight:700,marginLeft:8}}>⚠ Sin fecha asignada</span>}
                     </div>
                     {cl&&<div style={{color:"#e4e9f6",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
                     {maq&&<div style={{color:"#e4e9f6",fontSize:11}}>🔧 {maq.nombre}</div>}
                     {(!sinFecha&&!sinAsignado)
                       ? <div style={{marginTop:7,background:"#10b98118",border:"1px solid #10b98144",borderRadius:6,padding:"5px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
-                          <span style={{color:"#10b981",fontSize:11,fontWeight:700}}>✅ {nombresAsig} · {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" "+av.horaResolucion:""}</span>
-                          <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
+                          <span style={{color:"#10b981",fontSize:11,fontWeight:700}}>✅ {nombresAsig} · {fmtFecha(av.fechaResolucion)}{av.turnoResolucion?" · "+av.turnoResolucion:av.horaResolucion?" · "+av.horaResolucion:""}</span>
+                          <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",turno:av.turnoResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
                             style={{background:"none",border:"none",color:"#3b82f6",fontSize:10,cursor:"pointer",padding:0,flexShrink:0,textDecoration:"underline",textDecorationStyle:"dotted"}}>Cambiar</button>
                         </div>
-                      : <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
+                      : <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",turno:av.turnoResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
                           style={{marginTop:7,background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:6,padding:"5px 10px",color:"#3b82f6",fontSize:11,fontWeight:700,cursor:"pointer",width:"100%"}}>
                           📅 Asignar fecha y técnico
                         </button>
@@ -12790,7 +12790,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           });
         };
         const guardar=()=>{
-          setData(d=>({...d,avisos:d.avisos.map(a=>a.id===modalAsignarAviso?{...a,fechaResolucion:formAsignar.fecha||a.fechaResolucion,horaResolucion:formAsignar.hora||a.horaResolucion,asignados:formAsignar.asignados,_ts:Date.now()}:a)}));
+          setData(d=>({...d,avisos:d.avisos.map(a=>a.id===modalAsignarAviso?{...a,fechaResolucion:formAsignar.fecha||a.fechaResolucion,horaResolucion:formAsignar.hora,turnoResolucion:formAsignar.turno||"",asignados:formAsignar.asignados,_ts:Date.now()}:a)}));
           setModalAsignarAviso(null);
         };
         return(
@@ -12801,17 +12801,17 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             </Field>
             <Field label="Hora">
               <div style={{display:"flex",gap:6,marginBottom:7,flexWrap:"wrap"}}>
-                {[["Mañana","09:00"],["Tarde","15:00"],["Día completo",""]].map(([lbl,h])=>{
-                  const sel = lbl==="Día completo" ? !formAsignar.hora : formAsignar.hora===h;
+                {["Mañana","Tarde","Día completo"].map(lbl=>{
+                  const sel = formAsignar.turno===lbl;
                   return(
-                    <button key={lbl} onClick={()=>setFormAsignar(p=>({...p,hora:h}))}
+                    <button key={lbl} onClick={()=>setFormAsignar(p=>({...p,turno:lbl,hora:""}))}
                       style={{background:sel?"#3b82f6":"#1a2236",border:"1px solid "+(sel?"#3b82f6":"#2a3550"),borderRadius:7,padding:"5px 12px",color:sel?"#fff":"#e4e9f6",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
                       {lbl}
                     </button>
                   );
                 })}
               </div>
-              <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value}))} style={inputStyle} placeholder="O escribe hora exacta"/>
+              <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value,turno:""}))} style={inputStyle} placeholder="O escribe hora exacta"/>
             </Field>
             <Field label="Técnico(s) asignado(s)">
               <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:4}}>
