@@ -3461,11 +3461,24 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,marginLeft:"auto",maxWidth:"38%"}}>
-                {av.prioridad==="Alta"&&diasDesde(av.fechaAviso)>=14&&av.estado!=="Resuelto"&&av.estado!=="Cancelado"&&(
-                  <span style={{background:"#dc2626",color:"#fff",borderRadius:5,padding:"2px 6px",fontSize:9,fontWeight:900,marginRight:4,animation:"pulse 2s infinite"}}>🚨 +14d</span>
-                )}
-                <DiasBadge fecha={av.fechaAviso} estado={av.estado} />
+              {(()=>{
+                if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
+                const d=diasDesde(av.fechaAviso);
+                const c=d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
+                return(
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"4px 10px",minWidth:76,borderLeft:"1px solid #2a3550"}}>
+                    <div style={{color:c,fontWeight:900,fontSize:d>=100?34:42,lineHeight:1}}>{d===0?"—":d}</div>
+                    <div style={{color:c,fontSize:10,fontWeight:800,marginTop:3,textAlign:"center",lineHeight:1.2}}>
+                      {d===0?"hoy":d===1?"día":"días"}
+                    </div>
+                    <div style={{color:"#8899b4",fontSize:9,textAlign:"center",marginTop:2,lineHeight:1.2}}>
+                      {d===0?"aviso de hoy":"aviso pendiente"}
+                    </div>
+                    {d>=14&&<div style={{marginTop:4,background:"#dc2626",color:"#fff",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:900,animation:"pulse 2s infinite"}}>🚨 URGENTE</div>}
+                  </div>
+                );
+              })()}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,maxWidth:"38%"}}>
                 <Badge text={av.estado} />
                 <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:90}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
@@ -12783,8 +12796,19 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
             <Field label="Fecha prevista de resolución">
               <DatePickerCalendar value={formAsignar.fecha} onChange={e=>setFormAsignar(p=>({...p,fecha:e.target.value}))} placeholder="Seleccionar fecha"/>
             </Field>
-            <Field label="Hora (opcional)">
-              <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value}))} style={inputStyle}/>
+            <Field label="Hora">
+              <div style={{display:"flex",gap:6,marginBottom:7,flexWrap:"wrap"}}>
+                {[["Mañana","09:00"],["Tarde","15:00"],["Día completo",""]].map(([lbl,h])=>{
+                  const sel = lbl==="Día completo" ? !formAsignar.hora : formAsignar.hora===h;
+                  return(
+                    <button key={lbl} onClick={()=>setFormAsignar(p=>({...p,hora:h}))}
+                      style={{background:sel?"#3b82f6":"#1a2236",border:"1px solid "+(sel?"#3b82f6":"#2a3550"),borderRadius:7,padding:"5px 12px",color:sel?"#fff":"#e4e9f6",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+              <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value}))} style={inputStyle} placeholder="O escribe hora exacta"/>
             </Field>
             <Field label="Técnico(s) asignado(s)">
               <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:4}}>
