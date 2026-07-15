@@ -3712,6 +3712,25 @@ const Ventas = ({ data, setData, userActual }) => {
   const [search, setSearch] = useState("");
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const fc = k => e => setFormCierre(p => ({ ...p, [k]: e.target.value }));
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false);
+  const [formNuevoCliente, setFormNuevoCliente] = useState({});
+  const fnc = k => e => setFormNuevoCliente(p => ({ ...p, [k]: e.target.value }));
+  const crearNuevoClienteYSeleccionar = () => {
+    if (!formNuevoCliente.nombreEmpresa?.trim()) return;
+    const nc = {
+      id: Date.now(), _ts: Date.now(),
+      nombreEmpresa: formNuevoCliente.nombreEmpresa.trim(),
+      nombreFiscal: formNuevoCliente.nombreEmpresa.trim(),
+      localidad: formNuevoCliente.localidad?.trim() || "",
+      contactos: formNuevoCliente.contacto?.trim()
+        ? [{ id: Date.now(), nombre: formNuevoCliente.contacto.trim(), tel: formNuevoCliente.tel?.trim() || "", email: "", puesto: "", principal: true }]
+        : [],
+      maquinas: [], notas: "",
+    };
+    setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
+    setForm(p => ({ ...p, clienteId: nc.id }));
+    setModalNuevoCliente(false); setFormNuevoCliente({});
+  };
   const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
   const uN = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "—";
   // Una venta puede tener varias máquinas ofertadas, cada una con su propio precio
@@ -3814,7 +3833,7 @@ const Ventas = ({ data, setData, userActual }) => {
         Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {ventaSeg.personaContacto ? (cN(ventaSeg.clienteId) !== "—" ? `${ventaSeg.personaContacto} (${cN(ventaSeg.clienteId)})` : ventaSeg.personaContacto) : cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
       </div>
       <Field label="Fecha exacta">
-        <Input type="date" value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} />
+        <DatePickerCalendar value={formSeguimiento.fecha} onChange={v => setFormSeguimiento(p => ({ ...p,fecha: v,dias: "" }))} placeholder="Seleccionar fecha" />
       </Field>
       <div style={{textAlign:"center",color:"#e4e9f6",fontSize:11,margin:"10px 0",fontWeight:700}}>— O —</div>
       <Field label="Dentro de (días)">
@@ -3832,8 +3851,23 @@ const Ventas = ({ data, setData, userActual }) => {
   // porque ese JSX solo estaba en el return de la lista.
   const modalEditarJSX = modal && (
     <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
+      {modalNuevoCliente && (
+        <Modal title="Nuevo cliente" onClose={() => setModalNuevoCliente(false)}>
+          <Field label="Nombre empresa *"><input autoFocus value={formNuevoCliente.nombreEmpresa||""} onChange={fnc("nombreEmpresa")} placeholder="Ej: Muebles García S.L." style={inputStyle}/></Field>
+          <Field label="Persona de contacto"><input value={formNuevoCliente.contacto||""} onChange={fnc("contacto")} placeholder="Nombre" style={inputStyle}/></Field>
+          <Field label="Teléfono"><input value={formNuevoCliente.tel||""} onChange={fnc("tel")} placeholder="612 345 678" type="tel" style={inputStyle}/></Field>
+          <Field label="Localidad"><input value={formNuevoCliente.localidad||""} onChange={fnc("localidad")} placeholder="Ciudad" style={inputStyle}/></Field>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}>
+            <button onClick={()=>setModalNuevoCliente(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={crearNuevoClienteYSeleccionar} disabled={!formNuevoCliente.nombreEmpresa?.trim()} style={{...btnPrimary,opacity:formNuevoCliente.nombreEmpresa?.trim()?1:0.5}}>Crear y seleccionar</button>
+          </div>
+        </Modal>
+      )}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
-        <Field label="Cliente"><ClientePicker clientes={data.clientes} value={form.clienteId} onChange={id => setForm(p=>({...p,clienteId: id}))}/></Field>
+        <Field label="Cliente">
+          <ClientePicker clientes={data.clientes} value={form.clienteId} onChange={id => setForm(p=>({...p,clienteId: id}))}/>
+          <button onClick={()=>{setFormNuevoCliente({});setModalNuevoCliente(true);}} style={{background:"none",border:"none",color:"#3b82f6",fontSize:11,cursor:"pointer",padding:"3px 0",textDecoration:"underline",textDecorationStyle:"dotted",textAlign:"left"}}>+ El cliente no existe, crear nuevo</button>
+        </Field>
         <Field label="Fecha inicio"><DatePickerCalendar value={form.fecha} onChange={f("fecha")} /></Field>
       </div>
       <Field label="Máquina demandada / necesidad"><Input value={form.maquina} onChange={f("maquina")} placeholder="Ej: CNC Busellato Jet Start 3 ejes" /></Field>
