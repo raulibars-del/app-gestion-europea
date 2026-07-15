@@ -3833,7 +3833,7 @@ const Ventas = ({ data, setData, userActual }) => {
         Se creará una tarea para {uN(ventaSeg.comercialId)}: "Contactar con {ventaSeg.personaContacto ? (cN(ventaSeg.clienteId) !== "—" ? `${ventaSeg.personaContacto} (${cN(ventaSeg.clienteId)})` : ventaSeg.personaContacto) : cN(ventaSeg.clienteId)} para oferta de {ventaSeg.maquina}".
       </div>
       <Field label="Fecha exacta">
-        <DatePickerCalendar value={formSeguimiento.fecha} onChange={v => setFormSeguimiento(p => ({ ...p,fecha: v,dias: "" }))} placeholder="Seleccionar fecha" />
+        <DatePickerCalendar value={formSeguimiento.fecha} onChange={e => setFormSeguimiento(p => ({ ...p,fecha: e.target.value,dias: "" }))} placeholder="Seleccionar fecha" />
       </Field>
       <div style={{textAlign:"center",color:"#e4e9f6",fontSize:11,margin:"10px 0",fontWeight:700}}>— O —</div>
       <Field label="Dentro de (días)">
@@ -12781,7 +12781,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           <Modal title="Asignar fecha y técnico" onClose={()=>setModalAsignarAviso(null)}>
             <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:12}}>{av.titulo}</div>
             <Field label="Fecha prevista de resolución">
-              <DatePickerCalendar value={formAsignar.fecha} onChange={v=>setFormAsignar(p=>({...p,fecha:v}))} placeholder="Seleccionar fecha"/>
+              <DatePickerCalendar value={formAsignar.fecha} onChange={e=>setFormAsignar(p=>({...p,fecha:e.target.value}))} placeholder="Seleccionar fecha"/>
             </Field>
             <Field label="Hora (opcional)">
               <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value}))} style={inputStyle}/>
