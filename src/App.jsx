@@ -355,14 +355,25 @@ function parsearCSVContabilidad(text) {
 // nuestra edición, pero se devuelve en "conflictos" para poder avisar solo en ese caso).
 const mismoJSON = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
-  // Atajo "local sin cambios → tomar remoto", PERO no aplica si hay ítems con _ts
-  // porque el _ts en un ítem indica que fue modificado intencionalmente aquí y su
-  // versión supera a la del remoto. Sin esta excepción, cuando doSave actualiza
-  // lastSyncedRef a {Completada,_ts:T1} y otro dispositivo guarda Pendiente al servidor,
-  // el pull detecta local===base y devuelve el remoto (Pendiente) sin hacer merge por ítem,
-  // perdiendo la protección del _ts.
-  const localTieneTs = Array.isArray(local) && local.some(x => x && x._ts);
-  if (mismoJSON(local, base) && !localTieneTs) return remoto; // no lo tocamos -> manda el remoto
+  // Atajo "local sin cambios → tomar remoto", PERO no aplica si algún ítem local
+  // tiene _ts MAYOR que el correspondiente en el remoto — eso significa que este
+  // dispositivo tiene una versión más reciente del ítem (p.ej. tarea Completada con T1)
+  // aunque lastSyncedRef ya fue actualizado al estado post-guardado.
+  // IMPORTANT: solo se activa cuando local._ts > remote._ts, NO cuando son iguales
+  // (lo que ocurre si el dato ya se guardó correctamente). Así evitamos el merge
+  // completo innecesario que, con local===base, trata clientes-en-base-no-en-local
+  // como "borrados localmente" y los elimina del resultado.
+  if (mismoJSON(local, base)) {
+    const necesitaMergeTs = Array.isArray(local) && Array.isArray(remoto) && (() => {
+      const remotoById = new Map(remoto.filter(x => x && x.id != null).map(x => [x.id, x]));
+      return local.some(x => {
+        if (!x || !x._ts) return false;
+        const r = remotoById.get(x.id);
+        return !r || !r._ts || x._ts > r._ts;
+      });
+    })();
+    if (!necesitaMergeTs) return remoto; // no lo tocamos (o ya sincronizado) -> manda el remoto
+  }
   if (mismoJSON(local, remoto)) return remoto; // el remoto ya tiene lo mismo que nosotros
   if (Array.isArray(local) && Array.isArray(remoto)) {
     const conIds = local.every(x => x && typeof x === "object" && "id" in x) && remoto.every(x => x && typeof x === "object" && "id" in x);
@@ -14708,8 +14719,18 @@ function AppInner() {
               continue;
             }
             const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
-            aGuardar = combined;
-            dataActual = aplicarSeccion(dataActual, seccion, combined);
+            // SAFETY NET: si el merge devuelve drásticamente menos ítems que el remoto
+            // (menos del 40% y más de 5 en el servidor), algo fue mal — usamos el remoto.
+            // Esto protege frente a pérdidas masivas de datos (p.ej. clientes borrados
+            // por un merge incorrecto) sin interferir con borrados legítimos unitarios.
+            let safeResult = combined;
+            if (Array.isArray(combined) && Array.isArray(remoteData) && remoteData.length > 5
+                && combined.length < Math.ceil(remoteData.length * 0.4)) {
+              console.warn(`[sync] SAFETY: merge de "${seccion}" produjo ${combined.length} ítems vs ${remoteData.length} en servidor — usando datos del servidor.`);
+              safeResult = remoteData;
+            }
+            aGuardar = safeResult;
+            dataActual = aplicarSeccion(dataActual, seccion, safeResult);
             mergeOcurrido = true;
             lastSyncedRef.current[seccion] = remoteJson;
             lastVersionRef.current[seccion] = remoto.versions?.[seccion];
@@ -14730,6 +14751,17 @@ function AppInner() {
             && !(Array.isArray(initialSection) && initialSection.length === 0);
           if(aGuardarEsInitialNoVacio && Array.isArray(remoteData) && remoteData.length > 0){
             console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de plantilla inicial sobre datos reales del servidor.`);
+            lastSyncedRef.current[seccion] = remoteJson;
+            dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+            mergeOcurrido = true;
+            continue;
+          }
+          // SAFETY NET pre-guardado: nunca subir al servidor muchos menos ítems de los que hay.
+          // Protege frente a un merge incorrecto que hubiera reducido el array drásticamente.
+          // El umbral del 40% es permisivo para borrados legítimos pero detiene pérdidas masivas.
+          if (Array.isArray(aGuardar) && Array.isArray(remoteData) && remoteData.length > 5
+              && aGuardar.length < Math.ceil(remoteData.length * 0.4)) {
+            console.warn(`[sync] BLOQUEADO pre-save: ${seccion} tendría ${aGuardar.length} ítems vs ${remoteData.length} en servidor.`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             mergeOcurrido = true;
