@@ -3464,17 +3464,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               {(()=>{
                 if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
                 const d=diasDesde(av.fechaAviso);
-                const c=d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
+                const c=d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+                const bg=d>=30?"#111111":d>=14?"#dc262615":d>=7?"#f59e0b15":"#16a34a15";
+                const brd=d>=30?"1px solid #ffffff55":d>=14?"1px solid #dc262633":d>=7?"1px solid #f59e0b33":"1px solid #16a34a33";
                 return(
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"4px 10px",minWidth:76,borderLeft:"1px solid #2a3550"}}>
-                    <div style={{color:c,fontWeight:900,fontSize:d>=100?34:42,lineHeight:1}}>{d===0?"—":d}</div>
-                    <div style={{color:c,fontSize:10,fontWeight:800,marginTop:3,textAlign:"center",lineHeight:1.2}}>
-                      {d===0?"hoy":d===1?"día":"días"}
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"8px 14px",minWidth:82,borderLeft:"1px solid #2a3550",background:bg,border:brd,borderRadius:8,margin:"0 6px",gap:0}}>
+                    <div style={{color:c,fontWeight:900,fontSize:d>=100?32:46,lineHeight:1,textAlign:"center"}}>{d}</div>
+                    <div style={{color:c,fontSize:13,fontWeight:800,textAlign:"center",marginTop:4,lineHeight:1}}>
+                      {d===1?"día":"días"}
                     </div>
-                    <div style={{color:"#8899b4",fontSize:9,textAlign:"center",marginTop:2,lineHeight:1.2}}>
-                      {d===0?"aviso de hoy":"aviso pendiente"}
+                    <div style={{color:d>=30?"#cccccc":"#9bacc8",fontSize:11,textAlign:"center",marginTop:5,fontWeight:700,lineHeight:1.2,letterSpacing:".3px"}}>
+                      aviso<br/>pendiente
                     </div>
-                    {d>=14&&<div style={{marginTop:4,background:"#dc2626",color:"#fff",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:900,animation:"pulse 2s infinite"}}>🚨 URGENTE</div>}
                   </div>
                 );
               })()}
