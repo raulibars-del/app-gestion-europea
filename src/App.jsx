@@ -3461,25 +3461,26 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.fechaResolucion && <span style={{background:"#3b82f620",color:"#3b82f6",border:"1px solid #3b82f633",borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>📅 {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
                 </div>
               </div>
-              {(()=>{
-                if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
-                const d=diasDesde(av.fechaAviso);
-                const c=d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
-                const bg=d>=30?"#111111":d>=14?"#dc262615":d>=7?"#f59e0b15":"#16a34a15";
-                const brd=d>=30?"1px solid #ffffff55":d>=14?"1px solid #dc262633":d>=7?"1px solid #f59e0b33":"1px solid #16a34a33";
-                return(
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,padding:"8px 14px",minWidth:82,borderLeft:"1px solid #2a3550",background:bg,border:brd,borderRadius:8,margin:"0 6px",gap:0}}>
-                    <div style={{color:c,fontWeight:900,fontSize:d>=100?32:46,lineHeight:1,textAlign:"center"}}>{d}</div>
-                    <div style={{color:c,fontSize:13,fontWeight:800,textAlign:"center",marginTop:4,lineHeight:1}}>
-                      {d===1?"día":"días"}
+              <div style={{display:"flex",alignItems:"center",flexShrink:0,marginLeft:"auto",gap:0}}>
+                {(()=>{
+                  if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
+                  const d=diasDesde(av.fechaAviso);
+                  const c=d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+                  const bg=d>=30?"#111111":d>=14?"#dc262615":d>=7?"#f59e0b15":"#16a34a15";
+                  const brd=d>=30?"1px solid #ffffff55":d>=14?"1px solid #dc262633":d>=7?"1px solid #f59e0b33":"1px solid #16a34a33";
+                  return(
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",width:96,padding:"8px 10px",background:bg,border:brd,borderRadius:8,marginRight:8,gap:0}}>
+                      <div style={{color:c,fontWeight:900,fontSize:d>=100?30:46,lineHeight:1,textAlign:"center"}}>{d}</div>
+                      <div style={{color:c,fontSize:13,fontWeight:800,textAlign:"center",marginTop:4,lineHeight:1}}>
+                        {d===1?"día":"días"}
+                      </div>
+                      <div style={{color:d>=30?"#cccccc":"#9bacc8",fontSize:11,textAlign:"center",marginTop:5,fontWeight:700,lineHeight:1.3,letterSpacing:".3px"}}>
+                        aviso<br/>pendiente
+                      </div>
                     </div>
-                    <div style={{color:d>=30?"#cccccc":"#9bacc8",fontSize:11,textAlign:"center",marginTop:5,fontWeight:700,lineHeight:1.2,letterSpacing:".3px"}}>
-                      aviso<br/>pendiente
-                    </div>
-                  </div>
-                );
-              })()}
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0,maxWidth:"38%"}}>
+                  );
+                })()}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,width:110}}>
                 <Badge text={av.estado} />
                 <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:90}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
@@ -3492,6 +3493,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
                 </div>
               </div>
+              </div>{/* fin wrapper días+acciones */}
               {av.estado === "Resuelto" && (
                 <div style={{flex:"1 1 100%",background:"#16a34a1f",border:"1px solid #16a34a55",borderRadius:8,padding:"7px 12px",marginTop:2}}>
                   <span style={{color:"#22c55e",fontWeight:900,fontSize:14,letterSpacing:0.2,overflowWrap:"anywhere"}}>
