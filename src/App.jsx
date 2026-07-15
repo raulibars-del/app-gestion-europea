@@ -687,6 +687,99 @@ const Input = ({ value, onChange, type="text", placeholder="" }) => {
   return <input type={type} value={value||""} onChange={onChange} placeholder={placeholder} style={inputStyle}/>;
 };
 const Select = ({ value, onChange, options }) => <select value={value} onChange={onChange} style={{...inputStyle}}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
+// Calendario visual para selección de fecha — reemplaza el input[type=date] nativo
+// que en algunos sistemas muestra spinners o requiere teclear la fecha manualmente.
+// Interfaz idéntica a <Input type="date">: value en formato YYYY-MM-DD, onChange con e.target.value.
+const MESES_CAL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DIAS_CAL  = ["Lu","Ma","Mi","Ju","Vi","Sa","Do"];
+const DatePickerCalendar = ({ value, onChange, placeholder="Seleccionar fecha" }) => {
+  const [open, setOpen] = useState(false);
+  const [viewY, setViewY] = useState(() => value ? parseInt(value.slice(0,4)) : new Date().getFullYear());
+  const [viewM, setViewM] = useState(() => value ? parseInt(value.slice(5,7))-1 : new Date().getMonth());
+  const rootRef = React.useRef(null);
+  // Sincronizar vista con el valor cuando cambia externamente
+  React.useEffect(() => {
+    if (value) { setViewY(parseInt(value.slice(0,4))); setViewM(parseInt(value.slice(5,7))-1); }
+  }, [value]);
+  // Cerrar al clicar fuera
+  React.useEffect(() => {
+    if (!open) return;
+    const fn = e => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [open]);
+  const selYear = value ? parseInt(value.slice(0,4)) : null;
+  const selMonth = value ? parseInt(value.slice(5,7))-1 : null;
+  const selDay   = value ? parseInt(value.slice(8,10)) : null;
+  const today0 = new Date(); const todayY=today0.getFullYear(), todayM=today0.getMonth(), todayD=today0.getDate();
+  // Primer día de la semana del mes (ajustado a lunes=0)
+  const firstDow = (new Date(viewY, viewM, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(viewY, viewM + 1, 0).getDate();
+  const cells = [];
+  for (let i=0;i<firstDow;i++) cells.push(null);
+  for (let d=1;d<=daysInMonth;d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const pick = day => {
+    const iso = `${viewY}-${String(viewM+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    onChange({ target:{ value: iso } });
+    setOpen(false);
+  };
+  const display = value ? `${value.slice(8,10)}/${value.slice(5,7)}/${value.slice(0,4)}` : "";
+  const btnNav = { background:"none",border:"none",color:"#e4e9f6",cursor:"pointer",fontSize:15,padding:"2px 7px",borderRadius:5, lineHeight:1 };
+  return (
+    <div ref={rootRef} style={{position:"relative"}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{...inputStyle,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",userSelect:"none"}}>
+        <span style={{color:display?"#f1f3f9":"#8899b4",fontSize:13}}>{display||placeholder}</span>
+        <span style={{color:"#8899b4",fontSize:12,marginLeft:6}}>📅</span>
+      </div>
+      {open && (
+        <div style={{position:"absolute",top:"calc(100% + 5px)",left:0,zIndex:9999,background:"#1a2236",border:"1px solid #2a3550",borderRadius:13,padding:"12px 10px 10px",minWidth:230,boxShadow:"0 10px 36px rgba(0,0,0,.55)"}}>
+          {/* Navegación mes/año */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,gap:2}}>
+            <button style={btnNav} onClick={()=>{ if(viewM===0){setViewM(11);setViewY(y=>y-1);}else setViewM(m=>m-1); }}>‹</button>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{color:"#f1f3f9",fontWeight:700,fontSize:13,minWidth:70,textAlign:"center"}}>{MESES_CAL[viewM]}</span>
+              <div style={{display:"flex",flexDirection:"column",gap:1}}>
+                <button style={{...btnNav,fontSize:10,padding:"1px 4px"}} onClick={()=>setViewY(y=>y+1)}>▲</button>
+                <span style={{color:"#0ea5e9",fontWeight:700,fontSize:13,textAlign:"center",lineHeight:1}}>{viewY}</span>
+                <button style={{...btnNav,fontSize:10,padding:"1px 4px"}} onClick={()=>setViewY(y=>y-1)}>▼</button>
+              </div>
+            </div>
+            <button style={btnNav} onClick={()=>{ if(viewM===11){setViewM(0);setViewY(y=>y+1);}else setViewM(m=>m+1); }}>›</button>
+          </div>
+          {/* Cabecera días semana */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
+            {DIAS_CAL.map(d=><div key={d} style={{textAlign:"center",fontSize:10,color:"#8899b4",fontWeight:700,padding:"2px 0"}}>{d}</div>)}
+          </div>
+          {/* Celdas días */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+            {cells.map((day,i)=>{
+              const isSel = day && selYear===viewY && selMonth===viewM && selDay===day;
+              const isHoy = day && todayY===viewY && todayM===viewM && todayD===day;
+              return (
+                <div key={i} onClick={()=>day&&pick(day)} style={{
+                  textAlign:"center",padding:"5px 0",fontSize:12,borderRadius:6,
+                  cursor:day?"pointer":"default",
+                  background:isSel?"#0ea5e9":"transparent",
+                  color:!day?"transparent":isSel?"#fff":isHoy?"#0ea5e9":"#e4e9f6",
+                  fontWeight:isSel||isHoy?700:400,
+                  border:isHoy&&!isSel?"1px solid #0ea5e955":"1px solid transparent",
+                }}>
+                  {day||""}
+                </div>
+              );
+            })}
+          </div>
+          {/* Pie */}
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,paddingTop:7,borderTop:"1px solid #2a3550"}}>
+            <button onClick={()=>{onChange({target:{value:""}});setOpen(false);}} style={{background:"none",border:"none",color:"#8899b4",cursor:"pointer",fontSize:11,padding:"2px 4px"}}>Limpiar</button>
+            <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",color:"#8899b4",cursor:"pointer",fontSize:11,padding:"2px 4px"}}>Cerrar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 // Selector de varios tecnicos a la vez (chips toggle) — para avisos/partes que realizan 2+ personas
 const SelectorTecnicos = ({ value, onChange, usuarios }) => {
   const sel = Array.isArray(value) ? value : (value ? [value] : []);
@@ -3730,7 +3823,7 @@ const Ventas = ({ data, setData, userActual }) => {
     <Modal title={form.id ? "Editar operación" : "Nueva operación"} onClose={() => setModal(false)} wide>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
         <Field label="Cliente"><ClientePicker clientes={data.clientes} value={form.clienteId} onChange={id => setForm(p=>({...p,clienteId: id}))}/></Field>
-        <Field label="Fecha inicio"><Input type="date" value={form.fecha} onChange={f("fecha")} /></Field>
+        <Field label="Fecha inicio"><DatePickerCalendar value={form.fecha} onChange={f("fecha")} /></Field>
       </div>
       <Field label="Máquina demandada / necesidad"><Input value={form.maquina} onChange={f("maquina")} placeholder="Ej: CNC Busellato Jet Start 3 ejes" /></Field>
       {/* Máquinas ofertadas: a veces se ofertan varios modelos distintos al mismo
@@ -3759,7 +3852,7 @@ const Ventas = ({ data, setData, userActual }) => {
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
         <Field label="Persona de contacto"><Input value={form.personaContacto} onChange={f("personaContacto")} placeholder="Nombre de la persona con quien hablas" /></Field>
-        <Field label="Último contacto"><Input type="date" value={form.ultimoContacto} onChange={f("ultimoContacto")} /></Field>
+        <Field label="Último contacto"><DatePickerCalendar value={form.ultimoContacto} onChange={f("ultimoContacto")} /></Field>
       </div>
       {form.ultimoContacto && <Field label="Comentario del último contacto"><Textarea value={form.ultimoContactoNota} onChange={f("ultimoContactoNota")} placeholder="¿Qué se habló? ¿Próximos pasos?" rows={2} /></Field>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:11}}>
@@ -3768,7 +3861,7 @@ const Ventas = ({ data, setData, userActual }) => {
       </div>
       <Field label="Ofertas de la competencia"><Input value={form.competencia} onChange={f("competencia")} placeholder="Marca, modelo, precio estimado..." /></Field>
       <Field label="Percepción fecha de cierre">
-        <Input type="date" value={form.percepcionCierre} onChange={f("percepcionCierre")} />
+        <DatePickerCalendar value={form.percepcionCierre} onChange={f("percepcionCierre")} />
         <div style={{fontSize:11,color:"#e4e9f6",marginTop:4}}>Tu estimación de cuándo se cerrará la operación</div>
       </Field>
       <Field label="Notas"><Textarea value={form.notas} onChange={f("notas")} /></Field>
