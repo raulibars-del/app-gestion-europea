@@ -3480,9 +3480,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                     </div>
                   );
                 })()}
-              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,width:110}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,width:145}}>
                 <Badge text={av.estado} />
-                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:90}}>
+                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:110}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); resolverAv(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
                   )}
