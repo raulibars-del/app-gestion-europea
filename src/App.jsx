@@ -14719,19 +14719,8 @@ function AppInner() {
               continue;
             }
             const combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
-            // SAFETY NET: si el merge devuelve drásticamente menos ítems que el remoto
-            // (menos del 10% y más de 10 en el servidor), algo fue muy mal — usamos el remoto.
-            // Umbral 10% solo atrapa casos catastroficos (array casi vacío tras merge incorrecto),
-            // nunca borrados legítimos (necesitarías eliminar el 90%+ de los registros de golpe).
-            // Nota: tareas usan tombstones (_deleted:true) así que su array nunca reduce en longitud.
-            let safeResult = combined;
-            if (Array.isArray(combined) && Array.isArray(remoteData) && remoteData.length > 10
-                && combined.length < Math.ceil(remoteData.length * 0.1)) {
-              console.warn(`[sync] SAFETY: merge de "${seccion}" produjo ${combined.length} ítems vs ${remoteData.length} en servidor — usando datos del servidor.`);
-              safeResult = remoteData;
-            }
-            aGuardar = safeResult;
-            dataActual = aplicarSeccion(dataActual, seccion, safeResult);
+            aGuardar = combined;
+            dataActual = aplicarSeccion(dataActual, seccion, combined);
             mergeOcurrido = true;
             lastSyncedRef.current[seccion] = remoteJson;
             lastVersionRef.current[seccion] = remoto.versions?.[seccion];
@@ -14752,17 +14741,6 @@ function AppInner() {
             && !(Array.isArray(initialSection) && initialSection.length === 0);
           if(aGuardarEsInitialNoVacio && Array.isArray(remoteData) && remoteData.length > 0){
             console.warn(`[sync] BLOQUEADO: intento de guardar ${seccion} con datos de plantilla inicial sobre datos reales del servidor.`);
-            lastSyncedRef.current[seccion] = remoteJson;
-            dataActual = aplicarSeccion(dataActual, seccion, remoteData);
-            mergeOcurrido = true;
-            continue;
-          }
-          // SAFETY NET pre-guardado: nunca subir al servidor casi-vacío cuando el servidor tiene muchos datos.
-          // Umbral 10%: solo bloquea si quedarían menos del 10% de los ítems actuales del servidor
-          // (requeriría borrar el 90%+ de golpe, imposible en uso normal).
-          if (Array.isArray(aGuardar) && Array.isArray(remoteData) && remoteData.length > 10
-              && aGuardar.length < Math.ceil(remoteData.length * 0.1)) {
-            console.warn(`[sync] BLOQUEADO pre-save: ${seccion} tendría ${aGuardar.length} ítems vs ${remoteData.length} en servidor.`);
             lastSyncedRef.current[seccion] = remoteJson;
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             mergeOcurrido = true;
