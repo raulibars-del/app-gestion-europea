@@ -12348,6 +12348,8 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const [form, setForm] = useState({});
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [usuarioFiltro, setUsuarioFiltro] = useState("todos");
+  const [modalAsignarAviso, setModalAsignarAviso] = useState(null); // id del aviso a asignar
+  const [formAsignar, setFormAsignar] = useState({});
 
   // Calcular dias de la semana actual + offset
   const getLunes = (offsetSemanas) => {
@@ -12707,39 +12709,95 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           if(a.estado==="Resuelto"||a.estado==="Cancelado") return false;
           if(!esAdmin) return listaNombres(a,"asignados","asignado").some(n=>data.usuarios.find(u=>u.nombre===n)?.id===userActual.id);
           return true;
-        }).sort((a,b)=>(a.fechaResolucion||a.fechaAviso).localeCompare(b.fechaResolucion||b.fechaAviso)).slice(0,6);
+        }).sort((a,b)=>{
+          // Sin fecha asignada van al final; con fecha, orden cronológico
+          const fa=a.fechaResolucion||"9999";
+          const fb=b.fechaResolucion||"9999";
+          return fa.localeCompare(fb);
+        });
         if(!misAvisos.length) return null;
         return(
           <div style={{marginTop:16,background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}>
             <div style={{fontSize:11,fontWeight:700,color:"#f97316",textTransform:"uppercase",letterSpacing:".7px",marginBottom:10}}>
-              {esAdmin?"Proximos avisos pendientes":"Mis avisos pendientes"} ({misAvisos.length})
+              {esAdmin?"Avisos pendientes":"Mis avisos pendientes"} ({misAvisos.length})
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(280px,100%),1fr))",gap:8}}>
               {misAvisos.map(av=>{
                 const cl=data.clientes.find(c=>c.id===av.clienteId);
                 const maq=av.maquinaId&&cl?cl.maquinas?.find(m=>m.id===parseInt(av.maquinaId)):null;
                 const nombresAsig=listaNombres(av,"asignados","asignado").join(" y ");
+                const sinFecha=!av.fechaResolucion;
+                const sinAsignado=!nombresAsig;
                 return(
-                  <div key={av.id} onClick={()=>irAAviso&&irAAviso(av.id)}
-                    style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",cursor:irAAviso?"pointer":"default",border:"1px solid "+( av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550"),transition:"border-color .15s"}}
-                    onMouseEnter={e=>irAAviso&&(e.currentTarget.style.borderColor="#3b82f6")}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor=av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550"}>
+                  <div key={av.id}
+                    style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",border:"1px solid "+(sinFecha?"#f59e0b55":av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550")}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,marginBottom:3}}>
-                      <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,flex:1}}>{av.titulo}</div>
+                      <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,flex:1,cursor:irAAviso?"pointer":"default"}} onClick={()=>irAAviso&&irAAviso(av.id)}>{av.titulo}</div>
                       <span style={{background:av.prioridad==="Alta"?"#ef444420":av.prioridad==="Media"?"#f59e0b20":"#10b98120",color:av.prioridad==="Alta"?"#ef4444":av.prioridad==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{av.prioridad}</span>
                     </div>
-                    <div style={{color:"#e4e9f6",fontSize:11}}>
+                    <div style={{color:"#e4e9f6",fontSize:11,marginBottom:4}}>
                       📅 Aviso: {fmtFecha(av.fechaAviso)}
-                      {av.fechaResolucion&&<span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>}
+                      {av.fechaResolucion
+                        ? <span style={{color:"#3b82f6",fontWeight:700,marginLeft:8}}>🔧 Previsto: {fmtFecha(av.fechaResolucion)}{av.horaResolucion?" · "+av.horaResolucion:""}</span>
+                        : <span style={{color:"#f59e0b",fontWeight:700,marginLeft:8}}>⚠ Sin fecha asignada</span>}
                     </div>
                     {cl&&<div style={{color:"#e4e9f6",fontSize:11}}>🏢 {cl.nombreEmpresa}</div>}
                     {maq&&<div style={{color:"#e4e9f6",fontSize:11}}>🔧 {maq.nombre}</div>}
-                    {esAdmin&&nombresAsig&&<div style={{color:"#3b82f6",fontSize:11}}>👤 {nombresAsig}</div>}
+                    {nombresAsig
+                      ? <div style={{color:"#3b82f6",fontSize:11}}>👤 {nombresAsig}</div>
+                      : <div style={{color:"#f59e0b",fontSize:11}}>👤 Sin técnico asignado</div>}
+                    {(sinFecha||sinAsignado)&&(
+                      <button onClick={e=>{e.stopPropagation();setFormAsignar({fecha:av.fechaResolucion||"",hora:av.horaResolucion||"",asignados:av.asignados||[]});setModalAsignarAviso(av.id);}}
+                        style={{marginTop:7,background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:6,padding:"4px 10px",color:"#3b82f6",fontSize:11,fontWeight:700,cursor:"pointer",width:"100%"}}>
+                        📅 Asignar fecha y técnico
+                      </button>
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
+        );
+      })()}
+      {/* Mini-modal asignar fecha+técnico a aviso desde el calendario */}
+      {modalAsignarAviso&&(()=>{
+        const av=data.avisos.find(a=>a.id===modalAsignarAviso);
+        if(!av) return null;
+        const tecnicosTodos=data.usuarios.filter(u=>["tecnico","admin","manager"].includes(u.rol));
+        const toggleTec=id=>{
+          const nombre=data.usuarios.find(u=>u.id===id)?.nombre||"";
+          setFormAsignar(p=>{
+            const ya=(p.asignados||[]).includes(nombre);
+            return{...p,asignados:ya?(p.asignados||[]).filter(n=>n!==nombre):[...(p.asignados||[]),nombre]};
+          });
+        };
+        const guardar=()=>{
+          setData(d=>({...d,avisos:d.avisos.map(a=>a.id===modalAsignarAviso?{...a,fechaResolucion:formAsignar.fecha||a.fechaResolucion,horaResolucion:formAsignar.hora||a.horaResolucion,asignados:formAsignar.asignados,_ts:Date.now()}:a)}));
+          setModalAsignarAviso(null);
+        };
+        return(
+          <Modal title="Asignar fecha y técnico" onClose={()=>setModalAsignarAviso(null)}>
+            <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,marginBottom:12}}>{av.titulo}</div>
+            <Field label="Fecha prevista de resolución">
+              <DatePickerCalendar value={formAsignar.fecha} onChange={v=>setFormAsignar(p=>({...p,fecha:v}))} placeholder="Seleccionar fecha"/>
+            </Field>
+            <Field label="Hora (opcional)">
+              <input type="time" value={formAsignar.hora||""} onChange={e=>setFormAsignar(p=>({...p,hora:e.target.value}))} style={inputStyle}/>
+            </Field>
+            <Field label="Técnico(s) asignado(s)">
+              <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:4}}>
+                {tecnicosTodos.map(u=>{
+                  const nombre=u.nombre;
+                  const sel=(formAsignar.asignados||[]).includes(nombre);
+                  return(<button key={u.id} onClick={()=>toggleTec(u.id)} style={{background:sel?"#3b82f6":"#1a2236",border:"1px solid "+(sel?"#3b82f6":"#2a3550"),borderRadius:7,padding:"5px 11px",color:sel?"#fff":"#e4e9f6",fontSize:12,fontWeight:sel?700:400,cursor:"pointer"}}>{nombre}</button>);
+                })}
+              </div>
+            </Field>
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}>
+              <button onClick={()=>setModalAsignarAviso(null)} style={btnOutline}>Cancelar</button>
+              <button onClick={guardar} disabled={!formAsignar.fecha&&!(formAsignar.asignados||[]).length} style={{...btnPrimary,opacity:(!formAsignar.fecha&&!(formAsignar.asignados||[]).length)?0.5:1}}>Guardar</button>
+            </div>
+          </Modal>
         );
       })()}
 
