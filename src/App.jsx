@@ -587,7 +587,7 @@ const prioridadEfectiva = (prioridad, fechaAviso, estado) => {
   if (prioridad === "Media" && d > 14) return "Alta";
   return prioridad;
 };
-const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Enviado presupuesto a espera aceptacion","Resuelto","Cancelado"];
+const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Material disponible","Enviado presupuesto a espera aceptacion","Presupuesto aceptado","Resuelto","Cancelado"];
 const TIPOS_AVISO = ["Reparación","Montaje","Puesta en marcha","Ajuste/mantenimiento","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
@@ -706,7 +706,7 @@ const Icon = ({ name, size=18 }) => {
   );
 };
 const Badge = ({ text }) => {
-  const map = {"Facturada":"#16a34a","Facturado":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#e1e6f2","Perdida":"#dc2626","Cancelada":"#e1e6f2","Cancelado":"#e1e6f2","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Enviado presupuesto a espera aceptacion":"#0ea5e9","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#e1e6f2"};
+  const map = {"Facturada":"#16a34a","Facturado":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#e1e6f2","Perdida":"#dc2626","Cancelada":"#e1e6f2","Cancelado":"#e1e6f2","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Material disponible":"#14b8a6","Enviado presupuesto a espera aceptacion":"#0ea5e9","Presupuesto aceptado":"#8b5cf6","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#e1e6f2"};
   const c = map[text]||"#e1e6f2";
   return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{text}</span>;
 };
@@ -3378,6 +3378,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   };
   const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre,_ts:Date.now() } : a) }));
   const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today(),_ts:Date.now() } : a) }));
+  const marcarMaterialDisponible = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id===id ? {...a,estado:"Material disponible",_ts:Date.now()} : a) }));
+  const marcarPresupuestoAceptado = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id===id ? {...a,estado:"Presupuesto aceptado",_ts:Date.now()} : a) }));
   const confirmarCancelacion = () => {
     if (!motivoCancel.trim()) { alert("Indica el motivo de la cancelación"); return; }
     cancelarAv(cancelTarget, motivoCancel.trim());
@@ -3534,6 +3536,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <div style={{display:"flex",alignItems:"center",gap:5,marginTop:2,flexWrap:"wrap"}}>
                     <span style={{color:"#9bacc8",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}}>{cN(av.clienteId)}</span>
                     <span style={{background:"#1a2236",color:"#9bacc8",fontSize:9,borderRadius:3,padding:"1px 5px",border:"1px solid #2a3550",whiteSpace:"nowrap"}}>{av.estado}</span>
+                    {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>📦 Mat. disponible</span>}
+                    {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
                   </div>
                 </div>
                 {/* días compacto */}
@@ -3623,6 +3627,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 })()}
               <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,width:145}}>
                 <Badge text={av.estado} />
+                {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>📦 Material ya disponible</span>}
+                {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
                 <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:110}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); resolverAv(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
@@ -3704,6 +3710,31 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           <div style={{background:"#dc26260d",border:"1px solid #dc262633",borderRadius:8,padding:"10px 12px",marginBottom:11}}>
             <div style={{fontSize:11,color:"#dc2626",textTransform:"uppercase",marginBottom:3}}>Motivo de cancelación{detalle.fechaCancelacion?" · "+fmtFecha(detalle.fechaCancelacion):""}</div>
             <div style={{color:"#ecf0f6",fontSize:12}}>{detalle.motivoCancelacion}</div>
+          </div>
+        )}
+        {/* ── Acciones contextuales según estado ── */}
+        {detalle.estado === "A falta de material" && (
+          <div style={{background:"#0b2421",border:"1px solid #14b8a644",borderRadius:10,padding:"12px 15px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+            <div>
+              <div style={{color:"#2dd4bf",fontWeight:800,fontSize:13}}>📦 ¿Ya llegó el material?</div>
+              <div style={{color:"#6b7a99",fontSize:11,marginTop:2}}>Pulsa para avisar al equipo que ya está disponible</div>
+            </div>
+            <button onClick={()=>{ marcarMaterialDisponible(detalle.id); setDetalle(null); }}
+              style={{background:"#14b8a6",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:800,cursor:"pointer",fontSize:13,whiteSpace:"nowrap",flexShrink:0}}>
+              ✅ Ya está el material
+            </button>
+          </div>
+        )}
+        {detalle.estado === "Enviado presupuesto a espera aceptacion" && (
+          <div style={{background:"#120d2b",border:"1px solid #8b5cf644",borderRadius:10,padding:"12px 15px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+            <div>
+              <div style={{color:"#a78bfa",fontWeight:800,fontSize:13}}>📋 ¿Ha aceptado el cliente el presupuesto?</div>
+              <div style={{color:"#6b7a99",fontSize:11,marginTop:2}}>Pulsa para registrar la aceptación y seguir adelante</div>
+            </div>
+            <button onClick={()=>{ marcarPresupuestoAceptado(detalle.id); setDetalle(null); }}
+              style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontWeight:800,cursor:"pointer",fontSize:13,whiteSpace:"nowrap",flexShrink:0}}>
+              ✅ Presupuesto aceptado
+            </button>
           </div>
         )}
         <div style={{display:"flex",gap:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
