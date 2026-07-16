@@ -415,6 +415,16 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
     if (!necesitaMergeTs) return remoto; // no lo tocamos (o ya sincronizado) -> manda el remoto
   }
   if (mismoJSON(local, remoto)) return remoto; // el remoto ya tiene lo mismo que nosotros
+  // GUARD contra em_data obsoleto: si local está vacío pero base y remoto tienen items
+  // y además base===remoto (nadie tocó el servidor desde la última sincronización),
+  // es casi seguro que el local es un localStorage anticuado — no una eliminación deliberada.
+  // Confiamos en el remoto para no borrar datos reales.
+  if (Array.isArray(local) && local.length === 0 &&
+      Array.isArray(base) && base.length > 0 &&
+      Array.isArray(remoto) && remoto.length > 0 &&
+      mismoJSON(base, remoto)) {
+    return remoto;
+  }
   if (Array.isArray(local) && Array.isArray(remoto)) {
     const conIds = local.every(x => x && typeof x === "object" && "id" in x) && remoto.every(x => x && typeof x === "object" && "id" in x);
     if (conIds) {
@@ -2324,7 +2334,7 @@ const Proveedores = ({ data, setData, userActual }) => {
 
   const guardar=()=>{
     if(!form.razonSocial?.trim()){alert("Introduce la razón social.");return;}
-    const prov={...form,contactos,id:modal==="nuevo"?Date.now():modal};
+    const prov={...form,contactos,id:modal==="nuevo"?Date.now():modal,_ts:Date.now()};
     setData(d=>({...d,proveedores:modal==="nuevo"?[...(d.proveedores||[]),prov]:(d.proveedores||[]).map(p=>p.id===modal?prov:p)}));
     setModal(null);
   };
@@ -13557,8 +13567,9 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
   const abrirEditar = item => { setForm({ ...item }); setModal(true); };
   const guardar = () => {
     if (!form.maquina?.trim()) { alert("Indica al menos la máquina."); return; }
-    if (!form.id) setData(d => ({ ...d, passwords: [...(d.passwords||[]), { ...form, id: Date.now() }] }));
-    else setData(d => ({ ...d, passwords: (d.passwords||[]).map(p => p.id === form.id ? form : p) }));
+    const itemConTs = { ...form, id: form.id || Date.now(), _ts: Date.now() };
+    if (!form.id) setData(d => ({ ...d, passwords: [...(d.passwords||[]), itemConTs] }));
+    else setData(d => ({ ...d, passwords: (d.passwords||[]).map(p => p.id === form.id ? itemConTs : p) }));
     setModal(null);
   };
   const eliminar = item => {
