@@ -3288,8 +3288,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   }, [abrirAvisoId]);
   const [formAv, setFormAv] = useState({});
   const [fe, setFe] = useState("Activos");
-  const [fp, setFp] = useState("Todos");
-  const [ft, setFt] = useState("Todos");
+  const [orden, setOrden] = useState("predeterminado");
   const [s, setS] = useState("");
   const [filtroAsignado, setFiltroAsignado] = useState("todos");
   const [soloSinAsignar, setSoloSinAsignar] = useState(false);
@@ -3345,9 +3344,10 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     }
     if (soloSinAsignar) l = l.filter(a => listaNombres(a,"asignados","asignado").length===0 || a.estado === "Sin asignar");
     if (soloAntiguos) l = l.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
-    if (fp !== "Todos") l = l.filter(a => a.prioridad === fp);
-    if (ft !== "Todos") l = l.filter(a => a.tipo === ft);
     if (s.trim()) { const q = s.toLowerCase(); l = l.filter(a => [a.titulo, a.descripcion, a.notas, a.numeroAviso, cN(a.clienteId), a.marca, a.modelo, a.matricula, a.tipo, a.prioridad, a.estado, a.dadoPor, a.metodoAviso, a.creadoPor, listaNombres(a,"asignados","asignado")].some(c=>(c||"").toString().toLowerCase().includes(q))); }
+    // Ordenación
+    if (orden === "fecha_asc") return l.sort((a,b) => String(a.fechaAviso).localeCompare(String(b.fechaAviso)));
+    if (orden === "fecha_desc") return l.sort((a,b) => String(b.fechaAviso).localeCompare(String(a.fechaAviso)));
     return l.sort((a, b) => {
       // Una vez cerrado (Resuelto/Cancelado) el aviso ya no compite por prioridad:
       // se ordena por la fecha en que se cerró, el más reciente primero.
@@ -3367,7 +3367,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       if (ra !== rb) return ra ? -1 : 1;
       return diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso);
     });
-  }, [data.avisos, data.clientes, data.usuarios, fe, fp, ft, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
+  }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
   const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignados:[],fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
   const openEditAv = item => { setFormAv({ ...item, asignados: listaNombres(item,"asignados","asignado") }); setModalAv("form"); };
   const saveAv = () => {
@@ -3414,7 +3414,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       {(crit.length > 0 || sinA.length > 0 || ant.length > 0) && (
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8,marginBottom:14}}>
           {crit.length > 0 && (
-            <div onClick={() => { setFp("Alta"); setFe("Activos"); setSoloSinAsignar(false); }}
+            <div onClick={() => { setFe("Activos"); setSoloSinAsignar(false); }}
               style={{background:"#ef444418",border:"1px solid #ef444444",borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer"}}
               onMouseEnter={e => e.currentTarget.style.background = "#ef444428"}
               onMouseLeave={e => e.currentTarget.style.background = "#ef444418"}>
@@ -3429,7 +3429,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             </div>
           )}
           {sinA.length > 0 && (
-            <div onClick={() => { setFe("Activos"); setFp("Todos"); setFt("Todos"); setS(""); setSoloSinAsignar(true); }}
+            <div onClick={() => { setFe("Activos"); setS(""); setSoloSinAsignar(true); }}
               style={{background:soloSinAsignar ? "#f59e0b28" :"#f59e0b18",border:`1px solid ${soloSinAsignar ? "#f59e0b88" :"#f59e0b44"}`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer"}}
               onMouseEnter={e => e.currentTarget.style.background = "#f59e0b28"}
               onMouseLeave={e => e.currentTarget.style.background = soloSinAsignar ? "#f59e0b28" : "#f59e0b18"}>
@@ -3444,7 +3444,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             </div>
           )}
           {ant.length > 0 && (
-            <div onClick={() => { setSoloAntiguos(p=>!p); setSoloSinAsignar(false); setFe("Activos"); setFp("Todos"); setFt("Todos"); setS(""); }}
+            <div onClick={() => { setSoloAntiguos(p=>!p); setSoloSinAsignar(false); setFe("Activos"); setS(""); }}
               style={{background:soloAntiguos?"#3b82f628":"#3b82f618",border:`1px solid ${soloAntiguos?"#3b82f688":"#3b82f644"}`,borderRadius:10,padding:"10px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer"}}
               onMouseEnter={e=>e.currentTarget.style.background="#3b82f628"}
               onMouseLeave={e=>e.currentTarget.style.background=soloAntiguos?"#3b82f628":"#3b82f618"}>
@@ -3470,7 +3470,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               <div style={{color:"#dfe4f1",fontSize:11}}>Prioridad Alta con más de 14 días sin resolver · requieren atención inmediata</div>
             </div>
           </div>
-          <button onClick={()=>{setSoloAntiguos(false);setSoloSinAsignar(false);setFe("Activos");setFp("Alta");setFt("Todos");setS("");}}
+          <button onClick={()=>{setSoloAntiguos(false);setSoloSinAsignar(false);setFe("Activos");setS("");}}
             style={{background:"#dc2626",border:"none",borderRadius:8,padding:"6px 14px",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>
             Ver {urgentes14.length===1?"aviso":"avisos"} →
           </button>
@@ -3480,22 +3480,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
         <select value={filtroAsignado} onChange={e=>{ setFiltroAsignado(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
           style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
-          <option value="todos">Todos los avisos</option>
+          <option value="todos">Todos los usuarios</option>
           {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
         </select>
         <select value={fe} onChange={e=>{ setFe(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
           style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
           {["Activos","Resueltos","Cancelados","Todos"].map(o=><option key={o} value={o}>{o}</option>)}
         </select>
-        <select value={fp} onChange={e=>setFp(e.target.value)}
+        <select value={orden} onChange={e=>setOrden(e.target.value)}
           style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
-          <option value="Todos">Todas las prioridades</option>
-          {PRIORIDADES.map(p=><option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={ft} onChange={e=>setFt(e.target.value)}
-          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
-          <option value="Todos">Todos los tipos</option>
-          {TIPOS_AVISO.map(t=><option key={t} value={t}>{t}</option>)}
+          <option value="predeterminado">Orden predeterminado</option>
+          <option value="fecha_asc">Fecha más antigua</option>
+          <option value="fecha_desc">Fecha más reciente</option>
         </select>
         <div style={{position:"relative",marginLeft:"auto",flex:"1 1 140px",maxWidth:220,minWidth:120}}>
           <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12} /></span>
