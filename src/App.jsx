@@ -139,8 +139,14 @@ const CLIENTE_STOCK_ID = -1;
 // Usuarios con acceso a información económica confidencial (precio de compra y precio de venta objetivo).
 // Se compara normalizado (sin tildes, minúsculas) para mayor tolerancia.
 const _USUARIOS_PRECIO_CONF = ["raul ibars","cristina tarin","geles tarin","manuel tarin"];
+// Usuarios que NUNCA ven precios de compra/coste/venta objetivo, aunque sean admin
+const _USUARIOS_PRECIO_EXCLUIDOS = ["jose antonio garcia"];
 const _normNombre = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-const puedeVerPrecioConf = u => u?.rol==="manager"||u?.rol==="admin"||_USUARIOS_PRECIO_CONF.includes(_normNombre(u?.nombre));
+const puedeVerPrecioConf = u => {
+  const n = _normNombre(u?.nombre);
+  if (_USUARIOS_PRECIO_EXCLUIDOS.includes(n)) return false;
+  return u?.rol==="manager" || u?.rol==="admin" || _USUARIOS_PRECIO_CONF.includes(n);
+};
 
 // Código interno único de máquina, compartido entre Stock (máquinas en venta) y
 // las máquinas de cada cliente — para que nunca se repita un código entre ambos.
