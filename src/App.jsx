@@ -3240,6 +3240,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   const [soloAntiguos, setSoloAntiguos] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [motivoCancel, setMotivoCancel] = useState("");
+  const [isMov, setIsMov] = useState(() => window.innerWidth <= 640);
+  useEffect(() => { const h = () => setIsMov(window.innerWidth <= 640); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const fa = k => e => setFormAv(p => ({ ...p, [k]: e.target.value }));
   const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
   // Los avisos de clientes revendedores de maquinaria van siempre primero dentro
@@ -3428,12 +3430,48 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           )}
         </div>
       {/* Lista */}
-      <div style={{display:"grid",gap:7}}>
+      <div style={{display:"grid",gap:isMov?3:7}}>
         {avs.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>No hay avisos</div>}
         {avs.map(av => {
           const pEfectiva = prioridadEfectiva(av.prioridad, av.fechaAviso, av.estado);
           const pc = PCOLOR[pEfectiva] || "#e4e9f6";
           const isCrit = pEfectiva === "Alta" && av.estado !== "Resuelto";
+          /* ── VERSIÓN MÓVIL COMPACTA ── */
+          if (isMov) {
+            const d = diasDesde(av.fechaAviso);
+            const dColor = d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+            const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
+            return (
+              <div key={av.id} onClick={() => setDetalle(av)}
+                style={{background:"#151b2a",borderLeft:`4px solid ${pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                {/* icono prioridad */}
+                <div style={{width:24,height:24,borderRadius:6,background:pc+"18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
+                  <Icon name="bell" size={11}/>
+                </div>
+                {/* info central */}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{av.titulo}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:2,flexWrap:"wrap"}}>
+                    <span style={{color:"#9bacc8",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}}>{cN(av.clienteId)}</span>
+                    <span style={{background:"#1a2236",color:"#9bacc8",fontSize:9,borderRadius:3,padding:"1px 5px",border:"1px solid #2a3550",whiteSpace:"nowrap"}}>{av.estado}</span>
+                  </div>
+                </div>
+                {/* días compacto */}
+                {isPend && (
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,minWidth:36}}>
+                    <span style={{color:dColor,fontWeight:900,fontSize:22,lineHeight:1}}>{d}</span>
+                    <span style={{color:dColor,fontSize:9,fontWeight:700}}>días</span>
+                  </div>
+                )}
+                {/* botones mínimos */}
+                <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                  {isPend&&<button onClick={()=>resolverAv(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
+                  <button onClick={()=>openEditAv(av)} style={{...btnSm("#2a3550","#e6ebf6"),width:26,height:26}}><Icon name="edit" size={11}/></button>
+                </div>
+              </div>
+            );
+          }
+          /* ── FIN VERSIÓN MÓVIL ── */
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
