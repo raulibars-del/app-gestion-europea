@@ -3483,7 +3483,19 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
                   {av.numeroAviso&&<span style={{background:"#ef444420",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{av.numeroAviso}</span>}
                   <span style={{color:"#f1f3f9",fontWeight:800,fontSize:14,overflowWrap:"anywhere",wordBreak:"break-word"}}>{av.titulo}</span>
-                  <Badge text={av.tipo}/><Badge text={pEfectiva}{...(pEfectiva!==av.prioridad?{title:`Original: ${av.prioridad}`}:{})}/>
+                  <Badge text={av.tipo}/>
+                  {(()=>{
+                    const cadena = av.prioridad==="Leve"&&pEfectiva==="Alta" ? ["Leve","Media","Alta"]
+                      : av.prioridad==="Leve"&&pEfectiva==="Media" ? ["Leve","Media"]
+                      : av.prioridad==="Media"&&pEfectiva==="Alta" ? ["Media","Alta"]
+                      : [pEfectiva];
+                    return cadena.map((p,i)=>(
+                      <span key={p} style={{display:"inline-flex",alignItems:"center",gap:3}}>
+                        {i>0&&<span style={{color:"#4a5568",fontSize:11,fontWeight:700,marginLeft:2}}>→</span>}
+                        <Badge text={p}/>
+                      </span>
+                    ));
+                  })()}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:5}}>
                   <span onClick={e=>{e.stopPropagation();irACliente&&irACliente(av.clienteId);}}
