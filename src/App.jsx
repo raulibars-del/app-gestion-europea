@@ -7529,7 +7529,6 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
         Resetear todos los datos
       </button>
     </div>
-  </div>
   {/* ── Modal restauración por sección ── */}
   {modalRestSeccion && (
     <div style={{position:"fixed",inset:0,background:"#000a",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
