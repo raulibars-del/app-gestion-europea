@@ -7289,6 +7289,26 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [cargandoPi,setCargandoPi]=useState(false);
   const [errorPi,setErrorPi]=useState("");
   const [restaurandoPiId,setRestaurandoPiId]=useState(null);
+  // Restauración por sección
+  const [modalRestSeccion,setModalRestSeccion]=useState(null); // { item, snapshot } | null
+  const [cargandoSnapshot,setCargandoSnapshot]=useState(null); // id del item cargando
+  const [seccionesRest,setSeccionesRest]=useState({}); // {clave: true/false}
+  const [aplicandoRest,setAplicandoRest]=useState(false);
+  // Definición de secciones restaurables con etiqueta y extractor del blob
+  const SECCIONES_RESTAURABLES = [
+    { key:"partes",       label:"Partes de trabajo",  extract: b => b.partes },
+    { key:"avisos",       label:"Avisos / Asistencia", extract: b => b.avisos },
+    { key:"clientes",     label:"Clientes y Máquinas", extract: b => b.clientes },
+    { key:"reparaciones", label:"Reparaciones",         extract: b => b.reparaciones },
+    { key:"ventas",       label:"Ventas",               extract: b => b.ventas },
+    { key:"tareas",       label:"Tareas",               extract: b => b.tareas },
+    { key:"inventario",   label:"Inventario",           extract: b => b.inventario },
+    { key:"albaran",      label:"Albaranes",            extract: b => b.albaran||b.albaranes },
+    { key:"proveedores",  label:"Proveedores",          extract: b => b.proveedores },
+    { key:"passwords",    label:"Contraseñas",          extract: b => b.passwords },
+    { key:"contabilidad", label:"Contabilidad",         extract: b => b.contabilidad },
+    { key:"usuarios",     label:"Usuarios y Roles",     extract: b => b.usuarios },
+  ];
   const cargarHistorial=async()=>{
     setCargandoHist(true); setErrorHist("");
     try{ const res=await apiListHistory(); setHistorial(res.items||[]); }
@@ -7326,6 +7346,45 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
       window.alert("Error al restaurar: "+e.message);
     }
     setRestaurandoPiId(null);
+  };
+  const abrirRestSeccion=async(item)=>{
+    setCargandoSnapshot(item.id);
+    try{
+      const snap = await apiGetHistorySnapshot(item.id);
+      const ini = {};
+      SECCIONES_RESTAURABLES.forEach(s=>{ ini[s.key]=false; });
+      setSeccionesRest(ini);
+      setModalRestSeccion({ item, snapshot: snap.data });
+    }catch(e){
+      window.alert("No se pudo cargar el contenido de esa copia: "+e.message);
+    }
+    setCargandoSnapshot(null);
+  };
+  const aplicarRestSeccion=()=>{
+    const seleccionadas = SECCIONES_RESTAURABLES.filter(s=>seccionesRest[s.key]);
+    if(seleccionadas.length===0){ window.alert("Selecciona al menos una sección."); return; }
+    const snap = modalRestSeccion.snapshot;
+    const nombres = seleccionadas.map(s=>s.label).join(", ");
+    if(!window.confirm(`¿Restaurar solo estas secciones de la copia?\n\n${nombres}\n\nEl resto de datos (partes, avisos, etc.) no se tocarán.`)) return;
+    setAplicandoRest(true);
+    try{
+      setData(d=>{
+        let nuevo = {...d};
+        seleccionadas.forEach(s=>{
+          const val = s.extract(snap);
+          if(val === undefined || val === null) return;
+          // albaran tiene nombre dual (legacy)
+          if(s.key==="albaran") { nuevo = {...nuevo, albaran: val, albaranes: val}; }
+          else { nuevo = {...nuevo, [s.key]: val}; }
+        });
+        return nuevo;
+      });
+      window.alert(`Secciones restauradas: ${nombres}.\n\nLos cambios se guardarán automáticamente.`);
+      setModalRestSeccion(null);
+    }catch(e){
+      window.alert("Error al aplicar: "+e.message);
+    }
+    setAplicandoRest(false);
   };
   return (<div>
     <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,marginBottom:3}}>Ajustes</h2>
@@ -7427,9 +7486,14 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
                 <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{new Date(item.created_at).toLocaleString('es-ES')}</div>
                 <div style={{color:"#e4e9f6",fontSize:11}}>{item.tam?(item.tam/1024/1024).toFixed(2)+" MB":"tamaño desconocido"}</div>
               </div>
-              <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>
-                {restaurandoId===item.id?"Restaurando...":"Restaurar"}
-              </button>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button onClick={()=>abrirRestSeccion(item)} disabled={cargandoSnapshot===item.id} style={{background:"#1c2a1c",border:"1px solid #16a34a44",borderRadius:7,padding:"6px 12px",color:"#16a34a",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  {cargandoSnapshot===item.id?"Cargando...":"Restaurar sección"}
+                </button>
+                <button onClick={()=>restaurar(item)} disabled={restaurandoId===item.id} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"6px 12px",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  {restaurandoId===item.id?"Restaurando...":"Todo"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -7465,6 +7529,49 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
         Resetear todos los datos
       </button>
     </div>
+  </div>
+  {/* ── Modal restauración por sección ── */}
+  {modalRestSeccion && (
+    <div style={{position:"fixed",inset:0,background:"#000a",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"24px 22px",maxWidth:480,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{fontWeight:800,fontSize:16,color:"#f1f3f9",marginBottom:4}}>Restaurar sección</div>
+        <div style={{color:"#e4e9f6",fontSize:12,marginBottom:14}}>
+          Copia del <strong style={{color:"#f1f3f9"}}>{new Date(modalRestSeccion.item.created_at).toLocaleString('es-ES')}</strong><br/>
+          Selecciona solo las secciones que quieres recuperar. El resto de datos (partes de hoy, etc.) <strong style={{color:"#f1f3f9"}}>no se tocarán</strong>.
+        </div>
+        <div style={{display:"grid",gap:7,marginBottom:18}}>
+          {SECCIONES_RESTAURABLES.map(s=>{
+            const val = s.extract(modalRestSeccion.snapshot);
+            const count = Array.isArray(val) ? val.length : (val && typeof val==="object" ? Object.keys(val).length : null);
+            const disponible = val !== undefined && val !== null;
+            return (
+              <label key={s.key} style={{display:"flex",alignItems:"center",gap:10,background:"#0d1117",borderRadius:8,padding:"9px 12px",cursor:disponible?"pointer":"default",opacity:disponible?1:0.4}}>
+                <input type="checkbox" checked={!!seccionesRest[s.key]} disabled={!disponible}
+                  onChange={e=>setSeccionesRest(p=>({...p,[s.key]:e.target.checked}))}
+                  style={{width:16,height:16,accentColor:"#16a34a"}}/>
+                <div style={{flex:1}}>
+                  <div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{s.label}</div>
+                  {disponible
+                    ? <div style={{color:"#8899b4",fontSize:11}}>{count!==null?count+" registros en la copia":"datos disponibles"}</div>
+                    : <div style={{color:"#dc2626",fontSize:11}}>No disponible en esta copia</div>
+                  }
+                </div>
+              </label>
+            );
+          })}
+        </div>
+        <div style={{background:"#1c2a1c",border:"1px solid #16a34a33",borderRadius:8,padding:"10px 12px",marginBottom:16,fontSize:12,color:"#86efac"}}>
+          Los datos restaurados se guardarán automáticamente en el servidor. Los partes y demás secciones no seleccionadas se mantienen como están.
+        </div>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+          <button onClick={()=>setModalRestSeccion(null)} style={{background:"transparent",border:"1px solid #2a3550",borderRadius:8,padding:"8px 16px",color:"#e4e9f6",fontSize:13,cursor:"pointer"}}>Cancelar</button>
+          <button onClick={aplicarRestSeccion} disabled={aplicandoRest||Object.values(seccionesRest).every(v=>!v)} style={{background:"#16a34a",border:"none",borderRadius:8,padding:"8px 18px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            {aplicandoRest?"Restaurando...":"Restaurar selección"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
   </div>);
 };
 // ─── CONTABILIDAD ────────────────────────────────────────────────────────────
@@ -13734,6 +13841,12 @@ async function apiListHistory(){
   const json = await res.json().catch(()=>({}));
   if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
   return json; // { items: [{id, created_at, tam, resumen}] }
+}
+async function apiGetHistorySnapshot(id){
+  const res = await fetch(API_URL+"?action=get_history_snapshot&id="+id, { headers: { "X-Api-Key": API_KEY } });
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.error) throw new Error(json.detail || json.error || ("HTTP "+res.status));
+  return json; // { ok, created_at, data: {...blob completo} }
 }
 async function apiRestoreHistory(historyId){
   const res = await fetch(API_URL+"?action=restore", {

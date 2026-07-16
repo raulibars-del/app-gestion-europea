@@ -218,6 +218,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accion === 'restore-pi-backup') {
     exit;
 }
 
+// ─── GET ?action=get_history_snapshot&id=X ───────────────────────────────────
+// Devuelve el contenido de un snapshot del historial sin restaurarlo.
+// Usado por la UI para restauración selectiva por sección.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'get_history_snapshot') {
+    $id = (int)($_GET['id'] ?? 0);
+    if (!$id) { http_response_code(400); echo json_encode(['error' => 'missing_id']); exit; }
+    $stmt = $pdo->prepare("SELECT data, created_at FROM app_data_history WHERE id = :id");
+    $stmt->execute(['id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) { http_response_code(404); echo json_encode(['error' => 'not_found']); exit; }
+    $data = json_decode($row['data'], true);
+    if (!$data) { http_response_code(500); echo json_encode(['error' => 'invalid_json']); exit; }
+    echo json_encode(['ok' => true, 'created_at' => $row['created_at'], 'data' => $data]);
+    exit;
+}
+
 // ─── GET ?action=history ─────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'history') {
     try {
