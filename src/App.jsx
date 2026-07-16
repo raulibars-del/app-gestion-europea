@@ -3242,6 +3242,25 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   const [motivoCancel, setMotivoCancel] = useState("");
   const [isMov, setIsMov] = useState(() => window.innerWidth <= 640);
   useEffect(() => { const h = () => setIsMov(window.innerWidth <= 640); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+  const [modalNuevoClienteAv, setModalNuevoClienteAv] = useState(false);
+  const [formNuevoClienteAv, setFormNuevoClienteAv] = useState({});
+  const fNCA = k => e => setFormNuevoClienteAv(p => ({ ...p, [k]: e.target.value }));
+  const crearClienteDesdeAv = () => {
+    if (!formNuevoClienteAv.nombreEmpresa?.trim()) return;
+    const nc = {
+      id: Date.now(), _ts: Date.now(),
+      nombreEmpresa: formNuevoClienteAv.nombreEmpresa.trim(),
+      nombreFiscal: formNuevoClienteAv.nombreEmpresa.trim(),
+      localidad: formNuevoClienteAv.localidad?.trim() || "",
+      contactos: formNuevoClienteAv.contacto?.trim()
+        ? [{ id: Date.now(), nombre: formNuevoClienteAv.contacto.trim(), tel: formNuevoClienteAv.tel?.trim() || "", email: "", puesto: "", principal: true }]
+        : [],
+      maquinas: [], notas: "",
+    };
+    setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
+    setFormAv(p => ({ ...p, clienteId: nc.id, maquinaId: "", marca: "", modelo: "", matricula: "" }));
+    setModalNuevoClienteAv(false); setFormNuevoClienteAv({});
+  };
   const fa = k => e => setFormAv(p => ({ ...p, [k]: e.target.value }));
   const cN = id => data.clientes.find(c => c.id === parseInt(id))?.nombreEmpresa || "—";
   // Los avisos de clientes revendedores de maquinaria van siempre primero dentro
@@ -3657,6 +3676,10 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       {modalAv === "form" && <Modal title={formAv.id ? "Editar Aviso" : "Nuevo Aviso"} onClose={() => setModalAv(null)} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
           <Field label="Cliente *">
+            <button onClick={()=>{setFormNuevoClienteAv({});setModalNuevoClienteAv(true);}}
+              style={{background:"none",border:"none",color:"#3b82f6",fontSize:11,fontWeight:700,cursor:"pointer",padding:"0 0 5px 0",textDecoration:"underline",textAlign:"left"}}>
+              + El cliente no existe, crear nuevo
+            </button>
             <ClientePicker clientes={data.clientes} value={formAv.clienteId}
               onChange={id=>setFormAv(p=>({...p,clienteId:id,maquinaId:"",marca:"",modelo:"",matricula:""}))}/>
           </Field>
@@ -3769,6 +3792,17 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             if(formAv.estado==="Cancelado" && !formAv.motivoCancelacion?.trim()){alert("Indica el motivo de la cancelación");return;}
             saveAv();
           }} style={btnPrimary}>Guardar aviso</button>
+        </div>
+      </Modal>}
+      {/* Mini-modal nuevo cliente desde aviso */}
+      {modalNuevoClienteAv && <Modal title="Crear nuevo cliente" onClose={()=>setModalNuevoClienteAv(false)}>
+        <Field label="Nombre empresa *"><Input value={formNuevoClienteAv.nombreEmpresa||""} onChange={fNCA("nombreEmpresa")} placeholder="Razón social o nombre"/></Field>
+        <Field label="Persona de contacto"><Input value={formNuevoClienteAv.contacto||""} onChange={fNCA("contacto")} placeholder="Nombre del contacto"/></Field>
+        <Field label="Teléfono"><Input value={formNuevoClienteAv.tel||""} onChange={fNCA("tel")} placeholder="Teléfono"/></Field>
+        <Field label="Localidad"><Input value={formNuevoClienteAv.localidad||""} onChange={fNCA("localidad")} placeholder="Ciudad o localidad"/></Field>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
+          <button onClick={()=>setModalNuevoClienteAv(false)} style={btnOutline}>Cancelar</button>
+          <button onClick={crearClienteDesdeAv} style={btnPrimary} disabled={!formNuevoClienteAv.nombreEmpresa?.trim()}>Crear y seleccionar</button>
         </div>
       </Modal>}
     </div>
