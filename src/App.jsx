@@ -532,8 +532,8 @@ const prioridadEfectiva = (prioridad, fechaAviso, estado) => {
   if (estado === "Resuelto" || estado === "Cancelado") return prioridad;
   const d = Math.floor((new Date() - new Date(fechaAviso)) / 86400000);
   if (d < 0) return prioridad;
-  if (prioridad === "Leve" && d > 14) return "Alta";
-  if (prioridad === "Leve" && d > 7)  return "Media";
+  if (prioridad === "Leve" && d > 30) return "Alta";
+  if (prioridad === "Leve" && d > 14) return "Media";
   if (prioridad === "Media" && d > 14) return "Alta";
   return prioridad;
 };
