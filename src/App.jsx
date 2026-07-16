@@ -7742,14 +7742,14 @@ async function generarPDFFacturaDoc(factura, empresa) {
     doc.text(nL,mg+4,y); y+=nL.length*5+6;
   }
 
-  // ── Condiciones de pago (forma de pago + cuentas bancarias) ──
+  // ── Condiciones de pago — siempre visible en proformas, facturas y presupuestos ──
   {
-    const cuentasPDF = (empresa.cuentasBancarias||[]);
-    const tieneFormaPago = !!factura.formaPago;
-    const tieneCuentas = cuentasPDF.length > 0;
-    if (tieneFormaPago || tieneCuentas) {
-      // Estimar altura: header 8 + formaPago 8 + separador 5 + cada banco ~14
-      const altEstim = 10 + (tieneFormaPago ? 8 : 0) + (tieneCuentas ? 6 + cuentasPDF.length * 14 : 0);
+    const cuentasPDF    = (empresa.cuentasBancarias||[]);
+    const formaPagoPDF  = factura.formaPago || "Transferencia bancaria";
+    const tieneCuentas  = cuentasPDF.length > 0;
+    // Mostrar siempre el bloque completo
+    {
+      const altEstim = 10 + 9 + (tieneCuentas ? 5 + cuentasPDF.length * 16 : 0) + 34;
       ensureSpace(altEstim + 10);
       const bx = mg, bw = W - mg * 2;
       // Cabecera azul oscuro
@@ -7757,23 +7757,18 @@ async function generarPDFFacturaDoc(factura, empresa) {
       doc.setTextColor(245,158,11); doc.setFontSize(8); doc.setFont("helvetica","bold");
       doc.text("CONDICIONES DE PAGO", bx+5, y+5.5);
       y += 10;
-      // Fondo claro del bloque
       const yBlocIni = y;
-      // Forma de pago
-      if (tieneFormaPago) {
-        doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
-        doc.text("Forma de pago:", bx+5, y+4.5);
-        doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
-        doc.text(factura.formaPago, bx+45, y+4.5);
-        y += 8;
-      }
-      // Cuentas bancarias
+      // ── Forma de pago ──
+      doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+      doc.text("Forma de pago:", bx+5, y+4.5);
+      doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      doc.text(formaPagoPDF, bx+48, y+4.5);
+      y += 9;
+      // ── Cuentas bancarias ──
       if (tieneCuentas) {
-        if (tieneFormaPago) {
-          doc.setDrawColor(200,210,230); doc.setLineWidth(0.3);
-          doc.line(bx+4, y+1, bx+bw-4, y+1);
-          y += 4;
-        }
+        doc.setDrawColor(200,210,230); doc.setLineWidth(0.3);
+        doc.line(bx+4, y+1, bx+bw-4, y+1);
+        y += 5;
         cuentasPDF.forEach((c, i) => {
           if (i > 0) {
             doc.setDrawColor(220,225,235); doc.setLineWidth(0.2);
@@ -7795,6 +7790,28 @@ async function generarPDFFacturaDoc(factura, empresa) {
           y += 10;
         });
       }
+      // ── Condiciones de venta de maquinaria (siempre) ──
+      doc.setDrawColor(200,210,230); doc.setLineWidth(0.3);
+      doc.line(bx+4, y+2, bx+bw-4, y+2);
+      y += 7;
+      // Precio franco fábrica
+      doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+      doc.text("Precio:", bx+5, y+4.5);
+      doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      doc.text("Franco fábrica", bx+48, y+4.5);
+      y += 8;
+      // 30 / 70 %
+      doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+      doc.text("Condiciones:", bx+5, y+4.5);
+      doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      doc.text("30% a la reserva — 70% restante antes de la carga", bx+48, y+4.5);
+      y += 8;
+      // Transporte no incluido
+      doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
+      doc.text("Transporte y montaje:", bx+5, y+4.5);
+      doc.setTextColor(200,30,30); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      doc.text("No incluido", bx+63, y+4.5);
+      y += 8;
       // Borde exterior del bloque
       doc.setDrawColor(180,195,225); doc.setLineWidth(0.4);
       doc.roundedRect(bx, yBlocIni-2, bw, y-yBlocIni+4, 1, 1, "S");
@@ -7952,9 +7969,9 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const abrirNuevo = (tipo) => {
     const hoy = today();
     const fpDef = "Transferencia bancaria";
-    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, formaPago:fpDef });
-    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, formaPago:fpDef });
-    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", formaPago:fpDef });
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, formaPago:fpDef, condicionesMaquina:false });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, formaPago:fpDef, condicionesMaquina:false });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", formaPago:fpDef, condicionesMaquina:false });
     setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
