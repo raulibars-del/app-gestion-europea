@@ -58,24 +58,29 @@ const conPunto = (s) => {
   const t = s.trim();
   return t && !/[.!?…]$/.test(t) ? t + "." : t;
 };
-const generarNum = (prefijo, fecha, lista, campoNum) => {
-  // Numeración basada en hora de creación: P160726-1435 (fecha + HHMM)
-  // Elimina colisiones entre técnicos simultáneos: dos personas creando al mismo tiempo
-  // tendrán distinto minuto; en el caso extremadamente raro del mismo minuto, se añaden segundos.
+// Extrae iniciales de un nombre: "Juanjo Romero" → "JR", "Ana" → "AN"
+const getIniciales = (nombre) => {
+  if (!nombre) return "XX";
+  const partes = nombre.trim().split(/\s+/);
+  if (partes.length === 1) return (partes[0].slice(0, 2)).toUpperCase();
+  return (partes[0][0] || "X").toUpperCase() + (partes[1][0] || "X").toUpperCase();
+};
+
+const generarNum = (prefijo, fecha, lista, campoNum, iniciales = "") => {
+  // Formato: P160726-JR01 (fecha + iniciales del técnico + secuencial propio)
+  // Cada técnico tiene su propio contador → imposible colisión entre usuarios distintos.
+  // Dentro del mismo usuario es secuencial, así que tampoco puede haber duplicado.
   const d = fecha || today();
   const [y,m,day] = d.split("-");
   const base = prefijo + day + m + y.slice(2); // ej: P160726
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const ss = String(now.getSeconds()).padStart(2, "0");
-  const candidatoMin = base + "-" + hh + mm;
-  // Si en este dispositivo ya existe un parte con ese HHMM, añadir segundos
-  const yaExiste = (lista || []).some(x => x[campoNum] && x[campoNum] === candidatoMin);
-  return yaExiste ? base + "-" + hh + mm + ss : candidatoMin;
+  const ini = iniciales ? iniciales.toUpperCase() : "";
+  const clave = base + "-" + ini; // ej: P160726-JR
+  const delUsuario = (lista || []).filter(x => x[campoNum] && x[campoNum].startsWith(clave));
+  const seq = String(delUsuario.length + 1).padStart(2, "0");
+  return clave + seq; // ej: P160726-JR01
 };
-// Keep backward compat alias
-const generarNumParte = (fecha, partes) => generarNum("P", fecha, partes, "numeroParte");
+// Alias para partes: requiere iniciales del técnico actual
+const generarNumParte = (fecha, partes, iniciales) => generarNum("P", fecha, partes, "numeroParte", iniciales);
 // Lista de nombres asignados/tecnicos: soporta el array nuevo (varios) y el string legacy (uno solo)
 const listaNombres = (obj, campoArray, campoLegacy) => {
   const arr = obj && obj[campoArray];
@@ -5857,8 +5862,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
     const esNuevo = !form.id;
     const parteId = form.id || Date.now();
-    // numeroParte y cadenaBase se calculan DENTRO de setData para usar el array más reciente
-    // y evitar colisiones cuando dos técnicos crean un parte a la vez.
+    // numeroParte y cadenaBase se calculan DENTRO de setData para usar el array más reciente.
+    // Las iniciales del técnico se calculan aquí (donde userActual está disponible) y se
+    // capturan en el closure, así el setData puede usarlas sin acceder al estado directamente.
+    const inicialesTecnico = getIniciales(userActual?.nombre || "");
     const clienteObj = form.clienteDirectoId ? data.clientes.find(c=>c.id===form.clienteDirectoId) : rCliente(form.reparacionId);
     const clienteNombre = clienteObj?.nombreEmpresa || clienteObj?.nombreFiscal || "Cliente sin nombre";
     const itemBase = { ...form,
@@ -5877,7 +5884,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setData(d => {
       let nuevo = {...d};
       // Generar numeroParte aquí, usando d.partes (estado más fresco en el momento del commit)
-      const numeroParte = form.numeroParte || generarNumParte(form.fecha, d.partes);
+      const numeroParte = form.numeroParte || generarNumParte(form.fecha, d.partes, inicialesTecnico);
       const cadenaBase = form.cadenaBase || numeroParte;
       let item = { ...itemBase, numeroParte, cadenaBase };
       // Autocompletar ficha de cliente: si la matricula/maquina escrita en el parte no
