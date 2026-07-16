@@ -3247,18 +3247,29 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   const fNCA = k => e => setFormNuevoClienteAv(p => ({ ...p, [k]: e.target.value }));
   const crearClienteDesdeAv = () => {
     if (!formNuevoClienteAv.nombreEmpresa?.trim()) return;
+    if (!formNuevoClienteAv.marca?.trim() || !formNuevoClienteAv.modelo?.trim()) return;
+    const maqId = Date.now() + 1;
+    const maq = {
+      id: maqId, _ts: Date.now(),
+      marca: formNuevoClienteAv.marca.trim(),
+      modelo: formNuevoClienteAv.modelo.trim(),
+      matricula: formNuevoClienteAv.matricula?.trim() || "",
+      numeroSerie: formNuevoClienteAv.numeroSerie?.trim() || "",
+      estado: "Activa", notas: "",
+    };
+    const ncId = Date.now();
     const nc = {
-      id: Date.now(), _ts: Date.now(),
+      id: ncId, _ts: Date.now(),
       nombreEmpresa: formNuevoClienteAv.nombreEmpresa.trim(),
       nombreFiscal: formNuevoClienteAv.nombreEmpresa.trim(),
       localidad: formNuevoClienteAv.localidad?.trim() || "",
       contactos: formNuevoClienteAv.contacto?.trim()
-        ? [{ id: Date.now(), nombre: formNuevoClienteAv.contacto.trim(), tel: formNuevoClienteAv.tel?.trim() || "", email: "", puesto: "", principal: true }]
+        ? [{ id: Date.now() + 2, nombre: formNuevoClienteAv.contacto.trim(), tel: formNuevoClienteAv.tel?.trim() || "", email: "", puesto: "", principal: true }]
         : [],
-      maquinas: [], notas: "",
+      maquinas: [maq], notas: "",
     };
     setData(d => ({ ...d, clientes: [...d.clientes, nc] }));
-    setFormAv(p => ({ ...p, clienteId: nc.id, maquinaId: "", marca: "", modelo: "", matricula: "" }));
+    setFormAv(p => ({ ...p, clienteId: ncId, maquinaId: maqId, marca: maq.marca, modelo: maq.modelo, matricula: maq.matricula }));
     setModalNuevoClienteAv(false); setFormNuevoClienteAv({});
   };
   const fa = k => e => setFormAv(p => ({ ...p, [k]: e.target.value }));
@@ -3795,14 +3806,30 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       </Modal>}
       {/* Mini-modal nuevo cliente desde aviso */}
-      {modalNuevoClienteAv && <Modal title="Crear nuevo cliente" onClose={()=>setModalNuevoClienteAv(false)}>
-        <Field label="Nombre empresa *"><Input value={formNuevoClienteAv.nombreEmpresa||""} onChange={fNCA("nombreEmpresa")} placeholder="Razón social o nombre"/></Field>
-        <Field label="Persona de contacto"><Input value={formNuevoClienteAv.contacto||""} onChange={fNCA("contacto")} placeholder="Nombre del contacto"/></Field>
-        <Field label="Teléfono"><Input value={formNuevoClienteAv.tel||""} onChange={fNCA("tel")} placeholder="Teléfono"/></Field>
-        <Field label="Localidad"><Input value={formNuevoClienteAv.localidad||""} onChange={fNCA("localidad")} placeholder="Ciudad o localidad"/></Field>
-        <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14}}>
+      {modalNuevoClienteAv && <Modal title="Crear nuevo cliente y máquina" onClose={()=>setModalNuevoClienteAv(false)}>
+        <div style={{color:"#9bacc8",fontSize:11,marginBottom:10,background:"#1a2236",borderRadius:7,padding:"8px 11px"}}>
+          Se creará el cliente y su máquina. Podrás completar el resto de datos desde la ficha del cliente.
+        </div>
+        <div style={{fontWeight:700,fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".6px",marginBottom:7}}>Cliente</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+          <Field label="Nombre empresa *"><Input value={formNuevoClienteAv.nombreEmpresa||""} onChange={fNCA("nombreEmpresa")} placeholder="Razón social o nombre"/></Field>
+          <Field label="Localidad"><Input value={formNuevoClienteAv.localidad||""} onChange={fNCA("localidad")} placeholder="Ciudad o localidad"/></Field>
+          <Field label="Persona de contacto"><Input value={formNuevoClienteAv.contacto||""} onChange={fNCA("contacto")} placeholder="Nombre del contacto"/></Field>
+          <Field label="Teléfono"><Input value={formNuevoClienteAv.tel||""} onChange={fNCA("tel")} placeholder="Teléfono"/></Field>
+        </div>
+        <div style={{fontWeight:700,fontSize:11,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".6px",margin:"14px 0 7px"}}>Máquina</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+          <Field label="Marca *"><Input value={formNuevoClienteAv.marca||""} onChange={fNCA("marca")} placeholder="Ej: Busellato"/></Field>
+          <Field label="Modelo *"><Input value={formNuevoClienteAv.modelo||""} onChange={fNCA("modelo")} placeholder="Ej: Jet Optima P"/></Field>
+          <Field label="Número de serie"><Input value={formNuevoClienteAv.numeroSerie||""} onChange={fNCA("numeroSerie")} placeholder="Si se conoce"/></Field>
+          <Field label="Matrícula / ref. interna"><Input value={formNuevoClienteAv.matricula||""} onChange={fNCA("matricula")} placeholder="Opcional"/></Field>
+        </div>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:16}}>
           <button onClick={()=>setModalNuevoClienteAv(false)} style={btnOutline}>Cancelar</button>
-          <button onClick={crearClienteDesdeAv} style={btnPrimary} disabled={!formNuevoClienteAv.nombreEmpresa?.trim()}>Crear y seleccionar</button>
+          <button onClick={crearClienteDesdeAv} style={btnPrimary}
+            disabled={!formNuevoClienteAv.nombreEmpresa?.trim()||!formNuevoClienteAv.marca?.trim()||!formNuevoClienteAv.modelo?.trim()}>
+            Crear cliente y máquina
+          </button>
         </div>
       </Modal>}
     </div>
