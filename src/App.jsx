@@ -527,6 +527,16 @@ const TECNICOS_NOMBRES = []; // legacy - now dynamic from data.usuarios
 const PRIORIDADES = ["Alta","Media","Leve"];
 const PCOLOR = { "Alta":"#ef4444", "Media":"#f59e0b", "Leve":"#16a34a" };
 const PRIORIDAD_ORDER = { "Alta":0, "Media":1, "Leve":2 };
+// Escala la prioridad visual según días pendientes (no modifica los datos)
+const prioridadEfectiva = (prioridad, fechaAviso, estado) => {
+  if (estado === "Resuelto" || estado === "Cancelado") return prioridad;
+  const d = Math.floor((new Date() - new Date(fechaAviso)) / 86400000);
+  if (d < 0) return prioridad;
+  if (prioridad === "Leve" && d > 14) return "Alta";
+  if (prioridad === "Leve" && d > 7)  return "Media";
+  if (prioridad === "Media" && d > 14) return "Alta";
+  return prioridad;
+};
 const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Enviado presupuesto a espera aceptacion","Resuelto","Cancelado"];
 const TIPOS_AVISO = ["Reparación","Montaje","Puesta en marcha","Ajuste/mantenimiento","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
@@ -3421,8 +3431,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       <div style={{display:"grid",gap:7}}>
         {avs.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>No hay avisos</div>}
         {avs.map(av => {
-          const pc = PCOLOR[av.prioridad] || "#e4e9f6";
-          const isCrit = av.prioridad === "Alta" && av.estado !== "Resuelto";
+          const pEfectiva = prioridadEfectiva(av.prioridad, av.fechaAviso, av.estado);
+          const pc = PCOLOR[pEfectiva] || "#e4e9f6";
+          const isCrit = pEfectiva === "Alta" && av.estado !== "Resuelto";
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
@@ -3434,7 +3445,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
                   {av.numeroAviso&&<span style={{background:"#ef444420",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{av.numeroAviso}</span>}
                   <span style={{color:"#f1f3f9",fontWeight:800,fontSize:14,overflowWrap:"anywhere",wordBreak:"break-word"}}>{av.titulo}</span>
-                  <Badge text={av.tipo}/><Badge text={av.prioridad}/>
+                  <Badge text={av.tipo}/><Badge text={pEfectiva}{...(pEfectiva!==av.prioridad?{title:`Original: ${av.prioridad}`}:{})}/>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:5}}>
                   <span onClick={e=>{e.stopPropagation();irACliente&&irACliente(av.clienteId);}}
@@ -12746,10 +12757,10 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
                 const sinAsignado=!nombresAsig;
                 return(
                   <div key={av.id}
-                    style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",border:"1px solid "+(sinFecha?"#f59e0b55":av.prioridad==="Alta"?"#ef444433":av.prioridad==="Media"?"#f59e0b33":"#2a3550")}}>
+                    style={{background:"#0d1117",borderRadius:8,padding:"9px 12px",border:(()=>{const pe=prioridadEfectiva(av.prioridad,av.fechaAviso,av.estado);return"1px solid "+(sinFecha?"#f59e0b55":pe==="Alta"?"#ef444433":pe==="Media"?"#f59e0b33":"#2a3550");})()}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6,marginBottom:3}}>
                       <div style={{color:"#f1f3f9",fontWeight:700,fontSize:12,flex:1,cursor:irAAviso?"pointer":"default"}} onClick={()=>irAAviso&&irAAviso(av.id)}>{av.titulo}</div>
-                      <span style={{background:av.prioridad==="Alta"?"#ef444420":av.prioridad==="Media"?"#f59e0b20":"#10b98120",color:av.prioridad==="Alta"?"#ef4444":av.prioridad==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{av.prioridad}</span>
+                      {(()=>{const pe=prioridadEfectiva(av.prioridad,av.fechaAviso,av.estado);return<span style={{background:pe==="Alta"?"#ef444420":pe==="Media"?"#f59e0b20":"#10b98120",color:pe==="Alta"?"#ef4444":pe==="Media"?"#f59e0b":"#10b981",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:800,flexShrink:0}}>{pe}</span>;})()}
                     </div>
                     <div style={{color:"#e4e9f6",fontSize:11,marginBottom:4}}>
                       📅 Aviso: {fmtFecha(av.fechaAviso)}
