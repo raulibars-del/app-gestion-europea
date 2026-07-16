@@ -59,13 +59,20 @@ const conPunto = (s) => {
   return t && !/[.!?…]$/.test(t) ? t + "." : t;
 };
 const generarNum = (prefijo, fecha, lista, campoNum) => {
-  // Format: P010926-01, AV010926-01, ALB010926-01
+  // Numeración basada en hora de creación: P160726-1435 (fecha + HHMM)
+  // Elimina colisiones entre técnicos simultáneos: dos personas creando al mismo tiempo
+  // tendrán distinto minuto; en el caso extremadamente raro del mismo minuto, se añaden segundos.
   const d = fecha || today();
   const [y,m,day] = d.split("-");
-  const base = prefijo + day + m + y.slice(2); // ej: P010926
-  const delDia = lista.filter(x => x[campoNum] && x[campoNum].startsWith(base));
-  const seq = String(delDia.length + 1).padStart(2, "0");
-  return base + "-" + seq;
+  const base = prefijo + day + m + y.slice(2); // ej: P160726
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const candidatoMin = base + "-" + hh + mm;
+  // Si en este dispositivo ya existe un parte con ese HHMM, añadir segundos
+  const yaExiste = (lista || []).some(x => x[campoNum] && x[campoNum] === candidatoMin);
+  return yaExiste ? base + "-" + hh + mm + ss : candidatoMin;
 };
 // Keep backward compat alias
 const generarNumParte = (fecha, partes) => generarNum("P", fecha, partes, "numeroParte");
@@ -287,12 +294,40 @@ const repararEstadosAvisos = (d) => {
     const parte = finalizados.find(p => String(p.avisoId) === String(a.id));
     if (!parte) return a;
     changed = true;
-    return { ...a, estado: "Resuelto", fechaResuelto: parte.fecha || a.fechaResuelto, fechaUltimaIntervencion: parte.fecha || a.fechaUltimaIntervencion };
+    return { ...a, estado: "Resuelto", fechaResuelto: parte.fecha || a.fechaResuelto, fechaUltimaIntervencion: parte.fecha || a.fechaUltimaIntervencion, _ts: Math.max(a._ts||0, parte._ts||0, Date.now()) };
   });
   return changed ? { ...d, avisos: nuevosAvisos } : d;
 };
+// Si dos técnicos crean un parte a la vez pueden acabar con el mismo numeroParte.
+// Esta función detecta colisiones y renombra el parte más nuevo añadiendo una letra (B, C…).
+// Solo afecta al numeroParte visible — el id único nunca cambia.
+const deduplicarNumerosPartes = (d) => {
+  if (!Array.isArray(d.partes) || d.partes.length === 0) return d;
+  const visto = new Map(); // numeroParte → índice del primero (el más antiguo: menor _ts o id)
+  let cambio = false;
+  const partes = d.partes.map((p) => {
+    if (!p.numeroParte) return p;
+    if (!visto.has(p.numeroParte)) { visto.set(p.numeroParte, p); return p; }
+    // Colisión: este parte tiene el mismo número que otro ya procesado.
+    // El que tenga mayor _ts (o id) es el "más nuevo" y recibe el sufijo.
+    const primero = visto.get(p.numeroParte);
+    const esteEsNuevo = (p._ts||p.id||0) > (primero._ts||primero.id||0);
+    const afectado = esteEsNuevo ? p : primero;
+    // Buscar sufijo libre: B, C, D…
+    let sufijo = "B";
+    while (visto.has(afectado.numeroParte + sufijo)) sufijo = String.fromCharCode(sufijo.charCodeAt(0)+1);
+    const nuevo = { ...afectado, numeroParte: afectado.numeroParte + sufijo,
+      cadenaBase: afectado.cadenaBase === afectado.numeroParte
+        ? afectado.numeroParte + sufijo  // actualizar cadenaBase solo si era idéntico al número
+        : afectado.cadenaBase };
+    visto.set(nuevo.numeroParte, nuevo);
+    cambio = true;
+    return esteEsNuevo ? nuevo : p;
+  });
+  return cambio ? { ...d, partes } : d;
+};
 // Función que aplica todas las migraciones/backfills al cargar datos.
-const prepararDatos = d => repararEstadosAvisos(migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d)))));
+const prepararDatos = d => deduplicarNumerosPartes(repararEstadosAvisos(migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d))))));
 
 // ── Verifactu: hash SHA-256 encadenado (RD 1007/2023, Ley 11/2021 antifraude) ──
 // Campos: IDEmisorFactura & NumSerieFactura & FechaExpedicion & TipoFactura & CuotaTotal & ImporteTotal & HuellaAnterior
@@ -5822,16 +5857,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const matsStr = listaMateriales.length > 0 ? listaMateriales.map(m=>`${m.cantidad}x ${m.material}${m.esInventario&&m.codigo?` (${m.codigo})`:""}`).join(" | ") : (form.materiales||"");
     const esNuevo = !form.id;
     const parteId = form.id || Date.now();
-    const numeroParte = form.numeroParte || generarNumParte(form.fecha, data.partes);
-    // Cadena de partes continuados (mismo trabajo, varias visitas): el primer parte de la
-    // cadena usa su propio numeroParte como base; los retomados heredan la base del original.
-    const cadenaBase = form.cadenaBase || numeroParte;
+    // numeroParte y cadenaBase se calculan DENTRO de setData para usar el array más reciente
+    // y evitar colisiones cuando dos técnicos crean un parte a la vez.
     const clienteObj = form.clienteDirectoId ? data.clientes.find(c=>c.id===form.clienteDirectoId) : rCliente(form.reparacionId);
     const clienteNombre = clienteObj?.nombreEmpresa || clienteObj?.nombreFiscal || "Cliente sin nombre";
-    const item = { ...form,
+    const itemBase = { ...form,
       id: parteId,
-      numeroParte,
-      cadenaBase,
       numContinuacion: form.numContinuacion||0,
       continuaDeId: form.continuaDeId||null,
       horasT: parseFloat(form.horasT)||0,
@@ -5841,9 +5872,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       reparacionId: parseInt(form.reparacionId)||null,
       avisoId: parseInt(form.avisoId)||null,
       estadoParte: continuado ? "Continuado" : "Finalizado",
+      _ts: Date.now(),
     };
     setData(d => {
       let nuevo = {...d};
+      // Generar numeroParte aquí, usando d.partes (estado más fresco en el momento del commit)
+      const numeroParte = form.numeroParte || generarNumParte(form.fecha, d.partes);
+      const cadenaBase = form.cadenaBase || numeroParte;
+      let item = { ...itemBase, numeroParte, cadenaBase };
       // Autocompletar ficha de cliente: si la matricula/maquina escrita en el parte no
       // coincide con ninguna maquina ya guardada del cliente, se crea automaticamente y
       // se vincula el parte a ella; igual con el contacto en el sitio (nombre/tel/email)
@@ -6344,6 +6380,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             emailEnviadoA: p.envioProgEmail,
             emailEnviadoCC: ccUsada,
             fechaEnvio: hoyEspana,
+            _ts: Date.now(),
             envioProgFecha: null,
             envioProgHora: null,
             envioProgEmail: null,
@@ -6476,7 +6513,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       ✍️ Firmar
                     </button>
                     <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={11} /></button>
-                    <button onClick={() => {if(window.confirm("¿Eliminar este parte? Esta acción no se puede deshacer.")) setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }));}} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                    {(p.emailEnviado || p.estadoParte==="Finalizado" || p.estadoParte==="Completado")
+                      ? <button title="No se puede eliminar un parte ya enviado o finalizado" disabled style={{...btnSm("#3b1c1c","#4a1c1c"),opacity:0.4,cursor:"not-allowed"}}><Icon name="trash" size={11}/></button>
+                      : <button onClick={() => {if(window.confirm(`¿Eliminar parte ${p.numeroParte||p.id}? Esta acción no se puede deshacer.`)) setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }));}} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
+                    }
                   </div>
                 </div>
               </div>
