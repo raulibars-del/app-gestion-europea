@@ -12720,9 +12720,9 @@ const COLOR_EVENTO = {Aviso:"#ef4444",Visita:"#3b82f6",Feria:"#f59e0b",Medico:"#
 
 const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const esAdmin = userActual.rol==="manager"||userActual.rol==="admin";
-  // Vista: "semana" (la de siempre) o "mes" (cuadricula del mes completo, tipo Google Calendar).
-  const [vista, setVista] = useState("semana");
-  const [offset, setOffset] = useState(0); // en "semana": numero de semanas; en "mes": numero de meses
+  // Vista: "mes" (por defecto) o "semana" (7 días desde hoy).
+  const [vista, setVista] = useState("mes");
+  const [offset, setOffset] = useState(0); // en "semana": número de bloques de 7 días; en "mes": número de meses
   const cambiarVista = v => { setVista(v); setOffset(0); };
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
@@ -12731,15 +12731,14 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
   const [modalAsignarAviso, setModalAsignarAviso] = useState(null); // id del aviso a asignar
   const [formAsignar, setFormAsignar] = useState({});
 
-  // Calcular dias de la semana actual + offset
-  const getLunes = (offsetSemanas) => {
+  // Vista semanal: 7 días desde HOY (no desde el lunes de la semana)
+  const getInicioSemana = (offsetBloques) => {
     const hoy = new Date();
-    const dia = hoy.getDay()||7;
-    const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() - dia + 1 + offsetSemanas*7);
-    return lunes;
+    const d = new Date(hoy);
+    d.setDate(hoy.getDate() + offsetBloques * 7);
+    return d;
   };
-  const lunes = getLunes(vista==="semana"?offset:0);
+  const lunes = getInicioSemana(vista==="semana"?offset:0); // "lunes" ahora = día de inicio (hoy + offset)
   const diasSemana = Array.from({length:7},(_,i)=>{
     const d = new Date(lunes);
     d.setDate(lunes.getDate()+i);
@@ -13047,10 +13046,14 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
           const minH = esVistaMes ? 86 : 160;
           const maxEv = esVistaMes ? 2 : 4;
           return(
-            <div key={fecha} style={{background:hoy?"#1e293b":"#151b2a",border:`1px solid ${hoy?"#f97316":"#2a3550"}`,borderRadius:10,padding:"8px 6px",minHeight:minH,cursor:"pointer",transition:"border-color .15s",opacity:fueraDeMes?0.4:1}}
+            <div key={fecha} style={{
+                background:hoy?"#1e293b":"#151b2a",
+                backgroundImage:esFinSemana?"repeating-linear-gradient(45deg,rgba(180,30,30,0.10) 0,rgba(180,30,30,0.10) 1px,transparent 1px,transparent 9px),repeating-linear-gradient(-45deg,rgba(180,30,30,0.10) 0,rgba(180,30,30,0.10) 1px,transparent 1px,transparent 9px)":"none",
+                border:`1px solid ${hoy?"#f97316":esFinSemana?"#5a2a2a":"#2a3550"}`,
+                borderRadius:10,padding:"8px 6px",minHeight:minH,cursor:"pointer",transition:"border-color .15s",opacity:fueraDeMes?0.4:1}}
               onClick={()=>abrirNuevo(fecha)}
               onMouseEnter={e=>e.currentTarget.style.borderColor=hoy?"#f97316":"#3b82f6"}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=hoy?"#f97316":"#2a3550"}>
+              onMouseLeave={e=>e.currentTarget.style.borderColor=hoy?"#f97316":esFinSemana?"#5a2a2a":"#2a3550"}>
               {/* Cabecera dia */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <div style={{textAlign:"center",flex:1}}>
