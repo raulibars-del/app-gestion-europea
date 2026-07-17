@@ -6561,7 +6561,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       ✍️ Firmar
                     </button>
                     <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={11} /></button>
-                    {(p.emailEnviado || p.estadoParte==="Finalizado" || p.estadoParte==="Completado")
+                    {(p.emailEnviado || p.estadoParte==="Finalizado" || p.estadoParte==="Completado") && userActual?.rol !== "manager"
                       ? <button title="No se puede eliminar un parte ya enviado o finalizado" disabled style={{...btnSm("#3b1c1c","#4a1c1c"),opacity:0.4,cursor:"not-allowed"}}><Icon name="trash" size={11}/></button>
                       : <button onClick={() => {if(window.confirm(`¿Eliminar parte ${p.numeroParte||p.id}? Esta acción no se puede deshacer.`)) setData(d => ({ ...d,partes: d.partes.filter(x => x.id !== p.id), inventario: revertirInventarioParte(d.inventario, p.id) }));}} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={11} /></button>
                     }
