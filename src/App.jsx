@@ -6643,13 +6643,27 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             ?<input value={form.modelo||""} readOnly style={{...inputStyle,opacity:.6,cursor:"not-allowed"}}/>
             :<Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3..."/>}
           </Field>
-          <Field label="Matricula / Serie *">{form.avisoId && form.matricula?.trim()
-            ?<input value={form.matricula||""} readOnly style={{...inputStyle,opacity:.6,cursor:"not-allowed"}}/>
-            :<input value={form.matricula||""} onChange={f("matricula")} style={{...inputStyle,borderColor:!form.matricula?.trim()?"#f59e0b66":"#2a3550"}}/>}
+          <Field label="Matricula / Serie *">{(()=>{
+            // Solo bloquear si la máquina del aviso YA tiene serie guardada en la ficha del cliente
+            const maqSerieGuardada = form.avisoId ? (()=>{
+              const av=data.avisos.find(a=>a.id===parseInt(form.avisoId));
+              const cl=av?.clienteId?data.clientes.find(c=>c.id===av.clienteId):null;
+              const maq=av?.maquinaId&&cl?cl.maquinas?.find(m=>m.id===parseInt(av.maquinaId)):null;
+              return maq?.serie?.trim()||"";
+            })() : "";
+            return maqSerieGuardada
+              ?<input value={form.matricula||""} readOnly style={{...inputStyle,opacity:.6,cursor:"not-allowed"}}/>
+              :<input value={form.matricula||""} onChange={f("matricula")} style={{...inputStyle,borderColor:!form.matricula?.trim()?"#f59e0b66":"#2a3550"}}/>;
+          })()}
             {!form.matricula?.trim()&&<div style={{color:"#f59e0b",fontSize:10,marginTop:3}}>Obligatorio — el tecnico debe verificarla en la maquina</div>}
           </Field>
         </div>
-        {form.avisoId&&<div style={{color:"#f59e0b",fontSize:11,marginBottom:4}}>Maquina bloqueada — coincide con el aviso vinculado.</div>}
+        {form.avisoId&&(()=>{
+          const av=data.avisos.find(a=>a.id===parseInt(form.avisoId));
+          const cl=av?.clienteId?data.clientes.find(c=>c.id===av.clienteId):null;
+          const maq=av?.maquinaId&&cl?cl.maquinas?.find(m=>m.id===parseInt(av.maquinaId)):null;
+          return maq?.serie?.trim()?<div style={{color:"#f59e0b",fontSize:11,marginBottom:4}}>Maquina bloqueada — coincide con el aviso vinculado.</div>:null;
+        })()}
 
         {/* Contacto en el sitio: si coincide con un contacto ya existente del cliente se
             autocompleta tel/email; si es una persona nueva, al guardar se pedira su puesto
