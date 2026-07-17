@@ -3309,7 +3309,6 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       marca: formNuevoClienteAv.marca.trim(),
       modelo: formNuevoClienteAv.modelo.trim(),
       matricula: formNuevoClienteAv.matricula?.trim() || "",
-      numeroSerie: formNuevoClienteAv.numeroSerie?.trim() || "",
       estado: "Activa", notas: "",
     };
     const ncId = Date.now();
@@ -3904,8 +3903,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <Field label="Marca *"><Input value={formNuevoClienteAv.marca||""} onChange={fNCA("marca")} placeholder="Ej: Busellato"/></Field>
           <Field label="Modelo *"><Input value={formNuevoClienteAv.modelo||""} onChange={fNCA("modelo")} placeholder="Ej: Jet Optima P"/></Field>
-          <Field label="Número de serie"><Input value={formNuevoClienteAv.numeroSerie||""} onChange={fNCA("numeroSerie")} placeholder="Si se conoce"/></Field>
-          <Field label="Matrícula / ref. interna"><Input value={formNuevoClienteAv.matricula||""} onChange={fNCA("matricula")} placeholder="Opcional"/></Field>
+          <Field label="Matrícula / Nº de serie"><Input value={formNuevoClienteAv.matricula||""} onChange={fNCA("matricula")} placeholder="Si se conoce"/></Field>
         </div>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:16}}>
           <button onClick={()=>setModalNuevoClienteAv(false)} style={btnOutline}>Cancelar</button>
@@ -6614,7 +6612,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
               <select value={form.maquinaId||""} onChange={e=>{
                 if(form.avisoId) return; // locked when aviso selected
                 const maq=maquinas.find(m=>m.id===parseInt(e.target.value));
-                setForm(p=>({...p,maquinaId:e.target.value,marca:maq?.marca||"",modelo:maq?.modelo||"",matricula:maq?.serie||""}));
+                const pContact = cl?.contactos?.find(c=>c.principal) || cl?.contactos?.[0];
+                setForm(p=>({...p,maquinaId:e.target.value,marca:maq?.marca||"",modelo:maq?.modelo||"",matricula:maq?.serie||"",
+                  ...(pContact&&!p.contactoNombre?.trim()?{contactoNombre:pContact.nombre||"",contactoTel:pContact.tel||"",contactoEmail:pContact.email||""}:{})}));
               }} style={{...inputStyle,opacity:form.avisoId?0.6:1,cursor:form.avisoId?"not-allowed":"auto"}}>
                 <option value="">Seleccionar maquina...</option>
                 {maquinas.map(m=><option key={m.id} value={m.id}>{m.nombre} {m.serie?"("+m.serie+")":"⚠️ sin matrícula"}</option>)}
@@ -6643,7 +6643,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
             ?<input value={form.modelo||""} readOnly style={{...inputStyle,opacity:.6,cursor:"not-allowed"}}/>
             :<Input value={form.modelo||""} onChange={f("modelo")} placeholder="SC3..."/>}
           </Field>
-          <Field label="Matricula / Serie *">{form.avisoId
+          <Field label="Matricula / Serie *">{form.avisoId && form.matricula?.trim()
             ?<input value={form.matricula||""} readOnly style={{...inputStyle,opacity:.6,cursor:"not-allowed"}}/>
             :<input value={form.matricula||""} onChange={f("matricula")} style={{...inputStyle,borderColor:!form.matricula?.trim()?"#f59e0b66":"#2a3550"}}/>}
             {!form.matricula?.trim()&&<div style={{color:"#f59e0b",fontSize:10,marginTop:3}}>Obligatorio — el tecnico debe verificarla en la maquina</div>}
@@ -6721,6 +6721,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     if(maq){ updates.maquinaId=av.maquinaId; updates.marca=maq.marca||av.marca||""; updates.modelo=maq.modelo||av.modelo||""; updates.matricula=maq.serie||av.matricula||""; }
                     else { updates.marca=av.marca||""; updates.modelo=av.modelo||""; updates.matricula=av.matricula||""; }
                   } else { updates.marca=av.marca||""; updates.modelo=av.modelo||""; updates.matricula=av.matricula||""; }
+                  // Auto-fill contact from client's primary contact
+                  const pContact = cl?.contactos?.find(c=>c.principal) || cl?.contactos?.[0];
+                  if(pContact){ updates.contactoNombre=pContact.nombre||""; updates.contactoTel=pContact.tel||""; updates.contactoEmail=pContact.email||""; }
                 }
                 setForm(p=>({...p,...updates}));
               }} style={{...inputStyle}}>
