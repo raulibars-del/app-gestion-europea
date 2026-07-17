@@ -5221,10 +5221,11 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const pendientes = misTareas.filter(t => t.estado !== "Completada");
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const vencidasTareas = pendientes.filter(t => diasVence(t.vence) < 0);
+  const ultimasCompletadas = [...completadas].sort((a,b) => String(b.fechaCompletada||"").localeCompare(String(a.fechaCompletada||""))).slice(0,5);
   const filtroBase = filtroStats === "pendientes"
-    ? pendientes.filter(t => diasVence(t.vence) >= 0)
+    ? [...pendientes.filter(t => diasVence(t.vence) >= 0), ...ultimasCompletadas]
     : filtroStats === "vencidas"
-      ? vencidasTareas
+      ? [...vencidasTareas, ...ultimasCompletadas]
       : misTareas;
   const resolverNombreT = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "";
   const mostrar = busqTarea.trim().length < 2
@@ -5365,8 +5366,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   };
   const esMobil = window.innerWidth < 700;
   const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
+  const asigUltimasCompletadas = [...asigCompletadas].sort((a,b) => String(b.fechaCompletada||"").localeCompare(String(a.fechaCompletada||""))).slice(0,5);
   const asigFiltroBase = filtroAsig === "pendientes"
-    ? asignadasPorMi.filter(t => t.estado !== "Completada")
+    ? [...asignadasPorMi.filter(t => t.estado !== "Completada"), ...asigUltimasCompletadas]
     : filtroAsig === "completadas"
       ? asigCompletadas
       : asignadasPorMi;
