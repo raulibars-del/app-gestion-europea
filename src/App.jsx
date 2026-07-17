@@ -5323,7 +5323,19 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     const nuevoEstado = t.estado === "Completada" ? "Pendiente" : "Completada";
     if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
     if (nuevoEstado === "Pendiente" && !window.confirm(`¿Seguro que esta tarea no ha sido completada? Volverá a tareas pendientes.`)) return;
-    setData(d => ({ ...d,tareas: d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: Date.now() } : x) }));
+    setData(d => {
+      let tareas = d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: Date.now() } : x);
+      if (nuevoEstado === "Completada") {
+        // Mantener solo las 5 tareas completadas más recientes; eliminar las más antiguas
+        const completadas = tareas.filter(x => !x._deleted && x.estado === "Completada")
+          .sort((a,b) => String(b.fechaCompletada||b._ts||0).localeCompare(String(a.fechaCompletada||a._ts||0)));
+        if (completadas.length > 5) {
+          const idsABorrar = new Set(completadas.slice(5).map(x => x.id));
+          tareas = tareas.filter(x => !idsABorrar.has(x.id));
+        }
+      }
+      return { ...d, tareas };
+    });
     if (nuevoEstado === "Completada" && t.creadoPor && t.creadoPor !== userActual.id) {
       const n = crearNotif(t.creadoPor, "tarea_ok", `✅ Tarea completada`, `"${t.titulo}" marcada como completada por ${userActual.nombre}`);
       setData(d => ({ ...d,notificaciones: { ...d.notificaciones, [t.creadoPor]: [n, ...(d.notificaciones[t.creadoPor] || [])] } }));
