@@ -12939,7 +12939,7 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
         <>
           {/* Cabecera días semana */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
-            {["L","M","X","J","V","S","D"].map(d=><div key={d} style={{textAlign:"center",color:"#e4e9f6",fontSize:10,fontWeight:700,padding:"4px 0"}}>{d}</div>)}
+            {["L","M","X","J","V","S","D"].map((d,i)=><div key={d} style={{textAlign:"center",color:i>=5?"#f87171":"#e4e9f6",fontSize:10,fontWeight:700,padding:"4px 0"}}>{d}</div>)}
           </div>
           {/* Cuadrícula compacta mes */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:10}}>
@@ -12948,11 +12948,13 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
               const evsDia = eventosDia(fecha, usuarioFiltro);
               const hoy = esHoy(dia);
               const fueraMes = dia.getMonth()!==primerDiaMes.getMonth();
+              const esFdS = dia.getDay()===0||dia.getDay()===6;
               const sel = diaSeleccionado===fecha;
               return(
                 <div key={fecha} onClick={()=>setDiaSeleccionado(sel?null:fecha)}
-                  style={{background:sel?"#f9731618":hoy?"#1e293b":"#151b2a",border:`1px solid ${sel?"#f97316":hoy?"#f9731680":"#2a3550"}`,borderRadius:6,padding:"5px 2px",textAlign:"center",cursor:"pointer",opacity:fueraMes?0.3:1,minHeight:40}}>
-                  <div style={{width:22,height:22,borderRadius:11,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:12}}>
+                  style={{background:sel?"#f9731618":hoy?"#1e293b":"#151b2a",border:`1px solid ${sel?"#f97316":hoy?"#f9731680":esFdS?"#5a2a2a":"#2a3550"}`,borderRadius:6,padding:"5px 2px",textAlign:"center",cursor:"pointer",opacity:fueraMes?0.3:1,minHeight:40,
+                    backgroundImage:esFdS?"repeating-linear-gradient(45deg,rgba(180,30,30,0.10) 0,rgba(180,30,30,0.10) 1px,transparent 1px,transparent 9px),repeating-linear-gradient(-45deg,rgba(180,30,30,0.10) 0,rgba(180,30,30,0.10) 1px,transparent 1px,transparent 9px)":"none"}}>
+                  <div style={{width:22,height:22,borderRadius:11,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto",color:hoy?"#fff":esFdS?"#f87171":"#f1f3f9",fontWeight:hoy?800:esFdS?700:600,fontSize:12}}>
                     {dia.getDate()}
                   </div>
                   {evsDia.length>0&&(
@@ -13057,8 +13059,8 @@ const Calendario = ({ data, setData, userActual, irAAviso, isMobile }) => {
               {/* Cabecera dia */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
                 <div style={{textAlign:"center",flex:1}}>
-                  {!esVistaMes&&<div style={{color:esFinSemana?"#e4e9f6":"#e1e6f2",fontSize:10,textTransform:"uppercase",letterSpacing:".5px"}}>{fmtDia(dia)}</div>}
-                  <div style={{width:26,height:26,borderRadius:13,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:esVistaMes?"0 auto":"2px auto 0",color:hoy?"#fff":"#f1f3f9",fontWeight:hoy?800:600,fontSize:14}}>
+                  {!esVistaMes&&<div style={{color:esFinSemana?"#f87171":"#e1e6f2",fontSize:10,textTransform:"uppercase",letterSpacing:".5px",fontWeight:esFinSemana?700:400}}>{fmtDia(dia)}</div>}
+                  <div style={{width:26,height:26,borderRadius:13,background:hoy?"#f97316":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:esVistaMes?"0 auto":"2px auto 0",color:hoy?"#fff":esFinSemana?"#f87171":"#f1f3f9",fontWeight:hoy?800:esFinSemana?700:600,fontSize:14}}>
                     {fmtNum(dia)}
                   </div>
                 </div>
