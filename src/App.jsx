@@ -1334,7 +1334,7 @@ const Login = ({ usuarios, onLogin }) => {
     </div>
   );
 };
-const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClienteId, userActual, onVenderMaquina }) => {
+const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId, onAbrirClienteId, userActual, onVenderMaquina }) => {
   const puedeEliminar = userActual?.rol==="manager" || userActual?.rol==="admin";
   const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   useEffect(()=>{
@@ -2019,7 +2019,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, abrirClienteId, onAbrirClien
                   return Math.max(1,Math.round(diff/(30.44*24*3600*1000)));
                 })();
                 return(
-                <button key={m.id} onClick={()=>setTabM(m.id)}
+                <button key={m.id} onClick={()=>onIrAMaquina ? onIrAMaquina(c.id,m.id) : setTabM(m.id)}
                   style={{aspectRatio:"1",background:"#0d1117",border:"1px solid "+(mesesGar?"#10b98166":c.esStockInterno?"#f9731644":"#2a3550"),borderRadius:11,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,padding:0,cursor:"pointer",textAlign:"center",overflow:"hidden",position:"relative"}}>
                   {mFoto
                     ?<img src={mFoto.data} alt="" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute",inset:0,borderRadius:10,opacity:0.85}}/>
@@ -15941,7 +15941,7 @@ function AppInner() {
         <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
-          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
+          {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} onIrAMaquina={puedeVer(user.rol,"maquinas")?irAMaquina:null} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
           {active==="proveedores"&&puedeVer(user.rol,"proveedores")&&<Proveedores data={data} setData={setData} userActual={user}/>}
           {active==="maquinas"&&puedeVer(user.rol,"maquinas")&&<Maquinas data={data} setData={setData} userActual={user} irACliente={irACliente} irAAviso={irAAviso} irAParte={irAParte} abrirMaquinaVista={maquinaVistaAbrir} onAbrirMaquinaVista={()=>setMaquinaVistaAbrir(null)}/>}
           {active==="ventas"&&puedeVer(user.rol,"ventas")&&<Ventas data={data} setData={setData} userActual={user}/>}
