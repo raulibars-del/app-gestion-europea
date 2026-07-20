@@ -4906,13 +4906,13 @@ const htmlFirmaGestion = () => {
 const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({});
-  const [filtroStats, setFiltroStats] = useState("pendientes"); // "pendientes" | "vencidas" | null (todas)
+  const [filtroStats, setFiltroStats] = useState(null); // null = todas | "vencidas"
   const [busqTarea, setBusqTarea] = useState("");
   const [subiendoAdjunto, setSubiendoAdjunto] = useState(false);
   const [vistaPrevia, setVistaPrevia] = useState(null);
   const [compartiendo, setCompartiendo] = useState(false);
   const [busqAsig, setBusqAsig] = useState("");
-  const [filtroAsig, setFiltroAsig] = useState("pendientes"); // "pendientes" | "completadas" | null (todas)
+  const [filtroAsig, setFiltroAsig] = useState(null); // null = todas | "vencidas"
   // "Tarea reenviada": al crear la tarea, además del aviso interno normal (a quien
   // se le asigna), se puede mandar una copia a un proveedor/cliente externo sin
   // cuenta en la app. El nombre y el email se rellenan directamente en la misma
@@ -5222,11 +5222,9 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   const completadas = misTareas.filter(t => t.estado === "Completada");
   const vencidasTareas = pendientes.filter(t => diasVence(t.vence) < 0);
   const ultimasCompletadas = [...completadas].sort((a,b) => String(b.fechaCompletada||"").localeCompare(String(a.fechaCompletada||""))).slice(0,5);
-  const filtroBase = filtroStats === "pendientes"
-    ? [...pendientes.filter(t => diasVence(t.vence) >= 0), ...ultimasCompletadas]
-    : filtroStats === "vencidas"
-      ? [...vencidasTareas, ...ultimasCompletadas]
-      : misTareas;
+  const filtroBase = filtroStats === "vencidas"
+    ? [...vencidasTareas, ...ultimasCompletadas]
+    : [...pendientes, ...ultimasCompletadas]; // null = todas pendientes + 5 últimas completadas
   const resolverNombreT = id => data.usuarios.find(u => u.id === parseInt(id))?.nombre || "";
   const mostrar = busqTarea.trim().length < 2
     ? filtroBase
@@ -5366,12 +5364,11 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   };
   const esMobil = window.innerWidth < 700;
   const asigCompletadas = asignadasPorMi.filter(t => t.estado === "Completada");
+  const asigVencidas = asigPendientes.filter(t => diasVence(t.vence) < 0);
   const asigUltimasCompletadas = [...asigCompletadas].sort((a,b) => String(b.fechaCompletada||"").localeCompare(String(a.fechaCompletada||""))).slice(0,5);
-  const asigFiltroBase = filtroAsig === "pendientes"
-    ? [...asignadasPorMi.filter(t => t.estado !== "Completada"), ...asigUltimasCompletadas]
-    : filtroAsig === "completadas"
-      ? asigCompletadas
-      : asignadasPorMi;
+  const asigFiltroBase = filtroAsig === "vencidas"
+    ? [...asigVencidas, ...asigUltimasCompletadas]
+    : [...asigPendientes, ...asigUltimasCompletadas]; // null = todas pendientes + 5 últimas completadas
   const asigMostrar = busqAsig.trim().length < 2
     ? asigFiltroBase
     : (() => {
@@ -5409,12 +5406,12 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           {/* Filtros */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
             {[
-              ["Pendientes", pendientes.filter(t => diasVence(t.vence) >= 0).length, "#f59e0b", "pendientes"],
-              ["Vencidas",   vencidasTareas.length,                                  "#dc2626", "vencidas"],
+              ["Todas",    pendientes.length,       "#8b5cf6", null],
+              ["Vencidas", vencidasTareas.length,   "#dc2626", "vencidas"],
             ].map(([l, v, c, key]) => {
               const activo = filtroStats === key;
               return (
-                <div key={l} onClick={() => setFiltroStats(filtroStats === key ? null : key)}
+                <div key={l} onClick={() => setFiltroStats(key)}
                   style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:9,padding:"8px 10px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
                   <div style={{width:7,height:7,borderRadius:4,background:c,flexShrink:0}} />
                   <div style={{flex:1}}>
@@ -5497,12 +5494,12 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
           {/* Filtros */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6}}>
             {[
-              ["Pendientes",  asigPendientes.length,  "#f59e0b", "pendientes"],
-              ["Completadas", asigCompletadas.length, "#10b981", "completadas"],
+              ["Todas",    asigPendientes.length, "#3b82f6", null],
+              ["Vencidas", asigVencidas.length,   "#dc2626", "vencidas"],
             ].map(([l, v, c, key]) => {
               const activo = filtroAsig === key;
               return (
-                <div key={l} onClick={() => setFiltroAsig(filtroAsig === key ? null : key)}
+                <div key={l} onClick={() => setFiltroAsig(key)}
                   style={{background:"#151b2a",border:`2px solid ${activo ? c : c+"33"}`,borderRadius:9,padding:"8px 10px",display:"flex",alignItems:"center",gap:6,cursor:"pointer",transition:"border-color .15s",userSelect:"none"}}>
                   <div style={{width:7,height:7,borderRadius:4,background:c,flexShrink:0}} />
                   <div style={{flex:1}}>
