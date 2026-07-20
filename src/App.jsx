@@ -1489,8 +1489,10 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   };
 
   // ── Importación de clientes desde CSV / XLSX ──────────────────────────────
-  const IMPORT_COLS = ["Nombre empresa *","Nombre fiscal","CIF / DNI","Dirección (calle y número)","Localidad","Provincia","Código postal","Contacto — Nombre","Contacto — Puesto/cargo","Contacto — Teléfono","Contacto — Email"];
+  const IMPORT_COLS = ["Nombre empresa","Nombre fiscal *","CIF / DNI *","Dirección (calle y número) *","Localidad *","Provincia *","Código postal *","Contacto — Nombre","Contacto — Puesto/cargo","Contacto — Teléfono","Contacto — Email"];
   const IMPORT_CAMPOS = ["nombreEmpresa","nombreFiscal","cif","direccion","localidad","provinciaFiscal","cp","contactoNombre","contactoPuesto","contactoTel","contactoEmail"];
+  const IMPORT_REQUERIDOS = [1,2,3,4,5,6]; // índices de columnas obligatorias (B-G)
+  const filaValida = f => IMPORT_REQUERIDOS.every(i => (f[i]||"").trim());
 
   const descargarPlantillaCSV = () => {
     const cab = IMPORT_COLS.join(";");
@@ -1552,17 +1554,20 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
 
   const ejecutarImportacion = () => {
     const base = Date.now();
-    const nuevos = importFilas.map((f,i)=>{
+    const validas = importFilas.filter(filaValida);
+    const omitidas = importFilas.length - validas.length;
+    const nuevos = validas.map((f,i)=>{
       const contactoNombre = (f[7]||"").trim();
       const contactos = contactoNombre ? [{
         id: base+i+1000, nombre: contactoNombre,
         puesto: (f[8]||"").trim(), tel: (f[9]||"").trim(),
         email: (f[10]||"").trim(), principal: true,
       }] : [];
+      const nombreFiscal = (f[1]||"").trim();
       return {
         id: base+i, _ts: base+i,
-        nombreEmpresa:  (f[0]||"").trim(),
-        nombreFiscal:   (f[1]||"").trim()||(f[0]||"").trim(),
+        nombreEmpresa:  (f[0]||"").trim() || nombreFiscal, // si no hay nombre empresa, usa fiscal
+        nombreFiscal,
         cif:            (f[2]||"").trim(),
         direccion:      (f[3]||"").trim(),
         localidad:      (f[4]||"").trim(),
@@ -1570,10 +1575,10 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         cp:             (f[6]||"").trim(),
         contactos, maquinas:[], notas:"", esCliente:true,
       };
-    }).filter(c=>c.nombreEmpresa);
+    });
     setData(d=>({...d, clientes:[...d.clientes,...nuevos]}));
     setModalImportar(false); setImportFilas([]);
-    alert(`✅ ${nuevos.length} cliente${nuevos.length!==1?"s":""} importado${nuevos.length!==1?"s":""} correctamente.`);
+    alert(`✅ ${nuevos.length} cliente${nuevos.length!==1?"s":""} importado${nuevos.length!==1?"s":""}${omitidas?`\n⚠️ ${omitidas} fila${omitidas!==1?"s":""} omitida${omitidas!==1?"s":""} por faltar campos obligatorios.`:""}`);
   };
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -1955,24 +1960,26 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
           {/* Vista previa */}
           {importFilas.length>0&&(
             <div>
-              <div style={{color:"#10b981",fontWeight:700,fontSize:12,marginBottom:8}}>✅ {importFilas.length} fila{importFilas.length!==1?"s":""} detectada{importFilas.length!==1?"s":""} — vista previa:</div>
+              {(()=>{const inc=importFilas.filter(f=>!filaValida(f)).length; return inc>0&&<div style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:7,padding:"8px 12px",color:"#f87171",fontSize:12,marginBottom:6}}>⚠️ {inc} fila{inc!==1?"s":""} incompleta{inc!==1?"s":""} (campos obligatorios marcados en rojo) — se omitirán al importar.</div>;})()}
+              <div style={{color:"#10b981",fontWeight:700,fontSize:12,marginBottom:8}}>✅ {importFilas.filter(filaValida).length} de {importFilas.length} fila{importFilas.length!==1?"s":""} listas para importar — vista previa:</div>
               <div style={{overflowX:"auto",maxHeight:260,overflowY:"auto",border:"1px solid #2a3550",borderRadius:8}}>
                 <table style={{borderCollapse:"collapse",fontSize:11,color:"#e4e9f6",width:"100%"}}>
                   <thead style={{position:"sticky",top:0,background:"#1e293b",zIndex:1}}>
-                    <tr>{IMPORT_COLS.map((c,i)=><th key={i} style={{border:"1px solid #2a3550",padding:"5px 8px",textAlign:"left",color:"#9bacc8",fontWeight:700,whiteSpace:"nowrap"}}>{c}</th>)}</tr>
+                    <tr><th style={{border:"1px solid #2a3550",padding:"5px 6px",color:"#9bacc8",fontWeight:700}}>#</th>{IMPORT_COLS.map((c,i)=><th key={i} style={{border:"1px solid #2a3550",padding:"5px 8px",textAlign:"left",color:IMPORT_REQUERIDOS.includes(i)?"#f59e0b":"#9bacc8",fontWeight:700,whiteSpace:"nowrap"}}>{c}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {importFilas.slice(0,20).map((f,ri)=>(
-                      <tr key={ri} style={{background:ri%2===0?"#0d1117":"#111827"}}>
-                        {IMPORT_CAMPOS.map((_,ci)=>(
-                          <td key={ci} style={{border:"1px solid #1e293b",padding:"4px 8px",whiteSpace:"nowrap",
-                            color:(ci===0&&!(f[0]||"").trim())?"#f87171":"#e4e9f6",
-                            fontWeight:ci===0?600:400}}>
-                            {(f[ci]||"—")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                    {importFilas.slice(0,20).map((f,ri)=>{
+                      const ok=filaValida(f);
+                      return(
+                      <tr key={ri} style={{background:ok?(ri%2===0?"#0d1117":"#111827"):"#1a0a0a"}}>
+                        <td style={{border:"1px solid #1e293b",padding:"4px 6px",textAlign:"center",color:ok?"#10b981":"#f87171",fontWeight:700}}>{ok?"✓":"✗"}</td>
+                        {IMPORT_CAMPOS.map((_,ci)=>{
+                          const val=(f[ci]||"").trim();
+                          const faltaOblig=IMPORT_REQUERIDOS.includes(ci)&&!val;
+                          return <td key={ci} style={{border:"1px solid #1e293b",padding:"4px 8px",whiteSpace:"nowrap",background:faltaOblig?"#3b1c1c":"transparent",color:faltaOblig?"#f87171":"#e4e9f6",fontWeight:ci===0||ci===1?600:400}}>{val||<span style={{opacity:.4}}>—</span>}</td>;
+                        })}
+                      </tr>);
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1982,10 +1989,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
           {/* Botones */}
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={()=>setModalImportar(false)} style={btnOutline}>Cancelar</button>
-            <button onClick={ejecutarImportacion} disabled={!importFilas.length}
-              style={{background:importFilas.length?"#8b5cf6":"#2a3550",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:importFilas.length?"pointer":"not-allowed",fontSize:14,opacity:importFilas.length?1:0.5}}>
-              📥 Importar {importFilas.length>0?importFilas.length+" cliente"+(importFilas.length!==1?"s":""):""}
-            </button>
+            {(()=>{const n=importFilas.filter(filaValida).length; return(
+              <button onClick={ejecutarImportacion} disabled={!n}
+                style={{background:n?"#8b5cf6":"#2a3550",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:n?"pointer":"not-allowed",fontSize:14,opacity:n?1:0.5}}>
+                📥 Importar {n>0?n+" cliente"+(n!==1?"s":""):"(sin filas válidas)"}
+              </button>
+            );})()}
           </div>
         </div>
       </Modal>}
