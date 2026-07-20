@@ -465,6 +465,20 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
         }
         // Ambos lados difieren del base: si tienen _ts, el más reciente gana.
         if ((itemL._ts || itemR._ts) && (itemL._ts||0) !== (itemR._ts||0)) {
+          // CASO ESPECIAL: si la única diferencia entre local y base es el campo _ts
+          // (el usuario no cambió ningún dato real, solo quedó un _ts inflado por un
+          // guardado fallido que actualizó timestamps sin llegar al servidor), y el
+          // remoto tiene _ts mayor → preferimos el remoto, que es el estado confirmado.
+          // Sin esto, un guardado fallido que asignó _ts=T3 a un ítem que el servidor
+          // tiene con _ts=T2 (T2<T3) haría que el estado obsoleto local "ganase" el merge.
+          if (itemB) {
+            const sinTs = x => { if(!x) return x; const {_ts:_, ...r} = x; return r; };
+            const soloTsDifiere = mismoJSON(sinTs(itemL), sinTs(itemB));
+            if (soloTsDifiere && (itemR._ts||0) > (itemL._ts||0)) {
+              resultado.push(itemR);
+              continue;
+            }
+          }
           resultado.push((itemL._ts||0) >= (itemR._ts||0) ? itemL : itemR);
           continue;
         }
