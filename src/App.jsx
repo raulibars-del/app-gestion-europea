@@ -15268,7 +15268,10 @@ function AppInner() {
   // sobrevivir recargas de página y recuperar cambios que aún no llegaron al servidor.
   const persistirUltimoSincronizado = (jsonPorSeccion) => {
     Object.assign(lastSyncedRef.current, jsonPorSeccion);
-    try { localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); } catch(e){}
+    try {
+      localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current));
+      localStorage.setItem("em_last_synced_ts", String(Date.now()));
+    } catch(e){}
   };
 
   // ─── Carga inicial ──────────────────────────────────────────────────────────
@@ -15279,6 +15282,19 @@ function AppInner() {
     // y preservar así los cambios offline cuando vuelva la conexión.
     let savedSynced = {};
     try{ savedSynced = JSON.parse(localStorage.getItem("em_last_synced_v2")||"{}"); }catch(e){}
+    // PROTECCIÓN STALE DEVICE: si el base tiene más de 24 h de antigüedad, descartarlo.
+    // Un dispositivo que lleva días sin conectarse tiene un base muy desfasado; si además
+    // tiene _ts inflados por guardados fallidos, el merge puede empujar estado obsoleto
+    // al servidor y sobreescribir cambios que hicieron otros usuarios. Sin base, el merge
+    // cede al remoto en todo lo que no tenga cambio local real (_ts genuinamente más nuevo).
+    try{
+      const savedAt = parseInt(localStorage.getItem("em_last_synced_ts")||"0", 10);
+      const horasDesdeSync = (Date.now() - savedAt) / 3600000;
+      if(savedAt > 0 && horasDesdeSync > 24){
+        console.warn(`[sync] Base descartado: ${horasDesdeSync.toFixed(1)} h sin sincronizar (>24 h)`);
+        savedSynced = {};
+      }
+    }catch(e){}
     // Compatibilidad con formato legacy (un único JSON blob)
     if(Object.keys(savedSynced).length === 0){
       try{
@@ -15529,6 +15545,7 @@ function AppInner() {
           try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
         }
         if(mergeOcurrido) setData(prepararDatos(dataActual));
+        try{ localStorage.setItem("em_last_synced_ts", String(Date.now())); }catch(e){}
         setSyncStatus("ok"); saveFailCountRef.current=0; setLastSaveError(null);
       }catch(e){
         // Restaurar lastSyncedRef al estado anterior al intento de guardado.
@@ -15659,7 +15676,10 @@ function AppInner() {
             }
           }
           if(changed){
-            try{ localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current)); }catch(e){}
+            try{
+              localStorage.setItem("em_last_synced_v2", JSON.stringify(lastSyncedRef.current));
+              localStorage.setItem("em_last_synced_ts", String(Date.now()));
+            }catch(e){}
             setData(prepararDatos(dataActual));
           }
         }
