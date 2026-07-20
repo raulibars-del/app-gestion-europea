@@ -1489,13 +1489,13 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   };
 
   // ── Importación de clientes desde CSV / XLSX ──────────────────────────────
-  const IMPORT_COLS = ["Nombre empresa *","Nombre fiscal","CIF / DNI","Dirección (calle y número)","Localidad","Provincia","Código postal"];
-  const IMPORT_CAMPOS = ["nombreEmpresa","nombreFiscal","cif","direccion","localidad","provinciaFiscal","cp"];
+  const IMPORT_COLS = ["Nombre empresa *","Nombre fiscal","CIF / DNI","Dirección (calle y número)","Localidad","Provincia","Código postal","Contacto — Nombre","Contacto — Puesto/cargo","Contacto — Teléfono","Contacto — Email"];
+  const IMPORT_CAMPOS = ["nombreEmpresa","nombreFiscal","cif","direccion","localidad","provinciaFiscal","cp","contactoNombre","contactoPuesto","contactoTel","contactoEmail"];
 
   const descargarPlantillaCSV = () => {
     const cab = IMPORT_COLS.join(";");
-    const ej  = ["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001"].join(";");
-    const ej2 = ["Muebles Ruiz SA","Muebles Ruiz SA","A87654321","Avenida del Mar 3","Barcelona","Barcelona","08001"].join(";");
+    const ej  = ["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001","Juan García López","Gerente","612 345 678","juan@talleresgarcia.com"].join(";");
+    const ej2 = ["Muebles Ruiz SA","Muebles Ruiz SA","A87654321","Avenida del Mar 3","Barcelona","Barcelona","08001","María Ruiz","Directora comercial","693 111 222","maria@mueblesruiz.es"].join(";");
     const csv = "﻿" + [cab,ej,ej2].join("\n");
     const url = URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
     const a = document.createElement("a"); a.href=url; a.download="plantilla_importacion_clientes.csv"; a.click(); URL.revokeObjectURL(url);
@@ -1552,17 +1552,25 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
 
   const ejecutarImportacion = () => {
     const base = Date.now();
-    const nuevos = importFilas.map((f,i)=>({
-      id: base+i, _ts: base+i,
-      nombreEmpresa:  (f[0]||"").trim(),
-      nombreFiscal:   (f[1]||"").trim()||(f[0]||"").trim(),
-      cif:            (f[2]||"").trim(),
-      direccion:      (f[3]||"").trim(),
-      localidad:      (f[4]||"").trim(),
-      provinciaFiscal:(f[5]||"").trim(),
-      cp:             (f[6]||"").trim(),
-      contactos:[], maquinas:[], notas:"", esCliente:true,
-    })).filter(c=>c.nombreEmpresa);
+    const nuevos = importFilas.map((f,i)=>{
+      const contactoNombre = (f[7]||"").trim();
+      const contactos = contactoNombre ? [{
+        id: base+i+1000, nombre: contactoNombre,
+        puesto: (f[8]||"").trim(), tel: (f[9]||"").trim(),
+        email: (f[10]||"").trim(), principal: true,
+      }] : [];
+      return {
+        id: base+i, _ts: base+i,
+        nombreEmpresa:  (f[0]||"").trim(),
+        nombreFiscal:   (f[1]||"").trim()||(f[0]||"").trim(),
+        cif:            (f[2]||"").trim(),
+        direccion:      (f[3]||"").trim(),
+        localidad:      (f[4]||"").trim(),
+        provinciaFiscal:(f[5]||"").trim(),
+        cp:             (f[6]||"").trim(),
+        contactos, maquinas:[], notas:"", esCliente:true,
+      };
+    }).filter(c=>c.nombreEmpresa);
     setData(d=>({...d, clientes:[...d.clientes,...nuevos]}));
     setModalImportar(false); setImportFilas([]);
     alert(`✅ ${nuevos.length} cliente${nuevos.length!==1?"s":""} importado${nuevos.length!==1?"s":""} correctamente.`);
@@ -1925,7 +1933,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
                 </thead>
                 <tbody>
                   <tr style={{opacity:.7}}>
-                    {["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001"].map((v,i)=>(
+                    {["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001","Juan García López","Gerente","612 345 678","juan@talleresgarcia.com"].map((v,i)=>(
                       <td key={i} style={{border:"1px solid #2a3550",padding:"4px 8px",whiteSpace:"nowrap"}}>{v}</td>
                     ))}
                   </tr>
