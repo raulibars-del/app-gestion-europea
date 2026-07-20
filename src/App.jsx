@@ -10822,7 +10822,7 @@ const FotosCarousel = ({fotos}) => {
   );
 };
 const Stock=({data,setData,userActual})=>{
-const puedeEliminar=userActual?.rol==="manager";
+const puedeEliminar=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeConf=puedeVerPrecioConf(userActual);
 const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[];
@@ -10845,6 +10845,12 @@ const save=()=>{
     setMaqStock(ms=>ms.map(m=>m.id===item.id?item:m));
   }
   setModal(false);if(vista)setVista(item.id||vista);
+};
+const eliminarMaquina=(id)=>{
+  const m=maquinas.find(x=>x.id===id);
+  if(!window.confirm(`¿Seguro que quieres eliminar la máquina "${m?.marca||""} ${m?.modelo||""} (${m?.codigo||""})? Esta acción no se puede deshacer.`)) return;
+  setMaqStock(ms=>ms.filter(x=>x.id!==id));
+  setVista(null);
 };
 const venderMaquina=()=>{
   const m=maquinas.find(x=>x.id===modalVender);
@@ -11010,6 +11016,7 @@ return(<div>
 <button onClick={()=>imprimirPDF(m)} style={{background:"#3b82f620",border:"1px solid #3b82f644",borderRadius:8,padding:"7px 13px",color:"#3b82f6",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
 {puedeVender&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Confirmar venta</button>}
 <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+{puedeEliminar&&<button onClick={()=>eliminarMaquina(m.id)} style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
