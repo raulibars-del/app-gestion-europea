@@ -10810,7 +10810,7 @@ const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeConf=puedeVerPrecioConf(userActual);
 const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[];
 const setMaqStock=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
-const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [busq,setBusq]=useState("");
+const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [busq,setBusq]=useState("");const [qrMaquina,setQrMaquina]=useState(null);
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
@@ -10961,6 +10961,8 @@ doc.save((`${m.marca||""} ${m.modelo||""} ${m.codigo||""}`).trim().replace(/\s+/
 const imprimirQR=(m)=>{
 const urlMaquina = `${window.location.origin}/?maquina=${encodeURIComponent(m.codigo)}`;
 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${encodeURIComponent(urlMaquina)}`;
+const esMobil = window.innerWidth <= 820;
+if(esMobil){ setQrMaquina({m, qrUrl, urlMaquina}); return; }
 const w = window.open("","_blank","width=380,height=420");
 w.document.write(`<!DOCTYPE html><html><head><title>QR ${m.codigo}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}.et{border:2px solid #000;padding:16px;width:250px;text-align:center}.emp{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:#555;margin-bottom:8px;font-weight:700}.nom{font-size:12px;font-weight:700;color:#000;margin-bottom:6px;word-break:break-word}.cod{font-size:22px;font-weight:900;letter-spacing:3px;color:#000;margin-bottom:8px}img{display:block;margin:0 auto}@media print{body{min-height:0}}</style></head><body><div class="et"><div class="emp">EUROPEA DE MAQUINARIA PMM SL</div><div class="nom">${(`${m.marca||""} ${m.modelo||""}`).replace(/</g,"")}</div><div class="cod">${m.codigo}</div><img src="${qrUrl}" width="200" height="200" alt="QR"/></div><script>var img=document.querySelector("img");img.onload=function(){setTimeout(function(){window.print();},300);};img.onerror=function(){setTimeout(function(){window.print();},1500);};<\/script></body></html>`);
 w.document.close();
@@ -10968,6 +10970,16 @@ w.document.close();
 if(vista&&maquinas.find(x=>x.id===vista)){
 const m=maquinas.find(x=>x.id===vista);const tar=vT(m);const ven=parseNum(m.precioVentaObj)||0;const compra=parseNum(m.precioCompra)||0;const transporte=parseNum(m.costeTransporte)||0;const compraTotal=compra+transporte;
 return(<div>
+{qrMaquina&&(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.85)",zIndex:2000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setQrMaquina(null)}>
+  <div style={{background:"#fff",borderRadius:16,padding:24,maxWidth:300,width:"100%",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+    <div style={{fontFamily:"Arial,sans-serif",fontSize:8,letterSpacing:2,textTransform:"uppercase",color:"#555",marginBottom:8,fontWeight:700}}>EUROPEA DE MAQUINARIA PMM SL</div>
+    <div style={{fontFamily:"Arial,sans-serif",fontSize:13,fontWeight:700,color:"#000",marginBottom:6}}>{qrMaquina.m.marca} {qrMaquina.m.modelo}</div>
+    <div style={{fontFamily:"monospace",fontSize:22,fontWeight:900,letterSpacing:3,color:"#000",marginBottom:10}}>{qrMaquina.m.codigo}</div>
+    <img src={qrMaquina.qrUrl} width={200} height={200} alt="QR" style={{display:"block",margin:"0 auto 14px"}}/>
+    <div style={{fontSize:11,color:"#888",marginBottom:16,wordBreak:"break-all"}}>{qrMaquina.urlMaquina}</div>
+    <button onClick={()=>setQrMaquina(null)} style={{background:"#0d1117",color:"#fff",border:"none",borderRadius:10,padding:"11px 28px",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"}}>← Cerrar</button>
+  </div>
+</div>)}
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
 <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
 <div style={{flex:1}}>
