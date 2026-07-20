@@ -3556,7 +3556,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       if (fe === "Resueltos") {
         const da = a.fechaResuelto || a.fechaUltimaIntervencion || a.fechaAviso;
         const db = b.fechaResuelto || b.fechaUltimaIntervencion || b.fechaAviso;
-        return String(db).localeCompare(String(da));
+        const cmp = String(db).localeCompare(String(da));
+        if (cmp !== 0) return cmp;
+        return (b._ts||0) - (a._ts||0); // mismo día: el más reciente primero
       }
       if (fe === "Cancelados") {
         const da = a.fechaCancelacion || a.fechaAviso;
@@ -3585,6 +3587,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     setModalAv(null); setDetalle(null);
   };
   const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre,_ts:Date.now() } : a) }));
+  const confirmarYResolver = id => { if(window.confirm("¿Seguro que quieres marcar este aviso como resuelto?")) resolverAv(id); };
   const cancelarAv = (id, motivo) => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Cancelado", motivoCancelacion: motivo, fechaCancelacion: today(),_ts:Date.now() } : a) }));
   const marcarMaterialDisponible = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id===id ? {...a,estado:"Material disponible",_ts:Date.now()} : a) }));
   const marcarPresupuestoAceptado = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id===id ? {...a,estado:"Presupuesto aceptado",_ts:Date.now()} : a) }));
@@ -3753,7 +3756,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 )}
                 {/* botones mínimos */}
                 <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
-                  {isPend&&<button onClick={()=>resolverAv(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
+                  {isPend&&<button onClick={()=>confirmarYResolver(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
                   <button onClick={()=>openEditAv(av)} style={{...btnSm("#2a3550","#e6ebf6"),width:26,height:26}}><Icon name="edit" size={11}/></button>
                 </div>
               </div>
@@ -3835,7 +3838,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
                 <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:110}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
-                    <button onClick={e => { e.stopPropagation(); resolverAv(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
+                    <button onClick={e => { e.stopPropagation(); confirmarYResolver(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
                   )}
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
                     <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
@@ -3943,7 +3946,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         )}
         <div style={{display:"flex",gap:7,justifyContent:"flex-end",flexWrap:"wrap"}}>
           {detalle.estado !== "Resuelto" && detalle.estado !== "Cancelado" && (
-            <button onClick={() => { resolverAv(detalle.id); setDetalle(null); }} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
+            <button onClick={() => { if(window.confirm("¿Seguro que quieres marcar este aviso como resuelto?")){ resolverAv(detalle.id); setDetalle(null); } }} style={{background:"#16a34a",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13}}>
               <Icon name="check" size={13} />Resuelto
             </button>
           )}
