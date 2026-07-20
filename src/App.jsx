@@ -6050,12 +6050,16 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const capturarFirmaImagen = () => {
     if (!firmada || !canvasRef.current) return null;
     try {
+      const src = canvasRef.current;
       const tmp = document.createElement("canvas");
-      tmp.width = canvasRef.current.width; tmp.height = canvasRef.current.height;
+      // Escalar a la mitad para reducir tamaño (~5-15KB vs ~100-200KB a calidad 0.85)
+      // Un canvas de 260×70 sigue siendo más que suficiente para la firma en el PDF
+      tmp.width = Math.round(src.width / 2);
+      tmp.height = Math.round(src.height / 2);
       const tctx = tmp.getContext("2d");
       tctx.fillStyle = "#ffffff"; tctx.fillRect(0, 0, tmp.width, tmp.height);
-      tctx.drawImage(canvasRef.current, 0, 0);
-      return tmp.toDataURL("image/jpeg", 0.85);
+      tctx.drawImage(src, 0, 0, tmp.width, tmp.height);
+      return tmp.toDataURL("image/jpeg", 0.5);
     } catch (e) { return null; }
   };
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -6552,15 +6556,24 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   // el historial de una Máquina.
   const abrirPDFLectura = async (p, cadena) => {
     const cadenaCompleta = cadena && cadena.length>1 ? cadena : null;
-    const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
     const numeroMostrar = cadenaCompleta ? cadenaBaseDe(cadenaCompleta[0]) : (p.numeroParte||("PT-"+String(p.id).slice(-6)));
-    // Si ya está firmado, generar el PDF con la firma del cliente
-    const conFirma = !!(p.firmaNombre);
     try {
-      const dataUri = await generarYDescargarPDF(parteConDatos, conFirma, false, cadenaCompleta);
-      const byteString = atob(dataUri.split(",")[1]);
-      const bytes = new Uint8Array(byteString.length);
-      for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      let bytes;
+      // Si el parte tiene el PDF firmado guardado (exactamente el mismo que se envió por email),
+      // lo usamos directamente en lugar de regenerar. Así el usuario siempre ve la versión firmada.
+      if (p.pdfFirmadoBase64) {
+        const byteString = atob(p.pdfFirmadoBase64);
+        bytes = new Uint8Array(byteString.length);
+        for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      } else {
+        // Fallback: regenerar desde los datos del parte (partes sin pdfFirmadoBase64)
+        const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
+        const conFirma = !!(p.firmaNombre);
+        const dataUri = await generarYDescargarPDF(parteConDatos, conFirma, false, cadenaCompleta);
+        const byteString = atob(dataUri.split(",")[1]);
+        bytes = new Uint8Array(byteString.length);
+        for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
+      }
       const blob = new Blob([bytes], {type:"application/pdf"});
       if(pdfLectura) URL.revokeObjectURL(pdfLectura.url);
       const url = URL.createObjectURL(blob);
@@ -6678,7 +6691,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
       const nuevaFirmaImg = capturarFirmaImagen();
       const tsAhora = Date.now();
-      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today(),_ts:tsAhora}:pt)}));
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,pdfFirmadoBase64:base64,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today(),_ts:tsAhora}:pt)}));
       // Forzar guardado inmediato para que emailEnviado llegue al servidor
       // antes de que el técnico cierre la app (sin esperar el debounce de 1200ms).
       window.dispatchEvent(new Event("em-save-now"));
