@@ -14649,9 +14649,10 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
     const stockItem = (data?.stock||[]).find(s=>s.codigo===codigo);
     if(stockItem) found = {m:stockItem, cliente:null, esStock:true};
   }
-  const m=found?.m, cliente=found?.cliente, esStock=!!found?.esStock;
+  // esStock: máquina en data.stock (legacy) O máquina cuyo cliente es el stock interno (CLIENTE_STOCK_ID)
+  const esStock = !!found?.esStock || cliente?.id === CLIENTE_STOCK_ID || !!cliente?.esStockInterno;
   const esPropia = !esStock && cliente?.id===0 && !m?.origenStock;
-  const fotoPrincipal = m ? (m.foto || (m.fotos&&m.fotos[0]&&m.fotos[0].data) || null) : null;
+  const fotoPrincipal = m ? ((m.fotos&&m.fotos.find(f=>f.principal)?.data) || (m.fotos&&m.fotos[0]?.data) || m.foto || null) : null;
   const avisosM = (m && cliente) ? (data.avisos||[]).filter(a=>parseInt(a.clienteId)===cliente.id && parseInt(a.maquinaId)===m.id) : [];
   const partesM = (m && cliente) ? (data.partes||[]).filter(p=>parseInt(p.clienteDirectoId)===cliente.id && parseInt(p.maquinaId)===m.id) : [];
   const historial = (m && cliente) ? [
@@ -14834,7 +14835,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
       <div style={{width:"100%",background:"#151b2a",borderBottom:"2px solid #0ea5e933",padding:"calc(16px + env(safe-area-inset-top, 0px)) 16px 16px",textAlign:"center",position:"relative"}}>
         <button onClick={cerrarFicha} aria-label="Cerrar" style={{position:"absolute",top:"calc(10px + env(safe-area-inset-top, 0px))",right:12,background:"#2a3550",border:"none",borderRadius:8,padding:7,color:"#f1f3f9",cursor:"pointer",display:"flex"}}><Icon name="close" size={16}/></button>
         <div style={{fontSize:10,color:"#0ea5e9",letterSpacing:2,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Europea de Maquinaria PMM SL</div>
-        <div style={{fontSize:13,color:"#e4e9f6"}}>Ficha de máquina</div>
+        <div style={{fontSize:13,color:"#e4e9f6"}}>{esStock ? "🆕 Stock de maquinaria nueva" : "Ficha de máquina"}</div>
         {m && (
           <button onClick={generarPDFMaquina} style={{marginTop:10,background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
             <Icon name="print" size={13}/>Generar PDF
@@ -14854,14 +14855,23 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
           </div>
         ) : (
           <>
-            {fotoPrincipal && <img src={fotoPrincipal} alt={m.nombre||m.modelo} style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:12,border:"1px solid #2a3550",marginBottom:14}}/>}
+            {esStock && (m.fotos||[]).length > 1
+              ? <div style={{marginBottom:14}}><FotosCarousel fotos={m.fotos}/></div>
+              : fotoPrincipal && <img src={fotoPrincipal} alt={m.nombre||m.modelo} style={{width:"100%",maxHeight:220,objectFit:"cover",borderRadius:12,border:"1px solid #2a3550",marginBottom:14}}/>
+            }
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:22,fontWeight:900,letterSpacing:2,color:"#0ea5e9",fontFamily:"monospace"}}>{m.codigo}</div>
               <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{m.nombre||`${m.marca||""} ${m.modelo||""}`}</div>
               {esStock ? (
-                <div style={{fontSize:12,color:"#e4e9f6",marginTop:2}}>Stock maquinaria nueva · {m.vendida?"vendida":"pendiente de venta"}</div>
+                <div style={{display:"flex",gap:6,justifyContent:"center",flexWrap:"wrap",marginTop:6}}>
+                  {m.estadoStock==="En pedido"
+                    ? <span style={{background:"#f59e0b",color:"#0d1117",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:800}}>⏳ EN PEDIDO</span>
+                    : <span style={{background:"#f97316",color:"#fff",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:800}}>🆕 MAQUINARIA NUEVA</span>
+                  }
+                  <span style={{background:"#151b2a",border:"1px solid #2a3550",color:"#e4e9f6",borderRadius:6,padding:"3px 10px",fontSize:11}}>Pendiente de venta</span>
+                </div>
               ) : (
-                <div style={{fontSize:12,color:"#e4e9f6",marginTop:2}}>Cliente: {cliente.nombreEmpresa}</div>
+                <div style={{fontSize:12,color:"#e4e9f6",marginTop:2}}>Cliente: {cliente?.nombreEmpresa}</div>
               )}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
@@ -14900,21 +14910,47 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
             </div>
             {m.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#e1e6f2",lineHeight:1.6,marginBottom:12}}>{m.notas}</div>}
             {esStock ? (
-              <>
+              <>(()=>{const codTar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<>
                 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
-                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
+                <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden",marginBottom:12}}>
+                  {/* Cabecera */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:0,padding:"7px 14px",background:"#1a2236",borderBottom:"1px solid #2a3550"}}>
+                    <div style={{fontSize:10,fontWeight:700,color:"#8a96b0",textTransform:"uppercase"}}>Código</div>
+                    <div style={{fontSize:10,fontWeight:700,color:"#8a96b0",textTransform:"uppercase"}}>Descripción</div>
+                    <div style={{fontSize:10,fontWeight:700,color:"#8a96b0",textTransform:"uppercase",textAlign:"right"}}>Valor</div>
+                  </div>
                   {(m.codigos||[]).length===0 && <div style={{padding:"18px",textAlign:"center",color:"#e4e9f6",fontSize:12}}>Sin códigos registrados</div>}
                   {(m.codigos||[]).map((c,i)=>(
-                    <div key={c.id||i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none"}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.codigo||"—"}</div>
-                        <div style={{color:"#e4e9f6",fontSize:10}}>{c.descripcion||"—"}</div>
-                      </div>
-                      <div style={{color:"#3b82f6",fontWeight:800,fontSize:12}}>€{(parseFloat(c.valor)||0).toLocaleString()}</div>
+                    <div key={c.id||i} style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:8,padding:"9px 14px",borderTop:"1px solid #1a2236",alignItems:"center"}}>
+                      <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.codigo||"—"}</div>
+                      <div style={{color:"#e4e9f6",fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.descripcion||"—"}</div>
+                      <div style={{color:"#3b82f6",fontWeight:800,fontSize:12,textAlign:"right",whiteSpace:"nowrap"}}>€{(parseFloat(c.valor)||0).toLocaleString("es-ES")}</div>
                     </div>
                   ))}
+                  {/* Fila total */}
+                  {(m.codigos||[]).length>0 && (
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:8,padding:"9px 14px",borderTop:"2px solid #2a3550",background:"#0d1117",alignItems:"center"}}>
+                      <div style={{color:"#e4e9f6",fontSize:11,fontWeight:700,gridColumn:"1/3"}}>Total tarifa</div>
+                      <div style={{color:"#f97316",fontWeight:900,fontSize:13,textAlign:"right",whiteSpace:"nowrap"}}>€{codTar.toLocaleString("es-ES")}</div>
+                    </div>
+                  )}
                 </div>
-              </>
+                {/* PDFs técnicos */}
+                {(m.pdfs||[]).length>0&&(
+                  <>
+                    <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Documentación técnica</div>
+                    <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden",marginBottom:12}}>
+                      {m.pdfs.map((pdf,i)=>(
+                        <a key={i} href={pdf.data} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderTop:i?"1px solid #1a2236":"none",textDecoration:"none"}}>
+                          <span style={{background:"#ef444422",color:"#ef4444",border:"1px solid #ef444433",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:800,flexShrink:0}}>PDF</span>
+                          <span style={{color:"#3b82f6",fontSize:13,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pdf.nombre}</span>
+                          <span style={{color:"#e4e9f6",fontSize:11,flexShrink:0}}>↓ Descargar</span>
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>);})()}</>
             ) : (
               <>
                 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
