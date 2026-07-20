@@ -14935,11 +14935,12 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
               )}
             </div>
             {m.notas && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#e1e6f2",lineHeight:1.6,marginBottom:12}}>{m.notas}</div>}
-            {esStock ? (
-              <>(()=>{const codTar=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<>
+            {esStock ? (()=>{
+              const codTarQR=(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
+              return (
+              <>
                 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden",marginBottom:12}}>
-                  {/* Cabecera */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:0,padding:"7px 14px",background:"#1a2236",borderBottom:"1px solid #2a3550"}}>
                     <div style={{fontSize:10,fontWeight:700,color:"#8a96b0",textTransform:"uppercase"}}>Código</div>
                     <div style={{fontSize:10,fontWeight:700,color:"#8a96b0",textTransform:"uppercase"}}>Descripción</div>
@@ -14953,15 +14954,13 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
                       <div style={{color:"#3b82f6",fontWeight:800,fontSize:12,textAlign:"right",whiteSpace:"nowrap"}}>€{(parseFloat(c.valor)||0).toLocaleString("es-ES")}</div>
                     </div>
                   ))}
-                  {/* Fila total */}
                   {(m.codigos||[]).length>0 && (
                     <div style={{display:"grid",gridTemplateColumns:"1fr 2fr auto",gap:8,padding:"9px 14px",borderTop:"2px solid #2a3550",background:"#0d1117",alignItems:"center"}}>
                       <div style={{color:"#e4e9f6",fontSize:11,fontWeight:700,gridColumn:"1/3"}}>Total tarifa</div>
-                      <div style={{color:"#f97316",fontWeight:900,fontSize:13,textAlign:"right",whiteSpace:"nowrap"}}>€{codTar.toLocaleString("es-ES")}</div>
+                      <div style={{color:"#f97316",fontWeight:900,fontSize:13,textAlign:"right",whiteSpace:"nowrap"}}>€{codTarQR.toLocaleString("es-ES")}</div>
                     </div>
                   )}
                 </div>
-                {/* PDFs técnicos */}
                 {(m.pdfs||[]).length>0&&(
                   <>
                     <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Documentación técnica</div>
@@ -14976,8 +14975,9 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
                     </div>
                   </>
                 )}
-              </>);})()}</>
-            ) : (
+              </>
+              );
+            })() : (
               <>
                 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Historial de intervenciones ({historial.length})</div>
                 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:10,overflow:"hidden"}}>
