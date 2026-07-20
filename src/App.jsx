@@ -7493,15 +7493,19 @@ const Usuarios = ({ data, setData, userActual }) => {
       </div>
     </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden"}}>
-      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-      <tbody>{data.usuarios.map(u=>(
+      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #2a3550"}}>{["Usuario","Rol","Estado","Última conexión",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+      <tbody>{data.usuarios.map(u=>{
+        const fmtConexion = u.ultimaConexion ? (()=>{ const d=new Date(u.ultimaConexion); return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}); })() : "—";
+        return (
         <tr key={u.id} style={{borderBottom:"1px solid #1a2236"}}>
           <td style={{padding:"11px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar u={u} size={30} fontSize={12}/><span style={{color:"#f1f3f9",fontWeight:600}}>{u.nombre}</span>{u.id===userActual.id&&<span style={{fontSize:10,color:"#10b981",fontWeight:700}}>TÚ</span>}</div></td>
           <td style={{padding:"11px 14px"}}><RolBadge rol={u.rol}/></td>
           <td style={{padding:"11px 14px"}}><span style={{color:u.activo?"#16a34a":"#dc2626",fontSize:12,fontWeight:700}}>{u.activo?"● Activo":"● Inactivo"}</span></td>
+          <td style={{padding:"11px 14px",color:"#e4e9f6",fontSize:12,whiteSpace:"nowrap"}}>{fmtConexion}</td>
           <td style={{padding:"11px 14px"}}><div style={{display:"flex",gap:3}}><button onClick={()=>{setForm({...u});setModal(true);}} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={12}/></button>{u.id!==userActual.id&&<button onClick={()=>setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,activo:!x.activo}:x)}))} style={btnSm(u.activo?"#3b1c1c":"#1c3b1c",u.activo?"#dc2626":"#16a34a")}>{u.activo?"✕":"✓"}</button>}</div></td>
         </tr>
-      ))}</tbody></table>
+        );
+      })}</tbody></table>
     </div>
     {modal&&<Modal title={form.id?"Editar Usuario":"Nuevo Usuario"} onClose={()=>setModal(null)}>
       <Field label="Nombre de usuario"><Input value={form.nombre} onChange={f("nombre")}/></Field>
@@ -15938,16 +15942,16 @@ function AppInner() {
   };
   if(presupuestoAceptar) return <AceptarPresupuestoPublico token={presupuestoAceptar}/>;
   if(articuloPublico){
-    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>setUser(u)}/>;
+    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
     return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
   }
   if(maquinaPublica){
     // Igual que la ficha de artículo: no se muestra ningún dato (ni el nombre del
     // cliente) hasta que la persona que escanea el QR inicia sesión en la app.
-    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>setUser(u)}/>;
+    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
     return <FichaPublicaMaquina codigo={maquinaPublica} data={data} cargando={syncStatus==="cargando"}/>;
   }
-  if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");}}/>;
+  if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
     const n=crearNotif(userId,tipo,titulo,mensaje);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[userId]:[n,...(d.notificaciones[userId]||[])]}}));
