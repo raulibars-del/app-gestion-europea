@@ -1350,6 +1350,9 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   const [modalExportar,setModalExportar]=useState(false);
   const [exportFiltro,setExportFiltro]=useState("todos");
   const [exportValor,setExportValor]=useState("");
+  const [modalImportar,setModalImportar]=useState(false);
+  const [importFilas,setImportFilas]=useState([]); // filas sin cabecera
+  const [importError,setImportError]=useState("");
   const fc=k=>e=>setFormC(p=>({...p,[k]:e.target.value}));
   const fm=k=>e=>setFormM(p=>({...p,[k]:e.target.value}));
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
@@ -1484,6 +1487,87 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     doc.save(nombre);
     setModalExportar(false);
   };
+
+  // ── Importación de clientes desde CSV / XLSX ──────────────────────────────
+  const IMPORT_COLS = ["Nombre empresa *","Nombre fiscal","CIF / DNI","Dirección (calle y número)","Localidad","Provincia","Código postal"];
+  const IMPORT_CAMPOS = ["nombreEmpresa","nombreFiscal","cif","direccion","localidad","provinciaFiscal","cp"];
+
+  const descargarPlantillaCSV = () => {
+    const cab = IMPORT_COLS.join(";");
+    const ej  = ["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001"].join(";");
+    const ej2 = ["Muebles Ruiz SA","Muebles Ruiz SA","A87654321","Avenida del Mar 3","Barcelona","Barcelona","08001"].join(";");
+    const csv = "﻿" + [cab,ej,ej2].join("\n");
+    const url = URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const a = document.createElement("a"); a.href=url; a.download="plantilla_importacion_clientes.csv"; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const parsearCSV = txt => {
+    const lines = txt.replace(/^﻿/,"").split(/\r?\n/).filter(l=>l.trim());
+    const sep = lines[0].includes(";") ? ";" : ",";
+    return lines.map(l => {
+      const cols=[]; let cur="", q=false;
+      for(let i=0;i<l.length;i++){
+        const c=l[i];
+        if(c==='"'){ q=!q; }
+        else if(c===sep&&!q){ cols.push(cur.trim()); cur=""; }
+        else cur+=c;
+      }
+      cols.push(cur.trim()); return cols;
+    });
+  };
+
+  const cargarXLSX = () => new Promise((res,rej)=>{
+    if(window.XLSX){res(window.XLSX);return;}
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload=()=>res(window.XLSX); s.onerror=()=>rej(new Error("No se pudo cargar el lector de Excel"));
+    document.head.appendChild(s);
+  });
+
+  const onArchivoImportar = async e => {
+    const file = e.target.files?.[0]; if(!file) return;
+    setImportError(""); setImportFilas([]);
+    try {
+      let filas;
+      if(file.name.endsWith(".csv")||file.type.includes("csv")){
+        const txt = await file.text();
+        filas = parsearCSV(txt);
+      } else {
+        const XLSX = await cargarXLSX();
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf,{type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        filas = XLSX.utils.sheet_to_json(ws,{header:1,defval:""}).map(r=>r.map(v=>String(v??"").trim()));
+      }
+      // Detectar si la primera fila es cabecera (contiene texto de cabecera conocido)
+      const primeraFila = (filas[0]||[]).map(v=>(v||"").toLowerCase());
+      const esCabecera = primeraFila.some(v=>v.includes("empresa")||v.includes("fiscal")||v.includes("cif")||v.includes("nombre"));
+      const datos = esCabecera ? filas.slice(1) : filas;
+      const validas = datos.filter(f=>(f[0]||"").trim());
+      if(!validas.length){ setImportError("No se encontraron filas con datos. Comprueba el formato del archivo."); return; }
+      setImportFilas(validas);
+    } catch(err){ setImportError("Error al leer el archivo: "+err.message); }
+    e.target.value="";
+  };
+
+  const ejecutarImportacion = () => {
+    const base = Date.now();
+    const nuevos = importFilas.map((f,i)=>({
+      id: base+i, _ts: base+i,
+      nombreEmpresa:  (f[0]||"").trim(),
+      nombreFiscal:   (f[1]||"").trim()||(f[0]||"").trim(),
+      cif:            (f[2]||"").trim(),
+      direccion:      (f[3]||"").trim(),
+      localidad:      (f[4]||"").trim(),
+      provinciaFiscal:(f[5]||"").trim(),
+      cp:             (f[6]||"").trim(),
+      contactos:[], maquinas:[], notas:"", esCliente:true,
+    })).filter(c=>c.nombreEmpresa);
+    setData(d=>({...d, clientes:[...d.clientes,...nuevos]}));
+    setModalImportar(false); setImportFilas([]);
+    alert(`✅ ${nuevos.length} cliente${nuevos.length!==1?"s":""} importado${nuevos.length!==1?"s":""} correctamente.`);
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Genera un PDF con todos los datos del cliente (fiscales, direccion de fabrica,
   // contactos y maquinas), con la misma estetica (header/footer/colores) que los
@@ -1739,6 +1823,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
         <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{setImportFilas([]);setImportError("");setModalImportar(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📥 Importar</button>
           <button onClick={()=>{setExportFiltro("todos");setExportValor("");setModalExportar(true);}} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📋 Exportar</button>
           <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
         </div>
@@ -1822,6 +1907,78 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
             style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"12px",fontWeight:800,cursor:"pointer",fontSize:14,opacity:((exportFiltro==="provincia"||exportFiltro==="localidad")&&!exportValor)?0.4:1}}>
             📥 Generar PDF
           </button>
+        </div>
+      </Modal>}
+      {modalImportar&&<Modal title="Importar clientes desde archivo" onClose={()=>setModalImportar(false)} wide>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {/* Instrucciones + plantilla */}
+          <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:9,padding:"12px 14px"}}>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:8}}>📄 Formato esperado del archivo (CSV o Excel .xlsx)</div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{borderCollapse:"collapse",fontSize:11,color:"#e4e9f6",width:"100%"}}>
+                <thead>
+                  <tr>{IMPORT_COLS.map((c,i)=>(
+                    <th key={i} style={{background:"#1e293b",border:"1px solid #2a3550",padding:"5px 8px",textAlign:"left",whiteSpace:"nowrap",color:"#f59e0b",fontWeight:700}}>
+                      Col {String.fromCharCode(65+i)}<br/><span style={{color:"#e4e9f6",fontWeight:400}}>{c}</span>
+                    </th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  <tr style={{opacity:.7}}>
+                    {["Talleres García SL","Talleres García SL","B12345678","Calle Mayor 15","Valencia","Valencia","46001"].map((v,i)=>(
+                      <td key={i} style={{border:"1px solid #2a3550",padding:"4px 8px",whiteSpace:"nowrap"}}>{v}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div style={{marginTop:10,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <div style={{color:"#9bacc8",fontSize:11}}>La primera fila puede ser cabecera (se detecta automáticamente). El campo <b style={{color:"#f1f3f9"}}>Nombre empresa</b> es obligatorio.</div>
+              <button onClick={descargarPlantillaCSV} style={{background:"#8b5cf620",border:"1px solid #8b5cf644",borderRadius:7,padding:"6px 12px",color:"#a78bfa",fontWeight:700,fontSize:11,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>⬇️ Descargar plantilla CSV</button>
+            </div>
+          </div>
+          {/* Selector de archivo */}
+          <div>
+            <label style={{display:"block",color:"#e4e9f6",fontSize:13,fontWeight:600,marginBottom:8}}>Selecciona el archivo a importar:</label>
+            <input type="file" accept=".csv,.xlsx,.xls" onChange={onArchivoImportar}
+              style={{color:"#e4e9f6",fontSize:13,width:"100%",background:"#0d1117",border:"1px solid #2a3550",borderRadius:8,padding:"9px 12px",cursor:"pointer"}}/>
+          </div>
+          {importError&&<div style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"10px 14px",color:"#f87171",fontSize:12}}>⚠️ {importError}</div>}
+          {/* Vista previa */}
+          {importFilas.length>0&&(
+            <div>
+              <div style={{color:"#10b981",fontWeight:700,fontSize:12,marginBottom:8}}>✅ {importFilas.length} fila{importFilas.length!==1?"s":""} detectada{importFilas.length!==1?"s":""} — vista previa:</div>
+              <div style={{overflowX:"auto",maxHeight:260,overflowY:"auto",border:"1px solid #2a3550",borderRadius:8}}>
+                <table style={{borderCollapse:"collapse",fontSize:11,color:"#e4e9f6",width:"100%"}}>
+                  <thead style={{position:"sticky",top:0,background:"#1e293b",zIndex:1}}>
+                    <tr>{IMPORT_COLS.map((c,i)=><th key={i} style={{border:"1px solid #2a3550",padding:"5px 8px",textAlign:"left",color:"#9bacc8",fontWeight:700,whiteSpace:"nowrap"}}>{c}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {importFilas.slice(0,20).map((f,ri)=>(
+                      <tr key={ri} style={{background:ri%2===0?"#0d1117":"#111827"}}>
+                        {IMPORT_CAMPOS.map((_,ci)=>(
+                          <td key={ci} style={{border:"1px solid #1e293b",padding:"4px 8px",whiteSpace:"nowrap",
+                            color:(ci===0&&!(f[0]||"").trim())?"#f87171":"#e4e9f6",
+                            fontWeight:ci===0?600:400}}>
+                            {(f[ci]||"—")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {importFilas.length>20&&<div style={{color:"#9bacc8",fontSize:11,marginTop:4}}>... y {importFilas.length-20} fila{importFilas.length-20!==1?"s":""} más</div>}
+            </div>
+          )}
+          {/* Botones */}
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={()=>setModalImportar(false)} style={btnOutline}>Cancelar</button>
+            <button onClick={ejecutarImportacion} disabled={!importFilas.length}
+              style={{background:importFilas.length?"#8b5cf6":"#2a3550",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:importFilas.length?"pointer":"not-allowed",fontSize:14,opacity:importFilas.length?1:0.5}}>
+              📥 Importar {importFilas.length>0?importFilas.length+" cliente"+(importFilas.length!==1?"s":""):""}
+            </button>
+          </div>
         </div>
       </Modal>}
       {modalC&&<Modal title={formC.id?"Editar cliente":(
