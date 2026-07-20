@@ -14685,6 +14685,8 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
     const stockItem = (data?.stock||[]).find(s=>s.codigo===codigo);
     if(stockItem) found = {m:stockItem, cliente:null, esStock:true};
   }
+  const m = found?.m;
+  const cliente = found?.cliente;
   // esStock: máquina en data.stock (legacy) O máquina cuyo cliente es el stock interno (CLIENTE_STOCK_ID)
   const esStock = !!found?.esStock || cliente?.id === CLIENTE_STOCK_ID || !!cliente?.esStockInterno;
   const esPropia = !esStock && cliente?.id===0 && !m?.origenStock;
