@@ -608,6 +608,8 @@ const prioridadEfectiva = (prioridad, fechaAviso, estado) => {
   return prioridad;
 };
 const ESTADOS_AVISO = ["Sin asignar","Pendiente","En curso","A falta de material","Material disponible","Enviado presupuesto a espera aceptacion","Presupuesto aceptado","Resuelto","Cancelado"];
+// Estados "bloqueados": no podemos actuar → van al final en rosa
+const ESTADOS_BLOQUEADO_AV = ["A falta de material","Enviado presupuesto a espera aceptacion"];
 const TIPOS_AVISO = ["Reparación","Montaje","Puesta en marcha","Ajuste/mantenimiento","Problema","Consulta","Otro"];
 const METODOS_AVISO = ["Teléfono","Email","En persona"];
 const ESTADOS_VENTA = ["Prospecto","Oferta enviada","Negociación","Ganada","Perdida","Cancelada"];
@@ -3609,15 +3611,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         const db = b.fechaCancelacion || b.fechaAviso;
         return String(db).localeCompare(String(da));
       }
-      // 1. Color (antigüedad): negro(≥30d)=0 > rojo(≥14d)=1 > amarillo(≥7d)=2 > verde(<7d)=3
+      // Bloqueados (sin material / ppto. pendiente) → al final en rosa (bucket 9)
+      const bloqA = ESTADOS_BLOQUEADO_AV.includes(a.estado);
+      const bloqB = ESTADOS_BLOQUEADO_AV.includes(b.estado);
       const colorBucket = d => d >= 30 ? 0 : d >= 14 ? 1 : d >= 7 ? 2 : 3;
       const da = diasDesde(a.fechaAviso), db2 = diasDesde(b.fechaAviso);
-      const ba = colorBucket(da), bb = colorBucket(db2);
+      const ba = bloqA ? 9 : colorBucket(da);
+      const bb = bloqB ? 9 : colorBucket(db2);
       if (ba !== bb) return ba - bb;
-      // 2. Mismo color → prioridad: Alta antes que Media antes que Leve
-      const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
-      if (pa !== pb) return pa - pb;
-      // 3. Mismo color + prioridad → más días primero
+      // Mismo grupo (mismo color o ambos bloqueados) → más días primero
       return db2 - da;
     });
   }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
@@ -3777,7 +3779,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           /* ── VERSIÓN MÓVIL COMPACTA ── */
           if (isMov) {
             const d = diasDesde(av.fechaAviso);
-            const dColor = d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+            const esBloqMov = ESTADOS_BLOQUEADO_AV.includes(av.estado);
+            const dColor = esBloqMov?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
@@ -3866,17 +3869,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {(()=>{
                   if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
                   const d=diasDesde(av.fechaAviso);
-                  const c=d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
-                  const bg=d>=30?"#111111":d>=14?"#dc262615":d>=7?"#f59e0b15":"#16a34a15";
-                  const brd=d>=30?"1px solid #ffffff55":d>=14?"1px solid #dc262633":d>=7?"1px solid #f59e0b33":"1px solid #16a34a33";
+                  const esBloq=ESTADOS_BLOQUEADO_AV.includes(av.estado);
+                  const c=esBloq?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+                  const bg=esBloq?"#ec489918":d>=30?"#111111":d>=14?"#dc262615":d>=7?"#f59e0b15":"#16a34a15";
+                  const brd=esBloq?"1px solid #ec489940":d>=30?"1px solid #ffffff55":d>=14?"1px solid #dc262633":d>=7?"1px solid #f59e0b33":"1px solid #16a34a33";
                   return(
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",width:96,padding:"8px 10px",background:bg,border:brd,borderRadius:8,marginRight:8,gap:0}}>
                       <div style={{color:c,fontWeight:900,fontSize:d>=100?30:46,lineHeight:1,textAlign:"center"}}>{d}</div>
                       <div style={{color:c,fontSize:13,fontWeight:800,textAlign:"center",marginTop:4,lineHeight:1}}>
                         {d===1?"día":"días"}
                       </div>
-                      <div style={{color:d>=30?"#cccccc":"#9bacc8",fontSize:11,textAlign:"center",marginTop:5,fontWeight:700,lineHeight:1.3,letterSpacing:".3px"}}>
-                        aviso<br/>pendiente
+                      <div style={{color:esBloq?"#ec4899":d>=30?"#cccccc":"#9bacc8",fontSize:11,textAlign:"center",marginTop:5,fontWeight:700,lineHeight:1.3,letterSpacing:".3px"}}>
+                        {esBloq?(av.estado==="A falta de material"?"sin":"ppto."):"aviso"}<br/>{esBloq?"material":"pendiente"}
                       </div>
                     </div>
                   );
