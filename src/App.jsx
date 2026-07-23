@@ -6607,7 +6607,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       doc.text("Europea de Maquinaria PMM SL  ·  CIF B98527583  ·  europeademaquinaria.com",W/2,291,{align:"center"});
       if(totalPaginas>1){ doc.setTextColor(190,200,220); doc.text("Pagina "+pg+"/"+totalPaginas,W-mg,291,{align:"right"}); }
     }
-    if(soloDescarga) doc.save("parte-"+numeroMostrar+".pdf");
+    if(soloDescarga) try { doc.save("parte-"+numeroMostrar+".pdf"); } catch(e) {}
     return doc.output("datauristring");
   };
   // Muestra una vista previa solo lectura (en superposición, con X para cerrar y volver
@@ -10286,12 +10286,38 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     });
     setModal(false);
   };
+  // Helper: si el albarán está firmado y tiene el PDF guardado, lo sirve directamente
+  // (exactamente igual que el que se envió por email). Si no, regenera desde los datos.
+  const verPDFAlbaran = async (alb, modo) => {
+    if (alb.firmada && alb.pdfFirmadoBase64) {
+      try {
+        const byteString = atob(alb.pdfFirmadoBase64);
+        const bytes = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        if (modo === "imprimir") {
+          const w = window.open(url, "_blank");
+          if (w) setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 700);
+        } else if (modo === "descargar") {
+          const a = document.createElement("a"); a.href = url;
+          a.download = "albaran-" + alb.numero + ".pdf"; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } else {
+          // modo null → previa: devolver data URI
+          return "data:application/pdf;base64," + alb.pdfFirmadoBase64;
+        }
+        return;
+      } catch(e) { /* si falla, caer al generarPDF */ }
+    }
+    return await generarPDF(alb, alb.firmada, modo);
+  };
   const abrirPrevia = async (alb) => {
     setModalPrevia(alb.id);
     setCargandoPrevia(true);
     setPdfPreviaUri(null);
     try {
-      const uri = await generarPDF(alb, alb.firmada, null);
+      const uri = await verPDFAlbaran(alb, null);
       setPdfPreviaUri(uri);
     } catch(e) { console.error(e); }
     setCargandoPrevia(false);
@@ -10453,7 +10479,9 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
         if (w) setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 700);
       } catch(e) {}
     } else if (modo) {
-      doc.save(`albaran-${alb.numero}.pdf`);
+      // Envolver en try/catch: si el navegador bloquea la descarga (móvil, popup blocker),
+      // el fallo de doc.save() no debe impedir que se devuelva el dataUri para el email.
+      try { doc.save(`albaran-${alb.numero}.pdf`); } catch(e) {}
     }
     return doc.output("datauristring");
   };
@@ -10487,9 +10515,11 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     // 3. Generar PDF y enviar email — si fallan, la firma ya está guardada
     try{
       const dataUri = await generarPDF(alb, firmada, "descargar");
+      const base64 = dataUri.split(",")[1];
+      // Guardar el PDF firmado (exactamente el mismo que se envía por email)
+      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,pdfFirmadoBase64:base64,_ts:Date.now() } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
-        const base64 = dataUri.split(",")[1];
         const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
         await apiSendMail({
           to: destino,
@@ -10527,8 +10557,8 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
             </div>
             <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>📅 {fmtFecha(alb.fecha)} · 👤 {emisor?.nombre || "—"}</div>
           </div>
-          <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
-          <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
+          <button onClick={() => verPDFAlbaran(alb, "descargar")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#0ea5e9",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar PDF</button>
+          <button onClick={() => verPDFAlbaran(alb, "imprimir")} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
           {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontWeight:700,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>✍️ Firmar y enviar</button>}
           <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
         </div>
@@ -10608,8 +10638,8 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                 {!alb.firmada && <button onClick={() => abrirFirma(alb)} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",fontWeight:700,fontSize:11}}>✍️ Firmar</button>}
-                <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
-                <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
+                <button onClick={() => verPDFAlbaran(alb, "descargar")} style={btnSm("#0ea5e920","#0ea5e9")}><Icon name="parts" size={11}/></button>
+                <button onClick={() => verPDFAlbaran(alb, "imprimir")} style={btnSm("#10b98120","#10b981")}><Icon name="print" size={11}/></button>
                 <button onClick={() => { setForm({...alb}); setLineas(alb.lineas); setModal(true); }} style={btnSm("#2a3550","#e6ebf6")}><Icon name="edit" size={11}/></button>
                 <button onClick={() => { if (window.confirm("¿Eliminar este albarán? Esta acción no se puede deshacer.")) setData(d=>({...d,albaranes:d.albaranes.filter(x=>x.id!==alb.id),inventario:revertirInventarioAlbaran(d.inventario,alb.id)})); }} style={btnSm("#3b1c1c","#dc2626")}><Icon name="trash" size={11}/></button>
               </div>
@@ -10633,8 +10663,8 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
                 </div>
                 <div style={{color:"#e4e9f6",fontSize:11,marginTop:1}}>{alb.receptorNombre} · {fmtFecha(alb.fecha)}</div>
               </div>
-              <button onClick={() => generarPDF(alb, alb.firmada, "descargar")} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#0ea5e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar</button>
-              <button onClick={() => generarPDF(alb, alb.firmada, "imprimir")} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#10b981",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
+              <button onClick={() => verPDFAlbaran(alb, "descargar")} style={{background:"#0ea5e920",border:"1px solid #0ea5e944",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#0ea5e9",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Descargar</button>
+              <button onClick={() => verPDFAlbaran(alb, "imprimir")} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#10b981",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
               {!alb.firmada && <button onClick={() => { cerrar(); abrirFirma(alb); }} style={{background:"#f97316",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontWeight:700,fontSize:12}}>✍️ Firmar</button>}
               <button onClick={() => { cerrar(); setVista(alb.id); }} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:7,padding:"6px 12px",cursor:"pointer",color:"#e4e9f6",fontWeight:700,fontSize:12}}>Detalles</button>
             </div>
