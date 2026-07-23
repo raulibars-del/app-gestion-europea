@@ -3609,12 +3609,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         const db = b.fechaCancelacion || b.fechaAviso;
         return String(db).localeCompare(String(da));
       }
-      // Orden por color (antigüedad): negro(≥30d) > rojo(≥14d) > amarillo(≥7d) > verde(<7d)
+      // 1. Color (antigüedad): negro(≥30d)=0 > rojo(≥14d)=1 > amarillo(≥7d)=2 > verde(<7d)=3
       const colorBucket = d => d >= 30 ? 0 : d >= 14 ? 1 : d >= 7 ? 2 : 3;
       const da = diasDesde(a.fechaAviso), db2 = diasDesde(b.fechaAviso);
       const ba = colorBucket(da), bb = colorBucket(db2);
       if (ba !== bb) return ba - bb;
-      // Mismo color: el que más días lleva, antes
+      // 2. Mismo color → prioridad: Alta antes que Media antes que Leve
+      const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
+      if (pa !== pb) return pa - pb;
+      // 3. Mismo color + prioridad → más días primero
       return db2 - da;
     });
   }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
