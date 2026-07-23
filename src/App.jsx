@@ -3613,6 +3613,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       if (pa !== pb) return pa - pb;
       const ra = esRevendedor(a.clienteId), rb = esRevendedor(b.clienteId);
       if (ra !== rb) return ra ? -1 : 1;
+      // Dentro del mismo nivel: el más recientemente escalado/modificado sube primero
+      const tsA = a._ts || 0, tsB = b._ts || 0;
+      if (tsA !== tsB) return tsB - tsA;
       return diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso);
     });
   }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
