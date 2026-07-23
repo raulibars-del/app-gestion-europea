@@ -3609,14 +3609,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         const db = b.fechaCancelacion || b.fechaAviso;
         return String(db).localeCompare(String(da));
       }
-      const pa = PRIORIDAD_ORDER[a.prioridad] ?? 9, pb = PRIORIDAD_ORDER[b.prioridad] ?? 9;
-      if (pa !== pb) return pa - pb;
-      const ra = esRevendedor(a.clienteId), rb = esRevendedor(b.clienteId);
-      if (ra !== rb) return ra ? -1 : 1;
-      // Dentro del mismo nivel: el más recientemente escalado/modificado sube primero
-      const tsA = a._ts || 0, tsB = b._ts || 0;
-      if (tsA !== tsB) return tsB - tsA;
-      return diasDesde(b.fechaAviso) - diasDesde(a.fechaAviso);
+      // Orden por color (antigüedad): negro(≥30d) > rojo(≥14d) > amarillo(≥7d) > verde(<7d)
+      const colorBucket = d => d >= 30 ? 0 : d >= 14 ? 1 : d >= 7 ? 2 : 3;
+      const da = diasDesde(a.fechaAviso), db2 = diasDesde(b.fechaAviso);
+      const ba = colorBucket(da), bb = colorBucket(db2);
+      if (ba !== bb) return ba - bb;
+      // Mismo color: el que más días lleva, antes
+      return db2 - da;
     });
   }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
   const openNewAv = () => { setFormAv({ clienteId:"",maquinaId:"",marca:"",modelo:"",matricula:"",tipo:"Reparación",titulo:"",descripcion:"",dadoPor:"",metodoAviso:"Teléfono",fechaAviso:today(),prioridad:"Media",estado:"Pendiente",asignados:[],fechaResolucion:"",horaResolucion:"",notas:"" }); setModalAv("form"); };
