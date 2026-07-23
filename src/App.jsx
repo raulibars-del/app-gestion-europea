@@ -10461,8 +10461,8 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     const alb = data.albaranes.find(a => a.id === modalFirma);
     if (!alb) return;
     setEnviando(true);
-    // Capturar firma del canvas ANTES de que el modal se cierre y lo destruya
-    let firmaImagen = null;
+    // 1. Capturar firma del canvas ANTES de que el modal se cierre y lo destruya
+    let firmaCapturada = null;
     if (firmada && canvasRef.current) {
       try {
         const tmp = document.createElement("canvas");
@@ -10470,12 +10470,23 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
         const tctx = tmp.getContext("2d");
         tctx.fillStyle = "#ffffff"; tctx.fillRect(0, 0, tmp.width, tmp.height);
         tctx.drawImage(canvasRef.current, 0, 0);
-        firmaImagen = tmp.toDataURL("image/jpeg", 0.85);
+        firmaCapturada = tmp.toDataURL("image/jpeg", 0.85);
       } catch(e) {}
     }
+    // 2. Guardar firma en estado INMEDIATAMENTE — antes del PDF y del email,
+    //    para que nunca se pierda aunque el PDF o el email fallen después.
+    setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? {
+      ...a,
+      firmada: true,
+      fechaFirma: today(),
+      firmaImagen: firmaCapturada || a.firmaImagen || null,
+      receptorEmail: firmEmail || a.receptorEmail,
+      firmaDni: firmaDni || a.firmaDni || "",
+      _ts: Date.now()
+    } : a) }));
+    // 3. Generar PDF y enviar email — si fallan, la firma ya está guardada
     try{
       const dataUri = await generarPDF(alb, firmada, "descargar");
-      setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,firmada: true,fechaFirma: today(),firmaImagen: firmaImagen || a.firmaImagen || null,receptorEmail: firmEmail || a.receptorEmail,firmaDni: firmaDni || a.firmaDni || "",_ts: Date.now() } : a) }));
       const destino = firmEmail || alb.receptorEmail;
       if(destino){
         const base64 = dataUri.split(",")[1];
@@ -10495,7 +10506,7 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
       setEnviado(true);
       if (vista) setVista(alb.id);
     }catch(e){
-      alert("El albarán se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
+      alert("✅ Firma guardada correctamente.\n\n⚠️ No se pudo enviar el email: "+e.message+"\n\nPuedes reenviar el PDF descargado manualmente.");
     }finally{
       setEnviando(false);
       setModalFirma(null);
