@@ -3614,12 +3614,15 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       // Bloqueados (sin material / ppto. pendiente) → al final en rosa (bucket 9)
       const bloqA = ESTADOS_BLOQUEADO_AV.includes(a.estado);
       const bloqB = ESTADOS_BLOQUEADO_AV.includes(b.estado);
-      const colorBucket = d => d >= 30 ? 0 : d >= 14 ? 1 : d >= 7 ? 2 : 3;
+      // Ordenar por prioridad EFECTIVA (ya incluye escalada automática por antigüedad)
+      // → Alta(0) antes que Media(1) antes que Leve(2); dentro del mismo nivel, más días primero
+      const pEfA = PRIORIDAD_ORDER[prioridadEfectiva(a.prioridad, a.fechaAviso, a.estado)] ?? 9;
+      const pEfB = PRIORIDAD_ORDER[prioridadEfectiva(b.prioridad, b.fechaAviso, b.estado)] ?? 9;
       const da = diasDesde(a.fechaAviso), db2 = diasDesde(b.fechaAviso);
-      const ba = bloqA ? 9 : colorBucket(da);
-      const bb = bloqB ? 9 : colorBucket(db2);
+      const ba = bloqA ? 9 : pEfA;
+      const bb = bloqB ? 9 : pEfB;
       if (ba !== bb) return ba - bb;
-      // Mismo grupo (mismo color o ambos bloqueados) → más días primero
+      // Mismo nivel de prioridad efectiva → más días primero (negros arriba dentro del grupo rojo)
       return db2 - da;
     });
   }, [data.avisos, data.clientes, data.usuarios, fe, orden, s, filtroAsignado, soloSinAsignar, soloAntiguos]);
