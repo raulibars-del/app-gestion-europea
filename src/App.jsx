@@ -1360,6 +1360,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   const [modalTransferirMaq,setModalTransferirMaq]=useState(null); // {maquinaId, clienteOrigenId} | null
   const [transferNuevoClienteId,setTransferNuevoClienteId]=useState("");
   const [formC,setFormC]=useState({}); const [formM,setFormM]=useState({}); const [formCo,setFormCo]=useState({});
+  const [cifDupWarn,setCifDupWarn]=useState(null); // cliente duplicado detectado al escribir CIF
   const [modalEscaner,setModalEscaner]=useState(false); const [resumenEscaneo,setResumenEscaneo]=useState(null);
   const [modalExportar,setModalExportar]=useState(false);
   const [exportFiltro,setExportFiltro]=useState("todos");
@@ -1855,7 +1856,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{setImportFilas([]);setImportError("");setModalImportar(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📥 Importar</button>
           <button onClick={()=>{setExportFiltro("todos");setExportValor("");setModalExportar(true);}} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📋 Exportar</button>
-          <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
+          <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setCifDupWarn(null);setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
         </div>
       </div>
       <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
@@ -2032,12 +2033,26 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
           Nuevo Cliente
           <button type="button" onClick={()=>setModalEscaner(true)} style={{background:"#a855f720",border:"1px solid #a855f755",borderRadius:7,padding:"4px 10px",color:"#a855f7",fontSize:11,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>📷 Escanear tarjeta</button>
         </span>
-      )} onClose={()=>setModalC(null)} wide>
+      )} onClose={()=>{setModalC(null);setCifDupWarn(null);}} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
           <Field label="Nombre empresa"><Input value={formC.nombreEmpresa||""} onChange={fc("nombreEmpresa")}/></Field>
           <Field label="Nombre fiscal completo"><Input value={formC.nombreFiscal||""} onChange={fc("nombreFiscal")}/></Field>
-          <Field label="CIF / DNI"><Input value={formC.cif||""} onChange={fc("cif")} placeholder="B12345678 / 12345678A"/></Field>
+          <Field label="CIF / DNI">
+            <input value={formC.cif||""} onChange={e=>{setFormC(p=>({...p,cif:e.target.value}));setCifDupWarn(null);}}
+              onBlur={e=>{const val=(e.target.value||"").trim().toUpperCase();if(!val)return;const dup=data.clientes.find(c=>c.id!==formC.id&&(c.cif||"").trim().toUpperCase()===val);setCifDupWarn(dup||null);}}
+              placeholder="B12345678 / 12345678A" style={inputStyle}/>
+          </Field>
         </div>
+        {cifDupWarn&&(
+          <div style={{background:"#3b0000",border:"2px solid #dc2626",borderRadius:10,padding:"16px 18px",margin:"8px 0",display:"flex",alignItems:"flex-start",gap:12}}>
+            <span style={{fontSize:28,lineHeight:1}}>⚠️</span>
+            <div>
+              <div style={{color:"#fca5a5",fontWeight:800,fontSize:15,marginBottom:4}}>CIF / DNI DUPLICADO</div>
+              <div style={{color:"#fca5a5",fontSize:13}}>Este CIF/DNI ya pertenece a: <b>{cifDupWarn.nombreEmpresa||cifDupWarn.nombreFiscal}</b></div>
+              <div style={{color:"#f87171",fontSize:12,marginTop:4}}>Comprueba si este cliente ya está registrado antes de continuar.</div>
+            </div>
+          </div>
+        )}
         <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
           <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Direccion Fiscal</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
@@ -2349,12 +2364,26 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
           </div>
         );
       })()}
-      {modalC&&<Modal title="Editar Cliente" onClose={()=>setModalC(null)} wide>
+      {modalC&&<Modal title="Editar Cliente" onClose={()=>{setModalC(null);setCifDupWarn(null);}} wide>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(220px,100%),1fr))",gap:11}}>
           <Field label="Nombre empresa"><Input value={formC.nombreEmpresa||""} onChange={fc("nombreEmpresa")}/></Field>
           <Field label="Nombre fiscal completo"><Input value={formC.nombreFiscal||""} onChange={fc("nombreFiscal")}/></Field>
-          <Field label="CIF / DNI"><Input value={formC.cif||""} onChange={fc("cif")} placeholder="B12345678 / 12345678A"/></Field>
+          <Field label="CIF / DNI">
+            <input value={formC.cif||""} onChange={e=>{setFormC(p=>({...p,cif:e.target.value}));setCifDupWarn(null);}}
+              onBlur={e=>{const val=(e.target.value||"").trim().toUpperCase();if(!val)return;const dup=data.clientes.find(c=>c.id!==formC.id&&(c.cif||"").trim().toUpperCase()===val);setCifDupWarn(dup||null);}}
+              placeholder="B12345678 / 12345678A" style={inputStyle}/>
+          </Field>
         </div>
+        {cifDupWarn&&(
+          <div style={{background:"#3b0000",border:"2px solid #dc2626",borderRadius:10,padding:"16px 18px",margin:"8px 0",display:"flex",alignItems:"flex-start",gap:12}}>
+            <span style={{fontSize:28,lineHeight:1}}>⚠️</span>
+            <div>
+              <div style={{color:"#fca5a5",fontWeight:800,fontSize:15,marginBottom:4}}>CIF / DNI DUPLICADO</div>
+              <div style={{color:"#fca5a5",fontSize:13}}>Este CIF/DNI ya pertenece a: <b>{cifDupWarn.nombreEmpresa||cifDupWarn.nombreFiscal}</b></div>
+              <div style={{color:"#f87171",fontSize:12,marginTop:4}}>Comprueba si este cliente ya está registrado antes de continuar.</div>
+            </div>
+          </div>
+        )}
         <div style={{background:"#0d1117",borderRadius:10,padding:"12px 14px",marginBottom:2}}>
           <div style={{fontSize:11,fontWeight:700,color:"#3b82f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Direccion Fiscal</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:9}}>
@@ -2527,6 +2556,7 @@ const Proveedores = ({ data, setData, userActual }) => {
   const [contactos,setContactos]=useState([]);
   const [modalCo,setModalCo]=useState(null);
   const [formCo,setFormCo]=useState({});
+  const [nifDupWarn,setNifDupWarn]=useState(null); // proveedor duplicado detectado al escribir NIF
 
   const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
@@ -2604,10 +2634,24 @@ const Proveedores = ({ data, setData, userActual }) => {
       )}
       {/* Modal proveedor */}
       {modal!==null&&(
-        <Modal title={modal==="nuevo"?"Nuevo proveedor":"Editar proveedor"} onClose={()=>setModal(null)} wide>
+        <Modal title={modal==="nuevo"?"Nuevo proveedor":"Editar proveedor"} onClose={()=>{setModal(null);setNifDupWarn(null);}} wide>
+          {nifDupWarn&&(
+            <div style={{background:"#3b0000",border:"2px solid #dc2626",borderRadius:10,padding:"16px 18px",marginBottom:12,display:"flex",alignItems:"flex-start",gap:12}}>
+              <span style={{fontSize:28,lineHeight:1}}>⚠️</span>
+              <div>
+                <div style={{color:"#fca5a5",fontWeight:800,fontSize:15,marginBottom:4}}>NIF / CIF DUPLICADO</div>
+                <div style={{color:"#fca5a5",fontSize:13}}>Este NIF/CIF ya pertenece a: <b>{nifDupWarn.razonSocial}</b></div>
+                <div style={{color:"#f87171",fontSize:12,marginTop:4}}>Comprueba si este proveedor ya está registrado antes de continuar.</div>
+              </div>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
             <Field label="Razón social *"><input value={form.razonSocial||""} onChange={f("razonSocial")} style={inputStyle} placeholder="Nombre de la empresa"/></Field>
-            <Field label="NIF / CIF"><input value={form.nif||""} onChange={f("nif")} style={inputStyle} placeholder="B00000000"/></Field>
+            <Field label="NIF / CIF">
+              <input value={form.nif||""} onChange={e=>{setForm(p=>({...p,nif:e.target.value}));setNifDupWarn(null);}}
+                onBlur={e=>{const val=(e.target.value||"").trim().toUpperCase();if(!val)return;const dup=(data.proveedores||[]).find(p=>p.id!==modal&&(p.nif||"").trim().toUpperCase()===val);setNifDupWarn(dup||null);}}
+                style={inputStyle} placeholder="B00000000"/>
+            </Field>
             <Field label="Dirección fiscal"><input value={form.dirFiscal||""} onChange={f("dirFiscal")} style={inputStyle} placeholder="Calle, número..."/></Field>
             <Field label="Código postal"><input value={form.cpFiscal||""} onChange={f("cpFiscal")} style={inputStyle} placeholder="00000"/></Field>
             <Field label="Localidad"><input value={form.localidad||""} onChange={f("localidad")} style={inputStyle} placeholder="Ciudad"/></Field>
