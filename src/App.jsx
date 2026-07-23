@@ -6402,7 +6402,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const cadena = obtenerCadenaPartes(data.partes, p);
     abrirPDFLectura(cadena.length>1 ? cadena[cadena.length-1] : p, cadena);
   };
-  const generarYDescargarPDF = async (parte, conFirma, soloDescarga, cadenaCompleta) => {
+  const generarYDescargarPDF = async (parte, conFirma, soloDescarga, cadenaCompleta, usarCanvas = true) => {
     // jsPDF importado estáticamente
     const cl = parte.clienteDirectoId ? data.clientes.find(c=>c.id===parte.clienteDirectoId) : rCliente(parte.reparacionId);
     // Si se pasa una cadena de varios partes (trabajo continuado), se genera un unico
@@ -6577,9 +6577,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       }
       y+=2;
     }
-    if(conFirma&&canvasRef.current){
+    if(conFirma && usarCanvas && canvasRef.current){
+      // Canvas en vivo — solo durante la sesión activa de firma (enviarEmail lo pasa con usarCanvas=true)
       try {
-        // Canvas temporal con fondo blanco para evitar negro en PDF
         const tmp=document.createElement("canvas");
         tmp.width=canvasRef.current.width; tmp.height=canvasRef.current.height;
         const tctx=tmp.getContext("2d");
@@ -6588,8 +6588,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28);
         y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
-    } else if(parte.firmaImagen){
-      // Sin canvas en vivo (vista previa de solo lectura): usar la firma ya guardada del parte
+    } else if(conFirma && parte.firmaImagen){
+      // Firma guardada: usarCanvas=false (vista lectura) o canvas no disponible
       try { doc.addImage(parte.firmaImagen,"JPEG",mg,y,80,28); y+=32; }
       catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
     } else { doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
@@ -6630,7 +6630,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         // Fallback: regenerar desde los datos del parte (partes sin pdfFirmadoBase64)
         const parteConDatos = {...p, conforme: p.conforme??null, notasConformidad: p.notasConformidad||""};
         const conFirma = !!(p.firmaNombre);
-        const dataUri = await generarYDescargarPDF(parteConDatos, conFirma, false, cadenaCompleta);
+        const dataUri = await generarYDescargarPDF(parteConDatos, conFirma, false, cadenaCompleta, false);
         const byteString = atob(dataUri.split(",")[1]);
         bytes = new Uint8Array(byteString.length);
         for (let i=0;i<byteString.length;i++) bytes[i]=byteString.charCodeAt(i);
