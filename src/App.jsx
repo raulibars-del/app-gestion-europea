@@ -6753,6 +6753,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       const dataUri = await generarYDescargarPDF(parteFinal,firmada,true,cadena);
       const base64 = dataUri.split(",")[1];
       const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
+      const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
+      const nuevaFirmaImg = capturarFirmaImagen();
+      const tsAhora = Date.now();
+      // ── Guardar firma + PDF firmado ANTES de enviar ──────────────────────────
+      // Si el email falla (red, SMTP…) la firma y el PDF quedan siempre en el parte.
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,pdfFirmadoBase64:base64,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,_ts:tsAhora}:pt)}));
+      window.dispatchEvent(new Event("em-save-now"));
+      // ── Enviar email ─────────────────────────────────────────────────────────
       await apiSendMail({
         to: emailCliente,
         cc: ccUsada,
@@ -6762,16 +6770,12 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         attachmentName: "parte-"+numeroMostrado+".pdf",
         attachmentMime: "application/pdf",
       });
-      const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
-      const nuevaFirmaImg = capturarFirmaImagen();
-      const tsAhora = Date.now();
-      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,pdfFirmadoBase64:base64,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today(),_ts:tsAhora}:pt)}));
-      // Forzar guardado inmediato para que emailEnviado llegue al servidor
-      // antes de que el técnico cierre la app (sin esperar el debounce de 1200ms).
+      // ── Marcar como enviado (solo si el email llegó) ─────────────────────────
+      setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,emailEnviado:true,emailEnviadoA:emailCliente,emailEnviadoCC:ccUsada,fechaEnvio:today(),_ts:Date.now()}:pt)}));
       window.dispatchEvent(new Event("em-save-now"));
       setEnviado(true);
     }catch(e){
-      alert("El PDF se generó y descargó, pero no se pudo enviar el email.\n\n"+e.message);
+      alert("La firma y el PDF están guardados, pero no se pudo enviar el email.\n\n"+e.message);
     }finally{
       setEnviando(false);
     }
