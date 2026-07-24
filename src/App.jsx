@@ -6568,7 +6568,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       ],y);
     }
     // Firma y conformidad — una sola vez, al cierre del trabajo completo
-    asegurarEspacio(60);
+    // Necesita ~90mm: cabecera sección + texto + estado + firma(28mm) + etiquetas nombre/fecha
+    asegurarEspacio(95);
     y+=4;
     doc.setFillColor(230,235,245); doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
     doc.setDrawColor(180,190,210); doc.roundedRect(mg,y,W-mg*2,7,1,1,"S");
