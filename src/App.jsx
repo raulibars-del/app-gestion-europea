@@ -5587,12 +5587,16 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     setData(d => {
       let tareas = d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: Date.now() } : x);
       if (nuevoEstado === "Completada") {
-        // Mantener solo las 5 tareas completadas más recientes; eliminar las más antiguas
+        // Mantener solo las 10 tareas completadas más recientes; marcar las más antiguas
+        // como _deleted (tombstone) en lugar de eliminarlas físicamente — si se eliminaran
+        // físicamente, otro dispositivo/pestaña que aún las tuviera en memoria podría
+        // escribirlas de vuelta al servidor como "Pendiente" y reaparecerían.
         const completadas = tareas.filter(x => !x._deleted && x.estado === "Completada")
           .sort((a,b) => String(b.fechaCompletada||b._ts||0).localeCompare(String(a.fechaCompletada||a._ts||0)));
-        if (completadas.length > 5) {
-          const idsABorrar = new Set(completadas.slice(5).map(x => x.id));
-          tareas = tareas.filter(x => !idsABorrar.has(x.id));
+        if (completadas.length > 10) {
+          const tsAhora = Date.now();
+          const idsABorrar = new Set(completadas.slice(10).map(x => x.id));
+          tareas = tareas.map(x => idsABorrar.has(x.id) ? { ...x, _deleted: true, _ts: tsAhora } : x);
         }
       }
       return { ...d, tareas };
