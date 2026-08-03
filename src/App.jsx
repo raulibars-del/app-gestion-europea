@@ -293,10 +293,14 @@ const migrateContabilidad = (d) => {
 // la app justo tras guardar el parte). Se ejecuta en cada carga y pull.
 const repararEstadosAvisos = (d) => {
   if (!d.partes || !d.avisos) return d;
-  // Cierra el aviso si el parte está Finalizado O si el email fue enviado
-  // (emailEnviado cubre casos donde estadoParte no se guardó correctamente)
+  // SOLO cierra el aviso cuando el parte está EXPLÍCITAMENTE Finalizado.
+  // Anteriormente también cerraba con emailEnviado===true, pero eso causaba
+  // que partes continuados (cadena de visitas) cerraran el aviso tras el
+  // primer parte firmado, aunque el trabajo no estuviese terminado.
+  // estadoParte="Finalizado" se establece solo cuando el técnico marca el trabajo
+  // como completo — es la única señal fiable de que el aviso puede cerrarse.
   const finalizados = d.partes.filter(p =>
-    p.avisoId && (p.estadoParte === "Finalizado" || p.emailEnviado === true)
+    p.avisoId && p.estadoParte === "Finalizado"
   );
   if (finalizados.length === 0) return d;
   let changed = false;
@@ -3650,7 +3654,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     cancelarAv(cancelTarget, motivoCancel.trim());
     setCancelTarget(null); setMotivoCancel(""); setDetalle(null);
   };
-  const delAv = id => { if (!window.confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return; setData(d => ({ ...d,avisos: d.avisos.filter(a => a.id !== id) })); setDetalle(null); };
+  const delAv = id => { if (!window.confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return; const tsAhora = Date.now(); setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a, _deleted: true, _ts: tsAhora } : a) })); setDetalle(null); };
   const crit = data.avisos.filter(a => a.prioridad === "Alta" && a.estado !== "Resuelto" && a.estado !== "Cancelado");
   const sinA = data.avisos.filter(a => a.estado === "Sin asignar");
   const ant  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
@@ -15481,16 +15485,18 @@ function AppInner() {
             lastVersionRef.current[seccion] = res.versions[seccion];
           }
           persistirUltimoSincronizado(newSynced);
-          // Al cargar, cerrar avisos que el cron ya resolvió: si un parte fue enviado
-          // (emailEnviado:true, sin envioProgFecha) y su aviso sigue en "Pendiente",
-          // es porque el cron actuó mientras nadie estaba conectado. Lo cerramos ahora.
+          // Al cargar, cerrar avisos cuyo parte vinculado ya está Finalizado.
+          // NOTA: anteriormente se usaba emailEnviado:true como señal, pero eso
+          // cerraba incorrectamente los avisos de partes continuados (el primer parte
+          // de una cadena queda con emailEnviado:true aunque el trabajo continúe).
+          // Ahora solo se cierra si el parte tiene estadoParte="Finalizado".
           const hoyStr = new Date().toISOString().slice(0,10);
           if(Array.isArray(mergedData.partes) && Array.isArray(mergedData.avisos)){
             let avisosActualizados = false;
             const nuevoAviso = mergedData.avisos.map(a => {
               if(a.estado !== "Pendiente") return a;
               const parteEnviado = mergedData.partes.find(p =>
-                p.avisoId === a.id && p.emailEnviado && !p.envioProgFecha
+                p.avisoId === a.id && p.estadoParte === "Finalizado"
               );
               if(!parteEnviado) return a;
               avisosActualizados = true;
