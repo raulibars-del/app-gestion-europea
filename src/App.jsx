@@ -491,6 +491,28 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
       for (const itemL of local) {
         if (!vistos.has(itemL.id) && !baseById.has(itemL.id)) resultado.push(itemL); // creado por nosotros
       }
+      // PROTECCIÓN STALE DEVICE: si el resultado tiene muchos menos ítems que el remoto
+      // Y el base tenía casi tantos como el remoto (sin borrados masivos en servidor),
+      // es muy probable que el dispositivo local sea obsoleto y nunca haya tenido esos ítems.
+      // En ese caso el merge los interpreta como "borrado local" pero en realidad nunca
+      // llegaron al dispositivo. Ejemplo: em_data de hace 2 meses + em_last_synced_v2
+      // actualizado recientemente por un pull → el merge borra meses de trabajo.
+      // Solo aplica cuando hay una pérdida significativa (>5 ítems, >25% del remoto).
+      if(Array.isArray(base) && base.length > 3 && remoto.length > 3){
+        const baseActivos = base.filter(x=>!x._deleted).length;
+        const remotoActivos = remoto.filter(x=>!x._deleted).length;
+        const resultadoActivos = resultado.filter(x=>!x._deleted).length;
+        const localActivos = local.filter(x=>!x._deleted).length;
+        const perdidos = remotoActivos - resultadoActivos;
+        // El servidor no ha hecho borrados masivos (base ≈ remoto) pero el resultado sí:
+        // indica que los borrados vienen del local (dispositivo obsoleto).
+        if(perdidos > 5 && perdidos / remotoActivos > 0.25
+           && baseActivos >= remotoActivos * 0.85
+           && localActivos < baseActivos * 0.75){
+          console.warn(`[sync] combinarDatosRemotos: pérdida de ${perdidos}/${remotoActivos} ítems (local=${localActivos}, base=${baseActivos}). Dispositivo obsoleto detectado → se devuelve remoto.`);
+          return remoto;
+        }
+      }
       return resultado;
     }
     // Array sin id identificable: no podemos fusionar con seguridad elemento a elemento.
@@ -15477,7 +15499,25 @@ function AppInner() {
               const base = JSON.parse(baseJson);
               let combined = combinarDatosRemotos(base, localData, remoteData, seccion, conflictos);
               if(seccion === 'partes') combined = sanitizarPartes(combined, remoteData);
-              mergedData = aplicarSeccion(mergedData, seccion, combined);
+              // PROTECCIÓN STALE DEVICE (carga inicial): si el merge eliminó muchos ítems
+              // que estaban en remoto, probablemente el dispositivo tenía datos obsoletos
+              // (p.ej. em_data de hace 2 meses pero em_last_synced_v2 actualizado por un
+              // pull reciente). El merge interpreta "nunca vi este ítem" como "lo borré",
+              // eliminando meses de trabajo. Si se pierden más de 5 ítems Y más del 25%
+              // del total remoto, tomamos el remoto directamente.
+              if(Array.isArray(combined) && Array.isArray(remoteData) && remoteData.length > 3){
+                const remotoIds = new Set(remoteData.map(x=>x.id));
+                const combinadoIds = new Set(combined.map(x=>x.id));
+                const perdidos = [...remotoIds].filter(id => !combinadoIds.has(id)).length;
+                if(perdidos > 5 && perdidos / remoteData.length > 0.25){
+                  console.warn(`[sync] Carga inicial: merge en '${seccion}' iba a eliminar ${perdidos}/${remoteData.length} ítems del servidor. Posible dispositivo obsoleto → se toma el remoto.`);
+                  mergedData = aplicarSeccion(mergedData, seccion, remoteData);
+                } else {
+                  mergedData = aplicarSeccion(mergedData, seccion, combined);
+                }
+              } else {
+                mergedData = aplicarSeccion(mergedData, seccion, combined);
+              }
             } else {
               mergedData = aplicarSeccion(mergedData, seccion, remoteData);
             }
@@ -15633,11 +15673,9 @@ function AppInner() {
               return;
             }
           }
-          // PROTECCIÓN: solo bloqueamos si lo que vamos a guardar coincide exactamente con
+          // PROTECCIÓN 1: solo bloqueamos si lo que vamos a guardar coincide exactamente con
           // el estado vacío/inicial de la app Y el servidor tiene datos reales. Esto evita
           // que un dispositivo sin em_data guardado (p.ej. sesión nueva) machaque el servidor.
-          // Los chequeos de "70%" y "vacío sobre real" se eliminaron porque bloqueaban borrados
-          // legítimos del usuario (borraba varias tareas y el bloqueo las restauraba inmediatamente).
           const initialSection = extraerSeccion(initialData, seccion);
           const aGuardarEsInitialNoVacio = JSON.stringify(aGuardar) === JSON.stringify(initialSection)
             && !(Array.isArray(initialSection) && initialSection.length === 0);
@@ -15647,6 +15685,31 @@ function AppInner() {
             dataActual = aplicarSeccion(dataActual, seccion, remoteData);
             mergeOcurrido = true;
             continue;
+          }
+          // PROTECCIÓN 2: si vamos a guardar BASTANTES MENOS registros que los que tiene el
+          // servidor, bloqueamos el guardado y tomamos el remoto. Esto evita que un dispositivo
+          // con datos obsoletos (p.ej. caché de hace meses) sobreescriba datos reales recientes.
+          // Umbral: >5 ítems de diferencia Y la reducción supera el 30% del total del servidor.
+          // Excepción: si el base tenía los mismos items que el remoto (el usuario borró
+          // explícitamente registros en este dispositivo), se permite el guardado.
+          if(Array.isArray(aGuardar) && Array.isArray(remoteData) && remoteData.length > 5){
+            const noEliminados = aGuardar.filter(x => !x._deleted);
+            const noEliminadosRemoto = remoteData.filter(x => !x._deleted);
+            const perdida = noEliminadosRemoto.length - noEliminados.length;
+            if(perdida > 5 && perdida / noEliminadosRemoto.length > 0.3){
+              // Verificar que el base tenía tantos items como el remoto: si no, es reducción
+              // legítima que ya pasó por el merge. Si sí, el merge no eliminó nada y el local
+              // tiene menos porque estaba obsoleto.
+              const baseData = lastSynced ? JSON.parse(lastSynced) : null;
+              const baseNoEliminados = Array.isArray(baseData) ? baseData.filter(x=>!x._deleted).length : 0;
+              if(baseNoEliminados > noEliminados.length){
+                console.warn(`[sync] BLOQUEADO pérdida masiva en ${seccion}: remoto=${noEliminadosRemoto.length}, local=${noEliminados.length}, base=${baseNoEliminados}. Tomando remoto.`);
+                lastSyncedRef.current[seccion] = remoteJson;
+                dataActual = aplicarSeccion(dataActual, seccion, remoteData);
+                mergeOcurrido = true;
+                continue;
+              }
+            }
           }
           // Si no hay cambio real que guardar (localData === lastSynced), saltar.
           if(JSON.stringify(localData) === lastSynced) continue;
