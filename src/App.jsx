@@ -7775,7 +7775,7 @@ const CarruselMonitor = ({ data, onSalir }) => {
               <div style={{color:"#f59e0b",fontSize:"1.6vh",letterSpacing:"0.2em",fontWeight:700,textTransform:"uppercase"}}>europeademaquinaria.com</div>
               <div style={{width:"6vw",height:"2px",background:"linear-gradient(to left,transparent,#f59e0b)"}}/>
             </div>
-            <div style={{color:"#475569",fontSize:"1.4vh",letterSpacing:"0.12em",textTransform:"uppercase"}}>
+            <div style={{color:"#94a3b8",fontSize:"1.6vh",letterSpacing:"0.08em",textTransform:"capitalize",fontWeight:500}}>
               {new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
             </div>
           </div>
@@ -7787,10 +7787,11 @@ const CarruselMonitor = ({ data, onSalir }) => {
       const avisosTotal = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
       // Enriquecer avisos con nombre de cliente y días
       const avisosRich = s.avisos.map(a => {
-        const cli = (data.clientes||[]).find(c=>c.id===a.clienteId||c.id===parseInt(a.clienteId));
+        const cid = typeof a.clienteId === "string" ? parseInt(a.clienteId) : a.clienteId;
+        const cli = (data.clientes||[]).find(c => c.id === cid);
         const d = diasDesde(a.fechaAviso);
         const dc = d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
-        return { ...a, _clienteNombre: cli?.nombre||cli?.razonSocial||"Sin cliente", _dias: d, _diasColor: dc };
+        return { ...a, _clienteNombre: cli?.nombreEmpresa||cli?.nombreFiscal||cli?.nombre||"Sin cliente", _dias: d, _diasColor: dc };
       });
       return (
         <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"2.5vh 3vw",boxSizing:"border-box"}}>
@@ -7814,36 +7815,21 @@ const CarruselMonitor = ({ data, onSalir }) => {
             {avisosRich.map(a => {
               const cp = colPrio(a.prioridad);
               return (
-                <div key={a.id} style={{background:"#0c1420",border:"1px solid #1e2d45",borderTop:`3px solid ${cp}`,borderRadius:12,padding:"1.8vh 1.5vw",display:"flex",flexDirection:"column",gap:"1vh",minHeight:0,overflow:"hidden"}}>
-                  {/* Fila 1: días + cliente */}
-                  <div style={{display:"flex",alignItems:"flex-start",gap:"1vw"}}>
-                    {/* Badge de días */}
-                    <div style={{background:a._diasColor+"18",border:`1px solid ${a._diasColor}44`,borderRadius:8,padding:"0.6vh 0.8vw",textAlign:"center",flexShrink:0,minWidth:"3.5vw"}}>
-                      <div style={{fontSize:"2.8vh",fontWeight:900,color:a._diasColor,lineHeight:1}}>{a._dias}</div>
-                      <div style={{fontSize:"1vh",color:a._diasColor,fontWeight:700,lineHeight:1,marginTop:"0.2vh"}}>{a._dias===1?"día":"días"}</div>
+                <div key={a.id} style={{background:"#0c1420",border:"1px solid #1e2d45",borderTop:`3px solid ${cp}`,borderRadius:12,padding:"1.8vh 1.5vw",display:"flex",flexDirection:"column",gap:"0.7vh",minHeight:0,overflow:"hidden"}}>
+                  {/* Cliente — muy grande y prominente */}
+                  <div style={{fontSize:"2.1vh",fontWeight:900,color:"#60a5fa",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",letterSpacing:"-0.01em"}}>{a._clienteNombre}</div>
+                  <div style={{height:"1px",background:"#1e2d45",flexShrink:0}}/>
+                  {/* Título aviso */}
+                  <div style={{fontSize:"1.65vh",fontWeight:700,color:"#e2e8f0",lineHeight:1.25,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",flex:1}}>{a.titulo}</div>
+                  {/* Fila inferior: días + tipo + técnico + prioridad */}
+                  <div style={{display:"flex",alignItems:"center",gap:"0.6vw",marginTop:"auto",flexWrap:"wrap"}}>
+                    <div style={{background:a._diasColor+"18",border:`1px solid ${a._diasColor}44`,borderRadius:6,padding:"0.3vh 0.6vw",display:"flex",alignItems:"baseline",gap:"0.3vw",flexShrink:0}}>
+                      <span style={{fontSize:"2vh",fontWeight:900,color:a._diasColor,lineHeight:1}}>{a._dias}</span>
+                      <span style={{fontSize:"1vh",color:a._diasColor,fontWeight:700}}>{a._dias===1?"d":"d"}</span>
                     </div>
-                    {/* Cliente + título */}
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:"1.3vh",fontWeight:700,color:"#60a5fa",textTransform:"uppercase",letterSpacing:"0.05em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a._clienteNombre}</div>
-                      <div style={{fontSize:"1.8vh",fontWeight:800,color:"#f1f3f9",lineHeight:1.2,marginTop:"0.2vh",overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{a.titulo}</div>
-                    </div>
-                  </div>
-                  {/* Fila 2: tipo + máquina */}
-                  <div style={{display:"flex",gap:"0.5vw",flexWrap:"wrap"}}>
-                    {a.tipo&&<span style={{background:"#1e2d45",color:"#94a3b8",borderRadius:5,padding:"0.2vh 0.7vw",fontSize:"1.1vh",fontWeight:600}}>{a.tipo}</span>}
-                    {(a.marca||a.modelo)&&<span style={{background:"#1e2d45",color:"#94a3b8",borderRadius:5,padding:"0.2vh 0.7vw",fontSize:"1.1vh",fontWeight:600}}>{[a.marca,a.modelo].filter(Boolean).join(" ")}</span>}
-                  </div>
-                  {/* Fila 3: técnicos asignados */}
-                  {a.asignados?.length>0&&(
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5vw"}}>
-                      <span style={{fontSize:"1.1vh",color:"#475569"}}>👤</span>
-                      <span style={{fontSize:"1.2vh",color:"#7dd3fc",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.asignados.join(", ")}</span>
-                    </div>
-                  )}
-                  {/* Fila 4: estado + prioridad */}
-                  <div style={{marginTop:"auto",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5vw"}}>
-                    <span style={{background:cp+"18",color:cp,border:`1px solid ${cp}44`,borderRadius:5,padding:"0.2vh 0.8vw",fontSize:"1.1vh",fontWeight:700}}>{a.prioridad||"Normal"}</span>
-                    <span style={{fontSize:"1.1vh",color:"#334155"}}>{a.fechaAviso&&new Date(a.fechaAviso+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"})}</span>
+                    {a.tipo&&<span style={{background:"#1e2d45",color:"#94a3b8",borderRadius:5,padding:"0.2vh 0.6vw",fontSize:"1.1vh",fontWeight:600,flexShrink:0}}>{a.tipo}</span>}
+                    {a.asignados?.length>0&&<span style={{fontSize:"1.1vh",color:"#7dd3fc",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>👤 {a.asignados.join(", ")}</span>}
+                    <span style={{background:cp+"18",color:cp,border:`1px solid ${cp}44`,borderRadius:5,padding:"0.2vh 0.6vw",fontSize:"1.1vh",fontWeight:700,flexShrink:0}}>{a.prioridad||"Normal"}</span>
                   </div>
                 </div>
               );
@@ -7864,54 +7850,60 @@ const CarruselMonitor = ({ data, onSalir }) => {
       const horaHoy = new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
       const anyoHoy = new Date().getFullYear();
       return (
-        <div style={{position:"absolute",inset:0,background:"#090e18",display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"auto 1fr 1fr",gap:"2vh 2.5vw",padding:"3vh 3.5vw",boxSizing:"border-box"}}>
-          {/* Cabecera — ocupa toda la fila superior */}
-          <div style={{gridColumn:"1/-1",display:"flex",alignItems:"center",justifyContent:"space-between",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",gap:"2vh",padding:"3vh 3.5vw",boxSizing:"border-box"}}>
+          {/* Cabecera */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:"1.5vw"}}>
               <img src={LOGO_URL} alt="" style={{height:"6vh",width:"auto",objectFit:"contain"}}/>
               <div>
-                <div style={{fontSize:"1.4vh",color:"#475569",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Estado en tiempo real</div>
+                <div style={{fontSize:"1.4vh",color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Estado en tiempo real</div>
                 <div style={{fontSize:"2.4vh",fontWeight:800,color:"#e2e8f0",textTransform:"capitalize"}}>{fechaHoy} · {anyoHoy}</div>
               </div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:"7vh",fontWeight:900,color:"#f1f3f9",lineHeight:1,letterSpacing:"-0.03em",fontVariantNumeric:"tabular-nums"}}>{horaHoy}</div>
-              <div style={{fontSize:"1.2vh",color:"#334155",letterSpacing:"0.18em",textTransform:"uppercase",marginTop:"0.3vh"}}>hora local</div>
+              <div style={{fontSize:"1.2vh",color:"#64748b",letterSpacing:"0.18em",textTransform:"uppercase",marginTop:"0.3vh"}}>hora local</div>
             </div>
           </div>
-          {/* KPI 1 — Avisos pendientes */}
-          <div style={{background:"#120a0a",border:"1px solid #dc262622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#ef4444,transparent)"}}/>
-            <div style={{fontSize:"1.3vh",color:"#ef444499",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Avisos pendientes</div>
-            <div style={{display:"flex",alignItems:"flex-end",gap:"1.5vw",marginTop:"1vh"}}>
-              <div style={{fontSize:"9vh",fontWeight:900,color:"#ef4444",lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{avisosP.length}</div>
-              {avisosUrgentes.length>0&&<div style={{background:"#ef444422",border:"1px solid #ef444444",borderRadius:8,padding:"0.5vh 1vw",marginBottom:"0.8vh"}}>
-                <div style={{fontSize:"2.5vh",fontWeight:900,color:"#ef4444",lineHeight:1}}>{avisosUrgentes.length}</div>
-                <div style={{fontSize:"1.1vh",color:"#ef444488",fontWeight:700}}>urgentes</div>
-              </div>}
+          {/* Fila KPI superior */}
+          <div style={{display:"flex",flex:1,gap:"2.5vw",minHeight:0}}>
+            {/* KPI 1 — Avisos pendientes */}
+            <div style={{flex:1,background:"#120a0a",border:"1px solid #dc262622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#ef4444,transparent)"}}/>
+              <div style={{fontSize:"1.3vh",color:"#ef444499",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Avisos pendientes</div>
+              <div style={{display:"flex",alignItems:"flex-end",gap:"1.5vw",marginTop:"1vh"}}>
+                <div style={{fontSize:"9vh",fontWeight:900,color:"#ef4444",lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{avisosP.length}</div>
+                {avisosUrgentes.length>0&&<div style={{background:"#ef444422",border:"1px solid #ef444444",borderRadius:8,padding:"0.5vh 1vw",marginBottom:"0.8vh"}}>
+                  <div style={{fontSize:"2.5vh",fontWeight:900,color:"#ef4444",lineHeight:1}}>{avisosUrgentes.length}</div>
+                  <div style={{fontSize:"1.1vh",color:"#ef444488",fontWeight:700}}>urgentes</div>
+                </div>}
+              </div>
+              <div style={{fontSize:"1.2vh",color:"#374151"}}>avisos sin resolver</div>
             </div>
-            <div style={{fontSize:"1.2vh",color:"#374151"}}>avisos sin resolver</div>
+            {/* KPI 2 — Partes en curso */}
+            <div style={{flex:1,background:"#120e00",border:"1px solid #f59e0b22",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#f59e0b,transparent)"}}/>
+              <div style={{fontSize:"1.3vh",color:"#f59e0b99",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Partes en curso</div>
+              <div style={{fontSize:"9vh",fontWeight:900,color:"#f59e0b",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{partesAb.length}</div>
+              <div style={{fontSize:"1.2vh",color:"#374151"}}>órdenes de trabajo abiertas</div>
+            </div>
           </div>
-          {/* KPI 2 — Partes en curso */}
-          <div style={{background:"#120e00",border:"1px solid #f59e0b22",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#f59e0b,transparent)"}}/>
-            <div style={{fontSize:"1.3vh",color:"#f59e0b99",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Partes en curso</div>
-            <div style={{fontSize:"9vh",fontWeight:900,color:"#f59e0b",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{partesAb.length}</div>
-            <div style={{fontSize:"1.2vh",color:"#374151"}}>órdenes de trabajo abiertas</div>
-          </div>
-          {/* KPI 3 — Clientes */}
-          <div style={{background:"#080e1c",border:"1px solid #3b82f622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#3b82f6,transparent)"}}/>
-            <div style={{fontSize:"1.3vh",color:"#3b82f699",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Clientes activos</div>
-            <div style={{fontSize:"9vh",fontWeight:900,color:"#3b82f6",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{clientesAct.length}</div>
-            <div style={{fontSize:"1.2vh",color:"#374151"}}>clientes en cartera</div>
-          </div>
-          {/* KPI 4 — Tareas hoy */}
-          <div style={{background:"#071510",border:"1px solid #10b98122",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
-            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#10b981,transparent)"}}/>
-            <div style={{fontSize:"1.3vh",color:"#10b98199",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Tareas para hoy</div>
-            <div style={{fontSize:"9vh",fontWeight:900,color:"#10b981",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{tareasHoy.length}</div>
-            <div style={{fontSize:"1.2vh",color:"#374151"}}>pendientes de completar</div>
+          {/* Fila KPI inferior */}
+          <div style={{display:"flex",flex:1,gap:"2.5vw",minHeight:0}}>
+            {/* KPI 3 — Clientes */}
+            <div style={{flex:1,background:"#080e1c",border:"1px solid #3b82f622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#3b82f6,transparent)"}}/>
+              <div style={{fontSize:"1.3vh",color:"#3b82f699",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Clientes activos</div>
+              <div style={{fontSize:"9vh",fontWeight:900,color:"#3b82f6",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{clientesAct.length}</div>
+              <div style={{fontSize:"1.2vh",color:"#374151"}}>clientes en cartera</div>
+            </div>
+            {/* KPI 4 — Tareas hoy */}
+            <div style={{flex:1,background:"#071510",border:"1px solid #10b98122",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#10b981,transparent)"}}/>
+              <div style={{fontSize:"1.3vh",color:"#10b98199",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Tareas para hoy</div>
+              <div style={{fontSize:"9vh",fontWeight:900,color:"#10b981",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{tareasHoy.length}</div>
+              <div style={{fontSize:"1.2vh",color:"#374151"}}>pendientes de completar</div>
+            </div>
           </div>
         </div>
       );
@@ -7925,10 +7917,10 @@ const CarruselMonitor = ({ data, onSalir }) => {
         .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted).map(m=>{
           if(c.revendedor){
             if(m.clienteFinalLat==null||m.clienteFinalLng==null) return null;
-            return {key:c.id+"-"+m.id,lat:m.clienteFinalLat+jitterM(m.id),lng:m.clienteFinalLng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombre||c.razonSocial,clienteFinalNombre:m.clienteFinalNombre,clienteFinalLugar:m.clienteFinalLugar,codigo:m.codigo,viaRevendedor:true};
+            return {key:c.id+"-"+m.id,lat:m.clienteFinalLat+jitterM(m.id),lng:m.clienteFinalLng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombreEmpresa||c.nombre||c.razonSocial,clienteFinalNombre:m.clienteFinalNombre,clienteFinalLugar:m.clienteFinalLugar,codigo:m.codigo,viaRevendedor:true};
           }
           if(c.lat==null||c.lng==null) return null;
-          return {key:c.id+"-"+m.id,lat:c.lat+jitterM(m.id),lng:c.lng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombre||c.razonSocial,codigo:m.codigo,viaRevendedor:false};
+          return {key:c.id+"-"+m.id,lat:c.lat+jitterM(m.id),lng:c.lng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombreEmpresa||c.nombre||c.razonSocial,codigo:m.codigo,viaRevendedor:false};
         }))
         .filter(Boolean);
       const centroMapa = puntosMapa.length
