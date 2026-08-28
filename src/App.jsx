@@ -7785,41 +7785,65 @@ const CarruselMonitor = ({ data, onSalir }) => {
 
     if (s.tipo === "avisos") {
       const avisosTotal = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
+      // Enriquecer avisos con nombre de cliente y días
+      const avisosRich = s.avisos.map(a => {
+        const cli = (data.clientes||[]).find(c=>c.id===a.clienteId||c.id===parseInt(a.clienteId));
+        const d = diasDesde(a.fechaAviso);
+        const dc = d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
+        return { ...a, _clienteNombre: cli?.nombre||cli?.razonSocial||"Sin cliente", _dias: d, _diasColor: dc };
+      });
       return (
-        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"2.5vh 3vw",boxSizing:"border-box"}}>
           {/* Cabecera */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2.5vh",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
-              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#f59e0b,#fbbf24)",borderRadius:4}}/>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2vh",paddingBottom:"1.5vh",borderBottom:"1px solid #1e2d45",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:"1.5vw"}}>
+              <div style={{width:"4px",height:"4.5vh",background:"linear-gradient(to bottom,#f59e0b,#fbbf24)",borderRadius:4}}/>
               <div>
-                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Avisos Pendientes</div>
-                <div style={{fontSize:"1.4vh",color:"#475569",marginTop:"0.4vh"}}>{avisosTotal} aviso{avisosTotal!==1?"s":""} activo{avisosTotal!==1?"s":""}</div>
+                <div style={{fontSize:"2.8vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Avisos Pendientes</div>
+                <div style={{fontSize:"1.3vh",color:"#475569",marginTop:"0.3vh"}}>{avisosTotal} aviso{avisosTotal!==1?"s":""} activo{avisosTotal!==1?"s":""}</div>
               </div>
             </div>
             {s.total > 1 && (
-              <div style={{background:"#f59e0b22",border:"1px solid #f59e0b44",borderRadius:"0.6vw",padding:"0.5vh 1.5vw",color:"#f59e0b",fontSize:"1.4vh",fontWeight:700}}>
-                {s.pag} / {s.total}
+              <div style={{background:"#f59e0b22",border:"1px solid #f59e0b44",borderRadius:8,padding:"0.5vh 1.5vw",color:"#f59e0b",fontSize:"1.4vh",fontWeight:700}}>
+                Página {s.pag} de {s.total}
               </div>
             )}
           </div>
-          {/* Lista de avisos */}
-          <div style={{display:"grid",gap:"1.4vh",flex:1,alignContent:"start"}}>
-            {s.avisos.map(a => {
-              const c = colPrio(a.prioridad);
+          {/* Grid de tarjetas — 3 columnas × 2 filas */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1.5vh 1.5vw",flex:1,alignContent:"stretch"}}>
+            {avisosRich.map(a => {
+              const cp = colPrio(a.prioridad);
               return (
-                <div key={a.id} style={{background:"#0f1825",border:`1px solid #1e2d45`,borderLeft:`4px solid ${c}`,borderRadius:"0.8vw",padding:"1.8vh 2vw",display:"grid",gridTemplateColumns:"1fr auto",gap:"2vw",alignItems:"center"}}>
-                  <div style={{minWidth:0}}>
-                    <div style={{fontSize:"2.2vh",fontWeight:700,color:"#e2e8f0",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
-                    <div style={{display:"flex",gap:"1vw",marginTop:"0.4vh",flexWrap:"wrap"}}>
-                      {a.tipo && <span style={{color:"#475569",fontSize:"1.3vh"}}>{a.tipo}</span>}
-                      {a.cliente && <span style={{color:"#334155",fontSize:"1.3vh"}}>·</span>}
-                      {a.cliente && <span style={{color:"#475569",fontSize:"1.3vh",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.cliente}</span>}
-                      {a.asignados?.length > 0 && <><span style={{color:"#334155",fontSize:"1.3vh"}}>·</span><span style={{color:"#3b82f6",fontSize:"1.3vh"}}>{a.asignados.join(", ")}</span></>}
+                <div key={a.id} style={{background:"#0c1420",border:"1px solid #1e2d45",borderTop:`3px solid ${cp}`,borderRadius:12,padding:"1.8vh 1.5vw",display:"flex",flexDirection:"column",gap:"1vh",minHeight:0,overflow:"hidden"}}>
+                  {/* Fila 1: días + cliente */}
+                  <div style={{display:"flex",alignItems:"flex-start",gap:"1vw"}}>
+                    {/* Badge de días */}
+                    <div style={{background:a._diasColor+"18",border:`1px solid ${a._diasColor}44`,borderRadius:8,padding:"0.6vh 0.8vw",textAlign:"center",flexShrink:0,minWidth:"3.5vw"}}>
+                      <div style={{fontSize:"2.8vh",fontWeight:900,color:a._diasColor,lineHeight:1}}>{a._dias}</div>
+                      <div style={{fontSize:"1vh",color:a._diasColor,fontWeight:700,lineHeight:1,marginTop:"0.2vh"}}>{a._dias===1?"día":"días"}</div>
+                    </div>
+                    {/* Cliente + título */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:"1.3vh",fontWeight:700,color:"#60a5fa",textTransform:"uppercase",letterSpacing:"0.05em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a._clienteNombre}</div>
+                      <div style={{fontSize:"1.8vh",fontWeight:800,color:"#f1f3f9",lineHeight:1.2,marginTop:"0.2vh",overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{a.titulo}</div>
                     </div>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5vh",flexShrink:0}}>
-                    <span style={{background:c+"18",color:c,border:`1px solid ${c}44`,borderRadius:"0.4vw",padding:"0.3vh 1vw",fontSize:"1.2vh",fontWeight:700}}>{a.prioridad||"Normal"}</span>
-                    {a.fecha && <span style={{color:"#334155",fontSize:"1.1vh"}}>{new Date(a.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short"})}</span>}
+                  {/* Fila 2: tipo + máquina */}
+                  <div style={{display:"flex",gap:"0.5vw",flexWrap:"wrap"}}>
+                    {a.tipo&&<span style={{background:"#1e2d45",color:"#94a3b8",borderRadius:5,padding:"0.2vh 0.7vw",fontSize:"1.1vh",fontWeight:600}}>{a.tipo}</span>}
+                    {(a.marca||a.modelo)&&<span style={{background:"#1e2d45",color:"#94a3b8",borderRadius:5,padding:"0.2vh 0.7vw",fontSize:"1.1vh",fontWeight:600}}>{[a.marca,a.modelo].filter(Boolean).join(" ")}</span>}
+                  </div>
+                  {/* Fila 3: técnicos asignados */}
+                  {a.asignados?.length>0&&(
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5vw"}}>
+                      <span style={{fontSize:"1.1vh",color:"#475569"}}>👤</span>
+                      <span style={{fontSize:"1.2vh",color:"#7dd3fc",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.asignados.join(", ")}</span>
+                    </div>
+                  )}
+                  {/* Fila 4: estado + prioridad */}
+                  <div style={{marginTop:"auto",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5vw"}}>
+                    <span style={{background:cp+"18",color:cp,border:`1px solid ${cp}44`,borderRadius:5,padding:"0.2vh 0.8vw",fontSize:"1.1vh",fontWeight:700}}>{a.prioridad||"Normal"}</span>
+                    <span style={{fontSize:"1.1vh",color:"#334155"}}>{a.fechaAviso&&new Date(a.fechaAviso+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"})}</span>
                   </div>
                 </div>
               );
@@ -7830,92 +7854,107 @@ const CarruselMonitor = ({ data, onSalir }) => {
     }
 
     if (s.tipo === "stats") {
-      const avisosP = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
-      const partesAb = (data.partes||[]).filter(p=>!p._deleted&&p.estadoParte!=="Finalizado"&&p.estadoParte!=="Anulado").length;
-      const clientesAct = (data.clientes||[]).filter(c=>!c._deleted).length;
+      const avisosP = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado");
+      const partesAb = (data.partes||[]).filter(p=>!p._deleted&&p.estadoParte!=="Finalizado"&&p.estadoParte!=="Anulado");
+      const clientesAct = (data.clientes||[]).filter(c=>!c._deleted);
       const hoy = new Date().toISOString().slice(0,10);
-      const tareasHoy = (data.tareas||[]).filter(t=>!t._deleted&&t.fecha===hoy&&t.estado!=="Completada").length;
-      const kpis = [
-        {label:"Avisos pendientes",val:avisosP,col:"#ef4444",bg:"#1c0a0a",border:"#ef444433",icon:"🔔"},
-        {label:"Partes en curso",val:partesAb,col:"#f59e0b",bg:"#1a1000",border:"#f59e0b33",icon:"🔧"},
-        {label:"Clientes activos",val:clientesAct,col:"#3b82f6",bg:"#080f1c",border:"#3b82f633",icon:"👥"},
-        {label:"Tareas para hoy",val:tareasHoy,col:"#10b981",bg:"#071510",border:"#10b98133",icon:"📋"},
-      ];
-      const fechaHoy = new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+      const tareasHoy = (data.tareas||[]).filter(t=>!t._deleted&&t.fecha===hoy&&t.estado!=="Completada");
+      const avisosUrgentes = avisosP.filter(a=>a.prioridad==="Alta");
+      const fechaHoy = new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
       const horaHoy = new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+      const anyoHoy = new Date().getFullYear();
       return (
-        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"3vh",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
-              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#3b82f6,#60a5fa)",borderRadius:4}}/>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"auto 1fr 1fr",gap:"2vh 2.5vw",padding:"3vh 3.5vw",boxSizing:"border-box"}}>
+          {/* Cabecera — ocupa toda la fila superior */}
+          <div style={{gridColumn:"1/-1",display:"flex",alignItems:"center",justifyContent:"space-between",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"1.5vw"}}>
+              <img src={LOGO_URL} alt="" style={{height:"6vh",width:"auto",objectFit:"contain"}}/>
               <div>
-                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Estado en tiempo real</div>
-                <div style={{fontSize:"1.5vh",color:"#475569",marginTop:"0.4vh",textTransform:"capitalize"}}>{fechaHoy}</div>
+                <div style={{fontSize:"1.4vh",color:"#475569",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Estado en tiempo real</div>
+                <div style={{fontSize:"2.4vh",fontWeight:800,color:"#e2e8f0",textTransform:"capitalize"}}>{fechaHoy} · {anyoHoy}</div>
               </div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:"5vh",fontWeight:900,color:"#f1f3f9",lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{horaHoy}</div>
-              <div style={{fontSize:"1.3vh",color:"#334155",marginTop:"0.3vh",letterSpacing:"0.1em"}}>HORA LOCAL</div>
+              <div style={{fontSize:"7vh",fontWeight:900,color:"#f1f3f9",lineHeight:1,letterSpacing:"-0.03em",fontVariantNumeric:"tabular-nums"}}>{horaHoy}</div>
+              <div style={{fontSize:"1.2vh",color:"#334155",letterSpacing:"0.18em",textTransform:"uppercase",marginTop:"0.3vh"}}>hora local</div>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:"2vh 3vw",flex:1}}>
-            {kpis.map((k,i) => (
-              <div key={i} style={{background:k.bg,border:`1px solid ${k.border}`,borderRadius:"1.2vw",padding:"3vh 3.5vw",display:"flex",alignItems:"center",gap:"3vw",position:"relative",overflow:"hidden"}}>
-                <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:`linear-gradient(90deg,${k.col},transparent)`}}/>
-                <div style={{fontSize:"6vh"}}>{k.icon}</div>
-                <div>
-                  <div style={{fontSize:"8vh",fontWeight:900,color:k.col,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{k.val}</div>
-                  <div style={{fontSize:"1.6vh",color:"#64748b",fontWeight:600,marginTop:"0.3vh"}}>{k.label}</div>
-                </div>
-              </div>
-            ))}
+          {/* KPI 1 — Avisos pendientes */}
+          <div style={{background:"#120a0a",border:"1px solid #dc262622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#ef4444,transparent)"}}/>
+            <div style={{fontSize:"1.3vh",color:"#ef444499",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Avisos pendientes</div>
+            <div style={{display:"flex",alignItems:"flex-end",gap:"1.5vw",marginTop:"1vh"}}>
+              <div style={{fontSize:"9vh",fontWeight:900,color:"#ef4444",lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{avisosP.length}</div>
+              {avisosUrgentes.length>0&&<div style={{background:"#ef444422",border:"1px solid #ef444444",borderRadius:8,padding:"0.5vh 1vw",marginBottom:"0.8vh"}}>
+                <div style={{fontSize:"2.5vh",fontWeight:900,color:"#ef4444",lineHeight:1}}>{avisosUrgentes.length}</div>
+                <div style={{fontSize:"1.1vh",color:"#ef444488",fontWeight:700}}>urgentes</div>
+              </div>}
+            </div>
+            <div style={{fontSize:"1.2vh",color:"#374151"}}>avisos sin resolver</div>
+          </div>
+          {/* KPI 2 — Partes en curso */}
+          <div style={{background:"#120e00",border:"1px solid #f59e0b22",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#f59e0b,transparent)"}}/>
+            <div style={{fontSize:"1.3vh",color:"#f59e0b99",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Partes en curso</div>
+            <div style={{fontSize:"9vh",fontWeight:900,color:"#f59e0b",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{partesAb.length}</div>
+            <div style={{fontSize:"1.2vh",color:"#374151"}}>órdenes de trabajo abiertas</div>
+          </div>
+          {/* KPI 3 — Clientes */}
+          <div style={{background:"#080e1c",border:"1px solid #3b82f622",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#3b82f6,transparent)"}}/>
+            <div style={{fontSize:"1.3vh",color:"#3b82f699",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Clientes activos</div>
+            <div style={{fontSize:"9vh",fontWeight:900,color:"#3b82f6",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{clientesAct.length}</div>
+            <div style={{fontSize:"1.2vh",color:"#374151"}}>clientes en cartera</div>
+          </div>
+          {/* KPI 4 — Tareas hoy */}
+          <div style={{background:"#071510",border:"1px solid #10b98122",borderRadius:14,padding:"2.5vh 2vw",display:"flex",flexDirection:"column",justifyContent:"space-between",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:"linear-gradient(90deg,#10b981,transparent)"}}/>
+            <div style={{fontSize:"1.3vh",color:"#10b98199",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em"}}>Tareas para hoy</div>
+            <div style={{fontSize:"9vh",fontWeight:900,color:"#10b981",lineHeight:1,fontVariantNumeric:"tabular-nums",marginTop:"1vh"}}>{tareasHoy.length}</div>
+            <div style={{fontSize:"1.2vh",color:"#374151"}}>pendientes de completar</div>
           </div>
         </div>
       );
     }
 
     if (s.tipo === "mapa") {
-      const totalMaq = (s.clientes||[]).reduce((sum,c)=>(c.maquinas||[]).filter(m=>!m._deleted).length+sum,0);
+      // Misma lógica que el módulo de Máquinas
+      const jitterM = id => ((id%1000)/1000-0.5)*0.01;
+      const puntosMapa = (data.clientes||[])
+        .filter(c=>!c._deleted)
+        .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted).map(m=>{
+          if(c.revendedor){
+            if(m.clienteFinalLat==null||m.clienteFinalLng==null) return null;
+            return {key:c.id+"-"+m.id,lat:m.clienteFinalLat+jitterM(m.id),lng:m.clienteFinalLng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombre||c.razonSocial,clienteFinalNombre:m.clienteFinalNombre,clienteFinalLugar:m.clienteFinalLugar,codigo:m.codigo,viaRevendedor:true};
+          }
+          if(c.lat==null||c.lng==null) return null;
+          return {key:c.id+"-"+m.id,lat:c.lat+jitterM(m.id),lng:c.lng+jitterM(m.id*7),nombre:m.nombre||`${m.marca||""} ${m.modelo||""}`,clienteNombre:c.nombre||c.razonSocial,codigo:m.codigo,viaRevendedor:false};
+        }))
+        .filter(Boolean);
+      const centroMapa = puntosMapa.length
+        ? [puntosMapa.reduce((s,p)=>s+p.lat,0)/puntosMapa.length, puntosMapa.reduce((s,p)=>s+p.lng,0)/puntosMapa.length]
+        : [39.5,-3.7];
       return (
-        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2vh",paddingBottom:"1.5vh",borderBottom:"1px solid #1e2d45"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
-              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#10b981,#34d399)",borderRadius:4}}/>
-              <div>
-                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Máquinas instaladas</div>
-                <div style={{fontSize:"1.4vh",color:"#475569",marginTop:"0.4vh"}}>{totalMaq} máquinas · {(s.clientes||[]).length} ubicaciones</div>
-              </div>
-            </div>
-          </div>
-          <div style={{flex:1,borderRadius:"1vw",overflow:"hidden",position:"relative"}}>
-            <MapContainer
-              key="carrusel-mapa"
-              bounds={(s.clientes||[]).map(c=>[c.lat,c.lng])}
-              boundsOptions={{padding:[40,40]}}
-              style={{width:"100%",height:"100%"}}
-              zoomControl={false}
-              attributionControl={false}
-              scrollWheelZoom={false}
-              dragging={false}
-              doubleClickZoom={false}
-            >
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"/>
-              {(s.clientes||[]).map(c => {
-                const maqCount = (c.maquinas||[]).filter(m=>!m._deleted).length;
-                const customIcon = L.divIcon({
-                  html:`<div style="background:#f59e0b;border:3px solid #0f172a;border-radius:50%;width:${Math.min(14+maqCount*4,32)}px;height:${Math.min(14+maqCount*4,32)}px;display:flex;align-items:center;justify-content:center;color:#0f172a;font-weight:900;font-size:${maqCount>1?11:0}px;box-shadow:0 0 12px rgba(245,158,11,0.6)">${maqCount>1?maqCount:""}</div>`,
-                  className:"",
-                  iconSize:[Math.min(14+maqCount*4,32),Math.min(14+maqCount*4,32)],
-                  iconAnchor:[Math.min(14+maqCount*4,32)/2,Math.min(14+maqCount*4,32)/2]
-                });
-                return (
-                  <Marker key={c.id} position={[c.lat,c.lng]} icon={customIcon}>
-                    <Popup><b>{c.nombre||c.razonSocial}</b><br/>{maqCount} máquina{maqCount!==1?"s":""}</Popup>
+        <div style={{position:"absolute",inset:0}}>
+          {puntosMapa.length === 0
+            ? <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",alignItems:"center",justifyContent:"center",color:"#475569",fontSize:"2vh"}}>Sin máquinas con ubicación registrada</div>
+            : <MapContainer key="carrusel-map" center={centroMapa} zoom={puntosMapa.length?7:6} style={{height:"100%",width:"100%"}} scrollWheelZoom={false} zoomControl={false} attributionControl={false} dragging={false} doubleClickZoom={false}>
+                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+                {puntosMapa.map(p=>(
+                  <Marker key={p.key} position={[p.lat,p.lng]} icon={maquinaMarkerIcon}>
+                    <Popup>
+                      <div style={{minWidth:140}}>
+                        {p.viaRevendedor
+                          ? <div style={{fontWeight:700,marginBottom:2,color:"#be185d"}}>📍 {p.clienteFinalNombre||p.clienteFinalLugar}</div>
+                          : <div style={{fontWeight:700,marginBottom:2}}>{p.clienteNombre}</div>}
+                        <div style={{fontSize:12,color:"#333"}}>{p.nombre}{p.codigo?" · "+p.codigo:""}</div>
+                        {p.viaRevendedor&&<div style={{fontSize:10,color:"#be185d",marginTop:3}}>🔁 Vía {p.clienteNombre}</div>}
+                      </div>
+                    </Popup>
                   </Marker>
-                );
-              })}
-            </MapContainer>
-          </div>
+                ))}
+              </MapContainer>
+          }
         </div>
       );
     }
