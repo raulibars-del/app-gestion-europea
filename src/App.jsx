@@ -341,8 +341,24 @@ const deduplicarNumerosPartes = (d) => {
   });
   return cambio ? { ...d, partes } : d;
 };
+// Migración: asegura que el usuario "carrusel" y la config del carrusel existen
+const migrateCarrusel = d => {
+  let nd = d;
+  // Añadir usuario carrusel si no existe
+  const tieneCarrusel = (nd.usuarios||[]).some(u => u.rol==="carrusel");
+  if (!tieneCarrusel) {
+    const maxId = Math.max(0, ...(nd.usuarios||[]).map(u=>u.id||0));
+    nd = { ...nd, usuarios: [...(nd.usuarios||[]), { id: maxId+1, nombre:"Carrusel", password:"123456789", rol:"carrusel", avatar:"TV", activo:true }] };
+  }
+  // Añadir config carrusel si no existe
+  if (!nd.carrusel) {
+    nd = { ...nd, carrusel: { mediaItems:[], mostrarAvisos:true, mostrarBienvenida:true, mostrarStats:true, mostrarMapa:true, mostrarFotosMaquinas:true, textoBienvenida:"Bienvenidos a\nEuropea de Maquinaria", duracionSlide:10 } };
+  }
+  return nd;
+};
+
 // Función que aplica todas las migraciones/backfills al cargar datos.
-const prepararDatos = d => deduplicarNumerosPartes(repararEstadosAvisos(migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d))))));
+const prepararDatos = d => migrateCarrusel(deduplicarNumerosPartes(repararEstadosAvisos(migrateContabilidad(backfillConsumiblesClave(backfillCodigosMaquina(migrateStockToCliente(d)))))));
 
 // ── Verifactu: hash SHA-256 encadenado (RD 1007/2023, Ley 11/2021 antifraude) ──
 // Campos: IDEmisorFactura & NumSerieFactura & FechaExpedicion & TipoFactura & CuotaTotal & ImporteTotal & HuellaAnterior
@@ -7649,11 +7665,21 @@ const ytEmbed = (url) => {
   return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${m[1]}` : url;
 };
 
-const CarruselMonitor = ({ data }) => {
+const CarruselMonitor = ({ data, onSalir }) => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [fade, setFade] = useState(true);
+  const [showUI, setShowUI] = useState(false); // controles visibles al mover el ratón
+  const [confirmSalir, setConfirmSalir] = useState(false);
   const timerRef = useRef(null);
   const fadeTimerRef = useRef(null);
+  const uiTimerRef = useRef(null);
+
+  // Mostrar UI al mover el ratón, ocultar tras 4s de inactividad
+  const onMouseMove = useCallback(() => {
+    setShowUI(true);
+    clearTimeout(uiTimerRef.current);
+    uiTimerRef.current = setTimeout(() => { setShowUI(false); setConfirmSalir(false); }, 4000);
+  }, []);
 
   const cfg = data.carrusel || {};
   const duracion = (cfg.duracionSlide || 10) * 1000;
@@ -7886,25 +7912,76 @@ const CarruselMonitor = ({ data }) => {
   };
 
   return (
-    <div style={{width:"100vw",height:"100vh",background:"#000",position:"relative",overflow:"hidden",cursor:"none",userSelect:"none"}}
-         onClick={() => { clearInterval(timerRef.current); avanzar(); timerRef.current = setInterval(avanzar, duracion); }}>
+    <div
+      style={{width:"100vw",height:"100vh",background:"#000",position:"relative",overflow:"hidden",cursor:showUI?"default":"none",userSelect:"none"}}
+      onMouseMove={onMouseMove}
+      onClick={() => {
+        if (confirmSalir) return; // no avanzar al hacer click en botón salir
+        clearInterval(timerRef.current);
+        avanzar();
+        timerRef.current = setInterval(avanzar, duracion);
+      }}
+    >
       {/* Slide con transición fade */}
-      <div style={{position:"absolute",inset:0,opacity:fade?1:0,transition:"opacity 0.6s ease"}}>
+      <div style={{position:"absolute",inset:0,opacity:fade?1:0,transition:"opacity 0.7s ease"}}>
         {renderSlide(slide)}
       </div>
-      {/* Logo watermark */}
-      <div style={{position:"absolute",top:"2vh",left:"2.5vw",opacity:0.25,pointerEvents:"none"}}>
-        <img src={LOGO_CIRCULO} alt="" style={{width:"5vw",height:"5vw",borderRadius:"50%",objectFit:"cover"}}/>
+
+      {/* ── Overlay de UI (aparece al mover el ratón) ── */}
+      <div style={{position:"absolute",inset:0,pointerEvents:showUI?"auto":"none",opacity:showUI?1:0,transition:"opacity 0.4s ease",zIndex:100}}>
+
+        {/* Barra superior semitransparente */}
+        <div style={{position:"absolute",top:0,left:0,right:0,height:"8vh",background:"linear-gradient(to bottom,rgba(0,0,0,0.7),transparent)",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 3vw",pointerEvents:"none"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"1.5vw"}}>
+            <img src={LOGO_CIRCULO} alt="" style={{width:"4.5vh",height:"4.5vh",borderRadius:"50%",objectFit:"cover",opacity:0.9}}/>
+            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:"2vh",letterSpacing:"0.05em"}}>EUROPEA DE MAQUINARIA</div>
+          </div>
+          <div style={{color:"#8899b4",fontSize:"1.6vh"}}>
+            {new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})} · {new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}
+          </div>
+        </div>
+
+        {/* Botón Salir — esquina superior derecha */}
+        {!confirmSalir ? (
+          <button
+            onClick={e=>{ e.stopPropagation(); setConfirmSalir(true); }}
+            style={{position:"absolute",top:"2.5vh",right:"2.5vw",background:"rgba(15,23,42,0.85)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"0.8vw",padding:"0.8vh 1.8vw",color:"rgba(255,255,255,0.6)",fontSize:"1.5vh",fontWeight:600,cursor:"pointer",backdropFilter:"blur(8px)",letterSpacing:"0.05em",transition:"all 0.2s",pointerEvents:"auto"}}
+            onMouseEnter={e=>{ e.currentTarget.style.color="#fff"; e.currentTarget.style.borderColor="rgba(255,255,255,0.4)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.color="rgba(255,255,255,0.6)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.15)"; }}
+          >
+            ⏏ Salir
+          </button>
+        ) : (
+          <div style={{position:"absolute",top:"2.5vh",right:"2.5vw",background:"rgba(15,23,42,0.95)",border:"1px solid #ef4444aa",borderRadius:"0.8vw",padding:"1vh 1.5vw",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",gap:"0.8vw",pointerEvents:"auto"}}>
+            <span style={{color:"#f1f3f9",fontSize:"1.5vh",fontWeight:600}}>¿Cerrar sesión?</span>
+            <button onClick={e=>{ e.stopPropagation(); onSalir?.(); }}
+              style={{background:"#ef4444",border:"none",borderRadius:"0.5vw",padding:"0.5vh 1.2vw",color:"#fff",fontSize:"1.4vh",fontWeight:700,cursor:"pointer"}}>Sí</button>
+            <button onClick={e=>{ e.stopPropagation(); setConfirmSalir(false); }}
+              style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"0.5vw",padding:"0.5vh 1.2vw",color:"#e4e9f6",fontSize:"1.4vh",fontWeight:700,cursor:"pointer"}}>No</button>
+          </div>
+        )}
+
+        {/* Controles de navegación — flechas laterales */}
+        <button
+          onClick={e=>{ e.stopPropagation(); setFade(false); setTimeout(()=>{ setSlideIdx(i=>(i-1+total)%total); setFade(true); },400); }}
+          style={{position:"absolute",left:"1.5vw",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"50%",width:"5vh",height:"5vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"2.5vh",cursor:"pointer",backdropFilter:"blur(8px)",transition:"all 0.2s",pointerEvents:"auto"}}
+        >‹</button>
+        <button
+          onClick={e=>{ e.stopPropagation(); clearInterval(timerRef.current); avanzar(); timerRef.current = setInterval(avanzar, duracion); }}
+          style={{position:"absolute",right:"1.5vw",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"50%",width:"5vh",height:"5vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"2.5vh",cursor:"pointer",backdropFilter:"blur(8px)",transition:"all 0.2s",pointerEvents:"auto"}}
+        >›</button>
       </div>
-      {/* Indicadores de slide */}
-      <div style={{position:"absolute",bottom:"2.5vh",left:0,right:0,display:"flex",justifyContent:"center",gap:"0.8vw",alignItems:"center",pointerEvents:"none"}}>
+
+      {/* Indicadores de slide — siempre visibles */}
+      <div style={{position:"absolute",bottom:"2vh",left:0,right:0,display:"flex",justifyContent:"center",gap:"0.6vw",alignItems:"center",pointerEvents:"none",zIndex:50}}>
         {slides.map((_,i)=>(
-          <div key={i} style={{width:i===idx?"3vw":"0.8vw",height:"0.5vw",borderRadius:"0.3vw",background:i===idx?"#f59e0b":"rgba(255,255,255,0.3)",transition:"all 0.4s ease"}}/>
+          <div key={i} style={{width:i===idx?"2.5vw":"0.6vw",height:"0.4vw",borderRadius:"0.3vw",background:i===idx?"#f59e0b":"rgba(255,255,255,0.25)",transition:"all 0.4s ease",boxShadow:i===idx?"0 0 8px #f59e0b88":""}}/>
         ))}
       </div>
-      {/* Barra de progreso */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"3px",background:"#ffffff15"}}>
-        <div style={{height:"100%",background:"#f59e0b",width:`${((idx+1)/total)*100}%`,transition:"width 0.3s linear"}}/>
+
+      {/* Barra de progreso — siempre visible */}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"3px",background:"rgba(255,255,255,0.08)",zIndex:50}}>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#f59e0b,#fbbf24)",width:`${((idx+1)/total)*100}%`,transition:"width 0.4s ease",boxShadow:"0 0 8px #f59e0b66"}}/>
       </div>
     </div>
   );
@@ -16651,7 +16728,7 @@ function AppInner() {
   }
   if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
   // Carrusel: usuario especial que solo ve el modo monitor en pantalla completa
-  if(user.rol==="carrusel")return <CarruselMonitor data={data}/>;
+  if(user.rol==="carrusel")return <CarruselMonitor data={data} onSalir={()=>setUser(null)}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
     const n=crearNotif(userId,tipo,titulo,mensaje);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[userId]:[n,...(d.notificaciones[userId]||[])]}}));
