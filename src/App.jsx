@@ -7668,11 +7668,27 @@ const ytEmbed = (url) => {
 const CarruselMonitor = ({ data, onSalir }) => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [fade, setFade] = useState(true);
-  const [showUI, setShowUI] = useState(false); // controles visibles al mover el ratón
+  const [showUI, setShowUI] = useState(true); // visible al inicio
   const [confirmSalir, setConfirmSalir] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const timerRef = useRef(null);
   const fadeTimerRef = useRef(null);
   const uiTimerRef = useRef(null);
+
+  // Fullscreen API
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   // Mostrar UI al mover el ratón, ocultar tras 4s de inactividad
   const onMouseMove = useCallback(() => {
@@ -7691,25 +7707,22 @@ const CarruselMonitor = ({ data, onSalir }) => {
   }
   if (cfg.mostrarAvisos !== false) {
     const avisos = (data.avisos || []).filter(a => !a._deleted && a.estado !== "Resuelto" && a.estado !== "Cancelado");
-    if (avisos.length > 0) slides.push({ tipo: "avisos", avisos });
+    if (avisos.length > 0) {
+      // Paginar de 6 en 6
+      for (let i = 0; i < avisos.length; i += 6) {
+        slides.push({ tipo: "avisos", avisos: avisos.slice(i, i + 6), pag: Math.floor(i/6)+1, total: Math.ceil(avisos.length/6) });
+      }
+    }
   }
   if (cfg.mostrarStats !== false) {
     slides.push({ tipo: "stats" });
   }
   if (cfg.mostrarMapa !== false) {
-    const maquinasConProvincia = (data.clientes || [])
-      .filter(c=>!c._deleted)
-      .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted).map(m=>({...m,clienteProvincia:c.provincia||c.localidad||""})))
-      .filter(m=>m.clienteProvincia);
-    if (maquinasConProvincia.length > 0) slides.push({ tipo: "mapa", maquinas: maquinasConProvincia });
+    const conCoordenadas = (data.clientes || [])
+      .filter(c => !c._deleted && c.lat != null && c.lng != null && (c.maquinas||[]).filter(m=>!m._deleted).length > 0);
+    if (conCoordenadas.length > 0) slides.push({ tipo: "mapa", clientes: conCoordenadas });
   }
-  if (cfg.mostrarFotosMaquinas !== false) {
-    const fotosMaquinas = (data.clientes || [])
-      .filter(c=>!c._deleted)
-      .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted && m.fotos?.length > 0)
-        .flatMap(m=>(m.fotos||[]).slice(0,2).map(f=>({dataUrl:f.dataUrl||f,titulo:m.marca?(m.marca+" "+(m.modelo||"")).trim():"Máquina"}))));
-    fotosMaquinas.slice(0,8).forEach(f=>slides.push({tipo:"foto",item:f}));
-  }
+  // Solo media subida manualmente por admin
   (cfg.mediaItems || [])
     .filter(m => m.activo !== false)
     .sort((a, b) => (a.orden || 0) - (b.orden || 0))
@@ -7743,39 +7756,71 @@ const CarruselMonitor = ({ data, onSalir }) => {
     if (s.tipo === "bienvenida") {
       const lineas = (s.texto || "").split("\n");
       return (
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f2a1a 100%)"}}>
-          <img src={LOGO_CIRCULO} alt="Logo" style={{width:"18vw",height:"18vw",borderRadius:"50%",marginBottom:"4vh",boxShadow:"0 0 80px #f59e0b44",objectFit:"cover"}}/>
-          <div style={{textAlign:"center"}}>
-            {lineas.map((l,i) => (
-              <div key={i} style={{fontSize:i===0?"5.5vw":"6.5vw",fontWeight:900,color:i===0?"#cbd5e1":"#fff",letterSpacing:"-0.02em",lineHeight:1.15,textShadow:"0 4px 32px rgba(0,0,0,0.5)"}}>{l}</div>
-            ))}
+        <div style={{position:"absolute",inset:0,display:"flex",background:"#0d1117",overflow:"hidden"}}>
+          {/* Fondo decorativo */}
+          <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse 80% 60% at 60% 50%,#1e3a5f55 0%,transparent 70%)"}}/>
+          <div style={{position:"absolute",top:"-10%",right:"-5%",width:"55%",height:"120%",background:"linear-gradient(135deg,#f59e0b08 0%,#f59e0b03 100%)",borderLeft:"1px solid #f59e0b15",transform:"skewX(-8deg)"}}/>
+          {/* Franja izquierda dorada */}
+          <div style={{width:"0.5vw",background:"linear-gradient(to bottom,transparent,#f59e0b,transparent)",flexShrink:0,margin:"8vh 0"}}/>
+          {/* Contenido */}
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"4vh 8vw",position:"relative",zIndex:1}}>
+            <img src={LOGO_URL} alt="Logo" style={{width:"22vh",height:"22vh",objectFit:"contain",marginBottom:"4vh",filter:"drop-shadow(0 0 30px rgba(245,158,11,0.3))"}}/>
+            <div style={{textAlign:"center",marginBottom:"3vh"}}>
+              {lineas.map((l,i) => (
+                <div key={i} style={{fontSize:i===0?"4.5vh":"6vh",fontWeight:900,color:i===0?"#94a3b8":"#f1f3f9",letterSpacing:i===0?"0.08em":"-0.01em",lineHeight:1.1,textTransform:i===0?"uppercase":"none"}}>{l}</div>
+              ))}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"1.5vw",marginBottom:"2vh"}}>
+              <div style={{width:"6vw",height:"2px",background:"linear-gradient(to right,transparent,#f59e0b)"}}/>
+              <div style={{color:"#f59e0b",fontSize:"1.6vh",letterSpacing:"0.2em",fontWeight:700,textTransform:"uppercase"}}>europeademaquinaria.com</div>
+              <div style={{width:"6vw",height:"2px",background:"linear-gradient(to left,transparent,#f59e0b)"}}/>
+            </div>
+            <div style={{color:"#475569",fontSize:"1.4vh",letterSpacing:"0.12em",textTransform:"uppercase"}}>
+              {new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+            </div>
           </div>
-          <div style={{marginTop:"3vh",width:"12vw",height:"5px",background:"linear-gradient(90deg,#f59e0b,#fbbf24)",borderRadius:3}}/>
-          <div style={{marginTop:"2vh",fontSize:"1.8vw",color:"#8899b4",letterSpacing:"0.15em",textTransform:"uppercase"}}>europeademaquinaria.com</div>
         </div>
       );
     }
 
     if (s.tipo === "avisos") {
+      const avisosTotal = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
       return (
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"#0a0f1c",padding:"3vh 5vw",boxSizing:"border-box"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"2.5vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.5vh"}}>
-            <img src={LOGO_CIRCULO} alt="" style={{width:"7vw",height:"7vw",borderRadius:"50%",objectFit:"cover"}}/>
-            <div>
-              <div style={{fontSize:"3.5vw",fontWeight:900,color:"#f59e0b",lineHeight:1}}>Avisos Pendientes</div>
-              <div style={{fontSize:"1.4vw",color:"#8899b4",marginTop:"0.5vh"}}>{s.avisos.length} aviso{s.avisos.length!==1?"s":""} activo{s.avisos.length!==1?"s":""}</div>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
+          {/* Cabecera */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2.5vh",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
+              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#f59e0b,#fbbf24)",borderRadius:4}}/>
+              <div>
+                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Avisos Pendientes</div>
+                <div style={{fontSize:"1.4vh",color:"#475569",marginTop:"0.4vh"}}>{avisosTotal} aviso{avisosTotal!==1?"s":""} activo{avisosTotal!==1?"s":""}</div>
+              </div>
             </div>
+            {s.total > 1 && (
+              <div style={{background:"#f59e0b22",border:"1px solid #f59e0b44",borderRadius:"0.6vw",padding:"0.5vh 1.5vw",color:"#f59e0b",fontSize:"1.4vh",fontWeight:700}}>
+                {s.pag} / {s.total}
+              </div>
+            )}
           </div>
-          <div style={{display:"grid",gap:"1.2vh",flex:1,overflow:"hidden"}}>
-            {s.avisos.slice(0,7).map(a => {
+          {/* Lista de avisos */}
+          <div style={{display:"grid",gap:"1.4vh",flex:1,alignContent:"start"}}>
+            {s.avisos.map(a => {
               const c = colPrio(a.prioridad);
               return (
-                <div key={a.id} style={{background:"#151b2a",border:`1px solid ${c}33`,borderLeft:`6px solid ${c}`,borderRadius:"0.8vw",padding:"1.2vh 2vw",display:"grid",gridTemplateColumns:"1fr auto",gap:"1vw",alignItems:"center"}}>
-                  <div>
-                    <div style={{fontSize:"2vw",fontWeight:700,color:"#f1f3f9",lineHeight:1.2}}>{a.titulo}</div>
-                    <div style={{fontSize:"1.2vw",color:"#8899b4",marginTop:"0.3vh"}}>{a.tipo}{a.estado&&a.estado!=="Pendiente"?" · "+a.estado:""}{a.asignados?.length?" · "+a.asignados.join(", "):""}</div>
+                <div key={a.id} style={{background:"#0f1825",border:`1px solid #1e2d45`,borderLeft:`4px solid ${c}`,borderRadius:"0.8vw",padding:"1.8vh 2vw",display:"grid",gridTemplateColumns:"1fr auto",gap:"2vw",alignItems:"center"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:"2.2vh",fontWeight:700,color:"#e2e8f0",lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
+                    <div style={{display:"flex",gap:"1vw",marginTop:"0.4vh",flexWrap:"wrap"}}>
+                      {a.tipo && <span style={{color:"#475569",fontSize:"1.3vh"}}>{a.tipo}</span>}
+                      {a.cliente && <span style={{color:"#334155",fontSize:"1.3vh"}}>·</span>}
+                      {a.cliente && <span style={{color:"#475569",fontSize:"1.3vh",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.cliente}</span>}
+                      {a.asignados?.length > 0 && <><span style={{color:"#334155",fontSize:"1.3vh"}}>·</span><span style={{color:"#3b82f6",fontSize:"1.3vh"}}>{a.asignados.join(", ")}</span></>}
+                    </div>
                   </div>
-                  <span style={{background:c+"22",color:c,borderRadius:"0.5vw",padding:"0.5vh 1.5vw",fontSize:"1.2vw",fontWeight:700,whiteSpace:"nowrap"}}>{a.prioridad||"—"}</span>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5vh",flexShrink:0}}>
+                    <span style={{background:c+"18",color:c,border:`1px solid ${c}44`,borderRadius:"0.4vw",padding:"0.3vh 1vw",fontSize:"1.2vh",fontWeight:700}}>{a.prioridad||"Normal"}</span>
+                    {a.fecha && <span style={{color:"#334155",fontSize:"1.1vh"}}>{new Date(a.fecha+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short"})}</span>}
+                  </div>
                 </div>
               );
             })}
@@ -7788,28 +7833,40 @@ const CarruselMonitor = ({ data, onSalir }) => {
       const avisosP = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
       const partesAb = (data.partes||[]).filter(p=>!p._deleted&&p.estadoParte!=="Finalizado"&&p.estadoParte!=="Anulado").length;
       const clientesAct = (data.clientes||[]).filter(c=>!c._deleted).length;
-      const tareasHoy = (data.tareas||[]).filter(t=>!t._deleted&&t.fecha&&t.fecha===new Date().toISOString().slice(0,10)).length;
+      const hoy = new Date().toISOString().slice(0,10);
+      const tareasHoy = (data.tareas||[]).filter(t=>!t._deleted&&t.fecha===hoy&&t.estado!=="Completada").length;
       const kpis = [
-        {icon:"🔔",val:avisosP,lab:"Avisos pendientes",col:"#ef4444"},
-        {icon:"🔧",val:partesAb,lab:"Partes en curso",col:"#f59e0b"},
-        {icon:"👥",val:clientesAct,lab:"Clientes activos",col:"#3b82f6"},
-        {icon:"📋",val:tareasHoy,lab:"Tareas para hoy",col:"#10b981"},
+        {label:"Avisos pendientes",val:avisosP,col:"#ef4444",bg:"#1c0a0a",border:"#ef444433",icon:"🔔"},
+        {label:"Partes en curso",val:partesAb,col:"#f59e0b",bg:"#1a1000",border:"#f59e0b33",icon:"🔧"},
+        {label:"Clientes activos",val:clientesAct,col:"#3b82f6",bg:"#080f1c",border:"#3b82f633",icon:"👥"},
+        {label:"Tareas para hoy",val:tareasHoy,col:"#10b981",bg:"#071510",border:"#10b98133",icon:"📋"},
       ];
+      const fechaHoy = new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+      const horaHoy = new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
       return (
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"linear-gradient(160deg,#0a0f1c 0%,#0f2240 100%)",padding:"3vh 5vw",boxSizing:"border-box"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"3vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.5vh"}}>
-            <img src={LOGO_CIRCULO} alt="" style={{width:"7vw",height:"7vw",borderRadius:"50%",objectFit:"cover"}}/>
-            <div>
-              <div style={{fontSize:"3.5vw",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Estado en tiempo real</div>
-              <div style={{fontSize:"1.4vw",color:"#8899b4",marginTop:"0.5vh"}}>{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</div>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"3vh",paddingBottom:"2vh",borderBottom:"1px solid #1e2d45"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
+              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#3b82f6,#60a5fa)",borderRadius:4}}/>
+              <div>
+                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Estado en tiempo real</div>
+                <div style={{fontSize:"1.5vh",color:"#475569",marginTop:"0.4vh",textTransform:"capitalize"}}>{fechaHoy}</div>
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:"5vh",fontWeight:900,color:"#f1f3f9",lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{horaHoy}</div>
+              <div style={{fontSize:"1.3vh",color:"#334155",marginTop:"0.3vh",letterSpacing:"0.1em"}}>HORA LOCAL</div>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2.5vw",flex:1,alignContent:"center"}}>
-            {kpis.map((k,i)=>(
-              <div key={i} style={{background:"#151b2a",border:`1px solid ${k.col}33`,borderTop:`5px solid ${k.col}`,borderRadius:"1vw",padding:"3vh 3vw",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1.5vh"}}>
-                <div style={{fontSize:"5vw"}}>{k.icon}</div>
-                <div style={{fontSize:"7vw",fontWeight:900,color:k.col,lineHeight:1}}>{k.val}</div>
-                <div style={{fontSize:"1.6vw",color:"#8899b4",textAlign:"center",fontWeight:600}}>{k.lab}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:"2vh 3vw",flex:1}}>
+            {kpis.map((k,i) => (
+              <div key={i} style={{background:k.bg,border:`1px solid ${k.border}`,borderRadius:"1.2vw",padding:"3vh 3.5vw",display:"flex",alignItems:"center",gap:"3vw",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:0,left:0,right:0,height:"3px",background:`linear-gradient(90deg,${k.col},transparent)`}}/>
+                <div style={{fontSize:"6vh"}}>{k.icon}</div>
+                <div>
+                  <div style={{fontSize:"8vh",fontWeight:900,color:k.col,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{k.val}</div>
+                  <div style={{fontSize:"1.6vh",color:"#64748b",fontWeight:600,marginTop:"0.3vh"}}>{k.label}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -7818,60 +7875,46 @@ const CarruselMonitor = ({ data, onSalir }) => {
     }
 
     if (s.tipo === "mapa") {
-      // Mapa SVG simplificado de España con puntos por provincia
-      const provincias = {};
-      (s.maquinas||[]).forEach(m=>{
-        const p=(m.clienteProvincia||"").toLowerCase().trim();
-        if(p) provincias[p]=(provincias[p]||0)+1;
-      });
-      // Coordenadas aproximadas de capitales de provincia en viewBox 0 0 1000 800
-      const COORDS = {
-        "álava":[559,137],"alicante":[740,480],"almería":[650,580],"asturias":[390,80],
-        "ávila":[440,280],"badajoz":[320,430],"barcelona":[875,260],"burgos":[510,170],
-        "cáceres":[320,360],"cádiz":[370,610],"cantabria":[490,90],"castellón":[770,370],
-        "ciudad real":[530,430],"córdoba":[480,520],"cuenca":[620,340],"girona":[920,210],
-        "granada":[570,580],"guadalajara":[580,280],"guipúzcoa":[580,120],"huelva":[310,540],
-        "huesca":[720,175],"jaén":[560,520],"la coruña":[200,80],"la rioja":[570,155],
-        "las palmas":[220,750],"león":[360,150],"lleida":[800,235],"lugo":[280,95],
-        "madrid":[510,295],"málaga":[490,590],"murcia":[710,510],"navarra":[625,145],
-        "orense":[245,135],"palencia":[450,160],"pontevedra":[205,135],"salamanca":[380,260],
-        "santa cruz de tenerife":[100,750],"segovia":[470,265],"sevilla":[410,530],
-        "soria":[570,215],"tarragona":[830,300],"teruel":[710,320],"toledo":[490,370],
-        "valencia":[740,420],"valladolid":[440,205],"vizcaya":[560,110],"zamora":[360,200],
-        "zaragoza":[690,220]
-      };
-      const maxVal = Math.max(...Object.values(provincias),1);
+      const totalMaq = (s.clientes||[]).reduce((sum,c)=>(c.maquinas||[]).filter(m=>!m._deleted).length+sum,0);
       return (
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"linear-gradient(135deg,#0a0f1c 0%,#0f2240 100%)",padding:"2vh 4vw",boxSizing:"border-box"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"1.5vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.2vh"}}>
-            <img src={LOGO_CIRCULO} alt="" style={{width:"5.5vw",height:"5.5vw",borderRadius:"50%",objectFit:"cover"}}/>
-            <div>
-              <div style={{fontSize:"2.8vw",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Máquinas instaladas en España</div>
-              <div style={{fontSize:"1.2vw",color:"#8899b4",marginTop:"0.3vh"}}>{(s.maquinas||[]).length} máquinas · {Object.keys(provincias).length} provincias</div>
+        <div style={{position:"absolute",inset:0,background:"#090e18",display:"flex",flexDirection:"column",padding:"3vh 4vw",boxSizing:"border-box"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"2vh",paddingBottom:"1.5vh",borderBottom:"1px solid #1e2d45"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"2vw"}}>
+              <div style={{width:"0.5vw",height:"5vh",background:"linear-gradient(to bottom,#10b981,#34d399)",borderRadius:4}}/>
+              <div>
+                <div style={{fontSize:"3.2vh",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Máquinas instaladas</div>
+                <div style={{fontSize:"1.4vh",color:"#475569",marginTop:"0.4vh"}}>{totalMaq} máquinas · {(s.clientes||[]).length} ubicaciones</div>
+              </div>
             </div>
           </div>
-          <div style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center",position:"relative"}}>
-            {/* SVG España (contorno simplificado) */}
-            <svg viewBox="0 0 1000 800" style={{width:"90%",maxHeight:"75vh",opacity:0.15,position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
-              <path fill="#3b82f6" stroke="#60a5fa" strokeWidth="3" d="M220,80 L380,60 L460,50 L600,70 L700,90 L760,120 L830,110 L900,130 L940,180 L950,230 L930,280 L900,330 L870,370 L880,420 L840,470 L800,510 L760,560 L720,590 L680,620 L640,650 L580,660 L520,650 L460,640 L400,650 L340,660 L290,630 L260,590 L230,550 L210,500 L240,460 L260,410 L240,360 L210,310 L190,260 L180,200 L220,80 Z"/>
-              {/* Portugal */}
-              <path fill="#1e3a5f" stroke="#2563eb" strokeWidth="2" d="M210,140 L180,200 L190,260 L210,310 L240,360 L260,410 L240,460 L250,490 L230,550 L290,630 L250,650 L200,600 L170,530 L150,460 L140,380 L155,300 L165,220 L175,160 Z"/>
-            </svg>
-            {/* Puntos de máquinas */}
-            <svg viewBox="0 0 1000 800" style={{width:"90%",maxHeight:"75vh",position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
-              {Object.entries(provincias).map(([prov,cnt])=>{
-                const coord = COORDS[prov];
-                if(!coord) return null;
-                const r = 8 + Math.round((cnt/maxVal)*22);
+          <div style={{flex:1,borderRadius:"1vw",overflow:"hidden",position:"relative"}}>
+            <MapContainer
+              key="carrusel-mapa"
+              bounds={(s.clientes||[]).map(c=>[c.lat,c.lng])}
+              boundsOptions={{padding:[40,40]}}
+              style={{width:"100%",height:"100%"}}
+              zoomControl={false}
+              attributionControl={false}
+              scrollWheelZoom={false}
+              dragging={false}
+              doubleClickZoom={false}
+            >
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"/>
+              {(s.clientes||[]).map(c => {
+                const maqCount = (c.maquinas||[]).filter(m=>!m._deleted).length;
+                const customIcon = L.divIcon({
+                  html:`<div style="background:#f59e0b;border:3px solid #0f172a;border-radius:50%;width:${Math.min(14+maqCount*4,32)}px;height:${Math.min(14+maqCount*4,32)}px;display:flex;align-items:center;justify-content:center;color:#0f172a;font-weight:900;font-size:${maqCount>1?11:0}px;box-shadow:0 0 12px rgba(245,158,11,0.6)">${maqCount>1?maqCount:""}</div>`,
+                  className:"",
+                  iconSize:[Math.min(14+maqCount*4,32),Math.min(14+maqCount*4,32)],
+                  iconAnchor:[Math.min(14+maqCount*4,32)/2,Math.min(14+maqCount*4,32)/2]
+                });
                 return (
-                  <g key={prov}>
-                    <circle cx={coord[0]} cy={coord[1]} r={r+4} fill="#f59e0b22"/>
-                    <circle cx={coord[0]} cy={coord[1]} r={r} fill="#f59e0b" opacity="0.9"/>
-                    <text x={coord[0]} y={coord[1]+1} textAnchor="middle" dominantBaseline="middle" fill="#0f172a" fontSize={Math.max(11,r-2)} fontWeight="900">{cnt}</text>
-                  </g>
+                  <Marker key={c.id} position={[c.lat,c.lng]} icon={customIcon}>
+                    <Popup><b>{c.nombre||c.razonSocial}</b><br/>{maqCount} máquina{maqCount!==1?"s":""}</Popup>
+                  </Marker>
                 );
               })}
-            </svg>
+            </MapContainer>
           </div>
         </div>
       );
@@ -7882,8 +7925,8 @@ const CarruselMonitor = ({ data, onSalir }) => {
         <div style={{position:"absolute",inset:0,background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <img src={s.item.dataUrl} alt={s.item.titulo||""} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
           {s.item.titulo && (
-            <div style={{position:"absolute",bottom:"4vh",left:0,right:0,textAlign:"center"}}>
-              <span style={{background:"rgba(0,0,0,0.75)",color:"#fff",padding:"1vh 3vw",borderRadius:"0.8vw",fontSize:"2.2vw",fontWeight:600,backdropFilter:"blur(6px)"}}>{s.item.titulo}</span>
+            <div style={{position:"absolute",bottom:"5vh",left:0,right:0,textAlign:"center"}}>
+              <span style={{background:"rgba(0,0,0,0.8)",color:"#f1f3f9",padding:"1.2vh 4vw",borderRadius:"0.8vw",fontSize:"2.5vh",fontWeight:700,backdropFilter:"blur(10px)",border:"1px solid rgba(255,255,255,0.1)"}}>{s.item.titulo}</span>
             </div>
           )}
         </div>
@@ -7900,8 +7943,8 @@ const CarruselMonitor = ({ data, onSalir }) => {
             : <video src={url} autoPlay muted loop playsInline style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
           }
           {s.item.titulo && (
-            <div style={{position:"absolute",bottom:"4vh",left:0,right:0,textAlign:"center"}}>
-              <span style={{background:"rgba(0,0,0,0.75)",color:"#fff",padding:"1vh 3vw",borderRadius:"0.8vw",fontSize:"2.2vw",fontWeight:600,backdropFilter:"blur(6px)"}}>{s.item.titulo}</span>
+            <div style={{position:"absolute",bottom:"5vh",left:0,right:0,textAlign:"center"}}>
+              <span style={{background:"rgba(0,0,0,0.8)",color:"#f1f3f9",padding:"1.2vh 4vw",borderRadius:"0.8vw",fontSize:"2.5vh",fontWeight:700,backdropFilter:"blur(10px)",border:"1px solid rgba(255,255,255,0.1)"}}>{s.item.titulo}</span>
             </div>
           )}
         </div>
@@ -7913,75 +7956,82 @@ const CarruselMonitor = ({ data, onSalir }) => {
 
   return (
     <div
-      style={{width:"100vw",height:"100vh",background:"#000",position:"relative",overflow:"hidden",cursor:showUI?"default":"none",userSelect:"none"}}
+      style={{width:"100vw",height:"100vh",background:"#090e18",position:"relative",overflow:"hidden",cursor:showUI?"default":"none",userSelect:"none",fontFamily:"'DM Sans','Segoe UI',sans-serif"}}
       onMouseMove={onMouseMove}
-      onClick={() => {
-        if (confirmSalir) return; // no avanzar al hacer click en botón salir
-        clearInterval(timerRef.current);
-        avanzar();
-        timerRef.current = setInterval(avanzar, duracion);
-      }}
+      onClick={e => { if(e.target.closest("button")) return; clearInterval(timerRef.current); avanzar(); timerRef.current = setInterval(avanzar, duracion); }}
     >
       {/* Slide con transición fade */}
-      <div style={{position:"absolute",inset:0,opacity:fade?1:0,transition:"opacity 0.7s ease"}}>
+      <div style={{position:"absolute",inset:0,opacity:fade?1:0,transition:"opacity 0.8s ease"}}>
         {renderSlide(slide)}
       </div>
 
-      {/* ── Overlay de UI (aparece al mover el ratón) ── */}
-      <div style={{position:"absolute",inset:0,pointerEvents:showUI?"auto":"none",opacity:showUI?1:0,transition:"opacity 0.4s ease",zIndex:100}}>
+      {/* ── Overlay de UI — aparece al mover el ratón ── */}
+      <div style={{position:"absolute",inset:0,pointerEvents:showUI?"auto":"none",zIndex:100}}>
 
-        {/* Barra superior semitransparente */}
-        <div style={{position:"absolute",top:0,left:0,right:0,height:"8vh",background:"linear-gradient(to bottom,rgba(0,0,0,0.7),transparent)",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 3vw",pointerEvents:"none"}}>
+        {/* Barra superior */}
+        <div style={{position:"absolute",top:0,left:0,right:0,background:"linear-gradient(to bottom,rgba(9,14,24,0.92) 0%,transparent 100%)",padding:"2vh 3vw",display:"flex",alignItems:"center",justifyContent:"space-between",opacity:showUI?1:0,transition:"opacity 0.4s ease",pointerEvents:"none"}}>
           <div style={{display:"flex",alignItems:"center",gap:"1.5vw"}}>
-            <img src={LOGO_CIRCULO} alt="" style={{width:"4.5vh",height:"4.5vh",borderRadius:"50%",objectFit:"cover",opacity:0.9}}/>
-            <div style={{color:"#f1f3f9",fontWeight:800,fontSize:"2vh",letterSpacing:"0.05em"}}>EUROPEA DE MAQUINARIA</div>
+            <img src={LOGO_URL} alt="" style={{height:"5.5vh",width:"auto",objectFit:"contain",filter:"drop-shadow(0 1px 4px rgba(0,0,0,0.8))"}}/>
+            <div style={{color:"#94a3b8",fontSize:"1.5vh",letterSpacing:"0.15em",textTransform:"uppercase",fontWeight:600}}>Europea de Maquinaria</div>
           </div>
-          <div style={{color:"#8899b4",fontSize:"1.6vh"}}>
-            {new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})} · {new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}
+          <div style={{color:"#475569",fontSize:"1.4vh",letterSpacing:"0.05em"}}>
+            {new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})} · {new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}
           </div>
         </div>
 
-        {/* Botón Salir — esquina superior derecha */}
-        {!confirmSalir ? (
+        {/* Controles esquina superior derecha */}
+        <div style={{position:"absolute",top:"2vh",right:"2.5vw",display:"flex",gap:"0.8vw",opacity:showUI?1:0,transition:"opacity 0.4s ease"}}>
+          {/* Fullscreen */}
           <button
-            onClick={e=>{ e.stopPropagation(); setConfirmSalir(true); }}
-            style={{position:"absolute",top:"2.5vh",right:"2.5vw",background:"rgba(15,23,42,0.85)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"0.8vw",padding:"0.8vh 1.8vw",color:"rgba(255,255,255,0.6)",fontSize:"1.5vh",fontWeight:600,cursor:"pointer",backdropFilter:"blur(8px)",letterSpacing:"0.05em",transition:"all 0.2s",pointerEvents:"auto"}}
-            onMouseEnter={e=>{ e.currentTarget.style.color="#fff"; e.currentTarget.style.borderColor="rgba(255,255,255,0.4)"; }}
-            onMouseLeave={e=>{ e.currentTarget.style.color="rgba(255,255,255,0.6)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.15)"; }}
-          >
-            ⏏ Salir
-          </button>
-        ) : (
-          <div style={{position:"absolute",top:"2.5vh",right:"2.5vw",background:"rgba(15,23,42,0.95)",border:"1px solid #ef4444aa",borderRadius:"0.8vw",padding:"1vh 1.5vw",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",gap:"0.8vw",pointerEvents:"auto"}}>
-            <span style={{color:"#f1f3f9",fontSize:"1.5vh",fontWeight:600}}>¿Cerrar sesión?</span>
-            <button onClick={e=>{ e.stopPropagation(); onSalir?.(); }}
-              style={{background:"#ef4444",border:"none",borderRadius:"0.5vw",padding:"0.5vh 1.2vw",color:"#fff",fontSize:"1.4vh",fontWeight:700,cursor:"pointer"}}>Sí</button>
-            <button onClick={e=>{ e.stopPropagation(); setConfirmSalir(false); }}
-              style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"0.5vw",padding:"0.5vh 1.2vw",color:"#e4e9f6",fontSize:"1.4vh",fontWeight:700,cursor:"pointer"}}>No</button>
+            onClick={e=>{ e.stopPropagation(); toggleFullscreen(); }}
+            title={isFullscreen?"Salir de pantalla completa":"Pantalla completa"}
+            style={{background:"rgba(15,23,42,0.85)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"0.6vw",padding:"0.8vh 1.4vw",color:"rgba(255,255,255,0.65)",fontSize:"1.8vh",cursor:"pointer",backdropFilter:"blur(10px)",lineHeight:1}}
+          >{isFullscreen?"⛶":"⛶"}</button>
+
+          {/* Salir */}
+          {!confirmSalir ? (
+            <button
+              onClick={e=>{ e.stopPropagation(); setConfirmSalir(true); }}
+              style={{background:"rgba(15,23,42,0.85)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:"0.6vw",padding:"0.8vh 1.6vw",color:"rgba(255,255,255,0.65)",fontSize:"1.5vh",fontWeight:600,cursor:"pointer",backdropFilter:"blur(10px)",letterSpacing:"0.05em"}}
+            >⏏ Salir</button>
+          ) : (
+            <div style={{background:"rgba(15,23,42,0.95)",border:"1px solid #ef444466",borderRadius:"0.6vw",padding:"0.7vh 1.2vw",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",gap:"0.6vw"}}>
+              <span style={{color:"#e2e8f0",fontSize:"1.4vh",fontWeight:600}}>¿Salir?</span>
+              <button onClick={e=>{ e.stopPropagation(); onSalir?.(); }} style={{background:"#ef4444",border:"none",borderRadius:"0.4vw",padding:"0.5vh 1.2vw",color:"#fff",fontSize:"1.3vh",fontWeight:700,cursor:"pointer"}}>Sí</button>
+              <button onClick={e=>{ e.stopPropagation(); setConfirmSalir(false); }} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"0.4vw",padding:"0.5vh 1.2vw",color:"#94a3b8",fontSize:"1.3vh",fontWeight:700,cursor:"pointer"}}>No</button>
+            </div>
+          )}
+        </div>
+
+        {/* Flechas laterales */}
+        {[{dir:-1,side:"left",char:"‹"},{dir:1,side:"right",char:"›"}].map(({dir,side,char})=>(
+          <button key={side}
+            onClick={e=>{ e.stopPropagation(); setFade(false); clearInterval(timerRef.current); setTimeout(()=>{ setSlideIdx(i=>(i+dir+total)%total); setFade(true); timerRef.current = setInterval(avanzar, duracion); },400); }}
+            style={{position:"absolute",[side]:"2vw",top:"50%",transform:"translateY(-50%)",background:"rgba(9,14,24,0.7)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"50%",width:"6vh",height:"6vh",display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.7)",fontSize:"3.5vh",cursor:"pointer",backdropFilter:"blur(10px)",opacity:showUI?1:0,transition:"opacity 0.4s ease",lineHeight:"0.8"}}
+          >{char}</button>
+        ))}
+
+        {/* Botón pantalla completa — primer acceso (prominente si no está en fullscreen) */}
+        {!isFullscreen && !document.fullscreenElement && (
+          <div style={{position:"absolute",bottom:"8vh",left:"50%",transform:"translateX(-50%)",opacity:showUI?1:0,transition:"opacity 0.4s ease"}}>
+            <button
+              onClick={e=>{ e.stopPropagation(); toggleFullscreen(); }}
+              style={{background:"rgba(245,158,11,0.9)",border:"none",borderRadius:"0.8vw",padding:"1.2vh 3vw",color:"#0f172a",fontSize:"1.6vh",fontWeight:800,cursor:"pointer",letterSpacing:"0.08em",textTransform:"uppercase",backdropFilter:"blur(10px)",boxShadow:"0 4px 20px rgba(245,158,11,0.4)"}}
+            >⛶ Abrir en pantalla completa</button>
           </div>
         )}
-
-        {/* Controles de navegación — flechas laterales */}
-        <button
-          onClick={e=>{ e.stopPropagation(); setFade(false); setTimeout(()=>{ setSlideIdx(i=>(i-1+total)%total); setFade(true); },400); }}
-          style={{position:"absolute",left:"1.5vw",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"50%",width:"5vh",height:"5vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"2.5vh",cursor:"pointer",backdropFilter:"blur(8px)",transition:"all 0.2s",pointerEvents:"auto"}}
-        >‹</button>
-        <button
-          onClick={e=>{ e.stopPropagation(); clearInterval(timerRef.current); avanzar(); timerRef.current = setInterval(avanzar, duracion); }}
-          style={{position:"absolute",right:"1.5vw",top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.5)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"50%",width:"5vh",height:"5vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"2.5vh",cursor:"pointer",backdropFilter:"blur(8px)",transition:"all 0.2s",pointerEvents:"auto"}}
-        >›</button>
       </div>
 
-      {/* Indicadores de slide — siempre visibles */}
-      <div style={{position:"absolute",bottom:"2vh",left:0,right:0,display:"flex",justifyContent:"center",gap:"0.6vw",alignItems:"center",pointerEvents:"none",zIndex:50}}>
+      {/* Indicadores de slide */}
+      <div style={{position:"absolute",bottom:"2vh",left:0,right:0,display:"flex",justifyContent:"center",gap:"0.5vw",alignItems:"center",pointerEvents:"none",zIndex:50}}>
         {slides.map((_,i)=>(
-          <div key={i} style={{width:i===idx?"2.5vw":"0.6vw",height:"0.4vw",borderRadius:"0.3vw",background:i===idx?"#f59e0b":"rgba(255,255,255,0.25)",transition:"all 0.4s ease",boxShadow:i===idx?"0 0 8px #f59e0b88":""}}/>
+          <div key={i} style={{width:i===idx?"2.2vw":"0.5vw",height:"3px",borderRadius:"2px",background:i===idx?"#f59e0b":"rgba(255,255,255,0.2)",transition:"all 0.4s ease",boxShadow:i===idx?"0 0 6px #f59e0b99":""}}/>
         ))}
       </div>
 
-      {/* Barra de progreso — siempre visible */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"3px",background:"rgba(255,255,255,0.08)",zIndex:50}}>
-        <div style={{height:"100%",background:"linear-gradient(90deg,#f59e0b,#fbbf24)",width:`${((idx+1)/total)*100}%`,transition:"width 0.4s ease",boxShadow:"0 0 8px #f59e0b66"}}/>
+      {/* Barra de progreso */}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"2px",background:"rgba(255,255,255,0.05)",zIndex:50}}>
+        <div style={{height:"100%",background:"linear-gradient(90deg,#f59e0b,#fbbf24)",width:`${((idx+1)/total)*100}%`,transition:"width 0.5s ease"}}/>
       </div>
     </div>
   );
@@ -8054,7 +8104,6 @@ const MonitorAjustes = ({ data, setData, newUrl, setNewUrl, newTit, setNewTit, f
           { key: "mostrarAvisos", label: "Avisos pendientes" },
           { key: "mostrarStats", label: "Estadísticas KPI" },
           { key: "mostrarMapa", label: "Mapa de máquinas" },
-          { key: "mostrarFotosMaquinas", label: "Fotos de máquinas" },
         ].map(({ key, label }) => (
           <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0d1117", borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}>
             <input type="checkbox" checked={cfg[key] !== false} onChange={e => setCfg({ [key]: e.target.checked })} style={{ width: 15, height: 15, accentColor: "#f59e0b" }} />
