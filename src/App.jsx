@@ -597,9 +597,10 @@ const ROL_MODULOS = {
   admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje","tareas"],
+  carrusel: [], // accede solo al modo carrusel, sin módulos del app normal
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
-const ROLES = ["manager","admin","tecnico","comercial"];
+const ROLES = ["manager","admin","tecnico","comercial","carrusel"];
 // Jerarquía del Diario de visitas (de mayor a menor escalón): un usuario puede ver
 // las visitas de cualquiera que esté por debajo de él en esta lista, además de las
 // suyas propias, pero nunca las de su mismo escalón ni las de uno superior. Tecnico
@@ -657,6 +658,7 @@ const initialData = {
     { id:3,nombre:"Juanjo Romero",password:"3004",rol:"tecnico",avatar:"JJ",activo:true },
     { id:4,nombre:"Jose Antonio García.",password:"3008",rol:"admin",avatar:"JA",activo:true },
     { id:5,nombre:"Luka",password:"3000",rol:"tecnico",avatar:"L",activo:true },
+    { id:9,nombre:"Carrusel",password:"123456789",rol:"carrusel",avatar:"TV",activo:true },
   ],clientes: [
     { id:CLIENTE_STOCK_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Nueva",nombreFiscal:"Europea de Maquinaria – Maquinaria Nueva",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria nueva pendiente de venta." },
     { id:0,nombreEmpresa:"Europea de Maquinaria PMM SL",nombreFiscal:"Europea de Maquinaria PMM SL",cif:"B98527583",localidad:"Torrent (Valencia)",esCliente:false,esPropia:true,dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",provinciaFiscal:"Valencia",contactos:[],maquinas:[],notas:"Cuenta interna — máquinas propias, trabajos internos y albaranes propios." },
@@ -728,7 +730,8 @@ const initialData = {
     {id:10,codigo:"INV0010",nombre:"Correa trapecial A-42",descripcion:"Correa de transmision tipo A longitud 42",categoria:"Transmision",unidad:"ud",stock:5,stockMin:2,precioCompra:4.50,precioVenta:9.00},
     {id:11,codigo:"INV0011",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
-  ],smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
+  ],carrusel:{mediaItems:[],mostrarAvisos:true,mostrarBienvenida:true,textoBienvenida:"Bienvenidos a\nEuropea de Maquinaria",duracionSlide:10},
+  smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
   empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
   contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],pedidos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
   proveedores:[],
@@ -7638,6 +7641,406 @@ const Usuarios = ({ data, setData, userActual }) => {
     </Modal>}
   </div>);
 };
+// ─── CARRUSEL MONITOR ────────────────────────────────────────────────────────
+// Convierte una URL de YouTube a URL de embed
+const ytEmbed = (url) => {
+  if (!url) return "";
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?/\s]+)/);
+  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${m[1]}` : url;
+};
+
+const CarruselMonitor = ({ data }) => {
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [fade, setFade] = useState(true);
+  const timerRef = useRef(null);
+  const fadeTimerRef = useRef(null);
+
+  const cfg = data.carrusel || {};
+  const duracion = (cfg.duracionSlide || 10) * 1000;
+
+  // Construir array de slides
+  const slides = [];
+  if (cfg.mostrarBienvenida !== false) {
+    slides.push({ tipo: "bienvenida", texto: cfg.textoBienvenida || "Bienvenidos a\nEuropea de Maquinaria" });
+  }
+  if (cfg.mostrarAvisos !== false) {
+    const avisos = (data.avisos || []).filter(a => !a._deleted && a.estado !== "Resuelto" && a.estado !== "Cancelado");
+    if (avisos.length > 0) slides.push({ tipo: "avisos", avisos });
+  }
+  if (cfg.mostrarStats !== false) {
+    slides.push({ tipo: "stats" });
+  }
+  if (cfg.mostrarMapa !== false) {
+    const maquinasConProvincia = (data.clientes || [])
+      .filter(c=>!c._deleted)
+      .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted).map(m=>({...m,clienteProvincia:c.provincia||c.localidad||""})))
+      .filter(m=>m.clienteProvincia);
+    if (maquinasConProvincia.length > 0) slides.push({ tipo: "mapa", maquinas: maquinasConProvincia });
+  }
+  if (cfg.mostrarFotosMaquinas !== false) {
+    const fotosMaquinas = (data.clientes || [])
+      .filter(c=>!c._deleted)
+      .flatMap(c=>(c.maquinas||[]).filter(m=>!m._deleted && m.fotos?.length > 0)
+        .flatMap(m=>(m.fotos||[]).slice(0,2).map(f=>({dataUrl:f.dataUrl||f,titulo:m.marca?(m.marca+" "+(m.modelo||"")).trim():"Máquina"}))));
+    fotosMaquinas.slice(0,8).forEach(f=>slides.push({tipo:"foto",item:f}));
+  }
+  (cfg.mediaItems || [])
+    .filter(m => m.activo !== false)
+    .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+    .forEach(m => slides.push({ tipo: m.tipo, item: m }));
+
+  const total = Math.max(slides.length, 1);
+
+  // Auto-avance con fade
+  const avanzar = useCallback(() => {
+    setFade(false);
+    fadeTimerRef.current = setTimeout(() => {
+      setSlideIdx(i => (i + 1) % total);
+      setFade(true);
+    }, 600);
+  }, [total]);
+
+  useEffect(() => {
+    timerRef.current = setInterval(avanzar, duracion);
+    return () => { clearInterval(timerRef.current); clearTimeout(fadeTimerRef.current); };
+  }, [avanzar, duracion]);
+
+  const idx = slideIdx % total;
+  const slide = slides[idx];
+
+  // Colores de prioridad
+  const colPrio = p => p === "Alta" ? "#ef4444" : p === "Media" ? "#f59e0b" : "#3b82f6";
+
+  const renderSlide = (s) => {
+    if (!s) return null;
+
+    if (s.tipo === "bienvenida") {
+      const lineas = (s.texto || "").split("\n");
+      return (
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f2a1a 100%)"}}>
+          <img src={LOGO_CIRCULO} alt="Logo" style={{width:"18vw",height:"18vw",borderRadius:"50%",marginBottom:"4vh",boxShadow:"0 0 80px #f59e0b44",objectFit:"cover"}}/>
+          <div style={{textAlign:"center"}}>
+            {lineas.map((l,i) => (
+              <div key={i} style={{fontSize:i===0?"5.5vw":"6.5vw",fontWeight:900,color:i===0?"#cbd5e1":"#fff",letterSpacing:"-0.02em",lineHeight:1.15,textShadow:"0 4px 32px rgba(0,0,0,0.5)"}}>{l}</div>
+            ))}
+          </div>
+          <div style={{marginTop:"3vh",width:"12vw",height:"5px",background:"linear-gradient(90deg,#f59e0b,#fbbf24)",borderRadius:3}}/>
+          <div style={{marginTop:"2vh",fontSize:"1.8vw",color:"#8899b4",letterSpacing:"0.15em",textTransform:"uppercase"}}>europeademaquinaria.com</div>
+        </div>
+      );
+    }
+
+    if (s.tipo === "avisos") {
+      return (
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"#0a0f1c",padding:"3vh 5vw",boxSizing:"border-box"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"2.5vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.5vh"}}>
+            <img src={LOGO_CIRCULO} alt="" style={{width:"7vw",height:"7vw",borderRadius:"50%",objectFit:"cover"}}/>
+            <div>
+              <div style={{fontSize:"3.5vw",fontWeight:900,color:"#f59e0b",lineHeight:1}}>Avisos Pendientes</div>
+              <div style={{fontSize:"1.4vw",color:"#8899b4",marginTop:"0.5vh"}}>{s.avisos.length} aviso{s.avisos.length!==1?"s":""} activo{s.avisos.length!==1?"s":""}</div>
+            </div>
+          </div>
+          <div style={{display:"grid",gap:"1.2vh",flex:1,overflow:"hidden"}}>
+            {s.avisos.slice(0,7).map(a => {
+              const c = colPrio(a.prioridad);
+              return (
+                <div key={a.id} style={{background:"#151b2a",border:`1px solid ${c}33`,borderLeft:`6px solid ${c}`,borderRadius:"0.8vw",padding:"1.2vh 2vw",display:"grid",gridTemplateColumns:"1fr auto",gap:"1vw",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:"2vw",fontWeight:700,color:"#f1f3f9",lineHeight:1.2}}>{a.titulo}</div>
+                    <div style={{fontSize:"1.2vw",color:"#8899b4",marginTop:"0.3vh"}}>{a.tipo}{a.estado&&a.estado!=="Pendiente"?" · "+a.estado:""}{a.asignados?.length?" · "+a.asignados.join(", "):""}</div>
+                  </div>
+                  <span style={{background:c+"22",color:c,borderRadius:"0.5vw",padding:"0.5vh 1.5vw",fontSize:"1.2vw",fontWeight:700,whiteSpace:"nowrap"}}>{a.prioridad||"—"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (s.tipo === "stats") {
+      const avisosP = (data.avisos||[]).filter(a=>!a._deleted&&a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
+      const partesAb = (data.partes||[]).filter(p=>!p._deleted&&p.estadoParte!=="Finalizado"&&p.estadoParte!=="Anulado").length;
+      const clientesAct = (data.clientes||[]).filter(c=>!c._deleted).length;
+      const tareasHoy = (data.tareas||[]).filter(t=>!t._deleted&&t.fecha&&t.fecha===new Date().toISOString().slice(0,10)).length;
+      const kpis = [
+        {icon:"🔔",val:avisosP,lab:"Avisos pendientes",col:"#ef4444"},
+        {icon:"🔧",val:partesAb,lab:"Partes en curso",col:"#f59e0b"},
+        {icon:"👥",val:clientesAct,lab:"Clientes activos",col:"#3b82f6"},
+        {icon:"📋",val:tareasHoy,lab:"Tareas para hoy",col:"#10b981"},
+      ];
+      return (
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"linear-gradient(160deg,#0a0f1c 0%,#0f2240 100%)",padding:"3vh 5vw",boxSizing:"border-box"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"3vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.5vh"}}>
+            <img src={LOGO_CIRCULO} alt="" style={{width:"7vw",height:"7vw",borderRadius:"50%",objectFit:"cover"}}/>
+            <div>
+              <div style={{fontSize:"3.5vw",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Estado en tiempo real</div>
+              <div style={{fontSize:"1.4vw",color:"#8899b4",marginTop:"0.5vh"}}>{new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</div>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2.5vw",flex:1,alignContent:"center"}}>
+            {kpis.map((k,i)=>(
+              <div key={i} style={{background:"#151b2a",border:`1px solid ${k.col}33`,borderTop:`5px solid ${k.col}`,borderRadius:"1vw",padding:"3vh 3vw",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1.5vh"}}>
+                <div style={{fontSize:"5vw"}}>{k.icon}</div>
+                <div style={{fontSize:"7vw",fontWeight:900,color:k.col,lineHeight:1}}>{k.val}</div>
+                <div style={{fontSize:"1.6vw",color:"#8899b4",textAlign:"center",fontWeight:600}}>{k.lab}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (s.tipo === "mapa") {
+      // Mapa SVG simplificado de España con puntos por provincia
+      const provincias = {};
+      (s.maquinas||[]).forEach(m=>{
+        const p=(m.clienteProvincia||"").toLowerCase().trim();
+        if(p) provincias[p]=(provincias[p]||0)+1;
+      });
+      // Coordenadas aproximadas de capitales de provincia en viewBox 0 0 1000 800
+      const COORDS = {
+        "álava":[559,137],"alicante":[740,480],"almería":[650,580],"asturias":[390,80],
+        "ávila":[440,280],"badajoz":[320,430],"barcelona":[875,260],"burgos":[510,170],
+        "cáceres":[320,360],"cádiz":[370,610],"cantabria":[490,90],"castellón":[770,370],
+        "ciudad real":[530,430],"córdoba":[480,520],"cuenca":[620,340],"girona":[920,210],
+        "granada":[570,580],"guadalajara":[580,280],"guipúzcoa":[580,120],"huelva":[310,540],
+        "huesca":[720,175],"jaén":[560,520],"la coruña":[200,80],"la rioja":[570,155],
+        "las palmas":[220,750],"león":[360,150],"lleida":[800,235],"lugo":[280,95],
+        "madrid":[510,295],"málaga":[490,590],"murcia":[710,510],"navarra":[625,145],
+        "orense":[245,135],"palencia":[450,160],"pontevedra":[205,135],"salamanca":[380,260],
+        "santa cruz de tenerife":[100,750],"segovia":[470,265],"sevilla":[410,530],
+        "soria":[570,215],"tarragona":[830,300],"teruel":[710,320],"toledo":[490,370],
+        "valencia":[740,420],"valladolid":[440,205],"vizcaya":[560,110],"zamora":[360,200],
+        "zaragoza":[690,220]
+      };
+      const maxVal = Math.max(...Object.values(provincias),1);
+      return (
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",background:"linear-gradient(135deg,#0a0f1c 0%,#0f2240 100%)",padding:"2vh 4vw",boxSizing:"border-box"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"2vw",marginBottom:"1.5vh",borderBottom:"2px solid #f59e0b33",paddingBottom:"1.2vh"}}>
+            <img src={LOGO_CIRCULO} alt="" style={{width:"5.5vw",height:"5.5vw",borderRadius:"50%",objectFit:"cover"}}/>
+            <div>
+              <div style={{fontSize:"2.8vw",fontWeight:900,color:"#f1f3f9",lineHeight:1}}>Máquinas instaladas en España</div>
+              <div style={{fontSize:"1.2vw",color:"#8899b4",marginTop:"0.3vh"}}>{(s.maquinas||[]).length} máquinas · {Object.keys(provincias).length} provincias</div>
+            </div>
+          </div>
+          <div style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center",position:"relative"}}>
+            {/* SVG España (contorno simplificado) */}
+            <svg viewBox="0 0 1000 800" style={{width:"90%",maxHeight:"75vh",opacity:0.15,position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
+              <path fill="#3b82f6" stroke="#60a5fa" strokeWidth="3" d="M220,80 L380,60 L460,50 L600,70 L700,90 L760,120 L830,110 L900,130 L940,180 L950,230 L930,280 L900,330 L870,370 L880,420 L840,470 L800,510 L760,560 L720,590 L680,620 L640,650 L580,660 L520,650 L460,640 L400,650 L340,660 L290,630 L260,590 L230,550 L210,500 L240,460 L260,410 L240,360 L210,310 L190,260 L180,200 L220,80 Z"/>
+              {/* Portugal */}
+              <path fill="#1e3a5f" stroke="#2563eb" strokeWidth="2" d="M210,140 L180,200 L190,260 L210,310 L240,360 L260,410 L240,460 L250,490 L230,550 L290,630 L250,650 L200,600 L170,530 L150,460 L140,380 L155,300 L165,220 L175,160 Z"/>
+            </svg>
+            {/* Puntos de máquinas */}
+            <svg viewBox="0 0 1000 800" style={{width:"90%",maxHeight:"75vh",position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}}>
+              {Object.entries(provincias).map(([prov,cnt])=>{
+                const coord = COORDS[prov];
+                if(!coord) return null;
+                const r = 8 + Math.round((cnt/maxVal)*22);
+                return (
+                  <g key={prov}>
+                    <circle cx={coord[0]} cy={coord[1]} r={r+4} fill="#f59e0b22"/>
+                    <circle cx={coord[0]} cy={coord[1]} r={r} fill="#f59e0b" opacity="0.9"/>
+                    <text x={coord[0]} y={coord[1]+1} textAnchor="middle" dominantBaseline="middle" fill="#0f172a" fontSize={Math.max(11,r-2)} fontWeight="900">{cnt}</text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+      );
+    }
+
+    if (s.tipo === "foto") {
+      return (
+        <div style={{position:"absolute",inset:0,background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <img src={s.item.dataUrl} alt={s.item.titulo||""} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
+          {s.item.titulo && (
+            <div style={{position:"absolute",bottom:"4vh",left:0,right:0,textAlign:"center"}}>
+              <span style={{background:"rgba(0,0,0,0.75)",color:"#fff",padding:"1vh 3vw",borderRadius:"0.8vw",fontSize:"2.2vw",fontWeight:600,backdropFilter:"blur(6px)"}}>{s.item.titulo}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (s.tipo === "video") {
+      const url = s.item.url || "";
+      const isYT = /youtube|youtu\.be/.test(url);
+      return (
+        <div style={{position:"absolute",inset:0,background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {isYT
+            ? <iframe src={ytEmbed(url)} style={{width:"100%",height:"100%",border:"none"}} allow="autoplay; encrypted-media" allowFullScreen title={s.item.titulo||"video"}/>
+            : <video src={url} autoPlay muted loop playsInline style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}}/>
+          }
+          {s.item.titulo && (
+            <div style={{position:"absolute",bottom:"4vh",left:0,right:0,textAlign:"center"}}>
+              <span style={{background:"rgba(0,0,0,0.75)",color:"#fff",padding:"1vh 3vw",borderRadius:"0.8vw",fontSize:"2.2vw",fontWeight:600,backdropFilter:"blur(6px)"}}>{s.item.titulo}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div style={{width:"100vw",height:"100vh",background:"#000",position:"relative",overflow:"hidden",cursor:"none",userSelect:"none"}}
+         onClick={() => { clearInterval(timerRef.current); avanzar(); timerRef.current = setInterval(avanzar, duracion); }}>
+      {/* Slide con transición fade */}
+      <div style={{position:"absolute",inset:0,opacity:fade?1:0,transition:"opacity 0.6s ease"}}>
+        {renderSlide(slide)}
+      </div>
+      {/* Logo watermark */}
+      <div style={{position:"absolute",top:"2vh",left:"2.5vw",opacity:0.25,pointerEvents:"none"}}>
+        <img src={LOGO_CIRCULO} alt="" style={{width:"5vw",height:"5vw",borderRadius:"50%",objectFit:"cover"}}/>
+      </div>
+      {/* Indicadores de slide */}
+      <div style={{position:"absolute",bottom:"2.5vh",left:0,right:0,display:"flex",justifyContent:"center",gap:"0.8vw",alignItems:"center",pointerEvents:"none"}}>
+        {slides.map((_,i)=>(
+          <div key={i} style={{width:i===idx?"3vw":"0.8vw",height:"0.5vw",borderRadius:"0.3vw",background:i===idx?"#f59e0b":"rgba(255,255,255,0.3)",transition:"all 0.4s ease"}}/>
+        ))}
+      </div>
+      {/* Barra de progreso */}
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"3px",background:"#ffffff15"}}>
+        <div style={{height:"100%",background:"#f59e0b",width:`${((idx+1)/total)*100}%`,transition:"width 0.3s linear"}}/>
+      </div>
+    </div>
+  );
+};
+
+const MonitorAjustes = ({ data, setData, newUrl, setNewUrl, newTit, setNewTit, fileRef }) => {
+  const cfg = data.carrusel || {};
+  const setCfg = upd => setData(d => ({ ...d, carrusel: { ...(d.carrusel || {}), ...(typeof upd === "function" ? upd(d.carrusel || {}) : upd) } }));
+
+  const addVideo = () => {
+    const url = newUrl.trim();
+    if (!url) return;
+    const items = [...(cfg.mediaItems || [])];
+    items.push({ id: Date.now(), tipo: "video", url, titulo: newTit.trim() || "", activo: true, orden: items.length });
+    setCfg({ mediaItems: items });
+    setNewUrl(""); setNewTit("");
+  };
+
+  const addFoto = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 1600;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+        const items = [...(cfg.mediaItems || [])];
+        items.push({ id: Date.now(), tipo: "foto", dataUrl, titulo: newTit.trim() || file.name.replace(/\.[^.]+$/, ""), activo: true, orden: items.length });
+        setCfg({ mediaItems: items });
+        setNewTit("");
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const delMedia = id => setCfg(c => ({ ...c, mediaItems: (c.mediaItems || []).filter(m => m.id !== id) }));
+  const toggleMedia = id => setCfg(c => ({ ...c, mediaItems: (c.mediaItems || []).map(m => m.id === id ? { ...m, activo: !m.activo } : m) }));
+  const moverMedia = (id, dir) => setCfg(c => {
+    const items = [...(c.mediaItems || [])];
+    const i = items.findIndex(m => m.id === id);
+    if (i < 0) return c;
+    const j = i + dir;
+    if (j < 0 || j >= items.length) return c;
+    [items[i], items[j]] = [items[j], items[i]];
+    return { ...c, mediaItems: items };
+  });
+
+  return (
+    <div style={{ background: "#151b2a", border: "1px solid #f59e0b33", borderRadius: 12, padding: "20px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, borderBottom: "1px solid #2a3550", paddingBottom: 12 }}>
+        <span style={{ fontSize: 20 }}>📺</span>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14, color: "#f59e0b" }}>Monitor / Carrusel</div>
+          <div style={{ color: "#8899b4", fontSize: 11 }}>Configura los slides del TV. Usuario: <strong style={{ color: "#e4e9f6" }}>carrusel</strong> / <strong style={{ color: "#e4e9f6" }}>123456789</strong></div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        {[
+          { key: "mostrarBienvenida", label: "Slide de bienvenida" },
+          { key: "mostrarAvisos", label: "Avisos pendientes" },
+          { key: "mostrarStats", label: "Estadísticas KPI" },
+          { key: "mostrarMapa", label: "Mapa de máquinas" },
+          { key: "mostrarFotosMaquinas", label: "Fotos de máquinas" },
+        ].map(({ key, label }) => (
+          <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0d1117", borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}>
+            <input type="checkbox" checked={cfg[key] !== false} onChange={e => setCfg({ [key]: e.target.checked })} style={{ width: 15, height: 15, accentColor: "#f59e0b" }} />
+            <span style={{ color: "#e4e9f6", fontSize: 12, fontWeight: 600 }}>{label}</span>
+          </label>
+        ))}
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ color: "#8899b4", fontSize: 11, fontWeight: 700, marginBottom: 5, textTransform: "uppercase", letterSpacing: ".5px" }}>Texto slide bienvenida</div>
+        <textarea value={cfg.textoBienvenida || "Bienvenidos a\nEuropea de Maquinaria"} onChange={e => setCfg({ textoBienvenida: e.target.value })} rows={2}
+          style={{ width: "100%", background: "#0d1117", border: "1px solid #2a3550", borderRadius: 8, padding: "8px 10px", color: "#f1f3f9", fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <div style={{ color: "#8899b4", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", whiteSpace: "nowrap" }}>Segundos por slide</div>
+        <input type="number" min={3} max={60} value={cfg.duracionSlide || 10} onChange={e => setCfg({ duracionSlide: Math.max(3, parseInt(e.target.value) || 10) })}
+          style={{ width: 70, background: "#0d1117", border: "1px solid #2a3550", borderRadius: 8, padding: "7px 10px", color: "#f1f3f9", fontSize: 13 }} />
+      </div>
+
+      <div style={{ borderTop: "1px solid #2a3550", paddingTop: 14, marginBottom: 12 }}>
+        <div style={{ color: "#8899b4", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 8 }}>Añadir imagen o vídeo</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input value={newTit} onChange={e => setNewTit(e.target.value)} placeholder="Título (opcional)"
+            style={{ flex: 1, background: "#0d1117", border: "1px solid #2a3550", borderRadius: 8, padding: "8px 10px", color: "#f1f3f9", fontSize: 12 }} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => fileRef.current?.click()} style={{ background: "#1c2a3b", border: "1px solid #0ea5e944", borderRadius: 8, padding: "8px 14px", color: "#0ea5e9", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            📷 Subir foto
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={addFoto} />
+          <input value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="URL de vídeo (YouTube o directo)"
+            style={{ flex: 1, background: "#0d1117", border: "1px solid #2a3550", borderRadius: 8, padding: "8px 10px", color: "#f1f3f9", fontSize: 12 }} />
+          <button onClick={addVideo} style={{ background: "#1c2a3b", border: "1px solid #f59e0b44", borderRadius: 8, padding: "8px 14px", color: "#f59e0b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            ▶ Añadir vídeo
+          </button>
+        </div>
+      </div>
+
+      {(cfg.mediaItems || []).length > 0 && (
+        <div style={{ display: "grid", gap: 7 }}>
+          {(cfg.mediaItems || []).map((m, i) => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#0d1117", borderRadius: 8, padding: "8px 12px", opacity: m.activo === false ? 0.45 : 1 }}>
+              <span style={{ fontSize: 16 }}>{m.tipo === "foto" ? "🖼️" : "▶️"}</span>
+              {m.tipo === "foto" && m.dataUrl && <img src={m.dataUrl} alt="" style={{ width: 40, height: 28, objectFit: "cover", borderRadius: 4, flexShrink: 0 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: "#f1f3f9", fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.titulo || "Sin título"}</div>
+                {m.url && <div style={{ color: "#8899b4", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.url}</div>}
+              </div>
+              <button onClick={() => moverMedia(m.id, -1)} disabled={i === 0} style={{ background: "none", border: "none", color: "#8899b4", cursor: "pointer", fontSize: 14, padding: 2 }}>▲</button>
+              <button onClick={() => moverMedia(m.id, 1)} disabled={i === (cfg.mediaItems.length - 1)} style={{ background: "none", border: "none", color: "#8899b4", cursor: "pointer", fontSize: 14, padding: 2 }}>▼</button>
+              <button onClick={() => toggleMedia(m.id)} style={{ background: "none", border: "none", color: m.activo === false ? "#dc2626" : "#16a34a", cursor: "pointer", fontSize: 12, padding: 2, fontWeight: 700 }}>
+                {m.activo === false ? "OFF" : "ON"}
+              </button>
+              <button onClick={() => delMedia(m.id)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 18, padding: 2, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [smtp,setSmtp]=useState({...data.smtp}); const [ok,setOk]=useState(false);
   const [empresa,setEmpresa]=useState({razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"",cpFiscal:"",localidad:"",provincia:"",telefono:"",email:"",web:"europeademaquinaria.com",...(data.empresa||{})});
@@ -7654,6 +8057,10 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
     }
   };
   const esManager = userActual?.rol==="manager";
+  // Monitor / Carrusel state
+  const [monNewUrl,setMonNewUrl]=useState("");
+  const [monNewTit,setMonNewTit]=useState("");
+  const monFileRef=useRef(null);
   const [historial,setHistorial]=useState(null); // null=no cargado, []=cargado vacío
   const [cargandoHist,setCargandoHist]=useState(false);
   const [errorHist,setErrorHist]=useState("");
@@ -7902,6 +8309,15 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
         Resetear todos los datos
       </button>
     </div>
+
+    {/* ══ SECCIÓN MONITOR / CARRUSEL ══ */}
+    {(userActual?.rol==="admin"||userActual?.rol==="manager")&&<MonitorAjustes
+      data={data} setData={setData}
+      newUrl={monNewUrl} setNewUrl={setMonNewUrl}
+      newTit={monNewTit} setNewTit={setMonNewTit}
+      fileRef={monFileRef}
+    />}
+
   {/* ── Modal restauración por sección ── */}
   {modalRestSeccion && (
     <div style={{position:"fixed",inset:0,background:"#000a",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -16234,6 +16650,8 @@ function AppInner() {
     return <FichaPublicaMaquina codigo={maquinaPublica} data={data} cargando={syncStatus==="cargando"}/>;
   }
   if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
+  // Carrusel: usuario especial que solo ve el modo monitor en pantalla completa
+  if(user.rol==="carrusel")return <CarruselMonitor data={data}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
     const n=crearNotif(userId,tipo,titulo,mensaje);
     setData(d=>({...d,notificaciones:{...d.notificaciones,[userId]:[n,...(d.notificaciones[userId]||[])]}}));
