@@ -6658,7 +6658,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     doc.setTextColor(107,122,153); doc.setFontSize(8);
     doc.text("Firma y sello del cliente",mg,y); y+=8;
     if(parte.firmaNombre?.trim()){ doc.text("Firmado por: "+parte.firmaNombre,mg,y); y+=6; }
-    doc.text("Fecha de firma: "+(parte.fechaFirma||today()),mg,y);
+    doc.text("Fecha de firma: "+fmtFecha(parte.fechaFirma||today()),mg,y);
     // Pie de página — en todas las paginas del documento
     const totalPaginas = doc.getNumberOfPages();
     for(let pg=1; pg<=totalPaginas; pg++){
