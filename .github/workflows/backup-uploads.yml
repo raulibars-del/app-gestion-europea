@@ -40,7 +40,7 @@ jobs:
         run: |
           rm -rf /tmp/descarga && mkdir -p /tmp/descarga
           lftp -u "$SFTP_USER,$SFTP_PASS" \
-            -e "set sftp:auto-confirm yes; set net:timeout 15; mirror /gestion/api/uploads/ /tmp/descarga/; bye" \
+            -e "set sftp:auto-confirm yes; set sftp:connect-program 'ssh -a -x -oStrictHostKeyChecking=no -oPasswordAuthentication=yes'; set net:timeout 30; set net:max-retries 3; mirror /gestion/api/uploads/ /tmp/descarga/; bye" \
             sftp://home444205640.1and1-data.host:22
 
       - name: Empaquetar todo en un único zip con fecha
