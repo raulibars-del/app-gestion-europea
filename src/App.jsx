@@ -16797,16 +16797,16 @@ function AppInner() {
   };
   if(presupuestoAceptar) return <AceptarPresupuestoPublico token={presupuestoAceptar}/>;
   if(articuloPublico){
-    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
+    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts,_ts:Date.now()}:x)}));window.dispatchEvent(new Event("em-save-now"));}}/>;
     return <FichaPublicaArticulo codigo={articuloPublico} data={data} cargando={syncStatus==="cargando"}/>;
   }
   if(maquinaPublica){
     // Igual que la ficha de artículo: no se muestra ningún dato (ni el nombre del
     // cliente) hasta que la persona que escanea el QR inicia sesión en la app.
-    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
+    if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts,_ts:Date.now()}:x)}));window.dispatchEvent(new Event("em-save-now"));}}/>;
     return <FichaPublicaMaquina codigo={maquinaPublica} data={data} cargando={syncStatus==="cargando"}/>;
   }
-  if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts}:x)}));}}/>;
+  if(!user)return <Login usuarios={data.usuarios} onLogin={u=>{setUser(u);setActive("asistencia");const ts=new Date().toISOString();setData(d=>({...d,usuarios:d.usuarios.map(x=>x.id===u.id?{...x,ultimaConexion:ts,_ts:Date.now()}:x)}));window.dispatchEvent(new Event("em-save-now"));}}/>;
   // Carrusel: usuario especial que solo ve el modo monitor en pantalla completa
   if(user.rol==="carrusel")return <CarruselMonitor data={data} onSalir={()=>setUser(null)}/>;
   const addNotif=(userId,tipo,titulo,mensaje)=>{
