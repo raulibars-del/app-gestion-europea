@@ -4135,7 +4135,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(190px,100%),1fr))",gap:11}}>
           <Field label="Dado por (persona del cliente)"><Input value={formAv.dadoPor} onChange={fa("dadoPor")} placeholder="Nombre de quien avisa"/></Field>
           <Field label="Metodo de aviso"><Select value={formAv.metodoAviso||"Teléfono"} onChange={fa("metodoAviso")} options={METODOS_AVISO}/></Field>
-          <Field label="Fecha"><Input type="date" value={formAv.fechaAviso} onChange={fa("fechaAviso")}/></Field>
+          <Field label="Fecha"><DatePickerCalendar value={formAv.fechaAviso} onChange={fa("fechaAviso")}/></Field>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(150px,100%),1fr))",gap:11}}>
           <Field label="Prioridad"><Select value={formAv.prioridad} onChange={fa("prioridad")} options={PRIORIDADES}/></Field>
@@ -4152,7 +4152,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
               <Field label={"Dia que "+listaNombres(formAv,"asignados","asignado").join(" y ")+" va/n a resolver el aviso"}>
-                <Input type="date" value={formAv.fechaResolucion||""} onChange={fa("fechaResolucion")}/>
+                <DatePickerCalendar value={formAv.fechaResolucion||""} onChange={fa("fechaResolucion")}/>
               </Field>
               <Field label="Momento del dia">
                 <div style={{display:"flex",gap:6}}>
