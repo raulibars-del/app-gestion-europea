@@ -774,8 +774,10 @@ const Icon = ({ name, size=18 }) => {
 };
 const Badge = ({ text }) => {
   const map = {"Facturada":"#16a34a","Facturado":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#e1e6f2","Perdida":"#dc2626","Cancelada":"#e1e6f2","Cancelado":"#e1e6f2","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Material disponible":"#14b8a6","Enviado presupuesto a espera aceptacion":"#0ea5e9","Presupuesto aceptado":"#8b5cf6","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#e1e6f2"};
+  const shortMap = {"Enviado presupuesto a espera aceptacion":"Ppto. pendiente","A falta de material":"Falta material","Material disponible":"Material listo","Presupuesto aceptado":"Ppto. aceptado"};
   const c = map[text]||"#e1e6f2";
-  return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{text}</span>;
+  const label = shortMap[text]||text;
+  return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{label}</span>;
 };
 const DiasBadge = ({ fecha, estado }) => {
   if(estado==="Resuelto"||estado==="Cancelado") return null;
