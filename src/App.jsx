@@ -6367,7 +6367,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setModal(true);
   };
   const abrirEditar = p => {
-    setForm({ ...p, tecnicos:listaNombres(p,"tecnicos","tecnico"), desplazamiento:p.km>0?"si":"no", kmValor:p.km>0?String(p.km):"" });
+    setForm({ ...p, tecnicos:listaNombres(p,"tecnicos","tecnico"), desplazamiento:p.desplazamiento||"si", kmValor:p.km>0?String(p.km):"" });
     setListaMateriales(p.materialesList||[]);
     setNuevoMat({material:"",cantidad:"1"});
     setModoMaterial("manual"); setBuscarArt("");
