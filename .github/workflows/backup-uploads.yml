@@ -31,8 +31,8 @@ jobs:
             git add README.md
           fi
 
-      - name: Instalar dependencias
-        run: sudo apt-get install -y lftp sshpass zip
+      - name: Instalar lftp y zip
+        run: sudo apt-get install -y lftp zip
 
       - name: Descargar api/uploads/ del servidor IONOS
         env:
@@ -40,33 +40,17 @@ jobs:
           SFTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           rm -rf /tmp/descarga && mkdir -p /tmp/descarga
-          echo "Conectando a SFTP como ${SFTP_USER:0:4}***..."
-
-          # Método 1: lftp (manejo nativo de contraseña)
-          if lftp -u "$SFTP_USER,$SFTP_PASS" \
-              -e "set sftp:auto-confirm yes; set net:timeout 30; set net:max-retries 2; mirror /gestion/api/uploads/ /tmp/descarga/; bye" \
-              sftp://home444205640.1and1-data.host:22; then
-            echo "✓ Descarga completada con lftp"
-          else
-            echo "lftp falló — intentando con sshpass+sftp..."
-            printf 'lcd /tmp/descarga\nget -r /gestion/api/uploads/.\nbye\n' > /tmp/sftp.batch
-            sshpass -p "$SFTP_PASS" sftp \
-              -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=30 \
-              -o ServerAliveInterval=15 \
-              -b /tmp/sftp.batch \
-              "$SFTP_USER@home444205640.1and1-data.host"
-            echo "✓ Descarga completada con sshpass"
-          fi
-
-          TOTAL=$(find /tmp/descarga -type f | wc -l)
-          echo "Archivos descargados: $TOTAL"
+          # Mismos parámetros que el deploy (que funciona)
+          lftp -u "$SFTP_USER,$SFTP_PASS" \
+            -e "set sftp:auto-confirm yes; set net:timeout 15; mirror /gestion/api/uploads/ /tmp/descarga/ || echo 'Carpeta uploads vacía o no existe aún'; bye" \
+            sftp://home444205640.1and1-data.host:22
+          echo "Archivos descargados: $(find /tmp/descarga -type f 2>/dev/null | wc -l)"
 
       - name: Empaquetar todo en un único zip con fecha
         run: |
           FECHA=$(date +%Y-%m-%d)
           mkdir -p uploads
-          if [ -z "$(ls -A /tmp/descarga 2>/dev/null)" ]; then
+          if [ -z "$(find /tmp/descarga -type f 2>/dev/null)" ]; then
             echo "No hay archivos en api/uploads/ todavía, no se crea zip."
           else
             (cd /tmp/descarga && zip -rq /tmp/backup-uploads-$FECHA.zip .)
