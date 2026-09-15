@@ -309,7 +309,7 @@ const repararEstadosAvisos = (d) => {
     const parte = finalizados.find(p => String(p.avisoId) === String(a.id));
     if (!parte) return a;
     changed = true;
-    return { ...a, estado: "Resuelto", fechaResuelto: parte.fecha || a.fechaResuelto, fechaUltimaIntervencion: parte.fecha || a.fechaUltimaIntervencion, _ts: Math.max(a._ts||0, parte._ts||0, Date.now()) };
+    return { ...a, estado: "Resuelto", fechaResuelto: parte.fecha || a.fechaResuelto, fechaUltimaIntervencion: parte.fecha || a.fechaUltimaIntervencion, resueltoPor: a.resueltoPor || listaNombres(parte,"tecnicos","tecnico").join(", ") || "", resueltoPorId: a.resueltoPorId || null, _ts: Math.max(a._ts||0, parte._ts||0, Date.now()) };
   });
   return changed ? { ...d, avisos: nuevosAvisos } : d;
 };
@@ -16369,7 +16369,7 @@ function AppInner() {
               );
               if(!parteEnviado) return a;
               avisosActualizados = true;
-              return { ...a, estado:"Resuelto", fechaResuelto: parteEnviado.fechaEnvio || hoyStr, fechaUltimaIntervencion: parteEnviado.fechaEnvio || hoyStr };
+              return { ...a, estado:"Resuelto", fechaResuelto: parteEnviado.fechaEnvio || hoyStr, fechaUltimaIntervencion: parteEnviado.fechaEnvio || hoyStr, resueltoPor: a.resueltoPor || listaNombres(parteEnviado,"tecnicos","tecnico").join(", ") || "", resueltoPorId: a.resueltoPorId || null };
             });
             if(avisosActualizados) mergedData = { ...mergedData, avisos: nuevoAviso };
           }
