@@ -6167,6 +6167,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [modoMaterial, setModoMaterial] = useState("manual"); // "manual" | "inventario"
   const [buscarArt, setBuscarArt] = useState("");
   const [buscarParte, setBuscarParte] = useState(""); // buscador del listado: por nº de parte, cliente o fecha
+  const [filtroTecnico, setFiltroTecnico] = useState(""); // filtro adicional por técnico
   const canvasRef = useRef(null);
   // Captura la firma dibujada en el canvas como imagen para persistirla en el parte
   // (asi la vista previa de "ya firmado" puede mostrar la firma real, no solo un recuadro vacio).
@@ -6399,14 +6400,23 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   // completa aunque la coincidencia este solo en una de sus visitas).
   const gruposPartesFiltrados = useMemo(() => {
     const palabras = sinAcentos(buscarParte).toLowerCase().trim().split(/\s+/).filter(Boolean);
-    if (palabras.length === 0) return gruposPartes;
-    return gruposPartes.filter(grupo => grupo.some(p => {
+    const tecNorm = sinAcentos(filtroTecnico).toLowerCase().trim();
+    let grupos = gruposPartes;
+    // Filtro por técnico
+    if (tecNorm) {
+      grupos = grupos.filter(grupo => grupo.some(p =>
+        listaNombres(p,"tecnicos","tecnico").some(t => sinAcentos(t).toLowerCase().includes(tecNorm))
+      ));
+    }
+    // Filtro por texto libre
+    if (palabras.length === 0) return grupos;
+    return grupos.filter(grupo => grupo.some(p => {
       const cl = p.clienteDirectoId ? data.clientes.find(c => c.id === p.clienteDirectoId) : rCliente(p.reparacionId);
       const numero = p.numeroParte || ("PT-"+String(p.id).slice(-6));
       const texto = sinAcentos([numero, cadenaBaseDe(p), cl?.nombreEmpresa, cl?.nombreFiscal, fmtFecha(p.fecha), p.fecha, p.descripcion, p.marca, p.modelo, p.matricula].filter(Boolean).join(" ")).toLowerCase();
       return palabras.every(pal => texto.includes(pal));
     }));
-  }, [gruposPartes, buscarParte, data.clientes]);
+  }, [gruposPartes, buscarParte, filtroTecnico, data.clientes]);
   const retomarParte = (origen) => {
     const base = cadenaBaseDe(origen);
     const cadena = obtenerCadenaPartes(data.partes, origen);
@@ -6840,12 +6850,21 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           <button onClick={abrirNuevo} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}><Icon name="plus" size={14} />Nuevo</button>
         </div>
       </div>
-      <div style={{position:"relative",marginBottom:14}}>
-        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span>
-        <input value={buscarParte} onChange={e=>setBuscarParte(e.target.value)} placeholder="Buscar por nº de parte, cliente o fecha..." style={{...inputStyle,paddingLeft:34}} />
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{position:"relative",flex:"1 1 220px",minWidth:180}}>
+          <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span>
+          <input value={buscarParte} onChange={e=>setBuscarParte(e.target.value)} placeholder="Buscar por nº de parte, cliente o fecha..." style={{...inputStyle,paddingLeft:34}} />
+        </div>
+        <div style={{position:"relative",minWidth:180,flex:"0 1 220px"}}>
+          <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6",fontSize:13}}>👤</span>
+          <select value={filtroTecnico} onChange={e=>setFiltroTecnico(e.target.value)} style={{...inputStyle,paddingLeft:32,appearance:"none",cursor:"pointer"}}>
+            <option value="">Todos los técnicos</option>
+            {usuariosTecnicos.filter(u=>u.rol!=="carrusel").map(u=><option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+          </select>
+        </div>
       </div>
-      {buscarParte.trim()&&gruposPartesFiltrados.length===0&&(
-        <div style={{color:"#e4e9f6",fontSize:13,padding:"14px 4px"}}>No se han encontrado partes para "{buscarParte}".</div>
+      {(buscarParte.trim()||filtroTecnico)&&gruposPartesFiltrados.length===0&&(
+        <div style={{color:"#e4e9f6",fontSize:13,padding:"14px 4px"}}>No se han encontrado partes{filtroTecnico?" para "+filtroTecnico:""}.</div>
       )}
       <div style={{display:"grid",gap:12}}>
         {gruposPartesFiltrados.map(grupo => {
