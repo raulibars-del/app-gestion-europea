@@ -14837,6 +14837,7 @@ const InformacionTecnica = ({ data }) => {
   const [tecId, setTecId] = useState(tecnicos[0]?.id||"");
   const [periodo, setPeriodo] = useState("mes"); // dia|semana|mes|año
   const [refFecha, setRefFecha] = useState(today()); // fecha de referencia para el filtro
+  const [pdfVisor, setPdfVisor] = useState(null); // { url, nombre } — visor PDF en app
 
   const tecNombre = (data.usuarios||[]).find(u=>u.id===parseInt(tecId))?.nombre||"";
 
@@ -14933,8 +14934,11 @@ const InformacionTecnica = ({ data }) => {
     // Pie
     doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont("helvetica","normal");
     doc.text(`Generado el ${fmtFecha(today())} · Europea de Maquinaria`, mg, 290);
-    doc.save(`informe-${sinAcentos(tecNombre).replace(/\s+/g,"-").toLowerCase()}-${refFecha.slice(0,7)}.pdf`);
+    const blob = doc.output("blob");
+    const url = URL.createObjectURL(blob);
+    setPdfVisor({ url, nombre: `Informe-${sinAcentos(tecNombre).replace(/\s+/g,"-").toLowerCase()}-${refFecha.slice(0,7)}` });
   };
+  const cerrarPdfVisor = () => { if(pdfVisor) URL.revokeObjectURL(pdfVisor.url); setPdfVisor(null); };
 
   const btnPer = (id,label) => (
     <button key={id} onClick={()=>setPeriodo(id)} style={{padding:"7px 14px",borderRadius:8,border:`2px solid ${periodo===id?"#0ea5e9":"#2a3550"}`,background:periodo===id?"#0ea5e915":"#0d1117",color:periodo===id?"#0ea5e9":"#94a3b8",fontWeight:700,cursor:"pointer",fontSize:13}}>
@@ -15029,6 +15033,30 @@ const InformacionTecnica = ({ data }) => {
           </div>
         </>
       )}
+
+      {/* Visor PDF en app */}
+      {pdfVisor && (()=>{ const esMobil = window.innerWidth<=820; return (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.80)",zIndex:1300,display:"flex",flexDirection:"column"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top,0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+            <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0,flex:"1 1 140px"}}>📄 {pdfVisor.nombre}</span>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              {!esMobil&&<button onClick={()=>{ const ifr=document.getElementById("pdfInfoTecFrame"); try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){} }} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="print" size={14}/>Imprimir</button>}
+              <button onClick={()=>{const a=document.createElement("a");a.href=pdfVisor.url;a.download=pdfVisor.nombre+".pdf";a.click();}} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="download" size={14}/>Descargar</button>
+              <button onClick={cerrarPdfVisor} style={{background:"#dc2626",border:"none",borderRadius:8,padding:"8px 12px",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:700,fontSize:13}}><Icon name="close" size={15}/>Cerrar</button>
+            </div>
+          </div>
+          {esMobil ? (
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,background:"#0d1117",textAlign:"center"}}>
+              <div style={{fontSize:44}}>📄</div>
+              <div style={{color:"#94a3b8",fontSize:14,maxWidth:280}}>Ábrelo a pantalla completa para verlo mejor:</div>
+              <button onClick={()=>window.open(pdfVisor.url,"_blank")} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:9,padding:"11px 22px",fontWeight:700,fontSize:15,cursor:"pointer"}}>Abrir PDF</button>
+              <button onClick={cerrarPdfVisor} style={{background:"#2a3550",color:"#94a3b8",border:"none",borderRadius:9,padding:"10px 22px",fontWeight:700,fontSize:14,cursor:"pointer"}}>Volver</button>
+            </div>
+          ) : (
+            <iframe id="pdfInfoTecFrame" src={pdfVisor.url+"#view=FitH"} title="Informe técnico" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          )}
+        </div>
+      );})()}
     </div>
   );
 };
