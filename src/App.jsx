@@ -6788,7 +6788,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
           // Cerrar el aviso vinculado ahora que el email ha llegado al cliente
           avisos: p.avisoId
             ? (d.avisos||[]).map(a => a.id === p.avisoId
-                ? { ...a, estado: "Resuelto", fechaResuelto: hoyEspana, fechaUltimaIntervencion: hoyEspana }
+                ? { ...a, estado: "Resuelto", fechaResuelto: hoyEspana, fechaUltimaIntervencion: hoyEspana,
+                    resueltoPor: a.resueltoPor || listaNombres(p,"tecnicos","tecnico").join(", ") || p.envioProgFirmaNombre || "",
+                    resueltoPorId: a.resueltoPorId || (data.usuarios||[]).find(u=>sinAcentos(u.nombre||"").toLowerCase()===sinAcentos(listaNombres(p,"tecnicos","tecnico")[0]||"").toLowerCase())?.id || null }
                 : a)
             : d.avisos,
         }));
