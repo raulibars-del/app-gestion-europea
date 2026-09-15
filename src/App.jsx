@@ -3685,7 +3685,20 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       setData(d => ({ ...d,avisos: [...d.avisos, n] }));
       onNuevoAviso(n);
     }
-    else setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === item.id ? {...item,_ts:Date.now()} : a) }));
+    else {
+      // Si el aviso se acaba de cerrar (Resuelto/Cancelado) y no tenía resueltoPor, guardar quién lo cierra
+      const aAnterior = d => (d.avisos||[]).find(a=>a.id===item.id);
+      setData(d => {
+        const prev = aAnterior(d) || {};
+        const escierre = (item.estado==="Resuelto"||item.estado==="Cancelado") && prev.estado!=="Resuelto" && prev.estado!=="Cancelado";
+        const extra = escierre ? {
+          resueltoPor: item.resueltoPor || userActual.nombre,
+          resueltoPorId: item.resueltoPorId || userActual.id,
+          fechaResuelto: item.fechaResuelto || today(),
+        } : {};
+        return { ...d, avisos: d.avisos.map(a => a.id===item.id ? {...item,...extra,_ts:Date.now()} : a) };
+      });
+    }
     setModalAv(null); setDetalle(null);
   };
   const resolverAv = id => setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a,estado: "Resuelto",fechaResuelto: a.fechaResuelto || today(),resueltoPorId: a.resueltoPorId || userActual.id,resueltoPor: a.resueltoPor || userActual.nombre,_ts:Date.now() } : a) }));
