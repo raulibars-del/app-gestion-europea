@@ -609,7 +609,7 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad"],
+  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
   admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
   tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
   comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje","tareas"],
@@ -14829,6 +14829,209 @@ const Passwords = ({ data, setData, userActual, isMobile }) => {
 };
 // ─── FIN PASSWORDS ───────────────────────────────────────────────────────────
 
+// ─── Información técnica ────────────────────────────────────────────────────
+const PRECIO_HORA_TECNICO = 40;
+const InformacionTecnica = ({ data }) => {
+  const tecnicos = (data.usuarios||[]).filter(u=>u.activo&&u.rol!=="carrusel"&&u.rol!=="manager");
+  const [tecId, setTecId] = useState(tecnicos[0]?.id||"");
+  const [periodo, setPeriodo] = useState("mes"); // dia|semana|mes|año
+  const [refFecha, setRefFecha] = useState(today()); // fecha de referencia para el filtro
+
+  const tecNombre = (data.usuarios||[]).find(u=>u.id===parseInt(tecId))?.nombre||"";
+
+  // Calcular rango de fechas según periodo
+  const rango = useMemo(() => {
+    const ref = new Date(refFecha+"T12:00:00");
+    if (periodo==="dia") {
+      return { desde: refFecha, hasta: refFecha };
+    }
+    if (periodo==="semana") {
+      const dow = (ref.getDay()+6)%7; // lunes=0
+      const lunes = new Date(ref); lunes.setDate(ref.getDate()-dow);
+      const domingo = new Date(lunes); domingo.setDate(lunes.getDate()+6);
+      return { desde: lunes.toISOString().slice(0,10), hasta: domingo.toISOString().slice(0,10) };
+    }
+    if (periodo==="mes") {
+      const y = ref.getFullYear(), m = ref.getMonth();
+      const fin = new Date(y, m+1, 0);
+      return { desde: `${y}-${String(m+1).padStart(2,"0")}-01`, hasta: fin.toISOString().slice(0,10) };
+    }
+    if (periodo==="año") {
+      const y = ref.getFullYear();
+      return { desde: `${y}-01-01`, hasta: `${y}-12-31` };
+    }
+    return { desde: refFecha, hasta: refFecha };
+  }, [periodo, refFecha]);
+
+  const partesTec = useMemo(() => {
+    if (!tecId) return [];
+    return (data.partes||[]).filter(p => {
+      if (p._deleted||p.envioProgFecha) return false;
+      if (!listaNombres(p,"tecnicos","tecnico").some(n => {
+        const u = (data.usuarios||[]).find(u=>u.id===parseInt(tecId));
+        return u && sinAcentos(n).toLowerCase().includes(sinAcentos(u.nombre).toLowerCase().slice(0,5));
+      })) return false;
+      if (p.fecha < rango.desde || p.fecha > rango.hasta) return false;
+      return true;
+    }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  }, [data.partes, data.usuarios, tecId, rango]);
+
+  const totalHoras = partesTec.reduce((s,p)=>s+(parseFloat(p.horasT)||0),0);
+  const totalEuros = totalHoras * PRECIO_HORA_TECNICO;
+
+  const labelPeriodo = () => {
+    const ref = new Date(refFecha+"T12:00:00");
+    if (periodo==="dia") return fmtFecha(refFecha);
+    if (periodo==="semana") return `Semana del ${fmtFecha(rango.desde)} al ${fmtFecha(rango.hasta)}`;
+    if (periodo==="mes") return ref.toLocaleDateString("es-ES",{month:"long",year:"numeric"});
+    if (periodo==="año") return String(ref.getFullYear());
+  };
+
+  const exportarPDF = async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const mg = 14, pw = 210-mg*2;
+    let y = 18;
+    // Cabecera
+    doc.setFillColor(9,14,24); doc.rect(0,0,210,297,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(16); doc.setTextColor(241,243,249);
+    doc.text("Informe de producción técnica", mg, y); y+=8;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(148,163,184);
+    doc.text(`Técnico: ${tecNombre}   ·   Periodo: ${labelPeriodo()}   ·   ${PRECIO_HORA_TECNICO} €/h`, mg, y); y+=5;
+    doc.setDrawColor(30,45,69); doc.line(mg, y, 210-mg, y); y+=6;
+    // Cabecera tabla
+    const cols = [38,22,52,56,14,20]; // anchos columnas
+    const heads = ["Nº Parte","Fecha","Cliente","Descripción","Horas","Importe"];
+    doc.setFillColor(14,165,233); doc.rect(mg, y-4, pw, 7,"F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(255,255,255);
+    let cx = mg;
+    heads.forEach((h,i)=>{ doc.text(h, cx+1, y); cx+=cols[i]; });
+    y+=5; doc.setFont("helvetica","normal"); doc.setTextColor(225,230,246);
+    // Filas
+    partesTec.forEach((p,idx)=>{
+      if(y>270){ doc.addPage(); doc.setFillColor(9,14,24); doc.rect(0,0,210,297,"F"); y=18; }
+      const cl = p.clienteDirectoId ? data.clientes.find(c=>c.id===p.clienteDirectoId) : null;
+      const h = parseFloat(p.horasT)||0;
+      const fila = [
+        p.numeroParte||("PT-"+String(p.id).slice(-6)),
+        fmtFecha(p.fecha),
+        (cl?.nombreEmpresa||"—").slice(0,22),
+        (p.descripcion||"—").slice(0,28),
+        h>0?h.toFixed(1)+"h":"—",
+        h>0?(h*PRECIO_HORA_TECNICO).toFixed(2)+" €":"—",
+      ];
+      if(idx%2===0){ doc.setFillColor(13,17,23); doc.rect(mg,y-3.5,pw,6.5,"F"); }
+      cx=mg;
+      fila.forEach((v,i)=>{ doc.text(String(v), cx+1, y); cx+=cols[i]; });
+      y+=7;
+    });
+    // Totales
+    y+=3; doc.setDrawColor(30,45,69); doc.line(mg,y,210-mg,y); y+=6;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(16,185,129);
+    doc.text(`Partes: ${partesTec.length}   ·   Horas: ${totalHoras.toFixed(1)} h   ·   Importe total: ${totalEuros.toFixed(2)} €`, mg, y);
+    // Pie
+    doc.setFontSize(7); doc.setTextColor(100,116,139); doc.setFont("helvetica","normal");
+    doc.text(`Generado el ${fmtFecha(today())} · Europea de Maquinaria`, mg, 290);
+    doc.save(`informe-${sinAcentos(tecNombre).replace(/\s+/g,"-").toLowerCase()}-${refFecha.slice(0,7)}.pdf`);
+  };
+
+  const btnPer = (id,label) => (
+    <button key={id} onClick={()=>setPeriodo(id)} style={{padding:"7px 14px",borderRadius:8,border:`2px solid ${periodo===id?"#0ea5e9":"#2a3550"}`,background:periodo===id?"#0ea5e915":"#0d1117",color:periodo===id?"#0ea5e9":"#94a3b8",fontWeight:700,cursor:"pointer",fontSize:13}}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div>
+      <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:"0 0 4px"}}>Información técnica</h2>
+      <p style={{color:"#94a3b8",fontSize:13,margin:"0 0 20px"}}>Productividad por técnico — mano de obra a {PRECIO_HORA_TECNICO} €/h</p>
+
+      {/* Controles */}
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
+        {/* Técnico */}
+        <select value={tecId} onChange={e=>setTecId(e.target.value)} style={{...inputStyle,minWidth:180,flex:"0 1 220px"}}>
+          {(data.usuarios||[]).filter(u=>u.activo&&u.rol!=="carrusel").map(u=>(
+            <option key={u.id} value={u.id}>{u.nombre} ({u.rol})</option>
+          ))}
+        </select>
+        {/* Periodo */}
+        <div style={{display:"flex",gap:5}}>
+          {[["dia","Día"],["semana","Semana"],["mes","Mes"],["año","Año"]].map(([id,l])=>btnPer(id,l))}
+        </div>
+        {/* Fecha de referencia */}
+        <DatePickerCalendar value={refFecha} onChange={e=>setRefFecha(e.target.value)} placeholder="Fecha referencia"/>
+        {/* Exportar PDF */}
+        <button onClick={exportarPDF} disabled={partesTec.length===0} style={{marginLeft:"auto",background:partesTec.length===0?"#1a2236":"#f59e0b",color:partesTec.length===0?"#475569":"#000",border:"none",borderRadius:9,padding:"9px 18px",fontWeight:700,cursor:partesTec.length===0?"not-allowed":"pointer",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
+          📄 Exportar PDF
+        </button>
+      </div>
+
+      {/* Subtítulo periodo */}
+      <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <span style={{color:"#e2e8f0",fontWeight:700,fontSize:14}}>📅 {labelPeriodo()}</span>
+        <span style={{color:"#94a3b8",fontSize:12}}>Técnico: <strong style={{color:"#f1f3f9"}}>{tecNombre}</strong></span>
+      </div>
+
+      {/* Tabla */}
+      {partesTec.length===0 ? (
+        <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:12,padding:"40px",textAlign:"center",color:"#475569",fontSize:14}}>
+          Sin partes en este periodo
+        </div>
+      ) : (
+        <>
+          <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid #2a3550",background:"#151b2a"}}>
+                  {["Nº Parte","Fecha","Cliente","Descripción","Horas","Importe"].map(h=>(
+                    <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".5px"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {partesTec.map((p,i)=>{
+                  const cl = p.clienteDirectoId ? data.clientes.find(c=>c.id===p.clienteDirectoId) : null;
+                  const h = parseFloat(p.horasT)||0;
+                  const importe = h*PRECIO_HORA_TECNICO;
+                  return (
+                    <tr key={p.id} style={{borderBottom:"1px solid #1a2236",background:i%2===0?"#0d1117":"#10141e"}}>
+                      <td style={{padding:"9px 12px",color:"#0ea5e9",fontWeight:700,fontSize:12,whiteSpace:"nowrap"}}>{p.numeroParte||("PT-"+String(p.id).slice(-6))}</td>
+                      <td style={{padding:"9px 12px",color:"#e4e9f6",fontSize:12,whiteSpace:"nowrap"}}>{fmtFecha(p.fecha)}</td>
+                      <td style={{padding:"9px 12px",color:"#f1f3f9",fontWeight:600,fontSize:12}}>{cl?.nombreEmpresa||"—"}</td>
+                      <td style={{padding:"9px 12px",color:"#94a3b8",fontSize:11,maxWidth:260,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.descripcion||"—"}</td>
+                      <td style={{padding:"9px 12px",textAlign:"center",whiteSpace:"nowrap"}}>
+                        <span style={{background:h>0?"#0ea5e915":"#1a2236",color:h>0?"#0ea5e9":"#475569",borderRadius:6,padding:"3px 9px",fontWeight:800,fontSize:13}}>{h>0?h.toFixed(1)+"h":"—"}</span>
+                      </td>
+                      <td style={{padding:"9px 12px",textAlign:"right",whiteSpace:"nowrap"}}>
+                        <span style={{color:importe>0?"#10b981":"#475569",fontWeight:800,fontSize:13}}>{importe>0?importe.toFixed(2)+" €":"—"}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Resumen */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+            {[
+              {label:"Partes realizados",valor:partesTec.length,color:"#0ea5e9",suf:""},
+              {label:"Total horas",valor:totalHoras.toFixed(1),color:"#f59e0b",suf:" h"},
+              {label:"Importe mano de obra",valor:totalEuros.toFixed(2),color:"#10b981",suf:" €"},
+              {label:"Media horas/parte",valor:partesTec.length>0?(totalHoras/partesTec.length).toFixed(1):"0",color:"#8b5cf6",suf:" h"},
+            ].map(({label,valor,color,suf})=>(
+              <div key={label} style={{background:"#0d1117",border:`1px solid ${color}22`,borderRadius:12,padding:"14px 16px",borderTop:`3px solid ${color}`}}>
+                <div style={{fontSize:11,color:color+"99",fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>{label}</div>
+                <div style={{fontSize:28,fontWeight:900,color,lineHeight:1}}>{valor}<span style={{fontSize:16,fontWeight:700}}>{suf}</span></div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const NAV_ITEMS = [
   {id:"dashboard",      label:"Inicio",                icon:"dashboard",    color:"#3b82f6"},
   {id:"asistencia",     label:"Avisos",                icon:"bell",         color:"#ef4444"},
@@ -14848,6 +15051,7 @@ const NAV_ITEMS = [
   {id:"passwords",      label:"Passwords",             icon:"lock",         color:"#eab308"},
   {id:"usuarios",       label:"Usuarios",              icon:"users",        color:"#8b5cf6"},
   {id:"contabilidad",   label:"Contabilidad",           icon:"receipt",      color:"#16a34a"},
+  {id:"info-tecnica",  label:"Info. técnica",          icon:"chart",        color:"#f59e0b"},
   {id:"ajustes",        label:"Ajustes",               icon:"settings",     color:"#e4e9f6"},
 ];
 // ─── Sincronización con servidor (todos los usuarios comparten los mismos datos) ──
@@ -17026,6 +17230,7 @@ function AppInner() {
           {active==="passwords"&&puedeVer(user.rol,"passwords")&&<Passwords data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="usuarios"&&puedeVer(user.rol,"usuarios")&&<Usuarios data={data} setData={setData} userActual={user}/>}
           {active==="contabilidad"&&puedeVer(user.rol,"contabilidad")&&<Contabilidad data={data} setData={setData} userActual={user}/>}
+          {active==="info-tecnica"&&puedeVer(user.rol,"info-tecnica")&&<InformacionTecnica data={data}/>}
           {active==="ajustes"&&puedeVer(user.rol,"ajustes")&&<Ajustes data={data} setData={setData} onPrueba={onPrueba} userActual={user}/>}
         </main>
       </div>
