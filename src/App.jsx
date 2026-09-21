@@ -1460,7 +1460,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     lista.sort((a,b)=>(a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'}));
     if(!lista.length){ alert("No hay clientes con ese filtro."); return; }
 
-    const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     const W=210; const mg=14;
     const dibujarCabecera=()=>{
       doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
@@ -1654,7 +1654,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   // contactos y maquinas), con la misma estetica (header/footer/colores) que los
   // PDF de Partes y Albaranes, y lo muestra en una vista previa solo lectura.
   const generarPDFFichaCliente = (c) => {
-    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
     const W=210; const mg=18;
     const dibujarHeader = () => {
       doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
@@ -3148,7 +3148,7 @@ img.onerror=function(){setTimeout(function(){window.print();},1500);};
       ...avisosM.map(a=>({tipo:"Aviso", fecha:a.fechaAviso, titulo:a.titulo, estado:a.estado})),
       ...partesM.map(p=>({tipo:"Parte", fecha:p.fecha, titulo:p.descripcion||p.numeroParte, estado:p.estado||""})),
     ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
     const W=210; const mg=18;
     const dibujarHeader = () => {
       doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
@@ -5287,7 +5287,7 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
   // documentos de la app (Partes, Albaranes...), incluyendo miniaturas de las imágenes
   // adjuntas. Se usa tanto para el botón "Compartir" como para el email automático.
   const generarPDFTarea = async (t) => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
     const W = 210, mg = 18;
     const dibujarHeader = () => {
       doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 34, "F");
@@ -6497,7 +6497,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const piezas = (cadenaCompleta && cadenaCompleta.length>1) ? cadenaCompleta : [parte];
     const esMultiple = piezas.length>1;
     const numeroMostrar = esMultiple ? (cadenaBaseDe(piezas[0])) : (parte.numeroParte||("PT-"+String(parte.id).slice(-6)));
-    const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4", compress:true });
     const W=210; const mg=18;
     // ── Header profesional (fondo claro) — se repite en cada pagina ───────────
     const dibujarHeader = () => {
@@ -6673,7 +6673,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
         const tctx=tmp.getContext("2d");
         tctx.fillStyle="#ffffff"; tctx.fillRect(0,0,tmp.width,tmp.height);
         tctx.drawImage(canvasRef.current,0,0);
-        doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28);
+        doc.addImage(tmp.toDataURL("image/jpeg",0.5),"JPEG",mg,y,80,28);
         y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28); y+=32; }
     } else if(conFirma && parte.firmaImagen){
@@ -6917,9 +6917,14 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       {p.estadoParte==="Continuado"?"🔄 Continuado":"✅ Finalizado"}
                     </div>
                   )}
-                  <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#e4e9f620",color:p.emailEnviado?"#10b981":"#e4e9f6",border:"1px solid "+(p.emailEnviado?"#10b98144":"#e4e9f644")}}>
+                  <div title={p.emailEnviado?("Enviado a "+(p.emailEnviadoA||"—")+" · Copia a "+(p.emailEnviadoCC||"—")+(p.fechaEnvio?" · "+fmtFecha(p.fechaEnvio):"")):"Aún no se ha enviado por email"} style={{display:"block",marginTop:2,marginBottom:p.emailEnviado||userActual?.rol!=="manager"?5:2,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.emailEnviado?"#10b98120":"#e4e9f620",color:p.emailEnviado?"#10b981":"#e4e9f6",border:"1px solid "+(p.emailEnviado?"#10b98144":"#e4e9f644")}}>
                     {p.emailEnviado?"✉️ Enviado a cliente y copia":"✉️ No enviado"}
                   </div>
+                  {!p.emailEnviado && (p.estadoParte==="Finalizado"||p.estadoParte==="Completado") && userActual?.rol==="manager" && (
+                    <button onClick={e=>{e.stopPropagation();if(window.confirm("¿Marcar este parte como enviado?\n\nUsa esto si el email ya se envió manualmente o si falló el registro automático."))setData(d=>({...d,partes:d.partes.map(pt=>pt.id===p.id?{...pt,emailEnviado:true,fechaEnvio:today(),_ts:Date.now()}:pt)}));}} style={{display:"block",width:"100%",marginBottom:5,padding:"4px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:"#0ea5e920",color:"#0ea5e9",border:"1px solid #0ea5e944",cursor:"pointer",textAlign:"center"}}>
+                      ✉️ Marcar como enviado
+                    </button>
+                  )}
                   {(p.conforme===true||p.conforme===false)&&(
                     <div title={p.notasConformidad||""} style={{display:"block",marginBottom:5,padding:"3px 9px",borderRadius:5,fontSize:10,fontWeight:800,background:p.conforme?"#16a34a20":"#dc262620",color:p.conforme?"#16a34a":"#dc2626",border:"1px solid "+(p.conforme?"#16a34a44":"#dc262644")}}>
                       {p.conforme?"✅ Conforme":"❌ No conforme"}
@@ -8568,7 +8573,7 @@ function nextNumContabilidad(lista, prefijo) {
 }
 // Genera PDF de factura/proforma y devuelve data URI
 async function generarPDFFacturaDoc(factura, empresa) {
-  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
   const W = 210; const mg = 18;
   const esProforma = factura.esProforma;
   const esPresupuesto = factura.esPresupuesto;
@@ -9417,7 +9422,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
   };
 
   const generarPDFPedido = async (p) => {
-    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
     const W = 210; const mg = 18;
     // ── Header ──
     doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
@@ -10988,7 +10993,7 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     setTimeout(() => { if (canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,160); }, 80);
   };
   const generarPDF = async (alb, conFirma, modo) => {
-    const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait",unit:"mm",format:"a4", compress:true });
     const W = 210; const mg = 18;
     // ── Cabecera (mismo estilo que partes) ──────────────────────────
     doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
@@ -11113,7 +11118,7 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
         const tctx=tmp.getContext("2d");
         tctx.fillStyle="#ffffff"; tctx.fillRect(0,0,tmp.width,tmp.height);
         tctx.drawImage(canvasRef.current,0,0);
-        doc.addImage(tmp.toDataURL("image/jpeg",1.0),"JPEG",mg,y,80,28); y+=32;
+        doc.addImage(tmp.toDataURL("image/jpeg",0.5),"JPEG",mg,y,80,28); y+=32;
       } catch(e){ doc.setDrawColor(180,190,210); doc.rect(mg,y,80,28,"S"); y+=32; }
     } else if (conFirma && alb.firmaImagen) {
       try { doc.addImage(alb.firmaImagen,"JPEG",mg,y,80,28); y+=32; }
@@ -11634,7 +11639,7 @@ const delMaquina=id=>{setMaqStock(ms=>ms.filter(m=>m.id!==id));setVista(null);};
 const handleFotos=e=>Array.from(e.target.files).forEach(async file0=>{const file=await comprimirImagen(file0);if(!file)return;const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});try{const up=await apiUploadFile({base64:b64,filename:file.name,mime:file.type});setForm(p=>({...p,fotos:[...(p.fotos||[]),{nombre:file.name,data:up.url,principal:!(p.fotos&&p.fotos.length>0)}]}));}catch(er){alert("Error al subir la foto: "+er.message);}});
 const handlePdfs=e=>Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setForm(p=>({...p,pdfs:[...(p.pdfs||[]),{nombre:file.name,data:ev.target.result}]}));r.readAsDataURL(file);});
 const imprimirPDF=async m=>{
-const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});const W=210;const mg=15;
+const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});const W=210;const mg=15;
 const PAD=4;const GAP=6; // marco y separación entre fotos
 const addFooter=()=>{
   doc.setFillColor(249,115,22);doc.rect(0,282,W,1,"F");
@@ -14373,7 +14378,7 @@ const Fichaje = ({ data, setData, userActual }) => {
       .sort((a,b)=>a.fecha.localeCompare(b.fecha));
 
     const { default: jsPDF } = await import(/* @vite-ignore */ "https://cdn.skypack.dev/jspdf@2.5.1");
-    const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     const W=210, mg=14;
 
     // ── Cabecera empresa ──
@@ -14906,7 +14911,7 @@ const InformacionTecnica = ({ data }) => {
 
   const exportarPDF = async () => {
     const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
     const mg = 14, pw = 210-mg*2;
     let y = 18;
     // Cabecera
@@ -15688,7 +15693,7 @@ const FichaPublicaMaquina = ({ codigo, data, cargando }) => {
   };
   const generarPDFMaquina = () => {
     if(!m) return;
-    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+    const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4", compress:true });
     const W=210; const mg=18;
     const dibujarHeader = () => {
       doc.setFillColor(15,23,42); doc.rect(0,0,W,34,"F");
