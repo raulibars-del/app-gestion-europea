@@ -16487,6 +16487,16 @@ function AppInner() {
           const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
           const lastSynced = lastSyncedRef.current[seccion] || null;
           let aGuardar = localData;
+          // Aligerar sección partes: pdfFirmadoBase64 es solo caché local (~1-2MB por parte).
+          // Se puede regenerar siempre desde los datos del parte + firmaImagen.
+          // Solo envioProgPDFBase64 (envío programado) DEBE persistir en servidor.
+          if(seccion==="partes" && Array.isArray(aGuardar)){
+            aGuardar = aGuardar.map(p => {
+              if(!p.pdfFirmadoBase64) return p;
+              const {pdfFirmadoBase64:_, ...resto} = p;
+              return resto;
+            });
+          }
           if(lastVersionRef.current[seccion] == null && remoto.versions?.[seccion] != null){
             lastVersionRef.current[seccion] = remoto.versions[seccion];
           }
@@ -16618,7 +16628,11 @@ function AppInner() {
       if(syncStatusRef.current === "cargando") return;
       if(Object.keys(lastSyncedRef.current).length === 0) return;
       for(const s of TODAS_SECCIONES){
-        const sd = extraerSeccion(dataRef.current, s);
+        let sd = extraerSeccion(dataRef.current, s);
+        // Aligerar partes: quitar pdfFirmadoBase64 (caché, regenerable desde datos + firmaImagen)
+        if(s==="partes" && Array.isArray(sd)){
+          sd = sd.map(p => { if(!p.pdfFirmadoBase64) return p; const {pdfFirmadoBase64:_,...r}=p; return r; });
+        }
         const j = JSON.stringify(sd);
         if(j === lastSyncedRef.current[s]) continue;
         // SEGURIDAD: nunca sobreescribir con array vacío si el baseline tenía datos.
@@ -16737,7 +16751,8 @@ function AppInner() {
             const hayCambios = TODAS_SECCIONES.some(s => JSON.stringify(extraerSeccion(dataRef.current,s)) !== lastSyncedRef.current[s]);
             if(hayCambios){
               for(const s of TODAS_SECCIONES){
-                const sd = extraerSeccion(dataRef.current, s);
+                let sd = extraerSeccion(dataRef.current, s);
+                if(s==="partes"&&Array.isArray(sd)) sd=sd.map(p=>{if(!p.pdfFirmadoBase64)return p;const{pdfFirmadoBase64:_,...r}=p;return r;});
                 const sdJson = JSON.stringify(sd);
                 if(sdJson === lastSyncedRef.current[s]) continue;
                 try{
