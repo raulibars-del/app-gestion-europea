@@ -42,6 +42,21 @@ const capitalizaNombre = (s) => {
   if (!t) return t;
   return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 };
+// Normaliza nombres de localidades/municipios: capitaliza cada palabra excepto
+// preposiciones/artículos en mitad de nombre (de, del, la, el, los, las, y…).
+// Funciona correctamente con acentos, paréntesis, "/" y signos de puntuación.
+// Ejemplos: "TORRENT (VALENCIA)" → "Torrent (Valencia)"
+//           "SAN JUAN DE MORÓ" → "San Juan de Moró"
+//           "alicante / alacant" → "Alicante / Alacant"
+const normLugar = (s) => {
+  if (!s) return s;
+  const arts = new Set(["de","del","la","el","los","las","y","e","i","a","l'"]);
+  let primera = true;
+  return s.trim().toLowerCase().replace(/[a-záéíóúüàèìòùñç']+/gi, w => {
+    if (primera || !arts.has(w)) { primera = false; return w.charAt(0).toUpperCase() + w.slice(1); }
+    return w;
+  });
+};
 // Variante para los pop-ups de Tareas y Avisos: el texto principal (título de
 // la tarea o del aviso) va TODO EN MAYÚSCULAS con un punto final; el cliente
 // se sigue mostrando aparte, en mayúsculas y en negrita (ver render del pop-up).
@@ -1672,7 +1687,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         nombreFiscal,
         cif:            (f[2]||"").trim(),
         direccion:      (f[3]||"").trim(),
-        localidad:      (f[4]||"").trim(),
+        localidad:      normLugar((f[4]||"").trim()),
         provinciaFiscal:(f[5]||"").trim(),
         cp:             (f[6]||"").trim(),
         contactos, maquinas:[], notas:"", esCliente:true,
@@ -1808,7 +1823,12 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
       setPdfFicha({ url, nombre: "Ficha "+(c.nombreEmpresa||"cliente"), blob });
     } catch(e) { alert("No se pudo generar el PDF de la ficha del cliente."); }
   };
-  const saveC=()=>{ if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...formC,id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente,revendedor:!!formC.revendedor}]}))}else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...formC}:c)}))}; setModalC(null); };
+  const saveC=()=>{
+    const norm = f => ({...f, localidad: normLugar(f.localidad), localidadFabrica: normLugar(f.localidadFabrica)});
+    if(!formC.id){setData(d=>({...d,clientes:[...d.clientes,{...norm(formC),id:Date.now(),contactos:[],maquinas:[],notas:"",esCliente:!!formC.esCliente,revendedor:!!formC.revendedor}]}))}
+    else{setData(d=>({...d,clientes:d.clientes.map(c=>c.id===formC.id?{...c,...norm(formC)}:c)}))}
+    setModalC(null);
+  };
   // Crea la empresa Y el contacto a la vez a partir de los campos leídos de una
   // tarjeta de visita escaneada. No pasa por el formulario normal (sería un
   // paso más y la idea es ahorrar tecleo): se crea directamente y se informa
@@ -1835,7 +1855,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
       nombreEmpresa,
       nombreFiscal: campos.nombreFiscal || nombreEmpresa,
       cif: "",
-      localidad: campos.localidad || "",
+      localidad: normLugar(campos.localidad || ""),
       dirFiscal: campos.dirFiscal || "",
       cpFiscal: campos.cpFiscal || "",
       provinciaFiscal: campos.provinciaFiscal || "",
@@ -11221,7 +11241,10 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
     } : a) }));
     // 3. Generar PDF y enviar email — si fallan, la firma ya está guardada
     try{
-      const dataUri = await generarPDF(alb, firmada, "descargar");
+      // Generar PDF SIN descarga (modo null): en móvil doc.save() navega la página
+      // con window.location = dataUrl, lo que aborta el fetch de apiSendMail que viene justo después.
+      // El usuario puede descargar el PDF desde la vista del albarán una vez firmado.
+      const dataUri = await generarPDF(alb, firmada, null);
       const base64 = dataUri.split(",")[1];
       // Guardar el PDF firmado (exactamente el mismo que se envía por email)
       setData(d => ({ ...d,albaranes: d.albaranes.map(a => a.id === alb.id ? { ...a,pdfFirmadoBase64:base64,_ts:Date.now() } : a) }));
@@ -16559,13 +16582,20 @@ function AppInner() {
           const remoteJson = remoteData !== undefined ? JSON.stringify(remoteData) : null;
           const lastSynced = lastSyncedRef.current[seccion] || null;
           let aGuardar = localData;
-          // Aligerar sección partes: pdfFirmadoBase64 es solo caché local (~1-2MB por parte).
-          // Se puede regenerar siempre desde los datos del parte + firmaImagen.
-          // Solo envioProgPDFBase64 (envío programado) DEBE persistir en servidor.
+          // Aligerar sección partes y albaranes: pdfFirmadoBase64 es solo caché local (~1-2MB).
+          // Se puede regenerar desde los datos + firmaImagen. No persistir en servidor.
+          // Solo envioProgPDFBase64 (envío programado de partes) DEBE persistir.
           if(seccion==="partes" && Array.isArray(aGuardar)){
             aGuardar = aGuardar.map(p => {
               if(!p.pdfFirmadoBase64) return p;
               const {pdfFirmadoBase64:_, ...resto} = p;
+              return resto;
+            });
+          }
+          if(seccion==="albaranes" && Array.isArray(aGuardar)){
+            aGuardar = aGuardar.map(a => {
+              if(!a.pdfFirmadoBase64) return a;
+              const {pdfFirmadoBase64:_, ...resto} = a;
               return resto;
             });
           }
@@ -16701,9 +16731,12 @@ function AppInner() {
       if(Object.keys(lastSyncedRef.current).length === 0) return;
       for(const s of TODAS_SECCIONES){
         let sd = extraerSeccion(dataRef.current, s);
-        // Aligerar partes: quitar pdfFirmadoBase64 (caché, regenerable desde datos + firmaImagen)
+        // Aligerar partes y albaranes: quitar pdfFirmadoBase64 (caché, regenerable desde datos + firmaImagen)
         if(s==="partes" && Array.isArray(sd)){
           sd = sd.map(p => { if(!p.pdfFirmadoBase64) return p; const {pdfFirmadoBase64:_,...r}=p; return r; });
+        }
+        if(s==="albaranes" && Array.isArray(sd)){
+          sd = sd.map(a => { if(!a.pdfFirmadoBase64) return a; const {pdfFirmadoBase64:_,...r}=a; return r; });
         }
         const j = JSON.stringify(sd);
         if(j === lastSyncedRef.current[s]) continue;
@@ -16825,6 +16858,7 @@ function AppInner() {
               for(const s of TODAS_SECCIONES){
                 let sd = extraerSeccion(dataRef.current, s);
                 if(s==="partes"&&Array.isArray(sd)) sd=sd.map(p=>{if(!p.pdfFirmadoBase64)return p;const{pdfFirmadoBase64:_,...r}=p;return r;});
+                if(s==="albaranes"&&Array.isArray(sd)) sd=sd.map(a=>{if(!a.pdfFirmadoBase64)return a;const{pdfFirmadoBase64:_,...r}=a;return r;});
                 const sdJson = JSON.stringify(sd);
                 if(sdJson === lastSyncedRef.current[s]) continue;
                 try{
