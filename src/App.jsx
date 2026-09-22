@@ -984,32 +984,58 @@ const AlbaranReceptorPicker = ({ clientes, value, email, direccion, onChange }) 
 };
 // ── Geografía España ─────────────────────────────────────────────────────────
 const PROVINCIAS_ES = [
-  {code:"01",name:"Álava / Araba"},{code:"02",name:"Albacete"},
-  {code:"03",name:"Alicante / Alacant"},{code:"04",name:"Almería"},
-  {code:"05",name:"Ávila"},{code:"06",name:"Badajoz"},
-  {code:"07",name:"Balears (Illes)"},{code:"08",name:"Barcelona"},
-  {code:"09",name:"Burgos"},{code:"10",name:"Cáceres"},
-  {code:"11",name:"Cádiz"},{code:"12",name:"Castellón / Castelló"},
-  {code:"13",name:"Ciudad Real"},{code:"14",name:"Córdoba"},
-  {code:"15",name:"A Coruña"},{code:"16",name:"Cuenca"},
-  {code:"17",name:"Girona"},{code:"18",name:"Granada"},
-  {code:"19",name:"Guadalajara"},{code:"20",name:"Gipuzkoa"},
-  {code:"21",name:"Huelva"},{code:"22",name:"Huesca"},
-  {code:"23",name:"Jaén"},{code:"24",name:"León"},
-  {code:"25",name:"Lleida"},{code:"26",name:"La Rioja"},
-  {code:"27",name:"Lugo"},{code:"28",name:"Madrid"},
-  {code:"29",name:"Málaga"},{code:"30",name:"Murcia"},
-  {code:"31",name:"Navarra"},{code:"32",name:"Ourense"},
-  {code:"33",name:"Asturias"},{code:"34",name:"Palencia"},
-  {code:"35",name:"Las Palmas"},{code:"36",name:"Pontevedra"},
-  {code:"37",name:"Salamanca"},{code:"38",name:"Santa Cruz de Tenerife"},
-  {code:"39",name:"Cantabria"},{code:"40",name:"Segovia"},
-  {code:"41",name:"Sevilla"},{code:"42",name:"Soria"},
-  {code:"43",name:"Tarragona"},{code:"44",name:"Teruel"},
-  {code:"45",name:"Toledo"},{code:"46",name:"Valencia / València"},
-  {code:"47",name:"Valladolid"},{code:"48",name:"Bizkaia"},
-  {code:"49",name:"Zamora"},{code:"50",name:"Zaragoza"},
-  {code:"51",name:"Ceuta"},{code:"52",name:"Melilla"},
+  {code:"01",name:"Álava / Araba",          ccaa:"País Vasco"},
+  {code:"02",name:"Albacete",               ccaa:"Castilla-La Mancha"},
+  {code:"03",name:"Alicante / Alacant",     ccaa:"Comunitat Valenciana"},
+  {code:"04",name:"Almería",                ccaa:"Andalucía"},
+  {code:"05",name:"Ávila",                  ccaa:"Castilla y León"},
+  {code:"06",name:"Badajoz",                ccaa:"Extremadura"},
+  {code:"07",name:"Balears (Illes)",        ccaa:"Illes Balears"},
+  {code:"08",name:"Barcelona",              ccaa:"Cataluña"},
+  {code:"09",name:"Burgos",                 ccaa:"Castilla y León"},
+  {code:"10",name:"Cáceres",                ccaa:"Extremadura"},
+  {code:"11",name:"Cádiz",                  ccaa:"Andalucía"},
+  {code:"12",name:"Castellón / Castelló",   ccaa:"Comunitat Valenciana"},
+  {code:"13",name:"Ciudad Real",            ccaa:"Castilla-La Mancha"},
+  {code:"14",name:"Córdoba",                ccaa:"Andalucía"},
+  {code:"15",name:"A Coruña",               ccaa:"Galicia"},
+  {code:"16",name:"Cuenca",                 ccaa:"Castilla-La Mancha"},
+  {code:"17",name:"Girona",                 ccaa:"Cataluña"},
+  {code:"18",name:"Granada",                ccaa:"Andalucía"},
+  {code:"19",name:"Guadalajara",            ccaa:"Castilla-La Mancha"},
+  {code:"20",name:"Gipuzkoa",               ccaa:"País Vasco"},
+  {code:"21",name:"Huelva",                 ccaa:"Andalucía"},
+  {code:"22",name:"Huesca",                 ccaa:"Aragón"},
+  {code:"23",name:"Jaén",                   ccaa:"Andalucía"},
+  {code:"24",name:"León",                   ccaa:"Castilla y León"},
+  {code:"25",name:"Lleida",                 ccaa:"Cataluña"},
+  {code:"26",name:"La Rioja",               ccaa:"La Rioja"},
+  {code:"27",name:"Lugo",                   ccaa:"Galicia"},
+  {code:"28",name:"Madrid",                 ccaa:"Comunidad de Madrid"},
+  {code:"29",name:"Málaga",                 ccaa:"Andalucía"},
+  {code:"30",name:"Murcia",                 ccaa:"Región de Murcia"},
+  {code:"31",name:"Navarra",                ccaa:"Navarra"},
+  {code:"32",name:"Ourense",                ccaa:"Galicia"},
+  {code:"33",name:"Asturias",               ccaa:"Asturias"},
+  {code:"34",name:"Palencia",               ccaa:"Castilla y León"},
+  {code:"35",name:"Las Palmas",             ccaa:"Canarias"},
+  {code:"36",name:"Pontevedra",             ccaa:"Galicia"},
+  {code:"37",name:"Salamanca",              ccaa:"Castilla y León"},
+  {code:"38",name:"Santa Cruz de Tenerife", ccaa:"Canarias"},
+  {code:"39",name:"Cantabria",              ccaa:"Cantabria"},
+  {code:"40",name:"Segovia",                ccaa:"Castilla y León"},
+  {code:"41",name:"Sevilla",                ccaa:"Andalucía"},
+  {code:"42",name:"Soria",                  ccaa:"Castilla y León"},
+  {code:"43",name:"Tarragona",              ccaa:"Cataluña"},
+  {code:"44",name:"Teruel",                 ccaa:"Aragón"},
+  {code:"45",name:"Toledo",                 ccaa:"Castilla-La Mancha"},
+  {code:"46",name:"Valencia / València",    ccaa:"Comunitat Valenciana"},
+  {code:"47",name:"Valladolid",             ccaa:"Castilla y León"},
+  {code:"48",name:"Bizkaia",                ccaa:"País Vasco"},
+  {code:"49",name:"Zamora",                 ccaa:"Castilla y León"},
+  {code:"50",name:"Zaragoza",               ccaa:"Aragón"},
+  {code:"51",name:"Ceuta",                  ccaa:"Ceuta"},
+  {code:"52",name:"Melilla",                ccaa:"Melilla"},
 ];
 
 const ProvinciaPicker = ({ value, onChange }) => (
@@ -1400,7 +1426,7 @@ const Login = ({ usuarios, onLogin }) => {
 };
 const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId, onAbrirClienteId, userActual, onVenderMaquina }) => {
   const puedeEliminar = userActual?.rol==="manager" || userActual?.rol==="admin";
-  const [search,setSearch]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
+  const [search,setSearch]=useState(""); const [filtroProv,setFiltroProv]=useState(""); const [filtroCCAA,setFiltroCCAA]=useState(""); const [vista,setVista]=useState(null); const [tabM,setTabM]=useState(null);
   useEffect(()=>{
     if(!abrirClienteId) return;
     setVista(abrirClienteId); setTabM(null);
@@ -1423,7 +1449,15 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   const fco=k=>e=>setFormCo(p=>({...p,[k]:e.target.value}));
   const cliente=vista!==null?data.clientes.find(c=>c.id===vista):null;
   const maquina=tabM&&cliente?cliente.maquinas.find(m=>m.id===tabM):null;
-  const filtered=data.clientes.filter(c=>(c.nombreEmpresa||"").toLowerCase().includes(search.toLowerCase())||(c.nombreFiscal||"").toLowerCase().includes(search.toLowerCase())||(c.cif||"").toLowerCase().includes(search.toLowerCase())||(c.localidad||"").toLowerCase().includes(search.toLowerCase())||((c.contactos[0]?.nombre||"")).toLowerCase().includes(search.toLowerCase())).slice().sort((a,b)=>{
+  const ccaasUnicas = [...new Set(PROVINCIAS_ES.map(p=>p.ccaa))].sort((a,b)=>a.localeCompare(b,'es'));
+  const provsFiltradas = filtroCCAA ? PROVINCIAS_ES.filter(p=>p.ccaa===filtroCCAA) : PROVINCIAS_ES;
+  const filtered=data.clientes.filter(c=>{
+    const q=search.toLowerCase();
+    const passSearch = !q||(c.nombreEmpresa||"").toLowerCase().includes(q)||(c.nombreFiscal||"").toLowerCase().includes(q)||(c.cif||"").toLowerCase().includes(q)||(c.localidad||"").toLowerCase().includes(q)||((c.contactos[0]?.nombre||"")).toLowerCase().includes(q);
+    const passProv = !filtroProv||(c.provinciaFiscal||"")=== filtroProv;
+    const passCCAA = !filtroCCAA||PROVINCIAS_ES.find(p=>p.name===(c.provinciaFiscal||""))?.ccaa===filtroCCAA;
+    return passSearch && passProv && passCCAA;
+  }).slice().sort((a,b)=>{
   // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo; resto alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
@@ -1909,7 +1943,18 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
           <button onClick={()=>{setFormC({nombreEmpresa:"",nombreFiscal:"",localidad:"",notas:"",esCliente:false,revendedor:false});setCifDupWarn(null);setModalC(true);}} style={{background:"#3b82f6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="plus" size={15}/>Nuevo cliente</button>
         </div>
       </div>
-      <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{position:"relative",flex:"1 1 220px",minWidth:180}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={14}/></span><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar empresa, contacto o localidad..." style={{...inputStyle,paddingLeft:32}}/></div>
+        <select value={filtroCCAA} onChange={e=>{setFiltroCCAA(e.target.value);setFiltroProv("");}} style={{...inputStyle,flex:"0 1 190px",minWidth:150,cursor:"pointer",appearance:"none"}}>
+          <option value="">Todas las CCAA</option>
+          {ccaasUnicas.map(cc=><option key={cc} value={cc}>{cc}</option>)}
+        </select>
+        <select value={filtroProv} onChange={e=>setFiltroProv(e.target.value)} style={{...inputStyle,flex:"0 1 200px",minWidth:160,cursor:"pointer",appearance:"none"}}>
+          <option value="">Todas las provincias</option>
+          {provsFiltradas.map(p=><option key={p.code} value={p.name}>{p.name}</option>)}
+        </select>
+        {(filtroCCAA||filtroProv)&&<button onClick={()=>{setFiltroCCAA("");setFiltroProv("");}} style={{background:"#2a3550",border:"1px solid #3a4560",borderRadius:8,padding:"0 12px",color:"#e4e9f6",cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>✕ Limpiar</button>}
+      </div>
       <div style={{display:"grid",gap:9}}>
         {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const esStock = c.esStockInterno; const revendedor = c.revendedor;
           const colProp = esStock?"#f97316":esPropia?"#10b981":null;
