@@ -43,6 +43,9 @@ jobs:
           EOF
           echo "VITE_API_KEY=$API_KEY" > .env.production
 
+      - name: Generar version.json
+        run: echo "{\"v\":$(date +%s)}" > public/version.json
+
       - name: Construir app
         run: npm run build
 

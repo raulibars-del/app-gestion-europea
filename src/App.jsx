@@ -6937,7 +6937,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     <button onClick={() => verPreviaParte(p)} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#10b981",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       <Icon name="parts" size={12} />PDF
                     </button>
-                    <button onClick={() => abrirPDF(p)} title={p.firmaNombre?"Volver a firmar / corregir firma":"Firmar parte"} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
+                    <button onClick={()=>{const cd=obtenerCadenaPartes(data.partes,p);abrirPDF(p,cd.length>1?cd:null);}} title={p.firmaNombre?"Volver a firmar / corregir firma":"Firmar parte"} style={{background:"#f9731620",border:"1px solid #f9731644",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#f97316",display:"flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700}}>
                       ✍️ Firmar
                     </button>
                     <button onClick={() => abrirEditar(p)} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={11} /></button>
@@ -16255,6 +16255,28 @@ function AppInner() {
   const dataRef = useRef(data);
   const saveTimerRef = useRef(null);
   useEffect(()=>{ dataRef.current = data; },[data]);
+
+  // ─── Detector de nueva versión desplegada ───────────────────────────────────
+  // Cada 5 minutos comprueba /version.json. Si el número cambia respecto al que
+  // se cargó al arrancar, hay un nuevo deploy → avisa al usuario para que recargue.
+  // Previene que técnicos con caché antigua sigan usando código obsoleto.
+  const [nuevaVersionDisponible, setNuevaVersionDisponible] = useState(false);
+  useEffect(()=>{
+    let versionInicial = null;
+    const checkVersion = async () => {
+      try {
+        const r = await fetch("/version.json?_t="+Date.now(), {cache:"no-store"});
+        if(!r.ok) return;
+        const j = await r.json();
+        const v = j.v ?? j.version ?? JSON.stringify(j);
+        if(versionInicial === null){ versionInicial = v; return; }
+        if(v !== versionInicial) setNuevaVersionDisponible(true);
+      } catch(e){}
+    };
+    checkVersion();
+    const id = setInterval(checkVersion, 5*60*1000);
+    return ()=> clearInterval(id);
+  },[]);
   // lastSyncedRef y lastVersionRef se persisten en localStorage (clave v2) para
   // sobrevivir recargas de página y recuperar cambios que aún no llegaron al servidor.
   const persistirUltimoSincronizado = (jsonPorSeccion) => {
@@ -17271,6 +17293,12 @@ function AppInner() {
   );
   return (
     <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"#0d1117",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f3f9",overflow:"hidden",maxWidth:"100vw"}}>
+      {nuevaVersionDisponible&&(
+        <div style={{background:"#1e3a5f",borderBottom:"2px solid #0ea5e9",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexShrink:0,zIndex:9999}}>
+          <span style={{color:"#e0f2fe",fontSize:13,fontWeight:600}}>🔄 Hay una nueva versión de la aplicación disponible.</span>
+          <button onClick={()=>window.location.reload()} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:7,padding:"5px 14px",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>Actualizar ahora</button>
+        </div>
+      )}
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
