@@ -5672,7 +5672,10 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         ? [null]
         : Array.from(new Set([userActual.id, ...(Array.isArray(form.asignadosIds) ? form.asignadosIds : [])]));
 
-      const nuevas = idsAsignados.map((aid, idx) => ({ ...form,esEmpresa,asignadoId: esEmpresa ? null : aid,id: Date.now() + idx }));
+      // grupoTareaId: identifica copias creadas juntas para que al completar una se completen todas.
+      // Solo se asigna cuando hay más de una persona (no tiene sentido en tareas individuales o de empresa).
+      const grupoId = !esEmpresa && idsAsignados.length > 1 ? Date.now() : null;
+      const nuevas = idsAsignados.map((aid, idx) => ({ ...form,esEmpresa,asignadoId: esEmpresa ? null : aid,id: Date.now() + idx + 1, ...(grupoId ? {grupoTareaId: grupoId} : {}) }));
       setData(d => {
         let nd = { ...d,tareas: [...d.tareas, ...nuevas] };
         nuevas.forEach(nueva => {
@@ -5711,7 +5714,16 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
     if (nuevoEstado === "Completada" && !window.confirm(`¿Seguro que se completó la tarea "${t.titulo}"?`)) return;
     if (nuevoEstado === "Pendiente" && !window.confirm(`¿Seguro que esta tarea no ha sido completada? Volverá a tareas pendientes.`)) return;
     setData(d => {
-      let tareas = d.tareas.map(x => x.id === t.id ? { ...x,estado: nuevoEstado,completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: Date.now() } : x);
+      const tsAhora = Date.now();
+      // Marcar esta tarea y, si forma parte de un grupo (creada junto a otras personas),
+      // marcar también todas las copias del mismo grupo como completadas.
+      const idsGrupo = t.grupoTareaId
+        ? d.tareas.filter(x => !x._deleted && x.grupoTareaId === t.grupoTareaId).map(x => x.id)
+        : [t.id];
+      let tareas = d.tareas.map(x => idsGrupo.includes(x.id)
+        ? { ...x, estado: nuevoEstado, completadoPor: nuevoEstado === "Completada" ? userActual.id : null, fechaCompletada: nuevoEstado === "Completada" ? today() : null, _ts: tsAhora }
+        : x
+      );
       if (nuevoEstado === "Completada") {
         // Mantener solo las 10 tareas completadas más recientes; marcar las más antiguas
         // como _deleted (tombstone) en lugar de eliminarlas físicamente — si se eliminaran
@@ -5720,7 +5732,6 @@ const Tareas = ({ data, setData, userActual, abrirTareaId, onAbrirTareaId }) => 
         const completadas = tareas.filter(x => !x._deleted && x.estado === "Completada")
           .sort((a,b) => String(b.fechaCompletada||b._ts||0).localeCompare(String(a.fechaCompletada||a._ts||0)));
         if (completadas.length > 10) {
-          const tsAhora = Date.now();
           const idsABorrar = new Set(completadas.slice(10).map(x => x.id));
           tareas = tareas.map(x => idsABorrar.has(x.id) ? { ...x, _deleted: true, _ts: tsAhora } : x);
         }
