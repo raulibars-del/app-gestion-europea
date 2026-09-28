@@ -6903,7 +6903,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad};
       const cadena = modalPDFCadena;
       const numeroMostrado = cadena ? cadenaBaseDe(cadena[0]) : (modalPDF.numeroParte||"");
-      const dataUri = await generarYDescargarPDF(parteFinal,firmada,true,cadena);
+      // soloDescarga=false: en iOS doc.save() navega la página con document.location=dataUrl,
+      // lo que aborta el fetch de apiSendMail que viene a continuación. No descargar aquí;
+      // el PDF llega al cliente por email y el técnico puede descargarlo por separado.
+      const dataUri = await generarYDescargarPDF(parteFinal,firmada,false,cadena);
       const base64 = dataUri.split(",")[1];
       const ccUsada = data.smtp?.ccPartes || "gestion@europeademaquinaria.com";
       const idsAfectados = cadena ? cadena.map(c=>c.id) : [modalPDF.id];
