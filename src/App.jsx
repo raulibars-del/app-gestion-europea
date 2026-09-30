@@ -491,7 +491,8 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
             // Un dispositivo con em_data desincronizado puede interpretar "no tengo este usuario
             // en mi estado local" como "lo borré yo", cuando en realidad nunca le llegó.
             // Para borrar un usuario hay que hacerlo explícitamente desde Ajustes.
-            if (ruta === "usuarios") { resultado.push(itemR); continue; }
+            // Nota: usuarios vive dentro de config → ruta = "config.usuarios"
+            if (ruta === "config.usuarios") { resultado.push(itemR); continue; }
             continue;
           }
           resultado.push(itemR); // nuevo en el remoto, no relacionado con un borrado nuestro
