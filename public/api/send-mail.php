@@ -44,10 +44,12 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
-    $stmt = $pdo->query("SELECT data FROM app_data WHERE id = 1");
+    // Leer SMTP de app_sections (donde React guarda los ajustes en tiempo real),
+    // no de app_data (que solo se reconstruye cada 4 horas).
+    $stmt = $pdo->query("SELECT data FROM app_sections WHERE section = 'config'");
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    $appData = $row ? json_decode($row['data'], true) : null;
-    $smtp = $appData['smtp'] ?? null;
+    $config = $row ? json_decode($row['data'], true) : null;
+    $smtp = $config['smtp'] ?? null;
 
     if (!$smtp || empty($smtp['host']) || empty($smtp['user']) || empty($smtp['pass'])) {
         http_response_code(400);

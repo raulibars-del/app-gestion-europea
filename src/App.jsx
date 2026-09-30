@@ -486,7 +486,14 @@ const combinarDatosRemotos = (base, local, remoto, ruta, conflictos) => {
           // -aunque fuera un cambio mínimo, p.ej. desde otra pestaña- el borrado se
           // descartaba y el registro reaparecía). Si no estaba en "base" es que es
           // nuevo en el remoto (no lo hemos borrado, nunca lo tuvimos) y sí se incorpora.
-          if (itemB) continue;
+          if (itemB) {
+            // EXCEPCIÓN USUARIOS: nunca eliminamos por merge a un usuario que está en el servidor.
+            // Un dispositivo con em_data desincronizado puede interpretar "no tengo este usuario
+            // en mi estado local" como "lo borré yo", cuando en realidad nunca le llegó.
+            // Para borrar un usuario hay que hacerlo explícitamente desde Ajustes.
+            if (ruta === "usuarios") { resultado.push(itemR); continue; }
+            continue;
+          }
           resultado.push(itemR); // nuevo en el remoto, no relacionado con un borrado nuestro
           continue;
         }
@@ -7698,8 +7705,8 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       const tsFirmaEnv = Date.now();
                       setData(d=>({...d,partes:d.partes.map(pt=>idsAfectados.includes(pt.id)?{...pt,firmaNombre:form.firmaNombre,conforme,notasConformidad,firmaImagen:nuevaFirmaImg||pt.firmaImagen,fechaFirma:nuevaFirmaImg?today():pt.fechaFirma,_ts:tsFirmaEnv}:pt)}));
                       enviarEmail();
-                    }} disabled={enviando} style={{background:enviando?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
-                      {enviando?"Generando...":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
+                    }} disabled={enviando||enviado} style={{background:(enviando||enviado)?"#1a2236":"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:(enviando||enviado)?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                      {enviando?"Generando...":enviado?"✅ Enviado":<><Icon name="send" size={14}/>{firmada?"Firmar y enviar":"Enviar sin firma"}{modalPDFCadena?" (cadena)":""}</>}
                     </button>
                   </>}
                 </div>
@@ -8326,7 +8333,7 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
   const [nuevoBanco,setNuevoBanco]=useState({banco:"",iban:""});
   const s=k=>e=>setSmtp(p=>({...p,[k]:e.target.value}));
   const sEmp=k=>e=>setEmpresa(p=>({...p,[k]:e.target.value}));
-  const guardar=()=>{setData(d=>({...d,smtp}));setOk(true);setTimeout(()=>setOk(false),2200);};
+  const guardar=()=>{setData(d=>({...d,smtp}));window.dispatchEvent(new Event("em-save-now"));setOk(true);setTimeout(()=>setOk(false),2200);};
   const guardarEmpresa=()=>{setData(d=>({...d,empresa}));setOkEmp(true);setTimeout(()=>setOkEmp(false),2200);};
   const resetDatos=()=>{
     if(window.confirm("¿Borrar todos los datos guardados y volver a los datos de ejemplo?\n\nEsta acción no se puede deshacer.")){
@@ -11612,8 +11619,8 @@ const Albaran = ({ data, setData, userActual, albaranPendienteMaquina, onAlbaran
                   <button onClick={() => setModalFirma(null)} style={btnOutline}>Cancelar</button>
                   <button onClick={() => generarPDF(alb, firmada, "imprimir")} style={{...btnOutline,color:"#10b981",borderColor:"#10b98144",display:"flex",alignItems:"center",gap:5}}><Icon name="print" size={13}/>Imprimir</button>
                   <button onClick={() => generarPDF(alb, firmada, "descargar")} style={{...btnOutline,color:"#0ea5e9",borderColor:"#0ea5e944",display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>Solo descargar</button>
-                  <button onClick={firmarYEnviar} disabled={enviando} style={{background:enviando?"#1a2236":"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:enviando?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
-                    {enviando ? "Generando..." : <>{firmada ? "✅" : "📄"} {firmada ? "Firmar y enviar" : "Enviar sin firma"}</>}
+                  <button onClick={firmarYEnviar} disabled={enviando||enviado} style={{background:(enviando||enviado)?"#1a2236":"#f97316",color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontWeight:700,cursor:(enviando||enviado)?"default":"pointer",fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                    {enviando ? "Generando..." : enviado ? "✅ Enviado" : <>{firmada ? "✅" : "📄"} {firmada ? "Firmar y enviar" : "Enviar sin firma"}</>}
                   </button>
                 </div>
               </div>
