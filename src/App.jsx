@@ -6252,6 +6252,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [notasConformidad, setNotasConformidad] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [trabajoContinua, setTrabajoContinua] = useState(false); // aviso "trabajo no finalizado - se continuará" en el PDF
   const [modoProgr, setModoProgr] = useState(false); // muestra datepicker en modal
   const [fechaProgr, setFechaProgr] = useState("");
   const [horaProgr, setHoraProgr] = useState("08:00");
@@ -6548,7 +6549,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     const cl = p.clienteDirectoId ? data.clientes.find(c => c.id===p.clienteDirectoId) : rCliente(p.reparacionId);
     const emailPre = p.envioProgEmail || cl?.contactos?.find(c=>c.principal)?.email || cl?.contactos?.[0]?.email || "";
     setModalPDF(p); setModalPDFCadena(cadena && cadena.length>1 ? cadena : null);
-    setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
+    setEmailCliente(emailPre); setFirmada(false); setEnviado(false); setTrabajoContinua(false);
     setConforme(p.envioProgConforme ?? p.conforme ?? true);
     setNotasConformidad(p.envioProgNotas || p.notasConformidad || "");
     setForm(prev=>({...prev,firmaNombre:p.envioProgFirmaNombre || p.firmaNombre || ""}));
@@ -6603,6 +6604,9 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       if(esMultiple){
         doc.setFontSize(7.5); doc.setFont("helvetica","bold");
         doc.text("(CONTINUADO)",W-mg,15.5,{align:"right"});
+      } else if(parte.trabajoContinua){
+        doc.setFontSize(7); doc.setFont("helvetica","bold"); doc.setTextColor(239,68,68);
+        doc.text("TRABAJO NO FINALIZADO — SE CONTINUARÁ",W-mg,15.5,{align:"right"});
       }
       doc.setTextColor(200,210,230); doc.setFontSize(8.5); doc.setFont("helvetica","normal");
       doc.text("Nº: "+numeroMostrar,W-mg,21,{align:"right"});
@@ -6622,6 +6626,10 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
       let fy=yStart+13;
       filas.forEach(([l,v])=>{
         if(!v&&v!==0) return;
+        // Si la fila siguiente sobrepasaría el cuerpo de la página (pie empieza en 281),
+        // añadir página nueva y reiniciar el cursor — evita que filas como "Horas trabajadas"
+        // queden cortadas o fuera del área visible cuando la descripción es muy larga.
+        if(fy > 262){ doc.addPage(); dibujarHeader(); fy=42; }
         doc.setTextColor(100,115,145); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
         doc.text(l+":",mg+4,fy);
         doc.setTextColor(25,35,60); doc.setFontSize(9); doc.setFont("helvetica","bold");
@@ -6908,7 +6916,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
     setEnviando(true);
     try{
-      const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad};
+      const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad, trabajoContinua: !modalPDFCadena && trabajoContinua};
       const cadena = modalPDFCadena;
       const numeroMostrado = cadena ? cadenaBaseDe(cadena[0]) : (modalPDF.numeroParte||"");
       // soloDescarga=false: en iOS doc.save() navega la página con document.location=dataUrl,
@@ -7586,6 +7594,18 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                     />
                   </div>
                 </div>
+                {/* Aviso trabajo en curso — solo partes individuales (no cadena) */}
+                {!modalPDFCadena && (
+                  <div style={{marginBottom:16,background:trabajoContinua?"#ef444418":"#1a2236",border:`1px solid ${trabajoContinua?"#ef444466":"#2a3550"}`,borderRadius:9,padding:"10px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setTrabajoContinua(v=>!v)}>
+                    <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${trabajoContinua?"#ef4444":"#4a5568"}`,background:trabajoContinua?"#ef4444":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {trabajoContinua&&<span style={{color:"#fff",fontSize:13,lineHeight:1}}>✓</span>}
+                    </div>
+                    <div>
+                      <div style={{color:trabajoContinua?"#ef4444":"#e4e9f6",fontWeight:700,fontSize:13}}>Trabajo NO finalizado — se continuará</div>
+                      <div style={{color:"#94a3b8",fontSize:11,marginTop:2}}>El PDF incluirá un aviso destacado de que el trabajo continuará en próxima visita.</div>
+                    </div>
+                  </div>
+                )}
                 {/* Email — auto-relleno desde cliente */}
                 <div style={{marginBottom:20}}>
                   <Field label="Email del cliente (para envio)">
