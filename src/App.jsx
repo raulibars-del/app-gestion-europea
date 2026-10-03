@@ -11678,6 +11678,8 @@ const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[
 const setMaqStock=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");const [qrMaquina,setQrMaquina]=useState(null);
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
+const [pdfStockPreview,setPdfStockPreview]=useState(null);
+const cerrarPdfStock=()=>{if(pdfStockPreview)URL.revokeObjectURL(pdfStockPreview.url);setPdfStockPreview(null);};
 const [sortCol,setSortCol]=useState("codigo");const [sortDir,setSortDir]=useState(1);
 const toggleSort=col=>{if(sortCol===col){setSortDir(d=>-d);}else{setSortCol(col);setSortDir(1);}};
 const SortTh=({col,children,style={}})=>{const active=sortCol===col;return(<th onClick={()=>toggleSort(col)} style={{...thSt,...style,cursor:"pointer",userSelect:"none",background:active?"#111827":"#0d1117"}}><span style={{display:"flex",alignItems:"center",gap:4}}>{children}<span style={{color:active?"#f97316":"#4a5568",fontSize:10,lineHeight:1}}>{active?(sortDir===1?"▲":"▼"):"⇅"}</span></span></th>);};
@@ -11686,10 +11688,13 @@ const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const maquinas=maqStock();
 const filtradas=[...maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()))].sort((a,b)=>{const va=(a[sortCol]||"").toString().toLowerCase();const vb=(b[sortCol]||"").toString().toLowerCase();return va<vb?-sortDir:va>vb?sortDir:0;});
 const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
-const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",tipologia:"",notas:"",estadoStock:"Disponible"});setModal(true);};
-const openEdit=m=>{setForm({...m});setModal(true);};
+const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",tipologia:"",notas:"",estadoStock:"Disponible",codigos:[]});setModal(true);};
+const addCodigo=()=>setForm(p=>({...p,codigos:[...(p.codigos||[]),{id:Date.now(),codigo:"",descripcion:"",valor:""}]}));
+const updCodigo=(id,k,v)=>setForm(p=>({...p,codigos:(p.codigos||[]).map(c=>c.id===id?{...c,[k]:v}:c)}));
+const delCodigo=id=>setForm(p=>({...p,codigos:(p.codigos||[]).filter(c=>c.id!==id)}));
+const openEdit=m=>{setForm({...m,codigos:m.codigos||[]});setModal(true);};
 const save=()=>{
-  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,costeTransporte:parseNum(form.costeTransporte)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,costeTransporte:parseNum(form.costeTransporte)||0,fotos:form.fotos||[],pdfs:form.pdfs||[],codigos:(form.codigos||[]).map(c=>({...c,valor:parseFloat(c.valor)||0}))};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
@@ -11823,17 +11828,27 @@ if(hasCodigos){
     doc.setTextColor(200,100,20);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo||"",mg+3,yC+4);
     doc.setFont("helvetica","normal");doc.setTextColor(30,40,65);
     const ls=doc.splitTextToSize(c.descripcion||"",W-mg*2-65);doc.text(ls,mg+45,yC+4);
-    doc.setFont("helvetica","bold");doc.setTextColor(15,100,60);doc.text(Math.round(parseFloat(c.valor)||0).toLocaleString(),W-mg-3,yC+4,{align:"right"});
+    doc.setFont("helvetica","bold");doc.setTextColor(15,100,60);doc.text((parseFloat(c.valor)||0).toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}),W-mg-3,yC+4,{align:"right"});
     yC+=Math.max(ls.length*5,7);
   });yC+=4;
   if(yC+14>275){doc.addPage();addFooter();yC=20;}
   const tar=vT(m);
   doc.setFillColor(21,27,42);doc.roundedRect(mg,yC,W-mg*2,9,1,1,"F");
   doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TARIFA TOTAL",mg+4,yC+6);
-  doc.setTextColor(249,115,22);doc.setFontSize(12);doc.text("EUR "+tar.toLocaleString(),W-mg-4,yC+6.5,{align:"right"});
+  doc.setTextColor(249,115,22);doc.setFontSize(12);doc.text("EUR "+tar.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}),W-mg-4,yC+6.5,{align:"right"});
   addFooter();
 }
-doc.save((`${m.marca||""} ${m.modelo||""} ${m.codigo||""}`).trim().replace(/\s+/g,"-")+".pdf");};
+try{
+  const dataUri=doc.output("datauristring");
+  const byteStr=atob(dataUri.split(",")[1]);
+  const bytes=new Uint8Array(byteStr.length);
+  for(let i=0;i<byteStr.length;i++)bytes[i]=byteStr.charCodeAt(i);
+  const blob=new Blob([bytes],{type:"application/pdf"});
+  if(pdfStockPreview)URL.revokeObjectURL(pdfStockPreview.url);
+  const url=URL.createObjectURL(blob);
+  const nombre=(`${m.marca||""} ${m.modelo||""} ${m.codigo||""}`).trim();
+  setPdfStockPreview({url,nombre,blob});
+}catch(e){alert("No se pudo generar el PDF.");}};
 const imprimirQR=(m)=>{
 const urlMaquina = `${window.location.origin}/?maquina=${encodeURIComponent(m.codigo)}`;
 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${encodeURIComponent(urlMaquina)}`;
@@ -11875,11 +11890,11 @@ return(<div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº serie / Matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
 <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
-<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>EUR{tar.toLocaleString()}</div></div>
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{compra>0?"EUR"+compra.toLocaleString():"—"}</div></div>}
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Coste de transporte</div><div style={{color:"#f97316",fontWeight:800,fontSize:16}}>{transporte>0?"EUR"+transporte.toLocaleString():"—"}</div></div>}
-{puedeConf && <div style={{border:"1px solid #f9731633",borderRadius:12,padding:"14px 16px",background:"#f9731608"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:16}}>{compraTotal>0?"EUR"+compraTotal.toLocaleString():"—"}</div></div>}
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{ven>0?"EUR"+ven.toLocaleString():"—"}</div></div>}
+<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de tarifa</div><div style={{color:"#3b82f6",fontWeight:800,fontSize:16}}>{tar>0?"€"+tar.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}):"—"}</div></div>
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"€"+compra.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}):"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Coste de transporte</div><div style={{color:"#f97316",fontWeight:800,fontSize:16}}>{transporte>0?"€"+transporte.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}):"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #f9731633",borderRadius:12,padding:"14px 16px",background:"#f9731608"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:16}}>{compraTotal>0?"€"+compraTotal.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}):"—"}</div></div>}
+{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"€"+ven.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2}):"—"}</div></div>}
 </div>
 {(m.codigos||[]).length>0&&<>
 <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Códigos de configuración ({(m.codigos||[]).length})</div>
@@ -11891,11 +11906,11 @@ return(<div>
 <div key={c.id||i} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
 <div style={{color:"#3b82f6",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
 <div style={{color:"#e4e9f6",fontSize:13}}>{c.descripcion}</div>
-<div style={{color:"#3b82f6",fontWeight:700,fontSize:13,textAlign:"right"}}>EUR{(parseFloat(c.valor)||0).toLocaleString()}</div>
+<div style={{color:"#3b82f6",fontWeight:700,fontSize:13,textAlign:"right"}}>€{(parseFloat(c.valor)||0).toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</div>
 </div>))}
 <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550"}}>
 <div style={{color:"#3b82f6",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
-<div style={{color:"#3b82f6",fontWeight:900,fontSize:16,textAlign:"right"}}>EUR{tar.toLocaleString()}</div>
+<div style={{color:"#3b82f6",fontWeight:900,fontSize:16,textAlign:"right"}}>€{tar.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</div>
 </div>
 </div>
 </>}
@@ -11910,7 +11925,6 @@ return(<div>
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
 {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina del stock?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
 
-{/* Modal añadir/editar — simplificado, sin codigos de configuración */}
 {modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina en stock"} onClose={()=>setModal(false)} wide>
 <datalist id="tipos-maq-sug">{TIPOS_MAQ.map(t=><option key={t} value={t}/>)}</datalist>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11,marginBottom:12}}>
@@ -11924,6 +11938,22 @@ return(<div>
 {puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 </div>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+{/* Opcionales / códigos de configuración */}
+<div style={{marginTop:14,marginBottom:4}}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+  <span style={{color:"#e4e9f6",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>Opcionales / Códigos de configuración</span>
+  <button type="button" onClick={addCodigo} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:7,padding:"5px 11px",color:"#f97316",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Añadir opcional</button>
+</div>
+{(form.codigos||[]).length===0&&<div style={{color:"#4a5568",fontSize:12,marginBottom:8,fontStyle:"italic"}}>Sin opcionales. La máquina se valorará sin extras.</div>}
+{(form.codigos||[]).map((c,i)=>(
+<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 110px 32px",gap:7,marginBottom:6,alignItems:"end"}}>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Código</div><input value={c.codigo} onChange={e=>updCodigo(c.id,"codigo",e.target.value)} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Descripción</div><input value={c.descripcion} onChange={e=>updCodigo(c.id,"descripcion",e.target.value)} placeholder="Mesa de extensión XL…" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Precio (€)</div><input type="number" value={c.valor} onChange={e=>updCodigo(c.id,"valor",e.target.value)} placeholder="0" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <button type="button" onClick={()=>delCodigo(c.id)} title="Eliminar" style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:7,padding:"6px 8px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1,alignSelf:"end"}}>✕</button>
+</div>))}
+{(form.codigos||[]).length>0&&(()=>{const tot=(form.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<div style={{display:"flex",justifyContent:"flex-end",marginTop:4,paddingTop:6,borderTop:"1px solid #2a3550"}}><span style={{color:"#f97316",fontWeight:800,fontSize:14}}>Total tarifa: €{tot.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</span></div>);})()}
+</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
 {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
@@ -12019,8 +12049,45 @@ return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEn
 {puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 </div>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+<div style={{marginTop:14,marginBottom:4}}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+  <span style={{color:"#e4e9f6",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>Opcionales / Códigos de configuración</span>
+  <button type="button" onClick={addCodigo} style={{background:"#f9731620",border:"1px solid #f9731666",borderRadius:7,padding:"5px 11px",color:"#f97316",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Añadir opcional</button>
+</div>
+{(form.codigos||[]).length===0&&<div style={{color:"#4a5568",fontSize:12,marginBottom:8,fontStyle:"italic"}}>Sin opcionales. La máquina se valorará sin extras.</div>}
+{(form.codigos||[]).map((c)=>(
+<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 110px 32px",gap:7,marginBottom:6,alignItems:"end"}}>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Código</div><input value={c.codigo} onChange={e=>updCodigo(c.id,"codigo",e.target.value)} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Descripción</div><input value={c.descripcion} onChange={e=>updCodigo(c.id,"descripcion",e.target.value)} placeholder="Mesa de extensión XL…" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Precio (€)</div><input type="number" value={c.valor} onChange={e=>updCodigo(c.id,"valor",e.target.value)} placeholder="0" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <button type="button" onClick={()=>delCodigo(c.id)} title="Eliminar" style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:7,padding:"6px 8px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1,alignSelf:"end"}}>✕</button>
+</div>))}
+{(form.codigos||[]).length>0&&(()=>{const tot=(form.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<div style={{display:"flex",justifyContent:"flex-end",marginTop:4,paddingTop:6,borderTop:"1px solid #2a3550"}}><span style={{color:"#f97316",fontWeight:800,fontSize:14}}>Total tarifa: €{tot.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</span></div>);})()}
+</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
+{/* Preview PDF */}
+{pdfStockPreview&&(()=>{const esMobil=window.innerWidth<=820;return(
+<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.8)",zIndex:1200,display:"flex",flexDirection:"column"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+  <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,flex:"1 1 120px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pdfStockPreview.nombre} (vista previa)</span>
+  <div style={{display:"flex",gap:8,flexShrink:0}}>
+    {!esMobil&&<button onClick={()=>{const ifr=document.getElementById("pdfStockFrame");try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){}}} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="print" size={14}/>Imprimir</button>}
+    <a href={pdfStockPreview.url} download={pdfStockPreview.nombre.replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g,"")+".pdf"} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}><Icon name="parts" size={14}/>Descargar</a>
+    <button onClick={cerrarPdfStock} style={{background:"#2a3550",color:"#f1f3f9",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="close" size={14}/>Cerrar</button>
+  </div>
+</div>
+{esMobil?(
+  <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center",background:"#fff"}}>
+    <div style={{fontSize:40}}>📄</div>
+    <div style={{color:"#333",fontSize:14}}>Vista previa no disponible en móvil.</div>
+    <a href={pdfStockPreview.url} download={pdfStockPreview.nombre+".pdf"} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",textDecoration:"none"}}>Abrir / Descargar PDF</a>
+  </div>
+):(
+  <iframe id="pdfStockFrame" src={pdfStockPreview.url+"#view=FitH"} title="Vista previa PDF" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+)}
+</div>
+);})()}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
@@ -12048,18 +12115,24 @@ const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>{
 })}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
+const [pdfUsadaPreview,setPdfUsadaPreview]=useState(null);
+const cerrarPdfUsada=()=>{if(pdfUsadaPreview)URL.revokeObjectURL(pdfUsadaPreview.url);setPdfUsadaPreview(null);};
 const [sortCol,setSortCol]=useState("codigo");const [sortDir,setSortDir]=useState(1);
 const toggleSort=col=>{if(sortCol===col){setSortDir(d=>-d);}else{setSortCol(col);setSortDir(1);}};
 const SortTh=({col,children,style={}})=>{const active=sortCol===col;return(<th onClick={()=>toggleSort(col)} style={{...thSt,...style,cursor:"pointer",userSelect:"none",background:active?"#111827":"#0d1117"}}><span style={{display:"flex",alignItems:"center",gap:4}}>{children}<span style={{color:active?"#f59e0b":"#4a5568",fontSize:10,lineHeight:1}}>{active?(sortDir===1?"▲":"▼"):"⇅"}</span></span></th>);};
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const maquinas=maqUsada();
+const vTU=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const filtradas=[...maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()))].sort((a,b)=>{const va=(a[sortCol]||"").toString().toLowerCase();const vb=(b[sortCol]||"").toString().toLowerCase();return va<vb?-sortDir:va>vb?sortDir:0;});
 const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
 const ESTADOS_USADA=["Disponible","En reparación","Reservada","En pedido"];
-const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:"",tipologia:"",notas:"",estadoStock:"Disponible",procedencia:""});setModal(true);};
-const openEdit=m=>{setForm({...m});setModal(true);};
+const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:"",tipologia:"",notas:"",estadoStock:"Disponible",procedencia:"",codigos:[]});setModal(true);};
+const openEdit=m=>{setForm({...m,codigos:m.codigos||[]});setModal(true);};
+const addCodigoU=()=>setForm(p=>({...p,codigos:[...(p.codigos||[]),{id:Date.now(),codigo:"",descripcion:"",valor:""}]}));
+const updCodigoU=(id,k,v)=>setForm(p=>({...p,codigos:(p.codigos||[]).map(c=>c.id===id?{...c,[k]:v}:c)}));
+const delCodigoU=id=>setForm(p=>({...p,codigos:(p.codigos||[]).filter(c=>c.id!==id)}));
 const save=()=>{
-  const item={...form,esStockUsada:true,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,esStockUsada:true,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,fotos:form.fotos||[],pdfs:form.pdfs||[],codigos:(form.codigos||[]).map(c=>({...c,valor:parseFloat(c.valor)||0}))};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina(data);
@@ -12113,6 +12186,65 @@ const venderMaquina=()=>{
   });
   setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
 };
+const imprimirPDFUsada=async(m)=>{
+const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});const W=210;const mg=15;
+const addFooter=()=>{doc.setFillColor(245,158,11);doc.rect(0,282,W,1,"F");doc.setFillColor(15,23,42);doc.rect(0,283,W,14,"F");doc.setTextColor(150,162,180);doc.setFontSize(7);doc.text("Europea de Maquinaria PMM SL · CIF B98527583 · europeademaquinaria.com",W/2,291,{align:"center"});};
+doc.setFillColor(15,23,42);doc.rect(0,0,W,40,"F");doc.setFillColor(245,158,11);doc.rect(0,37,W,3,"F");
+try{doc.addImage(LOGO_CIRCULO,"JPEG",mg,8,22,22);}catch(e){}
+doc.setTextColor(241,243,249);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.text("EUROPEA DE MAQUINARIA PMM SL",mg+26,15);
+doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(180,190,210);doc.text("Carrer Mas del Jutge 33 · 46900 Torrent · CIF B98527583 · europeademaquinaria.com",mg+26,21.5);
+doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("FICHA MAQUINARIA USADA STOCK",W-mg,12,{align:"right"});
+doc.setTextColor(245,158,11);doc.setFontSize(14);doc.setFont("helvetica","bold");doc.text(m.codigo||"—",W-mg,22,{align:"right"});
+doc.setTextColor(241,243,249);doc.setFontSize(8.5);doc.setFont("helvetica","normal");doc.text(today(),W-mg,30,{align:"right"});
+let y=50;
+doc.setFillColor(21,27,42);doc.roundedRect(mg,y,W-mg*2,7,1,1,"F");
+doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("DATOS DE LA MÁQUINA",mg+4,y+5);y+=12;
+[["Tipología",m.tipologia],["Marca",m.marca],["Modelo",m.modelo],["Nº Serie / Matrícula",m.serie],["Año",m.anyo],["Estado",m.estadoStock],["Procedencia",m.procedencia]].forEach(([l,v])=>{
+  if(!v)return;
+  doc.setTextColor(130,145,170);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.text(l+":",mg+4,y);
+  doc.setTextColor(30,40,65);doc.setFont("helvetica","bold");doc.text(String(v||"—"),mg+55,y);y+=6;
+});y+=6;
+const fotosSorted=[...(m.fotos||[])].sort((a,b)=>(b.principal?1:0)-(a.principal?1:0));
+if(fotosSorted.length>0){
+  const fW=W-mg*2;const fH=Math.min(276-y,100);
+  doc.setFillColor(30,40,60);doc.roundedRect(mg-4,y-4,fW+8,fH+8,3,3,"F");
+  const fd=await cargarFotoParaPDF(fotosSorted[0].data);
+  if(fd)try{doc.addImage(fd,"JPEG",mg,y,fW,fH);}catch(e){}
+  y+=fH+10;
+}
+addFooter();
+if((m.codigos||[]).length>0){
+  doc.addPage();
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,20,W-mg*2,7,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(8);doc.setFont("helvetica","bold");doc.text("OPCIONALES Y CONFIGURACIÓN",mg+4,25);
+  let yC=34;
+  (m.codigos||[]).forEach((c,i)=>{
+    if(yC+10>275){doc.addPage();addFooter();yC=20;}
+    if(i>0){doc.setDrawColor(220,225,235);doc.line(mg,yC-0.5,W-mg,yC-0.5);}
+    doc.setTextColor(200,100,20);doc.setFontSize(8.5);doc.setFont("helvetica","bold");doc.text(c.codigo||"",mg+3,yC+4);
+    doc.setFont("helvetica","normal");doc.setTextColor(30,40,65);
+    const ls=doc.splitTextToSize(c.descripcion||"",W-mg*2-65);doc.text(ls,mg+45,yC+4);
+    doc.setFont("helvetica","bold");doc.setTextColor(15,100,60);doc.text(Math.round(parseFloat(c.valor)||0).toLocaleString("es-ES"),W-mg-3,yC+4,{align:"right"});
+    yC+=Math.max(ls.length*5,7);
+  });yC+=4;
+  if(yC+14>275){doc.addPage();addFooter();yC=20;}
+  const tar=vTU(m);
+  doc.setFillColor(21,27,42);doc.roundedRect(mg,yC,W-mg*2,9,1,1,"F");
+  doc.setTextColor(241,243,249);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.text("VALOR TARIFA TOTAL",mg+4,yC+6);
+  doc.setTextColor(245,158,11);doc.setFontSize(12);doc.text("EUR "+tar.toLocaleString("es-ES"),W-mg-4,yC+6.5,{align:"right"});
+  addFooter();
+}
+try{
+  const dataUri=doc.output("datauristring");
+  const byteStr=atob(dataUri.split(",")[1]);
+  const bytes=new Uint8Array(byteStr.length);
+  for(let i=0;i<byteStr.length;i++)bytes[i]=byteStr.charCodeAt(i);
+  const blob=new Blob([bytes],{type:"application/pdf"});
+  if(pdfUsadaPreview)URL.revokeObjectURL(pdfUsadaPreview.url);
+  const url=URL.createObjectURL(blob);
+  const nombre=(`${m.marca||""} ${m.modelo||""} ${m.codigo||""}`).trim();
+  setPdfUsadaPreview({url,nombre,blob});
+}catch(e){alert("No se pudo generar el PDF.");}};
 // ── Vista detalle ──
 if(vista){
   const m=maquinas.find(x=>x.id===vista);
@@ -12129,6 +12261,7 @@ if(vista){
     </div>
     <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>Stock maquinaria usada · pendiente de venta</div>
   </div>
+  <button onClick={()=>imprimirPDFUsada(m)} style={{background:"#f59e0b20",border:"1px solid #f59e0b44",borderRadius:8,padding:"7px 13px",color:"#f59e0b",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="parts" size={13}/>PDF</button>
   <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
   {puedeVender&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Confirmar venta</button>}
   {puedeEliminar&&<button onClick={()=>eliminarMaquina(m.id)} style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
@@ -12143,6 +12276,24 @@ if(vista){
   {puedeConf&&<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</div></div>}
   {puedeConf&&<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"€"+ven.toLocaleString("es-ES"):"—"}</div></div>}
   </div>
+  {(m.codigos||[]).length>0&&<>
+  <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:8}}>Opcionales / Configuración ({(m.codigos||[]).length})</div>
+  <div style={{border:"1px solid #2a3550",borderRadius:12,overflow:"hidden",marginBottom:12}}>
+  <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"9px 16px",gap:12,borderBottom:"1px solid #2a3550"}}>
+  {["Código","Descripción","Valor EUR"].map(h=><div key={h} style={{color:"#f59e0b",fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
+  </div>
+  {(m.codigos||[]).map((c,i)=>(
+  <div key={c.id||i} style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"10px 16px",gap:12,borderTop:"1px solid #1a2236"}}>
+  <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,fontFamily:"monospace"}}>{c.codigo}</div>
+  <div style={{color:"#e4e9f6",fontSize:13}}>{c.descripcion}</div>
+  <div style={{color:"#f59e0b",fontWeight:700,fontSize:13,textAlign:"right"}}>€{(parseFloat(c.valor)||0).toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</div>
+  </div>))}
+  <div style={{display:"grid",gridTemplateColumns:"140px 1fr 110px",padding:"11px 16px",gap:12,borderTop:"2px solid #2a3550"}}>
+  <div style={{color:"#f59e0b",fontSize:11,fontWeight:700,gridColumn:"1/3",textTransform:"uppercase"}}>VALOR TARIFA TOTAL</div>
+  <div style={{color:"#f59e0b",fontWeight:900,fontSize:16,textAlign:"right"}}>€{vTU(m).toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</div>
+  </div>
+  </div>
+  </>}
   {(m.fotos||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
   <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
   <FotosCarousel fotos={m.fotos}/>
@@ -12166,6 +12317,21 @@ if(vista){
   {puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
   </div>
   <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+  <div style={{marginTop:14,marginBottom:4}}>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+    <span style={{color:"#e4e9f6",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>Opcionales / Códigos de configuración</span>
+    <button type="button" onClick={addCodigoU} style={{background:"#f59e0b20",border:"1px solid #f59e0b66",borderRadius:7,padding:"5px 11px",color:"#f59e0b",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Añadir opcional</button>
+  </div>
+  {(form.codigos||[]).length===0&&<div style={{color:"#4a5568",fontSize:12,marginBottom:8,fontStyle:"italic"}}>Sin opcionales.</div>}
+  {(form.codigos||[]).map((c)=>(
+  <div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 110px 32px",gap:7,marginBottom:6,alignItems:"end"}}>
+    <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Código</div><input value={c.codigo} onChange={e=>updCodigoU(c.id,"codigo",e.target.value)} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12,width:"100%",boxSizing:"border-box"}}/></div>
+    <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Descripción</div><input value={c.descripcion} onChange={e=>updCodigoU(c.id,"descripcion",e.target.value)} placeholder="Mesa de extensión XL…" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+    <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Precio (€)</div><input type="number" value={c.valor} onChange={e=>updCodigoU(c.id,"valor",e.target.value)} placeholder="0" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+    <button type="button" onClick={()=>delCodigoU(c.id)} title="Eliminar" style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:7,padding:"6px 8px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1,alignSelf:"end"}}>✕</button>
+  </div>))}
+  {(form.codigos||[]).length>0&&(()=>{const tot=(form.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<div style={{display:"flex",justifyContent:"flex-end",marginTop:4,paddingTop:6,borderTop:"1px solid #2a3550"}}><span style={{color:"#f59e0b",fontWeight:800,fontSize:14}}>Total tarifa: €{tot.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</span></div>);})()}
+  </div>
   <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f59e0b"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
   </Modal>}
   {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
@@ -12261,8 +12427,44 @@ return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEn
 {puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 </div>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+<div style={{marginTop:14,marginBottom:4}}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+  <span style={{color:"#e4e9f6",fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px"}}>Opcionales / Códigos de configuración</span>
+  <button type="button" onClick={addCodigoU} style={{background:"#f59e0b20",border:"1px solid #f59e0b66",borderRadius:7,padding:"5px 11px",color:"#f59e0b",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Añadir opcional</button>
+</div>
+{(form.codigos||[]).length===0&&<div style={{color:"#4a5568",fontSize:12,marginBottom:8,fontStyle:"italic"}}>Sin opcionales.</div>}
+{(form.codigos||[]).map((c)=>(
+<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 110px 32px",gap:7,marginBottom:6,alignItems:"end"}}>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Código</div><input value={c.codigo} onChange={e=>updCodigoU(c.id,"codigo",e.target.value)} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Descripción</div><input value={c.descripcion} onChange={e=>updCodigoU(c.id,"descripcion",e.target.value)} placeholder="Mesa de extensión XL…" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <div><div style={{color:"#94a3b8",fontSize:10,marginBottom:3}}>Precio (€)</div><input type="number" value={c.valor} onChange={e=>updCodigoU(c.id,"valor",e.target.value)} placeholder="0" style={{...inputStyle,width:"100%",boxSizing:"border-box"}}/></div>
+  <button type="button" onClick={()=>delCodigoU(c.id)} title="Eliminar" style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:7,padding:"6px 8px",color:"#dc2626",cursor:"pointer",fontSize:14,lineHeight:1,alignSelf:"end"}}>✕</button>
+</div>))}
+{(form.codigos||[]).length>0&&(()=>{const tot=(form.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);return(<div style={{display:"flex",justifyContent:"flex-end",marginTop:4,paddingTop:6,borderTop:"1px solid #2a3550"}}><span style={{color:"#f59e0b",fontWeight:800,fontSize:14}}>Total tarifa: €{tot.toLocaleString("es-ES",{minimumFractionDigits:0,maximumFractionDigits:2})}</span></div>);})()}
+</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f59e0b"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
+{/* Preview PDF usada */}
+{pdfUsadaPreview&&(()=>{const esMobil=window.innerWidth<=820;return(
+<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.8)",zIndex:1200,display:"flex",flexDirection:"column"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",background:"#151b2a",borderBottom:"1px solid #2a3550",flexShrink:0,gap:8,flexWrap:"wrap"}}>
+  <span style={{color:"#f1f3f9",fontWeight:700,fontSize:14,flex:"1 1 120px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pdfUsadaPreview.nombre} (vista previa)</span>
+  <div style={{display:"flex",gap:8,flexShrink:0}}>
+    {!esMobil&&<button onClick={()=>{const ifr=document.getElementById("pdfUsadaFrame");try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){}}} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="print" size={14}/>Imprimir</button>}
+    <a href={pdfUsadaPreview.url} download={pdfUsadaPreview.nombre.replace(/[^\w\sñÑáéíóúÁÉÍÓÚ-]/g,"")+".pdf"} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6,textDecoration:"none"}}><Icon name="parts" size={14}/>Descargar</a>
+    <button onClick={cerrarPdfUsada} style={{background:"#2a3550",color:"#f1f3f9",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><Icon name="close" size={14}/>Cerrar</button>
+  </div>
+</div>
+{esMobil?(
+  <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center",background:"#fff"}}>
+    <div style={{fontSize:40}}>📄</div>
+    <a href={pdfUsadaPreview.url} download={pdfUsadaPreview.nombre+".pdf"} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:8,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",textDecoration:"none"}}>Abrir / Descargar PDF</a>
+  </div>
+):(
+  <iframe id="pdfUsadaFrame" src={pdfUsadaPreview.url+"#view=FitH"} title="Vista previa PDF" style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+)}
+</div>
+);})()}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
