@@ -11678,10 +11678,13 @@ const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[
 const setMaqStock=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");const [qrMaquina,setQrMaquina]=useState(null);
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
+const [sortCol,setSortCol]=useState("codigo");const [sortDir,setSortDir]=useState(1);
+const toggleSort=col=>{if(sortCol===col){setSortDir(d=>-d);}else{setSortCol(col);setSortDir(1);}};
+const SortTh=({col,children,style={}})=>{const active=sortCol===col;return(<th onClick={()=>toggleSort(col)} style={{...thSt,...style,cursor:"pointer",userSelect:"none",background:active?"#111827":"#0d1117"}}><span style={{display:"flex",alignItems:"center",gap:4}}>{children}<span style={{color:active?"#f97316":"#4a5568",fontSize:10,lineHeight:1}}>{active?(sortDir===1?"▲":"▼"):"⇅"}</span></span></th>);};
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const maquinas=maqStock();
-const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.toLowerCase().includes(busq.toLowerCase()));
+const filtradas=[...maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()))].sort((a,b)=>{const va=(a[sortCol]||"").toString().toLowerCase();const vb=(b[sortCol]||"").toString().toLowerCase();return va<vb?-sortDir:va>vb?sortDir:0;});
 const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",tipologia:"",notas:"",estadoStock:"Disponible"});setModal(true);};
 const openEdit=m=>{setForm({...m});setModal(true);};
@@ -11962,12 +11965,12 @@ return(<div>
 <col style={{width:120}}/>
 </colgroup>
 <thead><tr>
-<th style={thSt}>Código</th>
-<th style={thSt}>Tipología</th>
-<th style={thSt}>Marca</th>
-<th style={thSt}>Modelo</th>
-<th style={thSt}>Nº Serie</th>
-<th style={thSt}>Año</th>
+<SortTh col="codigo">Código</SortTh>
+<SortTh col="tipologia">Tipología</SortTh>
+<SortTh col="marca">Marca</SortTh>
+<SortTh col="modelo">Modelo</SortTh>
+<SortTh col="serie">Nº Serie</SortTh>
+<SortTh col="anyo">Año</SortTh>
 <th style={thSt}>Estado</th>
 {puedeConf&&<th style={{...thSt,color:"#ef4444"}}>Compra</th>}
 {puedeConf&&<th style={{...thSt,color:"#10b981"}}>Venta obj.</th>}
@@ -12045,9 +12048,12 @@ const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>{
 })}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
+const [sortCol,setSortCol]=useState("codigo");const [sortDir,setSortDir]=useState(1);
+const toggleSort=col=>{if(sortCol===col){setSortDir(d=>-d);}else{setSortCol(col);setSortDir(1);}};
+const SortTh=({col,children,style={}})=>{const active=sortCol===col;return(<th onClick={()=>toggleSort(col)} style={{...thSt,...style,cursor:"pointer",userSelect:"none",background:active?"#111827":"#0d1117"}}><span style={{display:"flex",alignItems:"center",gap:4}}>{children}<span style={{color:active?"#f59e0b":"#4a5568",fontSize:10,lineHeight:1}}>{active?(sortDir===1?"▲":"▼"):"⇅"}</span></span></th>);};
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const maquinas=maqUsada();
-const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()));
+const filtradas=[...maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()))].sort((a,b)=>{const va=(a[sortCol]||"").toString().toLowerCase();const vb=(b[sortCol]||"").toString().toLowerCase();return va<vb?-sortDir:va>vb?sortDir:0;});
 const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
 const ESTADOS_USADA=["Disponible","En reparación","Reservada","En pedido"];
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:"",tipologia:"",notas:"",estadoStock:"Disponible",procedencia:""});setModal(true);};
@@ -12199,14 +12205,14 @@ return(<div>
 <col style={{width:120}}/>
 </colgroup>
 <thead><tr>
-<th style={thSt}>Código</th>
-<th style={thSt}>Tipología</th>
-<th style={thSt}>Marca</th>
-<th style={thSt}>Modelo</th>
-<th style={thSt}>Nº Serie</th>
-<th style={thSt}>Año</th>
+<SortTh col="codigo">Código</SortTh>
+<SortTh col="tipologia">Tipología</SortTh>
+<SortTh col="marca">Marca</SortTh>
+<SortTh col="modelo">Modelo</SortTh>
+<SortTh col="serie">Nº Serie</SortTh>
+<SortTh col="anyo">Año</SortTh>
 <th style={thSt}>Estado</th>
-<th style={thSt}>Procedencia</th>
+<SortTh col="procedencia">Procedencia</SortTh>
 {puedeConf&&<th style={{...thSt,color:"#ef4444"}}>Compra</th>}
 {puedeConf&&<th style={{...thSt,color:"#10b981"}}>Venta obj.</th>}
 <th style={{...thSt,textAlign:"right"}}>Acciones</th>
