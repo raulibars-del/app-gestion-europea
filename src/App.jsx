@@ -151,6 +151,8 @@ function aplicarSeccion(d, s, sd) {
 
 // ID del cliente interno "Europea de Maquinaria – Maquinaria Nueva" (stock de máquinas nuevas)
 const CLIENTE_STOCK_ID = -1;
+// ID del cliente interno "Europea de Maquinaria – Maquinaria Usada" (stock de máquinas de segunda mano)
+const CLIENTE_STOCK_USADA_ID = -2;
 // Usuarios con acceso a información económica confidencial (precio de compra y precio de venta objetivo).
 // Se compara normalizado (sin tildes, minúsculas) para mayor tolerancia.
 const _USUARIOS_PRECIO_CONF = ["raul ibars","cristina tarin","geles tarin","manuel tarin"];
@@ -204,6 +206,20 @@ const migrateStockToCliente = (d) => {
       contactos: [],
       maquinas: [],
       notas: "Cliente interno — stock de maquinaria nueva pendiente de venta."
+    }, ...clientes];
+  }
+  if (!clientes.find(c=>c.id===CLIENTE_STOCK_USADA_ID)) {
+    clientes = [{
+      id: CLIENTE_STOCK_USADA_ID,
+      nombreEmpresa: "Europea de Maquinaria – Maquinaria Usada",
+      nombreFiscal: "Europea de Maquinaria – Maquinaria Usada",
+      cif: "B98527583",
+      localidad: "Torrent (Valencia)",
+      esPropia: true,
+      esStockUsadaInterno: true,
+      contactos: [],
+      maquinas: [],
+      notas: "Cliente interno — stock de maquinaria usada pendiente de venta."
     }, ...clientes];
   }
   // Migrar data.stock[] si todavía existe
@@ -632,10 +648,10 @@ const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRa
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
-  admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
-  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","inventario","documentacion","calendario","chat","fichaje","passwords"],
-  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","inventario","documentacion","calendario","chat","fichaje","tareas"],
+  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
+  admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
+  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords"],
+  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","tareas"],
   carrusel: [], // accede solo al modo carrusel, sin módulos del app normal
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
@@ -700,6 +716,7 @@ const initialData = {
     { id:9,nombre:"Carrusel",password:"123456789",rol:"carrusel",avatar:"TV",activo:true },
   ],clientes: [
     { id:CLIENTE_STOCK_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Nueva",nombreFiscal:"Europea de Maquinaria – Maquinaria Nueva",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria nueva pendiente de venta." },
+    { id:CLIENTE_STOCK_USADA_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Usada",nombreFiscal:"Europea de Maquinaria – Maquinaria Usada",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockUsadaInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria usada pendiente de venta." },
     { id:0,nombreEmpresa:"Europea de Maquinaria PMM SL",nombreFiscal:"Europea de Maquinaria PMM SL",cif:"B98527583",localidad:"Torrent (Valencia)",esCliente:false,esPropia:true,dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",provinciaFiscal:"Valencia",contactos:[],maquinas:[],notas:"Cuenta interna — máquinas propias, trabajos internos y albaranes propios." },
     { id:1,nombreEmpresa:"Carpintería Martínez S.L.",nombreFiscal:"Carpintería Martínez Sociedad Limitada",localidad:"Valencia",esCliente:true,contactos:[{id:1,nombre:"Luis Martínez",puesto:"Gerente",tel:"600 123 456",email:"luis@carpinteria.es",principal:true},{id:2,nombre:"Marta Martínez",puesto:"Administración",tel:"600 123 457",email:"marta@carpinteria.es",principal:false}],maquinas:[{id:1,nombre:"Escuadradora Casadei SC2",marca:"Casadei",modelo:"SC2",serie:"SC2-2019-441",anyo:"2019",notas:"Mantenimiento anual en mayo",foto:null},{id:2,nombre:"Tupi Vitap Alpha 21",marca:"Vitap",modelo:"Alpha 21",serie:"VA21-2020-112",anyo:"2020",notas:"",foto:null}],notas:"Cliente desde 2018." },
     { id:2,nombreEmpresa:"Muebles García S.L.",nombreFiscal:"Muebles García Sociedad Limitada",localidad:"Alicante",esCliente:true,contactos:[{id:1,nombre:"Ana García",puesto:"Directora",tel:"610 234 567",email:"ana@muebles-garcia.es",principal:true}],maquinas:[{id:1,nombre:"CNC Masterwood Project 350",marca:"Masterwood",modelo:"Project 350",serie:"MW350-2021-88",anyo:"2021",notas:"",foto:null},{id:2,nombre:"CNC Busellato Jet Start",marca:"Busellato",modelo:"Jet Start",serie:"BJS-2026-001",anyo:"2026",notas:"Recién instalado",foto:null}],notas:"Pago a 30 días." },
@@ -1481,11 +1498,13 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     const passCCAA = !filtroCCAA||PROVINCIAS_ES.find(p=>p.name===(c.provinciaFiscal||""))?.ccaa===filtroCCAA;
     return passSearch && passProv && passCCAA;
   }).slice().sort((a,b)=>{
-  // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo; resto alfabético.
+  // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo, Usada (id -2) tercero; resto alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
   if(a.id===CLIENTE_STOCK_ID) return -1;
   if(b.id===CLIENTE_STOCK_ID) return 1;
+  if(a.id===CLIENTE_STOCK_USADA_ID) return -1;
+  if(b.id===CLIENTE_STOCK_USADA_ID) return 1;
   return (a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'});
 });
   const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
@@ -1504,7 +1523,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     }catch(e){ /* el usuario cerró el panel de compartir */ }
   };
   // Clientes exportables: excluir cuentas internas (PMM SL y Stock)
-  const clientesExportables = data.clientes.filter(c=>c.id!==0&&c.id!==CLIENTE_STOCK_ID);
+  const clientesExportables = data.clientes.filter(c=>c.id!==0&&c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID);
   const provinciasUnicas = [...new Set(clientesExportables.map(c=>c.provinciaFiscal||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
   const localidadesUnicas = [...new Set(clientesExportables.map(c=>c.localidad||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
 
@@ -11921,7 +11940,7 @@ return(<div>
 </Modal>}
 {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
 <Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
-<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
 {ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}</div>}
 <div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>🆕 La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.</div>
@@ -12011,10 +12030,235 @@ return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEn
 </Modal>}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
-<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
 {ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}</div>}
 <div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>🆕 La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
+</Modal>);})()}
+</div>);
+};
+
+// ── STOCK MAQUINARIA USADA ───────────────────────────────────
+const StockUsada=({data,setData,userActual})=>{
+const puedeEliminar=userActual?.rol==="manager"||userActual?.rol==="admin";
+const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
+const puedeConf=puedeVerPrecioConf(userActual);
+const maqUsada=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_USADA_ID)?.maquinas)||[];
+const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_USADA_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
+const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");
+const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
+const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
+const maquinas=maqUsada();
+const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie} ${m.tipologia||""}`.toLowerCase().includes(busq.toLowerCase()));
+const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
+const ESTADOS_USADA=["Disponible","En reparación","Reservada","En pedido"];
+const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:"",tipologia:"",notas:"",estadoStock:"Disponible",procedencia:""});setModal(true);};
+const openEdit=m=>{setForm({...m});setModal(true);};
+const save=()=>{
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  if(!item.id){
+    const newId=Date.now();
+    const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_USADA_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
+    setMaqUsada(ms=>[...ms,{...item,id:newId,codigo}]);
+  } else {
+    setMaqUsada(ms=>ms.map(m=>m.id===item.id?item:m));
+  }
+  setModal(false);if(vista)setVista(item.id||vista);
+};
+const eliminarMaquina=(id)=>{
+  const m=maquinas.find(x=>x.id===id);
+  if(!window.confirm(`¿Seguro que quieres eliminar la máquina "${m?.marca||""} ${m?.modelo||""} (${m?.codigo||""})? Esta acción no se puede deshacer.`)) return;
+  setMaqUsada(ms=>ms.filter(x=>x.id!==id));
+  setVista(null);
+};
+const venderMaquina=()=>{
+  const m=maquinas.find(x=>x.id===modalVender);
+  if(!m) return;
+  if(!ventaClienteId){alert("Selecciona un cliente.");return;}
+  if(!ventaFechaInstalacion){alert("Indica la fecha de montaje/instalación.");return;}
+  const clienteId=parseInt(ventaClienteId);
+  const maqId=Date.now();
+  const maqFinal={
+    id:maqId,
+    nombre:`${m.marca} ${m.modelo}`,
+    marca:m.marca,modelo:m.modelo,serie:m.serie,anyo:m.anyo,
+    notas:m.notas||"",
+    foto:(()=>{const fp=(m.fotos||[]).find(x=>x.principal)||(m.fotos&&m.fotos[0]);return fp?fp.data:null;})(),
+    fotos:m.fotos||[],pdfs:m.pdfs||[],codigos:[],
+    precioCompra:m.precioCompra||0,precioVentaObj:m.precioVentaObj||0,
+    codigo:m.codigo||nextCodigoMaquina(data),
+    origenStockUsada:true,fechaVenta:today(),
+    fechaInstalacion:ventaFechaInstalacion||null,
+  };
+  setData(d=>{
+    const nuevosClientes=d.clientes.map(c=>{
+      if(c.id===clienteId) return {...c,maquinas:[...(c.maquinas||[]),maqFinal]};
+      if(c.id===CLIENTE_STOCK_USADA_ID) return {...c,maquinas:(c.maquinas||[]).filter(x=>x.id!==m.id)};
+      return c;
+    });
+    const nuevaDoc=[...(d.documentacion||[]),(m.pdfs||[]).length>0?{
+      id:Date.now()+1,clienteId,_maquinaClienteId:maqId,
+      marca:maqFinal.marca,modelo:maqFinal.modelo,matricula:maqFinal.serie,anyo:maqFinal.anyo,
+      descripcion:maqFinal.nombre,
+      archivos:(m.pdfs||[]).map((p,i)=>({id:Date.now()+i+2,nombre:p.nombre,tipo:"Ficha técnica",tamanyo:0,data:p.data})),
+      notas:maqFinal.notas,fechaAlta:today(),_sincronizada:true,
+    }:null].filter(Boolean);
+    return {...d,clientes:nuevosClientes,documentacion:nuevaDoc};
+  });
+  setModalVender(null);setVentaClienteId("");setVentaFechaInstalacion("");setVista(null);
+};
+// ── Vista detalle ──
+if(vista){
+  const m=maquinas.find(x=>x.id===vista);
+  if(!m){setVista(null);return null;}
+  const compra=parseNum(m.precioCompra)||0;const ven=parseNum(m.precioVentaObj)||0;
+  const badgeColor=m.estadoStock==="Disponible"?"#10b981":m.estadoStock==="En reparación"?"#ef4444":m.estadoStock==="Reservada"?"#8b5cf6":"#f59e0b";
+  return(<div>
+  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+  <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
+  <div style={{flex:1}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+    <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:19,margin:0}}>{m.marca} {m.modelo}</h2>
+    {m.codigo&&<span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,fontFamily:"monospace"}}>{m.codigo}</span>}
+    </div>
+    <div style={{color:"#e4e9f6",fontSize:12,marginTop:2}}>Stock maquinaria usada · pendiente de venta</div>
+  </div>
+  <button onClick={()=>openEdit(m)} style={{...btnOutline,display:"flex",alignItems:"center",gap:5,padding:"7px 13px",fontSize:13}}><Icon name="edit" size={13}/>Editar</button>
+  {puedeVender&&<button onClick={()=>{setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} style={{background:"#10b98120",border:"1px solid #10b98144",borderRadius:8,padding:"7px 13px",color:"#10b981",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="check" size={13}/>Confirmar venta</button>}
+  {puedeEliminar&&<button onClick={()=>eliminarMaquina(m.id)} style={{background:"#dc262620",border:"1px solid #dc262644",borderRadius:8,padding:"7px 13px",color:"#dc2626",fontWeight:700,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Icon name="trash" size={13}/>Eliminar</button>}
+  </div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(200px,100%),1fr))",gap:10,marginBottom:16}}>
+  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Tipología</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.tipologia||"—"}</div></div>
+  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Marca / Modelo</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.marca||"—"} {m.modelo||""}</div></div>
+  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Nº Serie / Matrícula</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.serie||"—"}</div></div>
+  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Año</div><div style={{color:"#f1f3f9",fontWeight:800,fontSize:16}}>{m.anyo||"—"}</div></div>
+  <div style={{background:"#151b2a",border:"1px solid "+badgeColor+"44",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Estado</div><div style={{color:badgeColor,fontWeight:800,fontSize:15}}>{m.estadoStock||"Disponible"}</div></div>
+  {m.procedencia&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Procedencia</div><div style={{color:"#f1f3f9",fontSize:14}}>{m.procedencia}</div></div>}
+  {puedeConf&&<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio de compra</div><div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</div></div>}
+  {puedeConf&&<div style={{border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px"}}><div style={{color:"#e4e9f6",fontSize:11,textTransform:"uppercase",marginBottom:4}}>Precio venta objetivo</div><div style={{color:"#10b981",fontWeight:800,fontSize:16}}>{ven>0?"€"+ven.toLocaleString("es-ES"):"—"}</div></div>}
+  </div>
+  {(m.fotos||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+  <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:10}}>Fotos</div>
+  <FotosCarousel fotos={m.fotos}/>
+  </div>}
+  {(m.pdfs||[]).length>0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}>
+  <div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:10}}>Documentos</div>
+  {m.pdfs.map((pdf,i)=><a key={i} href={pdf.data} download={pdf.nombre} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #1a2236",textDecoration:"none"}}><span style={{color:"#ef4444"}}>PDF</span><span style={{color:"#3b82f6",fontSize:13}}>{pdf.nombre}</span><span style={{color:"#e4e9f6",fontSize:11,marginLeft:"auto"}}>Descargar</span></a>)}
+  </div>}
+  {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
+  {modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina usada"} onClose={()=>setModal(false)} wide>
+  <datalist id="tipos-maq-usada-sug">{TIPOS_MAQ.map(t=><option key={t} value={t}/>)}</datalist>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11,marginBottom:12}}>
+  <Field label="Tipología"><input value={form.tipologia||""} onChange={f("tipologia")} list="tipos-maq-usada-sug" placeholder="Escuadradora, CNC…" style={inputStyle}/></Field>
+  <Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
+  <Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
+  <Field label="Nº serie / Matrícula"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+  <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+  <Field label="Estado"><select value={form.estadoStock||"Disponible"} onChange={f("estadoStock")} style={inputStyle}>{ESTADOS_USADA.map(e=><option key={e}>{e}</option>)}</select></Field>
+  <Field label="Procedencia (cliente/origen)"><Input value={form.procedencia||""} onChange={f("procedencia")} placeholder="Ej: Carpintería Martínez"/></Field>
+  {puedeConf&&<Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+  {puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
+  </div>
+  <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+  <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f59e0b"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
+  </Modal>}
+  {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
+  <Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
+  <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+  <Field label="Fecha de instalación * (inicio de garantía si aplica)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+  {ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Fecha de instalación: {fmtFecha(ventaFechaInstalacion)}</div>}
+  <div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>♻️ La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock Usada.</div>
+  <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
+  </Modal>);})()}
+  </div>);
+}
+// ── Vista lista (tabla) ──
+const disponibles=maquinas.length;
+const valorVentaTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioVentaObj)||0),0);
+const valorCompraTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioCompra)||0),0);
+const thSt={background:"#0d1117",color:"#94a3b8",fontSize:11,fontWeight:700,textTransform:"uppercase",padding:"9px 12px",textAlign:"left",whiteSpace:"nowrap",borderBottom:"2px solid #2a3550",position:"sticky",top:0,zIndex:1};
+const tdSt={padding:"9px 12px",borderBottom:"1px solid #1a2236",verticalAlign:"middle",fontSize:13,color:"#e1e6f2",whiteSpace:"nowrap"};
+return(<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
+<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria Usada</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Segunda mano · Máquinas de clientes · Máquinas reacondicionadas</p></div>
+<button onClick={openNew} style={{background:"linear-gradient(135deg,#f59e0b,#f97316)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Añadir máquina</button>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:16}}>
+{[["Total en stock",disponibles,"#f59e0b"],...(puedeConf?[["P. Compra total","€"+valorCompraTotal.toLocaleString("es-ES"),"#ef4444"],["P. Venta obj. total","€"+valorVentaTotal.toLocaleString("es-ES"),"#10b981"]]:[])].map(([l,v,c])=><div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}><div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div><div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div></div>)}
+</div>
+<div style={{position:"relative",marginBottom:12,maxWidth:300}}>
+<span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#94a3b8"}}><Icon name="search" size={13}/></span>
+<input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Tipología, marca, modelo, serie…" style={{...inputStyle,paddingLeft:30,fontSize:12,width:"100%"}}/>
+</div>
+<div style={{overflowX:"auto",borderRadius:12,border:"1px solid #2a3550"}}>
+<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a"}}>
+<thead><tr>
+<th style={thSt}>Código</th>
+<th style={thSt}>Tipología</th>
+<th style={thSt}>Marca</th>
+<th style={thSt}>Modelo</th>
+<th style={thSt}>Nº Serie</th>
+<th style={thSt}>Año</th>
+<th style={thSt}>Estado</th>
+<th style={thSt}>Procedencia</th>
+{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>P. Compra</th>}
+{puedeConf&&<th style={{...thSt,color:"#10b981"}}>P. Venta obj.</th>}
+<th style={thSt}>Notas</th>
+<th style={{...thSt,textAlign:"right"}}>Acciones</th>
+</tr></thead>
+<tbody>
+{filtradas.length===0&&<tr><td colSpan={puedeConf?12:10} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas usadas en stock</td></tr>}
+{filtradas.map((m,i)=>{
+const compra=parseNum(m.precioCompra)||0;const venta=parseNum(m.precioVentaObj)||0;
+const badgeColor=m.estadoStock==="Disponible"?"#10b981":m.estadoStock==="En reparación"?"#ef4444":m.estadoStock==="Reservada"?"#8b5cf6":"#f59e0b";
+return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEnter={e=>e.currentTarget.style.background="#1a2340"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#151b2a":"#111827"}>
+<td style={tdSt}><span style={{fontFamily:"monospace",color:"#f59e0b",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
+<td style={tdSt}><span style={{color:"#e4e9f6"}}>{m.tipologia||"—"}</span></td>
+<td style={{...tdSt,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
+<td style={tdSt}>{m.modelo||"—"}</td>
+<td style={{...tdSt,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
+<td style={tdSt}>{m.anyo||"—"}</td>
+<td style={tdSt}><span style={{background:badgeColor+"20",color:badgeColor,border:`1px solid ${badgeColor}44`,borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:700}}>{m.estadoStock||"Disponible"}</span></td>
+<td style={{...tdSt,color:"#94a3b8",fontSize:12}}>{m.procedencia||"—"}</td>
+{puedeConf&&<td style={{...tdSt,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
+{puedeConf&&<td style={{...tdSt,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
+<td style={{...tdSt,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",color:"#94a3b8",fontSize:12}}>{m.notas||""}</td>
+<td style={{...tdSt,textAlign:"right"}}>
+<div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
+<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 9px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700}}>↗</button>
+<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 9px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}><Icon name="edit" size={12}/></button>
+{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 9px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700}}>€</button>}
+{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 9px",color:"#dc2626",cursor:"pointer",fontSize:12}}><Icon name="trash" size={12}/></button>}
+</div>
+</td>
+</tr>);
+})}
+</tbody>
+</table>
+</div>
+{modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina usada"} onClose={()=>setModal(false)} wide>
+<datalist id="tipos-maq-usada-sug2">{TIPOS_MAQ.map(t=><option key={t} value={t}/>)}</datalist>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11,marginBottom:12}}>
+<Field label="Tipología"><input value={form.tipologia||""} onChange={f("tipologia")} list="tipos-maq-usada-sug2" placeholder="Escuadradora, CNC…" style={inputStyle}/></Field>
+<Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
+<Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
+<Field label="Nº serie / Matrícula"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+<Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+<Field label="Estado"><select value={form.estadoStock||"Disponible"} onChange={f("estadoStock")} style={inputStyle}>{ESTADOS_USADA.map(e=><option key={e}>{e}</option>)}</select></Field>
+<Field label="Procedencia (cliente/origen)"><Input value={form.procedencia||""} onChange={f("procedencia")} placeholder="Ej: Carpintería Martínez"/></Field>
+{puedeConf&&<Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
+</div>
+<Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f59e0b"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
+</Modal>}
+{modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
+<Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Fecha de instalación * (inicio de garantía si aplica)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
+{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Fecha de instalación: {fmtFecha(ventaFechaInstalacion)}</div>}
+<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>♻️ La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock Usada.</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
 </Modal>);})()}
 </div>);
@@ -15153,6 +15397,7 @@ const NAV_ITEMS = [
   {id:"documentacion",  label:"Documentación",         icon:"documentacion",color:"#e2b714"},
   {id:"inventario",     label:"Inventario",            icon:"inventario",   color:"#a855f7"},
   {id:"stock",          label:"Stock maquinaria nueva",icon:"stock",        color:"#10b981"},
+  {id:"stock-usada",    label:"Stock maquinaria usada",icon:"stock",        color:"#f59e0b"},
   {id:"ventas",         label:"Operaciones de venta",  icon:"sales",        color:"#10b981"},
   {id:"visitas",        label:"Diario de visitas",     icon:"pin",          color:"#06b6d4"},
   {id:"fichaje",        label:"Fichaje",               icon:"clock",        color:"#14b8a6"},
@@ -17384,6 +17629,7 @@ function AppInner() {
           {puedeVer(user.rol,"partes")&&<div style={{display:active==="partes"?"block":"none"}}><Partes data={data} setData={setData} userActual={user} abrirParteId={parteAAbrir} onAbrirParteId={()=>setParteAAbrir(null)}/></div>}
           {active==="albaran"&&puedeVer(user.rol,"albaran")&&<Albaran data={data} setData={setData} userActual={user} albaranPendienteMaquina={albaranPendienteMaquina} onAlbaranPendienteUsado={()=>setAlbaranPendienteMaquina(null)}/>}
           {active==="stock"&&puedeVer(user.rol,"stock")&&<Stock data={data} setData={setData} userActual={user}/>}
+          {active==="stock-usada"&&puedeVer(user.rol,"stock-usada")&&<StockUsada data={data} setData={setData} userActual={user}/>}
           {active==="inventario"&&puedeVer(user.rol,"inventario")&&<Inventario data={data} setData={setData} userActual={user} isMobile={isMobile}/>}
           {active==="documentacion"&&puedeVer(user.rol,"documentacion")&&<Documentacion data={data} setData={setData} userActual={user} filtroInicial={docFiltro} onFiltroConsumido={()=>setDocFiltro(null)}/>}
           {active==="calendario"&&puedeVer(user.rol,"calendario")&&<Calendario data={data} setData={setData} userActual={user} irAAviso={irAAviso} isMobile={isMobile}/>}
