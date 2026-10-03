@@ -11672,16 +11672,17 @@ const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeConf=puedeVerPrecioConf(userActual);
 const maqStock=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_ID)?.maquinas)||[];
 const setMaqStock=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
-const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [codigos,setCodigos]=useState([]);const [busq,setBusq]=useState("");const [qrMaquina,setQrMaquina]=useState(null);
+const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");const [qrMaquina,setQrMaquina]=useState(null);
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 const vT=m=>(m.codigos||[]).reduce((s,c)=>s+(parseFloat(c.valor)||0),0);
 const maquinas=maqStock();
 const filtradas=maquinas.filter(m=>!busq||`${m.marca} ${m.modelo} ${m.serie}`.toLowerCase().includes(busq.toLowerCase()));
-const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",notas:""});setCodigos([{id:Date.now(),codigo:"",descripcion:"",valor:""}]);setModal(true);};
-const openEdit=m=>{setForm({...m});setCodigos([...(m.codigos||[{id:Date.now(),codigo:"",descripcion:"",valor:""}])]);setModal(true);};
+const TIPOS_MAQ=["Escuadradora","CNC","Tupí","Lijadora","Encoladora","Torno","Fresadora","Sierra de cinta","Taladro columna","Centro de mecanizado","Prensa","Compresor","Soldadora","Otro"];
+const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:new Date().getFullYear()+"",tipologia:"",notas:"",estadoStock:"Disponible"});setModal(true);};
+const openEdit=m=>{setForm({...m});setModal(true);};
 const save=()=>{
-  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,costeTransporte:parseNum(form.costeTransporte)||0,codigos:codigos.filter(c=>c.codigo||c.descripcion||c.valor),fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,costeTransporte:parseNum(form.costeTransporte)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
   if(!item.id){
     const newId=Date.now();
     const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
@@ -11901,161 +11902,121 @@ return(<div>
 </div>}
 {m.notas&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"14px 16px",marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",marginBottom:6}}>Notas</div><div style={{color:"#e1e6f2",fontSize:13}}>{m.notas}</div></div>}
 {puedeEliminar && <button onClick={()=>{if(window.confirm("¿Eliminar esta máquina del stock?"))delMaquina(m.id);}} style={{background:"#3b1c1c",border:"1px solid #dc262644",borderRadius:8,padding:"7px 14px",color:"#dc2626",fontSize:12,cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+
+{/* Modal añadir/editar — simplificado, sin codigos de configuración */}
 {modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina en stock"} onClose={()=>setModal(false)} wide>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:11}}>
+<datalist id="tipos-maq-sug">{TIPOS_MAQ.map(t=><option key={t} value={t}/>)}</datalist>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11,marginBottom:12}}>
+<Field label="Tipología"><input value={form.tipologia||""} onChange={f("tipologia")} list="tipos-maq-sug" placeholder="Escuadradora, CNC…" style={inputStyle}/></Field>
 <Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
 <Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
-<Field label="Matrícula / Nº serie"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+<Field label="Nº serie / Matrícula"><Input value={form.serie||""} onChange={f("serie")}/></Field>
 <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+<Field label="Estado"><select value={form.estadoStock||"Disponible"} onChange={f("estadoStock")} style={inputStyle}><option>Disponible</option><option>En pedido</option></select></Field>
+{puedeConf&&<Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 </div>
-<div style={{marginBottom:4}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-<div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>Códigos de configuración</div>
-<div style={{color:"#f97316",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,padding:"5px 0",borderBottom:"1px solid #2a3550",marginBottom:4}}>
-{["Código","Descripción","Valor EUR",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
-</div>
-{codigos.map((c,i)=>(
-<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
-<input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
-<input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
-<input type="text" inputMode="decimal" value={c.valor} onChange={e=>{const v=e.target.value.replace(/,/g,".");setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:v}:x));}} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
-<button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
-</div>))}
-<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
-<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
-<div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseNum(form.precioVentaObj)||0).toLocaleString("es-ES")}</div></div>}
-</div>
-</div>
-{puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
-{puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
-{puedeConf && (parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)).toLocaleString("es-ES")}</div></div>}
-{puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
-{(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
-{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
-</Field>
-<Field label="PDF (fichas técnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
-{(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
-</Field>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
 {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
 <Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
-{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
-✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}
-</div>}
-<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>
-🆕 La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.
-</div>
+{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}</div>}
+<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>🆕 La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
-</Modal>
-);})()}
+</Modal>);})()}
 </div>);}
 const disponibles=maquinas.length;
-const valorTarTotal=maquinas.reduce((s,m)=>s+vT(m),0);
 const valorVentaTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioVentaObj)||0),0);
 const valorCompraTotal=maquinas.reduce((s,m)=>s+(parseNum(m.precioCompra)||0),0);
+const thSt={background:"#0d1117",color:"#94a3b8",fontSize:11,fontWeight:700,textTransform:"uppercase",padding:"9px 12px",textAlign:"left",whiteSpace:"nowrap",borderBottom:"2px solid #2a3550",position:"sticky",top:0,zIndex:1};
+const tdSt={padding:"9px 12px",borderBottom:"1px solid #1a2236",verticalAlign:"middle",fontSize:13,color:"#e1e6f2",whiteSpace:"nowrap"};
 return(<div>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria Nueva</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Códigos de configuración · Valor tarifa · Precio de venta</p></div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
+<div><h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Stock de Maquinaria Nueva</h2><p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Gestión rápida de máquinas en stock · Configuraciones en MyConfig</p></div>
 <button onClick={openNew} style={{background:"linear-gradient(135deg,#f97316,#ef4444)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}><Icon name="plus" size={14}/>Añadir máquina</button>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:9,marginBottom:16}}>
-{[["Disponibles",disponibles,"#f97316"],["Valor tarifa","EUR"+valorTarTotal.toLocaleString(),"#3b82f6"],...(puedeConf?[["Precio compra","EUR"+valorCompraTotal.toLocaleString(),"#ef4444"],["Precio venta est.","EUR"+valorVentaTotal.toLocaleString(),"#10b981"]]:[])].map(([l,v,c])=>(
-<div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}>
-<div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div>
-<div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div>
-</div>))}
+{/* Resumen */}
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:9,marginBottom:16}}>
+{[["Disponibles",disponibles,"#f97316"],...(puedeConf?[["P. Compra total","€"+valorCompraTotal.toLocaleString("es-ES"),"#ef4444"],["P. Venta obj. total","€"+valorVentaTotal.toLocaleString("es-ES"),"#10b981"]]:[])]
+.map(([l,v,c])=><div key={l} style={{background:"#151b2a",border:"1px solid "+c+"33",borderRadius:11,padding:"12px 14px"}}><div style={{color:c,fontWeight:800,fontSize:17,lineHeight:1}}>{v}</div><div style={{color:"#e4e9f6",fontSize:11,marginTop:3}}>{l}</div></div>)}
 </div>
-<div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center",flexWrap:"wrap"}}>
-<div style={{position:"relative",marginLeft:"auto"}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12}/></span><input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Marca, modelo..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:200}}/></div>
+{/* Buscador */}
+<div style={{position:"relative",marginBottom:12,maxWidth:280}}>
+<span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#94a3b8"}}><Icon name="search" size={13}/></span>
+<input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Tipología, marca, modelo, serie…" style={{...inputStyle,paddingLeft:30,fontSize:12,width:"100%"}}/>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(320px,100%),1fr))",gap:12}}>
-{filtradas.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6",gridColumn:"1/-1"}}>Sin máquinas en stock</div>}
-{filtradas.map(m=>{const tar=vT(m);const ven=parseNum(m.precioVentaObj)||0;return(
-<div key={m.id} onClick={()=>setVista(m.id)} style={{background:"#151b2a",border:"1px solid #f9731633",borderRadius:14,overflow:"hidden",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"} onMouseLeave={e=>e.currentTarget.style.transform="none"}>
-<div style={{height:140,background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",overflow:"hidden"}}>
-{(m.fotos||[]).length>0?<img src={(m.fotos.find(x=>x.principal)||m.fotos[0]).data} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center",color:"#2a3550"}}><Icon name="stock" size={36}/></div>}
-<div style={{position:"absolute",top:8,left:8,display:"flex",gap:4,flexWrap:"wrap"}}>
-{m.estadoStock==="En pedido"
-  ? <span style={{background:"#f59e0b",color:"#0d1117",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>⏳ EN PEDIDO</span>
-  : <span style={{background:"#f97316",color:"#fff",borderRadius:5,padding:"2px 8px",fontSize:10,fontWeight:800}}>🆕 NUEVA</span>
-}
-{m.codigo&&<span style={{background:"rgba(0,0,0,.7)",color:"#f97316",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800,fontFamily:"monospace"}}>{m.codigo}</span>}
+{/* Tabla */}
+<div style={{overflowX:"auto",borderRadius:12,border:"1px solid #2a3550"}}>
+<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a"}}>
+<thead><tr>
+<th style={thSt}>Código</th>
+<th style={thSt}>Tipología</th>
+<th style={thSt}>Marca</th>
+<th style={thSt}>Modelo</th>
+<th style={thSt}>Nº Serie</th>
+<th style={thSt}>Año</th>
+<th style={thSt}>Estado</th>
+{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>P. Compra</th>}
+{puedeConf&&<th style={{...thSt,color:"#10b981"}}>P. Venta obj.</th>}
+<th style={thSt}>Notas</th>
+<th style={{...thSt,textAlign:"right"}}>Acciones</th>
+</tr></thead>
+<tbody>
+{filtradas.length===0&&<tr><td colSpan={puedeConf?11:9} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas en stock</td></tr>}
+{filtradas.map((m,i)=>{
+const compra=parseNum(m.precioCompra)||0;
+const venta=parseNum(m.precioVentaObj)||0;
+return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEnter={e=>e.currentTarget.style.background="#1a2340"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#151b2a":"#111827"}>
+<td style={tdSt}><span style={{fontFamily:"monospace",color:"#f97316",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
+<td style={tdSt}><span style={{color:"#e4e9f6"}}>{m.tipologia||"—"}</span></td>
+<td style={{...tdSt,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
+<td style={tdSt}>{m.modelo||"—"}</td>
+<td style={{...tdSt,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
+<td style={tdSt}>{m.anyo||"—"}</td>
+<td style={tdSt}><span style={{background:m.estadoStock==="En pedido"?"#f59e0b20":"#10b98120",color:m.estadoStock==="En pedido"?"#f59e0b":"#10b981",border:`1px solid ${m.estadoStock==="En pedido"?"#f59e0b44":"#10b98144"}`,borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:700}}>{m.estadoStock==="En pedido"?"⏳ En pedido":"🆕 Disponible"}</span></td>
+{puedeConf&&<td style={{...tdSt,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
+{puedeConf&&<td style={{...tdSt,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
+<td style={{...tdSt,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",color:"#94a3b8",fontSize:12}}>{m.notas||""}</td>
+<td style={{...tdSt,textAlign:"right"}}>
+<div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
+<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 9px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700}}>↗</button>
+<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 9px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}><Icon name="edit" size={12}/></button>
+{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 9px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700}}>€</button>}
+{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 9px",color:"#dc2626",cursor:"pointer",fontSize:12}}><Icon name="trash" size={12}/></button>}
 </div>
+</td>
+</tr>);
+})}
+</tbody>
+</table>
 </div>
-<div style={{padding:"13px 15px"}}>
-<div style={{color:"#f1f3f9",fontWeight:800,fontSize:15,marginBottom:1}}>{m.marca} <span style={{fontWeight:400}}>{m.modelo}</span></div>
-<div style={{color:"#e4e9f6",fontSize:11,marginBottom:m.estadoStock==="En pedido"?4:10}}>Serie: {m.serie||"—"} · {m.anyo} · {(m.codigos||[]).length} códigos</div>
-{m.estadoStock==="En pedido"&&<div style={{background:"#f59e0b15",border:"1px solid #f59e0b44",borderRadius:6,padding:"4px 8px",fontSize:10,color:"#f59e0b",fontWeight:700,marginBottom:10,display:"flex",gap:6,alignItems:"center"}}>⏳ En pedido{m.pedidoRef&&<span style={{fontWeight:400,color:"#e4e9f6"}}>· {m.pedidoRef}</span>}{m.disponibleDesde&&<span style={{fontWeight:400,color:"#e4e9f6"}}>· Disp. {fmtFecha(m.disponibleDesde)}</span>}</div>}
-<div style={{display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8,marginBottom:8}}>
-<div style={{background:"#0d1117",borderRadius:8,padding:"8px 10px"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>TARIFA</div><div style={{color:"#f97316",fontWeight:800,fontSize:15}}>EUR{tar.toLocaleString()}</div></div>
-{puedeConf && <div style={{background:"#10b98115",borderRadius:8,padding:"8px 10px",border:"1px solid #10b98133"}}><div style={{color:"#e4e9f6",fontSize:10,marginBottom:2}}>VENTA OBJ.</div><div style={{color:"#10b981",fontWeight:800,fontSize:15}}>EUR{ven>0?ven.toLocaleString():"?"}</div></div>}
-</div>
-</div>
-</div>);})}
-</div>
+{/* Modal añadir/editar */}
 {modal&&<Modal title={form.id?"Editar máquina":"Nueva máquina en stock"} onClose={()=>setModal(false)} wide>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(160px,100%),1fr))",gap:11}}>
+<datalist id="tipos-maq-sug2">{TIPOS_MAQ.map(t=><option key={t} value={t}/>)}</datalist>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(180px,100%),1fr))",gap:11,marginBottom:12}}>
+<Field label="Tipología"><input value={form.tipologia||""} onChange={f("tipologia")} list="tipos-maq-sug2" placeholder="Escuadradora, CNC…" style={inputStyle}/></Field>
 <Field label="Marca"><Input value={form.marca||""} onChange={f("marca")}/></Field>
 <Field label="Modelo"><Input value={form.modelo||""} onChange={f("modelo")}/></Field>
-<Field label="Matrícula / Nº serie"><Input value={form.serie||""} onChange={f("serie")}/></Field>
+<Field label="Nº serie / Matrícula"><Input value={form.serie||""} onChange={f("serie")}/></Field>
 <Field label="Año"><Input value={form.anyo||""} onChange={f("anyo")}/></Field>
+<Field label="Estado"><select value={form.estadoStock||"Disponible"} onChange={f("estadoStock")} style={inputStyle}><option>Disponible</option><option>En pedido</option></select></Field>
+{puedeConf&&<Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
+{puedeConf&&<Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
 </div>
-<div style={{marginBottom:4}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-<div style={{fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase"}}>Códigos de configuración</div>
-<div style={{color:"#f97316",fontWeight:800,fontSize:13}}>Tarifa: EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,padding:"5px 0",borderBottom:"1px solid #2a3550",marginBottom:4}}>
-{["Código","Descripción","Valor EUR",""].map(h=><div key={h} style={{color:"#e4e9f6",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{h}</div>)}
-</div>
-{codigos.map((c,i)=>(
-<div key={c.id} style={{display:"grid",gridTemplateColumns:"130px 1fr 100px 32px",gap:6,marginBottom:5}}>
-<input value={c.codigo} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,codigo:e.target.value}:x))} placeholder="COD-001" style={{...inputStyle,fontFamily:"monospace",fontSize:12}}/>
-<input value={c.descripcion} onChange={e=>setCodigos(p=>p.map((x,j)=>j===i?{...x,descripcion:e.target.value}:x))} placeholder="Descripción..." style={{...inputStyle}}/>
-<input type="text" inputMode="decimal" value={c.valor} onChange={e=>{const v=e.target.value.replace(/,/g,".");setCodigos(p=>p.map((x,j)=>j===i?{...x,valor:v}:x));}} placeholder="0" style={{...inputStyle,textAlign:"right"}}/>
-<button onClick={()=>setCodigos(p=>p.filter((_,j)=>j!==i))} disabled={codigos.length===1} style={{background:"#3b1c1c",border:"none",borderRadius:6,cursor:"pointer",color:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="trash" size={12}/></button>
-</div>))}
-<button onClick={()=>setCodigos(p=>[...p,{id:Date.now(),codigo:"",descripcion:"",valor:""}])} style={{background:"none",border:"1px dashed #2a3550",borderRadius:7,padding:"6px 14px",color:"#e4e9f6",fontSize:12,cursor:"pointer",width:"100%",marginTop:3}}>+ Añadir código</button>
-<div style={{marginTop:10,display:"grid",gridTemplateColumns:puedeConf?"1fr 1fr":"1fr",gap:8}}>
-<div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Valor tarifa total</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{codigos.reduce((s,c)=>s+(parseFloat(c.valor)||0),0).toLocaleString()}</div></div>
-{puedeConf && <div style={{border:"1px solid #2a3550",borderRadius:8,padding:"10px 13px"}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Precio venta objetivo</div><div style={{color:"#3b82f6",fontWeight:900,fontSize:18}}>EUR{(parseNum(form.precioVentaObj)||0).toLocaleString("es-ES")}</div></div>}
-</div>
-</div>
-{puedeConf && <Field label="Precio de compra EUR"><Input type="number" value={form.precioCompra||""} onChange={f("precioCompra")}/></Field>}
-{puedeConf && <Field label="Coste de transporte EUR"><Input type="number" value={form.costeTransporte||""} onChange={f("costeTransporte")}/></Field>}
-{puedeConf && (parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)>0 && <div style={{background:"#f9731610",border:"1px solid #f9731633",borderRadius:8,padding:"9px 13px",marginBottom:8}}><div style={{color:"#e4e9f6",fontSize:11,marginBottom:2}}>Compra + Transporte</div><div style={{color:"#f97316",fontWeight:900,fontSize:17}}>EUR{((parseNum(form.precioCompra)||0)+(parseNum(form.costeTransporte)||0)).toLocaleString("es-ES")}</div></div>}
-{puedeConf && <Field label="Precio de venta objetivo EUR"><Input type="number" value={form.precioVentaObj||""} onChange={f("precioVentaObj")}/></Field>}
-<Field label="Fotos"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir fotos</span><input type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}}/></label>
-{(form.fotos||[]).length>0&&<div style={{color:"#e4e9f6",fontSize:11,marginTop:6}}>Pulsa ★ para marcar como foto principal (portada).</div>}
-{(form.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))",gap:6,marginTop:8}}>{form.fotos.map((foto,i)=><div key={i} style={{position:"relative"}}><img src={foto.data} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:6,border:foto.principal?"2px solid #f97316":"2px solid transparent"}}/><button type="button" onClick={()=>setForm(p=>({...p,fotos:p.fotos.map((x,j)=>({...x,principal:j===i}))}))} style={{position:"absolute",top:2,left:2,background:foto.principal?"#f97316":"rgba(0,0,0,.6)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:11,padding:"1px 5px"}}>★</button><button onClick={()=>setForm(p=>({...p,fotos:p.fotos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.7)",border:"none",borderRadius:4,color:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px"}}>X</button></div>)}</div>}
-</Field>
-<Field label="PDF (fichas técnicas)"><label style={{display:"flex",alignItems:"center",gap:8,background:"#0d1117",border:"1px dashed #2a3550",borderRadius:8,padding:"10px 13px",cursor:"pointer"}}><Icon name="plus" size={14}/><span style={{color:"#e4e9f6",fontSize:12}}>Añadir PDF</span><input type="file" accept=".pdf" multiple onChange={handlePdfs} style={{display:"none"}}/></label>
-{(form.pdfs||[]).length>0&&<div style={{marginTop:6}}>{form.pdfs.map((pdf,i)=><div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a2236"}}><span style={{color:"#e1e6f2",fontSize:12}}>PDF: {pdf.nombre}</span><button onClick={()=>setForm(p=>({...p,pdfs:p.pdfs.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:12}}>X</button></div>)}</div>}
-</Field>
 <Field label="Notas"><Textarea value={form.notas||""} onChange={f("notas")}/></Field>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}><button onClick={()=>setModal(false)} style={btnOutline}>Cancelar</button><button onClick={save} style={{...btnPrimary,background:"#f97316"}}>{form.id?"Guardar cambios":"Añadir al stock"}</button></div>
 </Modal>}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
 <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de montaje / instalación * (inicio de garantía)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
-{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>
-✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}
-</div>}
-<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>
-🆕 La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.
-</div>
+{ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Garantía de 1 año: desde {fmtFecha(ventaFechaInstalacion)} hasta {fmtFecha((()=>{const d=new Date(ventaFechaInstalacion);d.setFullYear(d.getFullYear()+1);return d.toISOString().slice(0,10);})())}</div>}
+<div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>🆕 La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock.</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:12}}><button onClick={()=>setModalVender(null)} style={btnOutline}>Cancelar</button><button onClick={venderMaquina} style={{...btnPrimary,background:"#10b981"}}>Confirmar venta</button></div>
-</Modal>
-);})()}
+</Modal>);})()}
 </div>);
 };
 
