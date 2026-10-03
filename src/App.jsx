@@ -208,20 +208,8 @@ const migrateStockToCliente = (d) => {
       notas: "Cliente interno — stock de maquinaria nueva pendiente de venta."
     }, ...clientes];
   }
-  if (!clientes.find(c=>c.id===CLIENTE_STOCK_USADA_ID)) {
-    clientes = [{
-      id: CLIENTE_STOCK_USADA_ID,
-      nombreEmpresa: "Europea de Maquinaria – Maquinaria Usada",
-      nombreFiscal: "Europea de Maquinaria – Maquinaria Usada",
-      cif: "B98527583",
-      localidad: "Torrent (Valencia)",
-      esPropia: true,
-      esStockUsadaInterno: true,
-      contactos: [],
-      maquinas: [],
-      notas: "Cliente interno — stock de maquinaria usada pendiente de venta."
-    }, ...clientes];
-  }
+  // Las máquinas de stock usada se almacenan en el cliente id=0 (PMM SL) con el flag esStockUsada:true.
+  // No se necesita un cliente virtual adicional para maquinaria usada.
   // Migrar data.stock[] si todavía existe
   const stock = d.stock||[];
   if (stock.length === 0) return {...d, clientes};
@@ -716,7 +704,6 @@ const initialData = {
     { id:9,nombre:"Carrusel",password:"123456789",rol:"carrusel",avatar:"TV",activo:true },
   ],clientes: [
     { id:CLIENTE_STOCK_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Nueva",nombreFiscal:"Europea de Maquinaria – Maquinaria Nueva",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria nueva pendiente de venta." },
-    { id:CLIENTE_STOCK_USADA_ID,nombreEmpresa:"Europea de Maquinaria – Maquinaria Usada",nombreFiscal:"Europea de Maquinaria – Maquinaria Usada",cif:"B98527583",localidad:"Torrent (Valencia)",esPropia:true,esStockUsadaInterno:true,contactos:[],maquinas:[],notas:"Cliente interno — stock de maquinaria usada pendiente de venta." },
     { id:0,nombreEmpresa:"Europea de Maquinaria PMM SL",nombreFiscal:"Europea de Maquinaria PMM SL",cif:"B98527583",localidad:"Torrent (Valencia)",esCliente:false,esPropia:true,dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",provinciaFiscal:"Valencia",contactos:[],maquinas:[],notas:"Cuenta interna — máquinas propias, trabajos internos y albaranes propios." },
     { id:1,nombreEmpresa:"Carpintería Martínez S.L.",nombreFiscal:"Carpintería Martínez Sociedad Limitada",localidad:"Valencia",esCliente:true,contactos:[{id:1,nombre:"Luis Martínez",puesto:"Gerente",tel:"600 123 456",email:"luis@carpinteria.es",principal:true},{id:2,nombre:"Marta Martínez",puesto:"Administración",tel:"600 123 457",email:"marta@carpinteria.es",principal:false}],maquinas:[{id:1,nombre:"Escuadradora Casadei SC2",marca:"Casadei",modelo:"SC2",serie:"SC2-2019-441",anyo:"2019",notas:"Mantenimiento anual en mayo",foto:null},{id:2,nombre:"Tupi Vitap Alpha 21",marca:"Vitap",modelo:"Alpha 21",serie:"VA21-2020-112",anyo:"2020",notas:"",foto:null}],notas:"Cliente desde 2018." },
     { id:2,nombreEmpresa:"Muebles García S.L.",nombreFiscal:"Muebles García Sociedad Limitada",localidad:"Alicante",esCliente:true,contactos:[{id:1,nombre:"Ana García",puesto:"Directora",tel:"610 234 567",email:"ana@muebles-garcia.es",principal:true}],maquinas:[{id:1,nombre:"CNC Masterwood Project 350",marca:"Masterwood",modelo:"Project 350",serie:"MW350-2021-88",anyo:"2021",notas:"",foto:null},{id:2,nombre:"CNC Busellato Jet Start",marca:"Busellato",modelo:"Jet Start",serie:"BJS-2026-001",anyo:"2026",notas:"Recién instalado",foto:null}],notas:"Pago a 30 días." },
@@ -1498,13 +1485,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     const passCCAA = !filtroCCAA||PROVINCIAS_ES.find(p=>p.name===(c.provinciaFiscal||""))?.ccaa===filtroCCAA;
     return passSearch && passProv && passCCAA;
   }).slice().sort((a,b)=>{
-  // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo, Usada (id -2) tercero; resto alfabético.
+  // Cuentas internas fijas al principio: PMM SL (id 0) primero, Maquinaria Nueva (id -1) segundo; resto alfabético.
   if(a.id===0) return -1;
   if(b.id===0) return 1;
   if(a.id===CLIENTE_STOCK_ID) return -1;
   if(b.id===CLIENTE_STOCK_ID) return 1;
-  if(a.id===CLIENTE_STOCK_USADA_ID) return -1;
-  if(b.id===CLIENTE_STOCK_USADA_ID) return 1;
   return (a.nombreEmpresa||"").localeCompare(b.nombreEmpresa||"",'es',{sensitivity:'base'});
 });
   const [pdfFicha,setPdfFicha]=useState(null); // { url, nombre, blob } — vista previa de la ficha de cliente en PDF
@@ -1523,7 +1508,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
     }catch(e){ /* el usuario cerró el panel de compartir */ }
   };
   // Clientes exportables: excluir cuentas internas (PMM SL y Stock)
-  const clientesExportables = data.clientes.filter(c=>c.id!==0&&c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID);
+  const clientesExportables = data.clientes.filter(c=>c.id!==0&&c.id!==CLIENTE_STOCK_ID);
   const provinciasUnicas = [...new Set(clientesExportables.map(c=>c.provinciaFiscal||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
   const localidadesUnicas = [...new Set(clientesExportables.map(c=>c.localidad||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
 
@@ -11967,9 +11952,15 @@ return(<div>
 <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#94a3b8"}}><Icon name="search" size={13}/></span>
 <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Tipología, marca, modelo, serie…" style={{...inputStyle,paddingLeft:30,fontSize:12,width:"100%"}}/>
 </div>
-{/* Tabla */}
+{/* Tabla compacta — sin columna Notas para evitar scroll horizontal */}
 <div style={{overflowX:"auto",borderRadius:12,border:"1px solid #2a3550"}}>
-<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a"}}>
+<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a",tableLayout:"fixed",minWidth:puedeConf?680:520}}>
+<colgroup>
+<col style={{width:90}}/><col style={{width:110}}/><col style={{width:100}}/><col style={{width:120}}/>
+<col style={{width:110}}/><col style={{width:50}}/><col style={{width:110}}/>
+{puedeConf&&<col style={{width:90}}/>}{puedeConf&&<col style={{width:90}}/>}
+<col style={{width:120}}/>
+</colgroup>
 <thead><tr>
 <th style={thSt}>Código</th>
 <th style={thSt}>Tipología</th>
@@ -11978,33 +11969,32 @@ return(<div>
 <th style={thSt}>Nº Serie</th>
 <th style={thSt}>Año</th>
 <th style={thSt}>Estado</th>
-{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>P. Compra</th>}
-{puedeConf&&<th style={{...thSt,color:"#10b981"}}>P. Venta obj.</th>}
-<th style={thSt}>Notas</th>
+{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>Compra</th>}
+{puedeConf&&<th style={{...thSt,color:"#10b981"}}>Venta obj.</th>}
 <th style={{...thSt,textAlign:"right"}}>Acciones</th>
 </tr></thead>
 <tbody>
-{filtradas.length===0&&<tr><td colSpan={puedeConf?11:9} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas en stock</td></tr>}
+{filtradas.length===0&&<tr><td colSpan={puedeConf?10:8} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas en stock</td></tr>}
 {filtradas.map((m,i)=>{
 const compra=parseNum(m.precioCompra)||0;
 const venta=parseNum(m.precioVentaObj)||0;
+const tdC={...tdSt,overflow:"hidden",textOverflow:"ellipsis"};
 return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEnter={e=>e.currentTarget.style.background="#1a2340"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#151b2a":"#111827"}>
-<td style={tdSt}><span style={{fontFamily:"monospace",color:"#f97316",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
-<td style={tdSt}><span style={{color:"#e4e9f6"}}>{m.tipologia||"—"}</span></td>
-<td style={{...tdSt,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
-<td style={tdSt}>{m.modelo||"—"}</td>
-<td style={{...tdSt,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
-<td style={tdSt}>{m.anyo||"—"}</td>
-<td style={tdSt}><span style={{background:m.estadoStock==="En pedido"?"#f59e0b20":"#10b98120",color:m.estadoStock==="En pedido"?"#f59e0b":"#10b981",border:`1px solid ${m.estadoStock==="En pedido"?"#f59e0b44":"#10b98144"}`,borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:700}}>{m.estadoStock==="En pedido"?"⏳ En pedido":"🆕 Disponible"}</span></td>
-{puedeConf&&<td style={{...tdSt,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
-{puedeConf&&<td style={{...tdSt,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
-<td style={{...tdSt,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",color:"#94a3b8",fontSize:12}}>{m.notas||""}</td>
+<td style={tdC}><span style={{fontFamily:"monospace",color:"#f97316",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
+<td style={tdC}>{m.tipologia||"—"}</td>
+<td style={{...tdC,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
+<td style={tdC}>{m.modelo||"—"}</td>
+<td style={{...tdC,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
+<td style={tdC}>{m.anyo||"—"}</td>
+<td style={tdC}><span style={{background:m.estadoStock==="En pedido"?"#f59e0b20":"#10b98120",color:m.estadoStock==="En pedido"?"#f59e0b":"#10b981",border:`1px solid ${m.estadoStock==="En pedido"?"#f59e0b44":"#10b98144"}`,borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>{m.estadoStock==="En pedido"?"En pedido":"Disponible"}</span></td>
+{puedeConf&&<td style={{...tdC,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
+{puedeConf&&<td style={{...tdC,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
 <td style={{...tdSt,textAlign:"right"}}>
-<div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
-<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 9px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700}}>↗</button>
-<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 9px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}><Icon name="edit" size={12}/></button>
-{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 9px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700}}>€</button>}
-{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 9px",color:"#dc2626",cursor:"pointer",fontSize:12}}><Icon name="trash" size={12}/></button>}
+<div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>
+<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 8px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center"}}>↗</button>
+<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 7px",color:"#e4e9f6",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="edit" size={13}/></button>
+{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 8px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center"}}>€</button>}
+{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 7px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={13}/></button>}
 </div>
 </td>
 </tr>);
@@ -12044,8 +12034,15 @@ const StockUsada=({data,setData,userActual})=>{
 const puedeEliminar=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeConf=puedeVerPrecioConf(userActual);
-const maqUsada=()=>(data.clientes.find(c=>c.id===CLIENTE_STOCK_USADA_ID)?.maquinas)||[];
-const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>c.id===CLIENTE_STOCK_USADA_ID?{...c,maquinas:fn(c.maquinas||[])}:c)}));
+// Las máquinas usadas en stock viven en el cliente id=0 (Europea de Maquinaria PMM SL)
+// marcadas con el flag esStockUsada:true para distinguirlas de las máquinas propias.
+const maqUsada=()=>(data.clientes.find(c=>c.id===0)?.maquinas||[]).filter(m=>m.esStockUsada);
+const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>{
+  if(c.id!==0) return c;
+  const stock=(c.maquinas||[]).filter(m=>m.esStockUsada);
+  const propias=(c.maquinas||[]).filter(m=>!m.esStockUsada);
+  return {...c,maquinas:[...propias,...fn(stock)]};
+})}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
 const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
@@ -12056,10 +12053,10 @@ const ESTADOS_USADA=["Disponible","En reparación","Reservada","En pedido"];
 const openNew=()=>{setForm({marca:"",modelo:"",serie:"",anyo:"",tipologia:"",notas:"",estadoStock:"Disponible",procedencia:""});setModal(true);};
 const openEdit=m=>{setForm({...m});setModal(true);};
 const save=()=>{
-  const item={...form,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
+  const item={...form,esStockUsada:true,nombre:(`${form.marca||""} ${form.modelo||""}`).trim(),precioVentaObj:parseNum(form.precioVentaObj)||0,precioCompra:parseNum(form.precioCompra)||0,fotos:form.fotos||[],pdfs:form.pdfs||[]};
   if(!item.id){
     const newId=Date.now();
-    const codigo=item.codigo||nextCodigoMaquina({...data,clientes:data.clientes.map(c=>c.id===CLIENTE_STOCK_USADA_ID?{...c,maquinas:[...(c.maquinas||[]),{...item,id:newId}]}:c)});
+    const codigo=item.codigo||nextCodigoMaquina(data);
     setMaqUsada(ms=>[...ms,{...item,id:newId,codigo}]);
   } else {
     setMaqUsada(ms=>ms.map(m=>m.id===item.id?item:m));
@@ -12079,6 +12076,7 @@ const venderMaquina=()=>{
   if(!ventaFechaInstalacion){alert("Indica la fecha de montaje/instalación.");return;}
   const clienteId=parseInt(ventaClienteId);
   const maqId=Date.now();
+  // La máquina se traspasa al cliente sin el flag esStockUsada
   const maqFinal={
     id:maqId,
     nombre:`${m.marca} ${m.modelo}`,
@@ -12094,7 +12092,8 @@ const venderMaquina=()=>{
   setData(d=>{
     const nuevosClientes=d.clientes.map(c=>{
       if(c.id===clienteId) return {...c,maquinas:[...(c.maquinas||[]),maqFinal]};
-      if(c.id===CLIENTE_STOCK_USADA_ID) return {...c,maquinas:(c.maquinas||[]).filter(x=>x.id!==m.id)};
+      // Retirar del PMM SL (id=0): eliminar solo esta máquina del stock usada
+      if(c.id===0) return {...c,maquinas:(c.maquinas||[]).filter(x=>x.id!==m.id)};
       return c;
     });
     const nuevaDoc=[...(d.documentacion||[]),(m.pdfs||[]).length>0?{
@@ -12165,7 +12164,7 @@ if(vista){
   </Modal>}
   {modalVender&&(()=>{const mv=maquinas.find(x=>x.id===modalVender);if(!mv) return null;return(
   <Modal title={`Confirmar venta: ${mv.marca} ${mv.modelo}`} onClose={()=>setModalVender(null)}>
-  <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+  <Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
   <Field label="Fecha de instalación * (inicio de garantía si aplica)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
   {ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Fecha de instalación: {fmtFecha(ventaFechaInstalacion)}</div>}
   <div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>♻️ La máquina ({mv.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock Usada.</div>
@@ -12192,7 +12191,13 @@ return(<div>
 <input value={busq} onChange={e=>setBusq(e.target.value)} placeholder="Tipología, marca, modelo, serie…" style={{...inputStyle,paddingLeft:30,fontSize:12,width:"100%"}}/>
 </div>
 <div style={{overflowX:"auto",borderRadius:12,border:"1px solid #2a3550"}}>
-<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a"}}>
+<table style={{width:"100%",borderCollapse:"collapse",background:"#151b2a",tableLayout:"fixed",minWidth:puedeConf?720:560}}>
+<colgroup>
+<col style={{width:90}}/><col style={{width:110}}/><col style={{width:100}}/><col style={{width:120}}/>
+<col style={{width:110}}/><col style={{width:50}}/><col style={{width:100}}/><col style={{width:100}}/>
+{puedeConf&&<col style={{width:90}}/>}{puedeConf&&<col style={{width:90}}/>}
+<col style={{width:120}}/>
+</colgroup>
 <thead><tr>
 <th style={thSt}>Código</th>
 <th style={thSt}>Tipología</th>
@@ -12202,34 +12207,33 @@ return(<div>
 <th style={thSt}>Año</th>
 <th style={thSt}>Estado</th>
 <th style={thSt}>Procedencia</th>
-{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>P. Compra</th>}
-{puedeConf&&<th style={{...thSt,color:"#10b981"}}>P. Venta obj.</th>}
-<th style={thSt}>Notas</th>
+{puedeConf&&<th style={{...thSt,color:"#ef4444"}}>Compra</th>}
+{puedeConf&&<th style={{...thSt,color:"#10b981"}}>Venta obj.</th>}
 <th style={{...thSt,textAlign:"right"}}>Acciones</th>
 </tr></thead>
 <tbody>
-{filtradas.length===0&&<tr><td colSpan={puedeConf?12:10} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas usadas en stock</td></tr>}
+{filtradas.length===0&&<tr><td colSpan={puedeConf?11:9} style={{...tdSt,textAlign:"center",padding:"32px",color:"#4a5568"}}>Sin máquinas usadas en stock</td></tr>}
 {filtradas.map((m,i)=>{
 const compra=parseNum(m.precioCompra)||0;const venta=parseNum(m.precioVentaObj)||0;
 const badgeColor=m.estadoStock==="Disponible"?"#10b981":m.estadoStock==="En reparación"?"#ef4444":m.estadoStock==="Reservada"?"#8b5cf6":"#f59e0b";
+const tdC={...tdSt,overflow:"hidden",textOverflow:"ellipsis"};
 return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEnter={e=>e.currentTarget.style.background="#1a2340"} onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"#151b2a":"#111827"}>
-<td style={tdSt}><span style={{fontFamily:"monospace",color:"#f59e0b",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
-<td style={tdSt}><span style={{color:"#e4e9f6"}}>{m.tipologia||"—"}</span></td>
-<td style={{...tdSt,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
-<td style={tdSt}>{m.modelo||"—"}</td>
-<td style={{...tdSt,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
-<td style={tdSt}>{m.anyo||"—"}</td>
-<td style={tdSt}><span style={{background:badgeColor+"20",color:badgeColor,border:`1px solid ${badgeColor}44`,borderRadius:5,padding:"2px 8px",fontSize:11,fontWeight:700}}>{m.estadoStock||"Disponible"}</span></td>
-<td style={{...tdSt,color:"#94a3b8",fontSize:12}}>{m.procedencia||"—"}</td>
-{puedeConf&&<td style={{...tdSt,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
-{puedeConf&&<td style={{...tdSt,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
-<td style={{...tdSt,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",color:"#94a3b8",fontSize:12}}>{m.notas||""}</td>
+<td style={tdC}><span style={{fontFamily:"monospace",color:"#f59e0b",fontWeight:700,fontSize:12}}>{m.codigo||"—"}</span></td>
+<td style={tdC}>{m.tipologia||"—"}</td>
+<td style={{...tdC,fontWeight:700,color:"#f1f3f9"}}>{m.marca||"—"}</td>
+<td style={tdC}>{m.modelo||"—"}</td>
+<td style={{...tdC,fontFamily:"monospace",fontSize:12}}>{m.serie||"—"}</td>
+<td style={tdC}>{m.anyo||"—"}</td>
+<td style={tdC}><span style={{background:badgeColor+"20",color:badgeColor,border:`1px solid ${badgeColor}44`,borderRadius:5,padding:"2px 5px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>{m.estadoStock||"Disponible"}</span></td>
+<td style={{...tdC,color:"#94a3b8",fontSize:12}}>{m.procedencia||"—"}</td>
+{puedeConf&&<td style={{...tdC,color:"#ef4444",fontWeight:700}}>{compra>0?"€"+compra.toLocaleString("es-ES"):"—"}</td>}
+{puedeConf&&<td style={{...tdC,color:"#10b981",fontWeight:700}}>{venta>0?"€"+venta.toLocaleString("es-ES"):"—"}</td>}
 <td style={{...tdSt,textAlign:"right"}}>
-<div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
-<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 9px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700}}>↗</button>
-<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 9px",color:"#e4e9f6",cursor:"pointer",fontSize:12}}><Icon name="edit" size={12}/></button>
-{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 9px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700}}>€</button>}
-{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 9px",color:"#dc2626",cursor:"pointer",fontSize:12}}><Icon name="trash" size={12}/></button>}
+<div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>
+<button onClick={()=>setVista(m.id)} title="Ver detalle" style={{background:"#1e3a5f",border:"none",borderRadius:6,padding:"5px 8px",color:"#3b82f6",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center"}}>↗</button>
+<button onClick={e=>{e.stopPropagation();openEdit(m);}} title="Editar" style={{background:"#1a2236",border:"none",borderRadius:6,padding:"5px 7px",color:"#e4e9f6",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="edit" size={13}/></button>
+{puedeVender&&<button onClick={e=>{e.stopPropagation();setVentaClienteId("");setVentaFechaInstalacion("");setModalVender(m.id);}} title="Confirmar venta" style={{background:"#10b98120",border:"none",borderRadius:6,padding:"5px 8px",color:"#10b981",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center"}}>€</button>}
+{puedeEliminar&&<button onClick={e=>{e.stopPropagation();eliminarMaquina(m.id);}} title="Eliminar" style={{background:"#3b1c1c",border:"none",borderRadius:6,padding:"5px 7px",color:"#dc2626",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="trash" size={13}/></button>}
 </div>
 </td>
 </tr>);
@@ -12255,7 +12259,7 @@ return(<tr key={m.id} style={{background:i%2===0?"#151b2a":"#111827"}} onMouseEn
 </Modal>}
 {modalVender&&(()=>{const m=maquinas.find(x=>x.id===modalVender);if(!m) return null;return(
 <Modal title={`Confirmar venta: ${m.marca} ${m.modelo}`} onClose={()=>setModalVender(null)}>
-<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==CLIENTE_STOCK_USADA_ID&&c.id!==0&&c.id>=0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
+<Field label="Cliente que la compra *"><ClientePicker clientes={data.clientes.filter(c=>c.id!==CLIENTE_STOCK_ID&&c.id!==0&&c.id>0)} value={ventaClienteId} onChange={setVentaClienteId}/></Field>
 <Field label="Fecha de instalación * (inicio de garantía si aplica)"><Input type="date" value={ventaFechaInstalacion} onChange={e=>setVentaFechaInstalacion(e.target.value)}/></Field>
 {ventaFechaInstalacion&&<div style={{background:"#10b98112",border:"1px solid #10b98133",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#10b981",fontSize:12}}>✅ Fecha de instalación: {fmtFecha(ventaFechaInstalacion)}</div>}
 <div style={{background:"#1e293b",border:"1px solid #2a3550",borderRadius:8,padding:"8px 12px",marginTop:4,color:"#e4e9f6",fontSize:12}}>♻️ La máquina ({m.codigo||"—"}) se añadirá a la ficha del cliente y dejará de aparecer en Stock Usada.</div>
