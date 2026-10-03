@@ -12105,13 +12105,11 @@ const puedeEliminar=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeVender=userActual?.rol==="manager"||userActual?.rol==="admin";
 const puedeConf=puedeVerPrecioConf(userActual);
 // Las máquinas usadas en stock viven en el cliente id=0 (Europea de Maquinaria PMM SL)
-// marcadas con el flag esStockUsada:true para distinguirlas de las máquinas propias.
-const maqUsada=()=>(data.clientes.find(c=>c.id===0)?.maquinas||[]).filter(m=>m.esStockUsada);
+// Todas las máquinas del cliente id=0 (PMM SL) son stock usada.
+const maqUsada=()=>(data.clientes.find(c=>c.id===0)?.maquinas||[]);
 const setMaqUsada=fn=>setData(d=>({...d,clientes:d.clientes.map(c=>{
   if(c.id!==0) return c;
-  const stock=(c.maquinas||[]).filter(m=>m.esStockUsada);
-  const propias=(c.maquinas||[]).filter(m=>!m.esStockUsada);
-  return {...c,maquinas:[...propias,...fn(stock)]};
+  return {...c,maquinas:fn(c.maquinas||[])};
 })}));
 const [vista,setVista]=useState(null);const [modal,setModal]=useState(false);const [form,setForm]=useState({});const [busq,setBusq]=useState("");
 const [modalVender,setModalVender]=useState(null);const [ventaClienteId,setVentaClienteId]=useState("");const [ventaFechaInstalacion,setVentaFechaInstalacion]=useState("");
