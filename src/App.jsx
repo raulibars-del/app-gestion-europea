@@ -6254,6 +6254,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
   const [firmada, setFirmada] = useState(false);
   const [conforme, setConforme] = useState(null); // true=Conforme, false=No conforme, null=sin marcar
   const [notasConformidad, setNotasConformidad] = useState("");
+  const [trabajoContinua, setTrabajoContinua] = useState(false); // por defecto: trabajo finalizado
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [modoProgr, setModoProgr] = useState(false); // muestra datepicker en modal
@@ -6555,6 +6556,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     setEmailCliente(emailPre); setFirmada(false); setEnviado(false);
     setConforme(p.envioProgConforme ?? p.conforme ?? true);
     setNotasConformidad(p.envioProgNotas || p.notasConformidad || "");
+    setTrabajoContinua(false); // por defecto: trabajo finalizado
     setForm(prev=>({...prev,firmaNombre:p.envioProgFirmaNombre || p.firmaNombre || ""}));
     setModoProgr(false); setFechaProgr(""); setHoraProgr("08:00");
     setTimeout(()=>{ if(canvasRef.current) canvasRef.current.getContext("2d").clearRect(0,0,520,140); },80);
@@ -6919,8 +6921,7 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
     if(!emailCliente.trim()){alert("Introduce el email del cliente.");return;}
     setEnviando(true);
     try{
-      // trabajoContinua=true cuando es parte individual (no cadena): el PDF siempre incluye el aviso "TRABAJO NO FINALIZADO"
-      const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad, trabajoContinua: !modalPDFCadena};
+      const parteFinal = {...modalPDF, firmaNombre:form.firmaNombre, conforme, notasConformidad, trabajoContinua: !modalPDFCadena && trabajoContinua};
       const cadena = modalPDFCadena;
       const numeroMostrado = cadena ? cadenaBaseDe(cadena[0]) : (modalPDF.numeroParte||"");
       // soloDescarga=false: en iOS doc.save() navega la página con document.location=dataUrl,
@@ -7597,6 +7598,18 @@ const Partes = ({ data, setData, userActual, abrirParteId, onAbrirParteId }) => 
                       style={{...inputStyle,minHeight:60,resize:"vertical"}}
                     />
                   </div>
+                  {/* Trabajo no finalizado — solo para partes individuales (no cadena) */}
+                  {!modalPDFCadena&&(
+                    <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,background:trabajoContinua?"#7f1d1d22":"transparent",border:trabajoContinua?"1px solid #ef444466":"1px solid #2a3550",borderRadius:8,padding:"10px 14px",cursor:"pointer"}} onClick={()=>setTrabajoContinua(p=>!p)}>
+                      <div style={{width:20,height:20,borderRadius:4,border:"2px solid "+(trabajoContinua?"#ef4444":"#4a5568"),background:trabajoContinua?"#ef4444":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {trabajoContinua&&<span style={{color:"#fff",fontSize:13,lineHeight:1}}>✓</span>}
+                      </div>
+                      <div>
+                        <div style={{color:trabajoContinua?"#ef4444":"#94a3b8",fontWeight:700,fontSize:13}}>Trabajo no finalizado — se continuará</div>
+                        <div style={{color:"#4a5568",fontSize:11}}>Marcar solo si se requiere otra visita para completar el trabajo</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Email — auto-relleno desde cliente */}
                 <div style={{marginBottom:20}}>
