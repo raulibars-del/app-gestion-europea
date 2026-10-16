@@ -668,8 +668,8 @@ const PRIORIDADES = ["Alta","Media","Leve"];
 const PCOLOR = { "Alta":"#ef4444", "Media":"#f59e0b", "Leve":"#16a34a" };
 const PRIORIDAD_ORDER = { "Alta":0, "Media":1, "Leve":2 };
 // Escala la prioridad visual según días pendientes (no modifica los datos)
-const prioridadEfectiva = (prioridad, fechaAviso, estado) => {
-  if (estado === "Resuelto" || estado === "Cancelado") return prioridad;
+const prioridadEfectiva = (prioridad, fechaAviso, estado, enStandby) => {
+  if (estado === "Resuelto" || estado === "Cancelado" || enStandby) return prioridad;
   const d = Math.floor((new Date() - new Date(fechaAviso)) / 86400000);
   if (d < 0) return prioridad;
   if (prioridad === "Leve" && d > 30) return "Alta";
@@ -3741,8 +3741,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
       const bloqB = ESTADOS_BLOQUEADO_AV.includes(b.estado);
       // Ordenar por prioridad EFECTIVA (ya incluye escalada automática por antigüedad)
       // → Alta(0) antes que Media(1) antes que Leve(2); dentro del mismo nivel, más días primero
-      const pEfA = PRIORIDAD_ORDER[prioridadEfectiva(a.prioridad, a.fechaAviso, a.estado)] ?? 9;
-      const pEfB = PRIORIDAD_ORDER[prioridadEfectiva(b.prioridad, b.fechaAviso, b.estado)] ?? 9;
+      const pEfA = PRIORIDAD_ORDER[prioridadEfectiva(a.prioridad, a.fechaAviso, a.estado, a.enStandby)] ?? 9;
+      const pEfB = PRIORIDAD_ORDER[prioridadEfectiva(b.prioridad, b.fechaAviso, b.estado, b.enStandby)] ?? 9;
       const da = diasDesde(a.fechaAviso), db2 = diasDesde(b.fechaAviso);
       const ba = bloqA ? 9 : pEfA;
       const bb = bloqB ? 9 : pEfB;
@@ -3789,12 +3789,23 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
     setCancelTarget(null); setMotivoCancel(""); setDetalle(null);
   };
   const delAv = id => { if (!window.confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return; const tsAhora = Date.now(); setData(d => ({ ...d,avisos: d.avisos.map(a => a.id === id ? { ...a, _deleted: true, _ts: tsAhora } : a) })); setDetalle(null); };
-  const crit = data.avisos.filter(a => a.prioridad === "Alta" && a.estado !== "Resuelto" && a.estado !== "Cancelado");
-  const sinA = data.avisos.filter(a => a.estado === "Sin asignar");
-  const ant  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && diasDesde(a.fechaAviso) >= 7);
+  const toggleStandby = id => setData(d => ({ ...d, avisos: d.avisos.map(a => {
+    if (a.id !== id) return a;
+    if (a.enStandby) {
+      // recuperar: quitar standby
+      return { ...a, enStandby: false, fechaStandby: null, diasAlStandby: null, _ts: Date.now() };
+    } else {
+      // poner en standby: guardar días hasta ahora
+      const dias = diasDesde(a.fechaAviso);
+      return { ...a, enStandby: true, fechaStandby: today(), diasAlStandby: dias, _ts: Date.now() };
+    }
+  }) }));
+  const crit = data.avisos.filter(a => a.prioridad === "Alta" && a.estado !== "Resuelto" && a.estado !== "Cancelado" && !a.enStandby);
+  const sinA = data.avisos.filter(a => a.estado === "Sin asignar" && !a.enStandby);
+  const ant  = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && !a.enStandby && diasDesde(a.fechaAviso) >= 7);
   // Regla automática: aviso con +14 días sin resolver y prioridad Alta → se marca URGENTE
-  const urgentes14 = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && a.prioridad === "Alta" && diasDesde(a.fechaAviso) >= 14);
-  const avisosActivos = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado").length;
+  const urgentes14 = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && !a.enStandby && a.prioridad === "Alta" && diasDesde(a.fechaAviso) >= 14);
+  const avisosActivos = data.avisos.filter(a => a.estado !== "Resuelto" && a.estado !== "Cancelado" && !a.enStandby).length;
   return (
     <div>
       {/* Cabecera */}
@@ -3896,7 +3907,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       </div>
         <div style={{color:"#e4e9f6",fontSize:11,marginBottom:7,display:"flex",alignItems:"center",gap:8}}>
-          {avs.length} aviso{avs.length !== 1 ? "s" : ""}
+          {avs.filter(a=>!a.enStandby).length} aviso{avs.filter(a=>!a.enStandby).length !== 1 ? "s" : ""}{avs.filter(a=>a.enStandby).length>0?` · ${avs.filter(a=>a.enStandby).length} en standby`:""}
           {soloSinAsignar && (
             <span style={{background:"#f59e0b20",color:"#f59e0b",border:"1px solid #f59e0b44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
               ⚠️ Sin técnico
@@ -3911,21 +3922,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           )}
         </div>
       {/* Lista */}
-      <div style={{display:"grid",gap:isMov?3:7}}>
-        {avs.length === 0 && <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>No hay avisos</div>}
-        {avs.map(av => {
-          const pEfectiva = prioridadEfectiva(av.prioridad, av.fechaAviso, av.estado);
+      {(()=>{
+        const avsCirculacion = avs.filter(a=>!a.enStandby);
+        const avsPausa = avs.filter(a=>a.enStandby);
+        const renderCard = av => {
+          const pEfectiva = prioridadEfectiva(av.prioridad, av.fechaAviso, av.estado, av.enStandby);
           const pc = PCOLOR[pEfectiva] || "#e4e9f6";
           const isCrit = pEfectiva === "Alta" && av.estado !== "Resuelto";
           /* ── VERSIÓN MÓVIL COMPACTA ── */
           if (isMov) {
             const d = diasDesde(av.fechaAviso);
             const esBloqMov = ESTADOS_BLOQUEADO_AV.includes(av.estado);
-            const dColor = esBloqMov?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+            const dColor = av.enStandby?"#64748b":esBloqMov?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
-                style={{background:"#151b2a",borderLeft:`4px solid ${pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                style={{background:"#151b2a",borderLeft:`4px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.6:1}}>
                 {/* icono prioridad */}
                 <div style={{width:24,height:24,borderRadius:6,background:pc+"18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                   <Icon name="bell" size={11}/>
@@ -3936,12 +3948,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   <div style={{display:"flex",alignItems:"center",gap:5,marginTop:2,flexWrap:"wrap"}}>
                     <span style={{color:"#9bacc8",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}}>{cN(av.clienteId)}</span>
                     <span style={{background:"#1a2236",color:"#9bacc8",fontSize:9,borderRadius:3,padding:"1px 5px",border:"1px solid #2a3550",whiteSpace:"nowrap"}}>{av.estado}</span>
+                    {av.enStandby&&<span style={{background:"#1e293b",color:"#64748b",border:"1px solid #334155",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>⏸ Standby</span>}
                     {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>📦 Mat. disponible</span>}
                     {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
                   </div>
                 </div>
                 {/* días compacto */}
-                {isPend && (
+                {isPend && !av.enStandby && (
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,minWidth:36}}>
                     <span style={{color:dColor,fontWeight:900,fontSize:22,lineHeight:1}}>{d}</span>
                     <span style={{color:dColor,fontSize:9,fontWeight:700}}>días</span>
@@ -3949,7 +3962,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 )}
                 {/* botones mínimos */}
                 <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
-                  {isPend&&<button onClick={()=>confirmarYResolver(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
+                  {isPend&&!av.enStandby&&<button onClick={()=>confirmarYResolver(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
+                  {isPend&&<button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={()=>toggleStandby(av.id)} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`,width:26,height:26}}>{av.enStandby?"▶":"⏸"}</button>}
                   <button onClick={()=>openEditAv(av)} style={{...btnSm("#2a3550","#e6ebf6"),width:26,height:26}}><Icon name="edit" size={11}/></button>
                 </div>
               </div>
@@ -3959,7 +3973,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
-              style={{background:"#151b2a",border:`1px solid ${isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
+              style={{background:"#151b2a",border:`1px solid ${av.enStandby?"#1e293b":isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${av.enStandby?"#334155":pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
@@ -4009,6 +4023,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               <div style={{display:"flex",alignItems:"center",flexShrink:0,marginLeft:"auto",gap:0}}>
                 {(()=>{
                   if(av.estado==="Resuelto"||av.estado==="Cancelado") return null;
+                  if(av.enStandby){
+                    return(
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",width:96,padding:"8px 10px",marginRight:8,gap:0}}>
+                        <div style={{color:"#334155",fontSize:28,lineHeight:1,textAlign:"center"}}>⏸</div>
+                        <div style={{color:"#475569",fontSize:10,textAlign:"center",marginTop:4,fontWeight:700,letterSpacing:".3px",textTransform:"uppercase"}}>standby</div>
+                      </div>
+                    );
+                  }
                   const d=diasDesde(av.fechaAviso);
                   const esBloq=ESTADOS_BLOQUEADO_AV.includes(av.estado);
                   const c=esBloq?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
@@ -4031,11 +4053,14 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>📦 Material ya disponible</span>}
                 {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
                 <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:110}}>
-                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && !av.enStandby && (
                     <button onClick={e => { e.stopPropagation(); confirmarYResolver(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
                   )}
-                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && !av.enStandby && (
                     <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
+                  )}
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
+                    <button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={e => { e.stopPropagation(); toggleStandby(av.id); }} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`}}>{av.enStandby?"▶":"⏸"}</button>
                   )}
                   <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={12} /></button>
                   <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
@@ -4066,8 +4091,30 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
               )}
             </div>
           );
-        })}
-      </div>
+        };
+        return (
+          <div style={{display:"flex",flexDirection:"column",gap:isMov?3:7}}>
+            {/* ── Avisos en circulación ── */}
+            {avsCirculacion.length===0&&avsPausa.length===0&&<div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"32px",textAlign:"center",color:"#e4e9f6"}}>No hay avisos</div>}
+            <div style={{display:"grid",gap:isMov?3:7}}>
+              {avsCirculacion.map(av => renderCard(av))}
+            </div>
+            {/* ── Avisos en standby ── */}
+            {avsPausa.length>0&&(
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:10,margin:"18px 0 8px",opacity:.85}}>
+                  <div style={{flex:1,height:1,background:"#1e293b"}}/>
+                  <span style={{color:"#64748b",fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:".8px",display:"flex",alignItems:"center",gap:6}}>⏸ Avisos en standby <span style={{color:"#475569",fontWeight:500}}>({avsPausa.length})</span></span>
+                  <div style={{flex:1,height:1,background:"#1e293b"}}/>
+                </div>
+                <div style={{display:"grid",gap:isMov?3:7,opacity:.6}}>
+                  {avsPausa.map(av => renderCard(av))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
       {/* Modal detalle */}
       {detalle && (()=>{
         const clD = data.clientes.find(c=>c.id===detalle.clienteId);
@@ -17666,7 +17713,7 @@ function AppInner() {
   // los pop-ups secuenciales al conectar (ver popupQueue/cerrarPopup más arriba), que se marcan
   // como leídos al cerrarlos. La campanita es ahora solo el historial en modo lista.
   const misNotifs=data.notificaciones[user.id]||[];
-  const avisosActivos=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado").length;
+  const avisosActivos=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado"&&!a.enStandby).length;
   // El badge de "Avisos" en la nav debe reflejar solo los avisos activos: antes se le sumaba
   // también el recuento de "reparaciones" (un dato antiguo que no se gestiona desde ninguna
   // pantalla), lo que hacía que con p.ej. 2 avisos activos el número mostrado fuera 4.
