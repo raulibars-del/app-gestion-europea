@@ -3963,7 +3963,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {/* botones mínimos */}
                 <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                   {isPend&&!av.enStandby&&<button onClick={()=>confirmarYResolver(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
-                  {isPend&&<button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={()=>toggleStandby(av.id)} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`,width:26,height:26}}>{av.enStandby?"▶":"⏸"}</button>}
+                  {isPend&&(userActual.rol==="manager"||userActual.rol==="admin")&&<button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={()=>toggleStandby(av.id)} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`,width:26,height:26}}>{av.enStandby?"▶":"⏸"}</button>}
                   <button onClick={()=>openEditAv(av)} style={{...btnSm("#2a3550","#e6ebf6"),width:26,height:26}}><Icon name="edit" size={11}/></button>
                 </div>
               </div>
@@ -4059,7 +4059,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && !av.enStandby && (
                     <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
                   )}
-                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (
+                  {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (userActual.rol==="manager"||userActual.rol==="admin") && (
                     <button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={e => { e.stopPropagation(); toggleStandby(av.id); }} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`}}>{av.enStandby?"▶":"⏸"}</button>
                   )}
                   <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={12} /></button>
