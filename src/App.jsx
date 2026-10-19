@@ -8896,7 +8896,7 @@ async function generarPDFFacturaDoc(factura, empresa) {
     const tieneCuentas  = cuentasPDF.length > 0;
     // Mostrar siempre el bloque completo
     {
-      const altEstim = 10 + 9 + (tieneCuentas ? 5 + cuentasPDF.length * 16 : 0) + 34;
+      const altEstim = 10 + 9 + (tieneCuentas ? 5 + cuentasPDF.length * 16 : 0) + 42;
       ensureSpace(altEstim + 10);
       const bx = mg, bw = W - mg * 2;
       // Cabecera azul oscuro
@@ -8937,27 +8937,32 @@ async function generarPDFFacturaDoc(factura, empresa) {
           y += 10;
         });
       }
-      // ── Condiciones de venta de maquinaria (siempre) ──
+      // ── Condiciones de venta de maquinaria ──
       doc.setDrawColor(200,210,230); doc.setLineWidth(0.3);
       doc.line(bx+4, y+2, bx+bw-4, y+2);
       y += 7;
-      // Precio franco fábrica
+      // Precio (franco fábrica / en instalaciones del cliente)
+      const precioCondPDF = factura.precioCondicion || "Franco fábrica";
       doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
       doc.text("Precio:", bx+5, y+4.5);
       doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
-      doc.text("Franco fábrica", bx+48, y+4.5);
+      doc.text(precioCondPDF, bx+48, y+4.5);
       y += 8;
-      // 30 / 70 %
+      // Condiciones de pago (texto libre)
+      const condPagoPDF = factura.condicionesPago || "30% a la reserva — 70% restante antes de la carga";
       doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
       doc.text("Condiciones:", bx+5, y+4.5);
       doc.setTextColor(20,35,65); doc.setFontSize(9); doc.setFont("helvetica","bold");
-      doc.text("30% a la reserva — 70% restante antes de la carga", bx+48, y+4.5);
-      y += 8;
-      // Transporte no incluido
+      const condLines = doc.splitTextToSize(condPagoPDF, bw-55);
+      doc.text(condLines, bx+48, y+4.5);
+      y += 5 + condLines.length * 4.5;
+      // Transporte y montaje
+      const transpPDF = factura.transporteMontaje || "No incluido";
+      const transpIncluido = transpPDF === "Incluido en precio";
       doc.setTextColor(80,100,140); doc.setFontSize(7.5); doc.setFont("helvetica","normal");
       doc.text("Transporte y montaje:", bx+5, y+4.5);
-      doc.setTextColor(200,30,30); doc.setFontSize(9); doc.setFont("helvetica","bold");
-      doc.text("No incluido", bx+63, y+4.5);
+      doc.setTextColor(transpIncluido?0:200, transpIncluido?150:30, transpIncluido?100:30); doc.setFontSize(9); doc.setFont("helvetica","bold");
+      doc.text(transpPDF, bx+63, y+4.5);
       y += 8;
       // Borde exterior del bloque
       doc.setDrawColor(180,195,225); doc.setLineWidth(0.4);
@@ -9116,9 +9121,10 @@ const Contabilidad = ({ data, setData, userActual }) => {
   const abrirNuevo = (tipo) => {
     const hoy = today();
     const fpDef = "Transferencia bancaria";
-    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, formaPago:fpDef, condicionesMaquina:false });
-    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, formaPago:fpDef, condicionesMaquina:false });
-    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", formaPago:fpDef, condicionesMaquina:false });
+    const condDefaults = { condicionesPago:"30% a la reserva — 70% restante antes de la carga", transporteMontaje:"No incluido", precioCondicion:"Franco fábrica" };
+    if (tipo==="factura") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:false, formaPago:fpDef, condicionesMaquina:false, ...condDefaults });
+    else if (tipo==="proforma") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Emitida", esProforma:true, formaPago:fpDef, condicionesMaquina:false, ...condDefaults });
+    else if (tipo==="presupuesto") setForm({ fecha:hoy, tipoIVA:21, notas:"", estado:"Pendiente", esPresupuesto:true, validezHasta:"", formaPago:fpDef, condicionesMaquina:false, ...condDefaults });
     setBuscarCli("");
     setLineas([{ id:Date.now(), descripcion:"", cantidad:1, precioUnitario:0, descuento:0, precioNeto:0, subtotal:0 }]);
     setModal(tipo);
@@ -10522,6 +10528,42 @@ const Contabilidad = ({ data, setData, userActual }) => {
           <div style={{color:"#e4e9f6",fontSize:13}}>Base imponible: <strong style={{color:"#f1f3f9"}}>{fmtEur(baseImponible)}</strong></div>
           <div style={{color:"#e4e9f6",fontSize:13}}>IVA ({form.tipoIVA||21}%): <strong style={{color:"#f1f3f9"}}>{fmtEur(cuotaIVA)}</strong></div>
           <div style={{color:"#16a34a",fontSize:16,fontWeight:800,marginTop:4}}>Total: {fmtEur(total)}</div>
+        </div>
+        {/* ── Condiciones comerciales ── */}
+        <div style={{background:"#0d1117",border:"1px solid #2a3550",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+          <div style={{color:"#f59e0b",fontWeight:800,fontSize:12,textTransform:"uppercase",letterSpacing:".5px",marginBottom:10}}>Condiciones comerciales</div>
+          {/* Plantillas rápidas */}
+          <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+            <span style={{color:"#6b7a99",fontSize:11,alignSelf:"center",marginRight:2}}>Plantilla:</span>
+            {[
+              {lbl:"Estándar",cond:"30% a la reserva — 70% restante antes de la carga",transp:"No incluido",precio:"Franco fábrica"},
+              {lbl:"Llave en mano",cond:"50% a la reserva — 50% a la entrega e instalación",transp:"Incluido en precio",precio:"En instalaciones del cliente"},
+              {lbl:"Contado",cond:"Pago al contado a la entrega",transp:"No incluido",precio:"Franco fábrica"},
+            ].map(p=>(
+              <button key={p.lbl} type="button" onClick={()=>setForm(f=>({...f,condicionesPago:p.cond,transporteMontaje:p.transp,precioCondicion:p.precio}))}
+                style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:6,color:"#e4e9f6",fontSize:11,padding:"4px 10px",cursor:"pointer"}}>{p.lbl}</button>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:9}}>
+            <Field label="Transporte y montaje">
+              <select value={form.transporteMontaje||"No incluido"} onChange={e=>setForm(f=>({...f,transporteMontaje:e.target.value}))} style={inputStyle}>
+                {["No incluido","Incluido en precio"].map(o=><option key={o}>{o}</option>)}
+              </select>
+            </Field>
+            <Field label="Precio">
+              <select value={form.precioCondicion||"Franco fábrica"} onChange={e=>setForm(f=>({...f,precioCondicion:e.target.value}))} style={inputStyle}>
+                {["Franco fábrica","En instalaciones del cliente"].map(o=><option key={o}>{o}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Condiciones de pago (texto libre)">
+            <input value={form.condicionesPago||""} onChange={e=>setForm(f=>({...f,condicionesPago:e.target.value}))} placeholder="Ej: 30% a la reserva — 70% antes de la carga" style={inputStyle}/>
+          </Field>
+          {!(data.empresa?.cuentasBancarias||[]).length&&(
+            <div style={{marginTop:8,background:"#dc262610",border:"1px solid #dc262633",borderRadius:6,padding:"7px 10px",color:"#f87171",fontSize:11}}>
+              ⚠ No hay cuentas bancarias configuradas. Ve a <strong>Ajustes → Empresa → Cuentas bancarias</strong> para que aparezcan en el PDF.
+            </div>
+          )}
         </div>
         <Field label="Notas (opcional)"><textarea value={form.notas||""} onChange={e=>setForm(f=>({...f,notas:e.target.value}))} rows={2} style={{...inputStyle,resize:"vertical",fontFamily:"inherit"}}/></Field>
         {esProforma&&<div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",marginBottom:10,color:"#f59e0b",fontSize:12}}>Esta proforma no tiene validez fiscal. Se puede convertir a factura cuando el cliente confirme.</div>}
