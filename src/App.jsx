@@ -774,7 +774,7 @@ const initialData = {
     {id:11,codigo:"INV0011",nombre:"Rodamiento 6205 2RS",descripcion:"Rodamiento de bolas cierre doble 25x52x15mm",categoria:"Rodamientos",unidad:"ud",stock:8,stockMin:3,precioCompra:3.20,precioVenta:7.50},
     {id:12,codigo:"INV0012",nombre:"Aceite hidraulico HV46",descripcion:"Aceite hidraulico de viscosidad 46 bidón 20L",categoria:"Lubricantes",unidad:"L",stock:40,stockMin:20,precioCompra:2.10,precioVenta:4.80},
   ],carrusel:{mediaItems:[],mostrarAvisos:true,mostrarBienvenida:true,textoBienvenida:"Bienvenidos a\nEuropea de Maquinaria",duracionSlide:10},
-  smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com"},
+  smtp:{host:"",port:"587",user:"",pass:"",from:"avisos@europea.es",hora:"07:30",ccPartes:"gestion@europeademaquinaria.com",ccContabilidad:"admin@europeademaquinaria.com"},
   empresa:{razonSocial:"Europea de Maquinaria PMM SL",nif:"B98527583",dirFiscal:"Carrer Mas del Jutge 33",cpFiscal:"46900",localidad:"Torrent",provincia:"Valencia",telefono:"",email:"gestion@europeademaquinaria.com",web:"europeademaquinaria.com"},
   contabilidad:{facturas:[],proformas:[],presupuestos:[],gastos:[],pedidos:[],tarifas:{precioPorKm:0.35,precioHoraDesplazamiento:30,precioHoraManoObra:55},costesVentas:{}},
   proveedores:[],
@@ -8601,9 +8601,11 @@ const Ajustes = ({ data, setData, onPrueba, userActual }) => {
       </div>
     </div>
     <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:"18px 20px",marginBottom:14}}>
-      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copia (CC) al enviar Partes y Albaranes</div>
-      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:11}}>Además del email del cliente, cada parte de trabajo o albarán enviado se copiará automáticamente a estas direcciones. Sepáralas con comas.</p>
-      <Field label="Copiar a (CC)"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com"/></Field>
+      <div style={{fontWeight:800,fontSize:14,color:"#f1f3f9",marginBottom:11,display:"flex",alignItems:"center",gap:6}}><Icon name="mail" size={15}/>Copias automáticas (CC)</div>
+      <p style={{color:"#e4e9f6",fontSize:12,marginBottom:11}}>Direcciones a las que se enviará copia automáticamente según el tipo de documento. Separa varias con comas.</p>
+      <Field label="CC — Partes de trabajo y albaranes"><Input value={smtp.ccPartes||""} onChange={s("ccPartes")} placeholder="gestion@europeademaquinaria.com"/></Field>
+      <div style={{marginTop:8}}/>
+      <Field label="CC — Facturas, proformas y presupuestos"><Input value={smtp.ccContabilidad||""} onChange={s("ccContabilidad")} placeholder="admin@europeademaquinaria.com"/></Field>
       <div style={{display:"flex",gap:9,alignItems:"center",marginTop:13}}>
         <button onClick={guardar} style={btnPrimary}>Guardar</button>
         {ok&&<span style={{color:"#16a34a",fontSize:13,fontWeight:700}}>✓ Guardado</span>}
@@ -9264,7 +9266,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
         <p style="font-size:12px;color:#64748b;margin:0 0 18px">Por favor, incluya el número de factura <strong>${doc.numero}</strong> en el concepto de la transferencia.</p>
       ` : `<p style="color:#64748b;font-size:13px;font-style:italic">Este documento es informativo y no tiene validez fiscal.</p>`;
       await apiSendMail({
-        to: email, cc: data.smtp?.ccPartes||"",
+        to: email, cc: data.smtp?.ccContabilidad||"admin@europeademaquinaria.com",
         subject: `${esPrs?"Presupuesto":esP?"Factura Proforma":"Factura"} ${doc.numero} — ${emp.razonSocial||"Europea de Maquinaria"}`,
         html: `<div style="font-family:Arial,sans-serif;color:#1a1a1a;max-width:600px;margin:0 auto">
           <div style="background:#0a0f1a;padding:20px 24px;border-radius:8px 8px 0 0">
