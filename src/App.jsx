@@ -128,7 +128,7 @@ const coincideTexto = (item, query, campos) => {
 // Cada clave de 'data' listada aquí tiene su propia fila en la BD con su propio
 // version counter. Cambiar clientes no entra en conflicto con cambiar avisos.
 // Las claves no listadas van a la sección 'config' (usuarios, smtp, passwords…).
-const SECCIONES_ACTIVAS = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+const SECCIONES_ACTIVAS = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
 const TODAS_SECCIONES = [...SECCIONES_ACTIVAS, 'config'];
 
 // Extrae los datos de una sección desde el objeto data completo.
@@ -144,8 +144,14 @@ function extraerSeccion(d, s) {
 }
 
 // Aplica los datos de una sección sobre el objeto data completo.
+// Para 'config': filtramos las claves que ahora tienen sección propia para que
+// los datos legacy dentro de config no machaquen la sección dedicada.
 function aplicarSeccion(d, s, sd) {
-  if(s === 'config') return {...d, ...sd};
+  if(s === 'config'){
+    const filtrado = {};
+    Object.keys(sd||{}).forEach(k=>{ if(!SECCIONES_ACTIVAS.includes(k)) filtrado[k]=sd[k]; });
+    return {...d, ...filtrado};
+  }
   return {...d, [s]: sd};
 }
 

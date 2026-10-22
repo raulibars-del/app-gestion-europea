@@ -419,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'sections') {
 // ─── POST con cabecera X-Section (guardado por sección) ─────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION'])) {
     $section = preg_replace('/[^a-z]/', '', strtolower(trim($_SERVER['HTTP_X_SECTION'])));
-    $permitidas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','config'];
+    $permitidas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','config'];
     if (!in_array($section, $permitidas)) {
         http_response_code(400);
         echo json_encode(['error' => 'seccion_no_permitida']);
