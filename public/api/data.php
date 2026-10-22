@@ -417,10 +417,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'cleanup_config') {
     stripPdfBase64($config);
     $newJson = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'config'")->execute(['d' => $newJson]);
+    // Mostrar tamaño por clave para diagnóstico
+    $keySizes = [];
+    foreach ($config as $k => $v) {
+        $keySizes[$k] = round(strlen(json_encode($v))/1024, 1) . ' KB';
+    }
+    arsort($keySizes);
     echo json_encode([
         'ok' => true,
         'antes_MB' => round($antesByte/1048576, 2),
         'despues_MB' => round(strlen($newJson)/1048576, 2),
+        'claves_por_tamaño' => $keySizes,
     ]);
     exit;
 }
