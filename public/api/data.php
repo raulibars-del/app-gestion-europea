@@ -404,14 +404,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'trim_notificaciones') {
     $notifs = json_decode($row['data'], true) ?? [];
     $trimmed = [];
     foreach ($notifs as $uid => $arr) {
-        $trimmed[$uid] = array_slice(is_array($arr) ? $arr : [], 0, 30);
+        $trimmed[$uid] = array_slice(is_array($arr) ? $arr : [], 0, 5);
     }
     $newJson = json_encode($trimmed, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'notificaciones'")->execute(['d' => $newJson]);
+    // También limpiar documentacion (limitarla a 20 entradas)
+    $stmtDoc = $pdo->prepare("SELECT data FROM app_sections WHERE section = 'documentacion'");
+    $stmtDoc->execute();
+    $rowDoc = $stmtDoc->fetch(PDO::FETCH_ASSOC);
+    if ($rowDoc) {
+        $docs = json_decode($rowDoc['data'], true) ?? [];
+        if (is_array($docs) && count($docs) > 20) {
+            $docs = array_slice($docs, -20);
+            $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'documentacion'")->execute(['d' => json_encode($docs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+        }
+    }
     echo json_encode([
         'ok' => true,
         'antes_MB' => round($antesByte/1048576, 2),
         'despues_MB' => round(strlen($newJson)/1048576, 2),
+        'msg' => 'notificaciones y documentacion recortadas',
     ]);
     exit;
 }

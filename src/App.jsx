@@ -141,14 +141,19 @@ function extraerSeccion(d, s) {
     return c;
   }
   if(s === 'notificaciones'){
-    // Recortar a las últimas 100 notifs por usuario para no superar el límite del servidor
+    // Recortar a las últimas 5 notifs por usuario para no superar el límite del servidor
     const raw = d.notificaciones ?? {};
     const trimmed = {};
     Object.keys(raw).forEach(uid => {
       const arr = Array.isArray(raw[uid]) ? raw[uid] : [];
-      trimmed[uid] = arr.slice(0, 30);
+      trimmed[uid] = arr.slice(0, 5);
     });
     return trimmed;
+  }
+  if(s === 'documentacion'){
+    // Limitar documentacion a las últimas 20 entradas
+    const raw = d.documentacion ?? [];
+    return Array.isArray(raw) ? raw.slice(-20) : raw;
   }
   return d[s] ?? (Array.isArray((initialData||{})[s]) ? [] : {});
 }
