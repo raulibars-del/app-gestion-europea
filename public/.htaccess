@@ -1,4 +1,17 @@
 Options -MultiViews
+
+# Aumentar límites PHP para el guardado de secciones con fotos/PDFs
+<IfModule mod_php.c>
+  php_value post_max_size 16M
+  php_value upload_max_filesize 16M
+  php_value memory_limit 256M
+</IfModule>
+<IfModule mod_php8.c>
+  php_value post_max_size 16M
+  php_value upload_max_filesize 16M
+  php_value memory_limit 256M
+</IfModule>
+
 RewriteEngine On
 
 # Forzar HTTPS: redirige cualquier peticion HTTP a HTTPS
