@@ -18,7 +18,7 @@ header('Content-Type: application/json; charset=utf-8');
 // CORS básico (la app se sirve desde el mismo dominio, pero por si acaso)
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, X-Expected-Version, X-Section');
+header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, X-Expected-Version, X-Section, X-Saved-By, X-Encoding');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -502,7 +502,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
 
     $raw = file_get_contents('php://input');
     // Descomprimir gzip si el cliente lo envió comprimido
-    if (strpos($_SERVER['HTTP_CONTENT_ENCODING'] ?? '', 'gzip') !== false) {
+    if (strpos($_SERVER['HTTP_X_ENCODING'] ?? '', 'gzip') !== false) {
         $decoded = @gzdecode($raw);
         if ($decoded !== false) $raw = $decoded;
     }

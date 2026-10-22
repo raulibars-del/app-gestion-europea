@@ -15828,7 +15828,7 @@ async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
   const jsonStr = JSON.stringify(datos);
   let body = jsonStr;
   const extraHeaders = {};
-  // Comprimir con gzip si el navegador lo soporta (reduce 112 KB → ~15 KB)
+  // Comprimir con gzip usando header personalizado (evita que proxies interfieran)
   try {
     if (typeof CompressionStream !== 'undefined') {
       const cs = new CompressionStream('gzip');
@@ -15836,7 +15836,8 @@ async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
       w.write(new TextEncoder().encode(jsonStr));
       w.close();
       body = await new Response(cs.readable).arrayBuffer();
-      extraHeaders['Content-Encoding'] = 'gzip';
+      extraHeaders['X-Encoding'] = 'gzip';
+      extraHeaders['Content-Type'] = 'application/octet-stream';
     }
   } catch(e) { body = jsonStr; }
   const res = await fetch(API_URL, {
@@ -15853,7 +15854,7 @@ async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
     ...(opts.keepalive ? {keepalive:true} : {}),
   });
   if(res.status===409){const j=await res.json().catch(()=>({}));return{conflict:true,version:j.version,section:seccion};}
-  if(!res.ok) throw new Error("POST section "+res.status);
+  if(!res.ok){const errJ=await res.json().catch(()=>({}));throw new Error("POST section "+res.status+" ["+seccion+"] "+JSON.stringify(errJ));}
   return res.json(); // {ok:true, section, version}
 }
 const ESCANEAR_TARJETA_API_URL = "/api/escanear-tarjeta.php";
