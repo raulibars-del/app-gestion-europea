@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $accionTemp = $_GET['action'] ?? '';
-if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup','pi-upload','cleanup_config']) && !hash_equals(API_KEY, $apiKey)) {
+if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup','pi-upload','cleanup_config','trim_notificaciones']) && !hash_equals(API_KEY, $apiKey)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
@@ -390,6 +390,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'migrate_base64') {
             ->execute(['d'=>$bj,'d2'=>$bj]);
     }
     echo json_encode(['ok'=>true, 'total_fotos_migradas'=>$totalFotos, 'secciones'=>$resultados], JSON_PRETTY_PRINT);
+    exit;
+}
+
+// ─── GET ?action=trim_notificaciones ─────────────────────────────────────────
+// Recorta la sección notificaciones a máximo 100 por usuario en BD.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'trim_notificaciones') {
+    $stmt = $pdo->prepare("SELECT data FROM app_sections WHERE section = 'notificaciones'");
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) { echo json_encode(['ok'=>true,'msg'=>'notificaciones no encontrada en BD']); exit; }
+    $antesByte = strlen($row['data']);
+    $notifs = json_decode($row['data'], true) ?? [];
+    $trimmed = [];
+    foreach ($notifs as $uid => $arr) {
+        $trimmed[$uid] = array_slice(is_array($arr) ? $arr : [], 0, 100);
+    }
+    $newJson = json_encode($trimmed, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'notificaciones'")->execute(['d' => $newJson]);
+    echo json_encode([
+        'ok' => true,
+        'antes_MB' => round($antesByte/1048576, 2),
+        'despues_MB' => round(strlen($newJson)/1048576, 2),
+    ]);
     exit;
 }
 
