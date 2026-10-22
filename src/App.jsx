@@ -140,6 +140,16 @@ function extraerSeccion(d, s) {
     Object.keys(d).forEach(k=>{ if(!SECCIONES_ACTIVAS.includes(k)) c[k]=d[k]; });
     return c;
   }
+  if(s === 'notificaciones'){
+    // Recortar a las últimas 100 notifs por usuario para no superar el límite del servidor
+    const raw = d.notificaciones ?? {};
+    const trimmed = {};
+    Object.keys(raw).forEach(uid => {
+      const arr = Array.isArray(raw[uid]) ? raw[uid] : [];
+      trimmed[uid] = arr.slice(0, 100);
+    });
+    return trimmed;
+  }
   return d[s] ?? (Array.isArray((initialData||{})[s]) ? [] : {});
 }
 
