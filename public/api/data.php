@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $accionTemp = $_GET['action'] ?? '';
-if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup','pi-upload','cleanup_config','trim_notificaciones']) && !hash_equals(API_KEY, $apiKey)) {
+if (!in_array($accionTemp, ['diag','restore_blob','migrate_base64','pi-backup','pi-upload','cleanup_config','trim_notificaciones','import_partes']) && !hash_equals(API_KEY, $apiKey)) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
@@ -425,6 +425,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'trim_notificaciones') {
         'despues_MB' => round(strlen($newJson)/1048576, 2),
         'msg' => 'notificaciones y documentacion recortadas',
     ]);
+    exit;
+}
+
+// ─── GET ?action=import_partes ───────────────────────────────────────────────
+// Importa los 6 partes perdidos del 21-22/10/2026. Idempotente (salta duplicados).
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'import_partes') {
+    $clientes = json_decode($pdo->query("SELECT data FROM app_sections WHERE section='clientes'")->fetchColumn(), true) ?? [];
+    $partes   = json_decode($pdo->query("SELECT data FROM app_sections WHERE section='partes'")->fetchColumn(), true) ?? [];
+    function cliId($clientes, $nombres) {
+        foreach ($nombres as $nombre) {
+            $n = strtolower(trim($nombre));
+            foreach ($clientes as $c) {
+                if (strtolower($c['nombreEmpresa'] ?? '') === $n || strtolower($c['nombreFiscal'] ?? '') === $n) return $c['id'];
+            }
+        }
+        return null;
+    }
+    function maqId($clientes, $cId, $matricula) {
+        foreach ($clientes as $c) {
+            if ($c['id'] != $cId) continue;
+            foreach ($c['maquinas'] ?? [] as $m) {
+                if ($matricula && strtolower($m['serie'] ?? '') === strtolower($matricula)) return $m['id'];
+            }
+        }
+        return null;
+    }
+    $maxId = empty($partes) ? 9000 : max(array_column($partes, 'id'));
+    $existentes = array_column($partes, 'numeroParte');
+    $nuevos = [
+        ['num'=>'P211026-JA01','fecha'=>'2026-10-21','tecnicos'=>['Jose Antonio Garcia'],'horasT'=>2,'desc'=>'Ver problema de no arranque de la máquina le fallan los contactos de las cámaras de los contactores y problema en el final de carrera se le limpia y funciona todo correctamente','mats'=>'','matsList'=>[],'marca'=>'Busellato','modelo'=>'Jet 100','matricula'=>'6138','cliNames'=>['Puertas Ginesta'],'contacto'=>'David','tel'=>''],
+        ['num'=>'P211026-JR01','fecha'=>'2026-10-21','tecnicos'=>['Juanjo Romero','Luka Cañada'],'horasT'=>2,'desc'=>"Ver el problema: disco inclinado a 45 grados, lo ponemos a 90 y funciona. Se comprueba altura del disco, también funciona. Arrancamos motor sierra, no funciona: guardamotor falla una fase. Sustituir guardamotor y comprobar. Repasar todos los automatismos. Todo ok.",'mats'=>'Guardamotor pkzm0-32 26-32A - 1 ud','matsList'=>[['material'=>'Guardamotor pkzm0-32. / 26-32 A','cantidad'=>'1']],'marca'=>'Casolin','modelo'=>'Astra Digit','matricula'=>'9651999','cliNames'=>['Madentia','Madentia SL'],'contacto'=>'Pablo Caro','tel'=>'600 867 820'],
+        ['num'=>'P211026-LC01','fecha'=>'2026-10-21','tecnicos'=>['Luka Cañada','Juanjo Romero'],'horasT'=>4,'desc'=>"Montaje del manipulador, comprobación de funcionamiento y entrada de documentación. Los anclajes al suelo los realizó el cliente.",'mats'=>'','matsList'=>[],'marca'=>'Eberle','modelo'=>'Manipulador ingravidos','matricula'=>'7405','cliNames'=>['Sandro Carpintero','Sandro Carpintero SL'],'contacto'=>'Sandro','tel'=>'633690041'],
+        ['num'=>'P221026-JA01','fecha'=>'2026-10-22','tecnicos'=>['Jose Antonio Garcia'],'horasT'=>6,'desc'=>'Montar bomba de vacío en la máquina y ajustes varios','mats'=>'Bomba depresión - 1 ud; Guardamotor 16 amp - 1 ud','matsList'=>[['material'=>'Bomba depresión','cantidad'=>'1'],['material'=>'Guardamotor 16 amp','cantidad'=>'1']],'marca'=>'MASTERWOOD','modelo'=>'PROJECT 485L','matricula'=>'AAAU0105','cliNames'=>['Puertas Los Melgues','Puertas Los Melgues S.L.'],'contacto'=>'Ana','tel'=>'950347422'],
+        ['num'=>'P221026-JR01','fecha'=>'2026-10-22','tecnicos'=>['Juanjo Romero'],'horasT'=>1,'desc'=>"El taladro horizontal inferior sale lento y raya fuera de posición. Comprobar circuito y guías: todo correcto. Dar más presión neumática al regulador. Movimiento más rápido y correcto. Todo correcto.",'mats'=>'','matsList'=>[],'marca'=>'Vertimac','modelo'=>'X bore 2','matricula'=>'XB2.2.132.-23','cliNames'=>['Javier Martinez','JMT CARPINTERIA Y DISEÑO S.L'],'contacto'=>'Javier Martinez','tel'=>'+34 667 567 458'],
+        ['num'=>'P221026-JR02','fecha'=>'2026-10-22','tecnicos'=>['Juanjo Romero','Luka Cañada'],'horasT'=>1.5,'desc'=>"Salta guardamotor. Comprobar contactor, cable y guardamotor. Se desmonta el motor: tapa con orejas de sujeción rotas. Motor quemado. Se lleva al taller.",'mats'=>'','matsList'=>[],'marca'=>'Scm','modelo'=>'Record 132','matricula'=>'AA1/013916','cliNames'=>['SALVADOR ZARZO','Salvador Zarzo','SALVADOR ZARZO DOMENECH, S.L.'],'contacto'=>'MARTA','tel'=>'962730355'],
+    ];
+    $insertados = []; $saltados = [];
+    foreach ($nuevos as $n) {
+        if (in_array($n['num'], $existentes)) { $saltados[] = $n['num']; continue; }
+        $cId = cliId($clientes, $n['cliNames']);
+        $mId = $cId ? maqId($clientes, $cId, $n['matricula']) : null;
+        $maxId++;
+        $partes[] = ['id'=>$maxId,'numeroParte'=>$n['num'],'cadenaBase'=>$n['num'],'numContinuacion'=>0,'continuaDeId'=>null,'fecha'=>$n['fecha'],'tecnicos'=>$n['tecnicos'],'horasT'=>$n['horasT'],'desplazamiento'=>'si','km'=>0,'descripcion'=>$n['desc'],'materiales'=>$n['mats'],'materialesList'=>$n['matsList'],'marca'=>$n['marca'],'modelo'=>$n['modelo'],'matricula'=>$n['matricula'],'clienteDirectoId'=>$cId,'maquinaId'=>$mId,'avisoId'=>null,'reparacionId'=>null,'contactoNombre'=>$n['contacto'],'contactoTel'=>$n['tel'],'contactoEmail'=>'','estadoParte'=>'Finalizado','bloqueado'=>true,'enviadoPorEmail'=>true,'_ts'=>time()*1000];
+        $insertados[] = ['num'=>$n['num'],'clienteId'=>$cId,'maquinaId'=>$mId];
+        $existentes[] = $n['num'];
+    }
+    if (!empty($insertados)) {
+        $pdo->prepare("UPDATE app_sections SET data=:d, version=version+1 WHERE section='partes'")->execute(['d'=>json_encode($partes, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+    }
+    echo json_encode(['ok'=>true,'insertados'=>$insertados,'saltados'=>$saltados,'total'=>count($partes)], JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
     exit;
 }
 
