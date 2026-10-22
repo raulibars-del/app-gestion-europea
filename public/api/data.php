@@ -90,7 +90,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_pi_backups (
 
 // ─── Helper: migrar blob monolítico → secciones ──────────────────────────────
 function migrarBlobASecciones($pdo, $blob) {
-    $seccionesActivas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $seccionesActivas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','notificaciones','documentacion','contabilidad'];
     $config = [];
     foreach ($blob as $k => $v) {
         if (in_array($k, $seccionesActivas)) {
@@ -113,7 +113,7 @@ function migrarBlobASecciones($pdo, $blob) {
 
 // ─── Helper: leer todas las secciones y combinar en blob ─────────────────────
 function leerBlobDeSecciones($pdo) {
-    $seccionesActivas = ['clientes','avisos','partes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $seccionesActivas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','notificaciones','documentacion','contabilidad'];
     $stmt = $pdo->query("SELECT section, data FROM app_sections");
     $blob = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -398,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'migrate_base64') {
 // y además elimina cualquier campo pdfFirmadoBase64 que haya quedado dentro.
 // Seguro ejecutar varias veces.
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'cleanup_config') {
-    $seccionesActivas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $seccionesActivas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','notificaciones','documentacion','contabilidad'];
     $stmt = $pdo->prepare("SELECT data FROM app_sections WHERE section = 'config'");
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -458,7 +458,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'sections') {
 // ─── POST con cabecera X-Section (guardado por sección) ─────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION'])) {
     $section = preg_replace('/[^a-z]/', '', strtolower(trim($_SERVER['HTTP_X_SECTION'])));
-    $permitidas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','config'];
+    $permitidas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','notificaciones','documentacion','contabilidad','config'];
     if (!in_array($section, $permitidas)) {
         http_response_code(400);
         echo json_encode(['error' => 'seccion_no_permitida']);

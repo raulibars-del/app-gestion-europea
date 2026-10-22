@@ -128,7 +128,7 @@ const coincideTexto = (item, query, campos) => {
 // Cada clave de 'data' listada aquí tiene su propia fila en la BD con su propio
 // version counter. Cambiar clientes no entra en conflicto con cambiar avisos.
 // Las claves no listadas van a la sección 'config' (usuarios, smtp, passwords…).
-const SECCIONES_ACTIVAS = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+const SECCIONES_ACTIVAS = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario','notificaciones','documentacion','contabilidad'];
 const TODAS_SECCIONES = [...SECCIONES_ACTIVAS, 'config'];
 
 // Extrae los datos de una sección desde el objeto data completo.
