@@ -501,9 +501,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_SECTION']))
     }
 
     $raw = file_get_contents('php://input');
+    // Descomprimir gzip si el cliente lo envió comprimido
+    if (strpos($_SERVER['HTTP_CONTENT_ENCODING'] ?? '', 'gzip') !== false) {
+        $decoded = @gzdecode($raw);
+        if ($decoded !== false) $raw = $decoded;
+    }
     if (json_decode($raw) === null && json_last_error() !== JSON_ERROR_NONE) {
         http_response_code(400);
-        echo json_encode(['error' => 'invalid_json']);
+        echo json_encode(['error' => 'invalid_json', 'len' => strlen($raw)]);
         exit;
     }
 

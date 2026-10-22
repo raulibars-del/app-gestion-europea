@@ -15825,6 +15825,20 @@ async function apiGetSecciones(){
 // savedByUser se establece desde App antes de llamar a apiGuardarSeccion
 let _savedByUser = "desconocido";
 async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
+  const jsonStr = JSON.stringify(datos);
+  let body = jsonStr;
+  const extraHeaders = {};
+  // Comprimir con gzip si el navegador lo soporta (reduce 112 KB → ~15 KB)
+  try {
+    if (typeof CompressionStream !== 'undefined') {
+      const cs = new CompressionStream('gzip');
+      const w = cs.writable.getWriter();
+      w.write(new TextEncoder().encode(jsonStr));
+      w.close();
+      body = await new Response(cs.readable).arrayBuffer();
+      extraHeaders['Content-Encoding'] = 'gzip';
+    }
+  } catch(e) { body = jsonStr; }
   const res = await fetch(API_URL, {
     method:"POST",
     headers:{
@@ -15833,8 +15847,9 @@ async function apiGuardarSeccion(seccion, datos, versionEsperada, opts={}){
       "X-Section":seccion,
       "X-Saved-By":_savedByUser,
       ...(typeof versionEsperada==="number" ? {"X-Expected-Version":String(versionEsperada)} : {}),
+      ...extraHeaders,
     },
-    body:JSON.stringify(datos),
+    body,
     ...(opts.keepalive ? {keepalive:true} : {}),
   });
   if(res.status===409){const j=await res.json().catch(()=>({}));return{conflict:true,version:j.version,section:seccion};}
