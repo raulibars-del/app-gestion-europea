@@ -393,6 +393,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'migrate_base64') {
     exit;
 }
 
+// ─── GET ?action=cleanup_config ──────────────────────────────────────────────
+// Elimina de la sección 'config' en BD las claves que ya tienen sección propia
+// y además elimina cualquier campo pdfFirmadoBase64 que haya quedado dentro.
+// Seguro ejecutar varias veces.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'cleanup_config') {
+    $seccionesActivas = ['clientes','avisos','partes','albaranes','reparaciones','tareas','ventas','visitas','chat','calendario','inventario'];
+    $stmt = $pdo->prepare("SELECT data FROM app_sections WHERE section = 'config'");
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) { echo json_encode(['ok'=>true,'msg'=>'config no encontrada en BD']); exit; }
+    $antesByte = strlen($row['data']);
+    $config = json_decode($row['data'], true) ?? [];
+    // Eliminar claves que ahora tienen sección propia
+    foreach ($seccionesActivas as $k) unset($config[$k]);
+    // Eliminar pdfFirmadoBase64 recursivamente (PDFs en base64, no imágenes)
+    function stripPdfBase64(&$val) {
+        if (is_array($val)) {
+            unset($val['pdfFirmadoBase64']);
+            foreach ($val as &$v) stripPdfBase64($v);
+        }
+    }
+    stripPdfBase64($config);
+    $newJson = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'config'")->execute(['d' => $newJson]);
+    echo json_encode([
+        'ok' => true,
+        'antes_MB' => round($antesByte/1048576, 2),
+        'despues_MB' => round(strlen($newJson)/1048576, 2),
+    ]);
+    exit;
+}
+
 // ─── GET ?action=sections ────────────────────────────────────────────────────
 // Nuevo endpoint: devuelve cada sección con su versión independiente.
 // Si app_sections está vacía, migra automáticamente desde el blob legacy.
