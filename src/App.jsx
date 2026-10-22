@@ -146,7 +146,7 @@ function extraerSeccion(d, s) {
     const trimmed = {};
     Object.keys(raw).forEach(uid => {
       const arr = Array.isArray(raw[uid]) ? raw[uid] : [];
-      trimmed[uid] = arr.slice(0, 100);
+      trimmed[uid] = arr.slice(0, 30);
     });
     return trimmed;
   }

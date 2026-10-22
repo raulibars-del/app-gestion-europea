@@ -404,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $accion === 'trim_notificaciones') {
     $notifs = json_decode($row['data'], true) ?? [];
     $trimmed = [];
     foreach ($notifs as $uid => $arr) {
-        $trimmed[$uid] = array_slice(is_array($arr) ? $arr : [], 0, 100);
+        $trimmed[$uid] = array_slice(is_array($arr) ? $arr : [], 0, 30);
     }
     $newJson = json_encode($trimmed, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $pdo->prepare("UPDATE app_sections SET data = :d WHERE section = 'notificaciones'")->execute(['d' => $newJson]);
