@@ -17485,126 +17485,20 @@ function AppInner() {
     document.head.appendChild(style);
     return () => { const el = document.getElementById(id); if(el) el.remove(); };
   }, []);
-  const [popupQueue,setPopupQueue]=useState([]);
-  const [totalPopups,setTotalPopups]=useState(0);
-  // Cada vez que el usuario inicia sesión (login real: user pasa de null a un usuario) se
-  // construye una cola de pop-ups que tiene que ir leyendo y cerrando uno a uno: 1) una por
-  // cada tarea pendiente (las completadas nunca se notifican), 2) avisos nuevos agrupados
-  // (solo se avisan la primera vez: una vez leídos quedan marcados y no vuelven a salir),
-  // 3) mensajes de chat nuevos + resumen de todos los avisos pendientes, juntos.
-  // Las tareas pendientes y el resumen de avisos son consultas en vivo, así que se repiten
-  // en cada login (no solo la primera vez por sesión de navegador).
-  // La campanita deja de llevar contador de "no leídas": cada pop-up cerrado queda registrado
-  // y marcado como leído, así que la campanita pasa a ser solo el historial en modo lista.
-  // IMPORTANTE: si el login ocurre antes de que termine la carga inicial desde el
-  // servidor (syncStatus==="cargando"), "data" puede ser todavía la copia vieja de
-  // localStorage (de horas o días antes en ese dispositivo): la cola saldría con
-  // menos avisos de los que hay en realidad y con tareas ya completadas en otro
-  // dispositivo mostradas como pendientes. Por eso esperamos a que la carga
-  // termine, y solo construimos la cola una vez por login (popupsHechosRef).
+  // Al conectar, marcar automáticamente como leídas todas las notificaciones no leídas
+  // (ya no se muestran popups de inicio — eliminados por ser poco útiles).
   const popupsHechosRef=useRef(null);
   useEffect(()=>{
     if(!user){popupsHechosRef.current=null;return;}
     if(syncStatus==="cargando")return;
     if(popupsHechosRef.current===user.id)return;
     popupsHechosRef.current=user.id;
-    const misNotifsIniciales=data.notificaciones[user.id]||[];
-    const cola=[];
-    // El nombre del cliente puede venir guardado en el propio aviso (n.clienteNombre, en los
-    // avisos creados tras este cambio), o si no, se busca: 1) por el aviso original (n.avisoId)
-    // y su clienteId, 2) extrayéndolo del texto del mensaje ("Cliente: X · ..."), que es como
-    // se guardaban los avisos antiguos antes de añadir el campo clienteNombre.
-    const clienteDeNotifAviso=n=>{
-      if(n.clienteNombre)return n.clienteNombre;
-      const aviso=n.avisoId&&data.avisos.find(a=>a.id===n.avisoId);
-      if(aviso)return data.clientes.find(c=>c.id===aviso.clienteId)?.nombreEmpresa||"sin cliente";
-      const m=n.mensaje&&n.mensaje.match(/Cliente:\s*([^·]+)/);
-      return m?m[1].trim():"sin cliente";
-    };
-    // Municipio del cliente asociado al aviso de una notificación (para mostrarlo
-    // bajo el nombre del cliente en el pop-up). Solo se puede resolver cuando se
-    // conoce el aviso (y por tanto el clienteId); si no, no se muestra nada.
-    const municipioDeNotifAviso=n=>{
-      const aviso=n.avisoId&&data.avisos.find(a=>a.id===n.avisoId);
-      if(!aviso)return null;
-      return data.clientes.find(c=>c.id===aviso.clienteId)?.localidad||null;
-    };
-    // 1) AVISOS NUEVOS: uno por uno. Solo se muestran la primera vez — al cerrar el pop-up
-    // (ver cerrarPopup) quedan marcados como leídos y nunca vuelven a aparecer.
-    // Color por tipo de pop-up: rojo para tareas (lo más urgente, hay que hacer
-    // algo), amarillo para avisos y stock (información a revisar). Se usa tanto
-    // en el borde de la tarjeta como en el icono del sobre, para que todo el
-    // pop-up tenga un único color coherente con su categoría.
-    const COLOR_TAREA="#ef4444", COLOR_AVISO="#f59e0b";
-    const avisosNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="nuevo_aviso");
-    avisosNuevos.forEach(n=>{
-      cola.push({
-        id:"avn_"+n.id,notifId:n.id,color:COLOR_AVISO,categoria:"AVISOS NUEVOS",
-        linea:n.avisoTitulo||n.titulo.replace("🔔 Nuevo aviso: ",""),cliente:clienteDeNotifAviso(n),
-        municipio:municipioDeNotifAviso(n),
-        titulo:n.titulo,mensaje:n.mensaje
-      });
-    });
-    // 2) TAREAS: un único pop-up con TODAS las tareas pendientes (de empresa o propia)
-    // que no estén completadas, en formato lista (mismo formato que el resumen de
-    // avisos: punto de color a la izquierda, título en mayúsculas y debajo el
-    // vencimiento). Antes salía una por una, lo que era muy repetitivo si había
-    // varias; ahora se agrupan en una sola pantalla, scrolleable si hay más de 8.
-    // Se repite en cada conexión mientras sigan pendientes (es una consulta en vivo, no "nueva").
-    const tareasPend=data.tareas.filter(t=>!t._deleted&&(t.asignadoId===user.id||t.esEmpresa)&&t.estado!=="Completada");
-    if(tareasPend.length>0){
-      const listaTareas=tareasPend.map(t=>({texto:t.titulo,vence:t.vence?fmtVenceCompleto(t.vence):null}));
-      cola.push({
-        id:"tp_resumen",color:COLOR_TAREA,categoria:"TAREAS",
-        lista:listaTareas,
-        titulo:"⏳ Tareas pendientes",
-        mensaje:`${tareasPend.length} tarea${tareasPend.length>1?"s":""} pendiente${tareasPend.length>1?"s":""}:\n`+listaTareas.map(l=>"· "+l.texto+(l.vence?" — "+l.vence:"")).join("\n"),
-        sintetico:true,logTipo:"tareas_pendientes_resumen"
-      });
+    const misNotifs=data.notificaciones[user.id]||[];
+    const hayNoLeidas=misNotifs.some(n=>!n.leida);
+    if(hayNoLeidas){
+      setData(d=>({...d,notificaciones:{...d.notificaciones,[user.id]:(d.notificaciones[user.id]||[]).map(n=>({...n,leida:true}))}}));
     }
-    // 3) Por último, resumen conjunto de todos los avisos pendientes (+ mensajes de chat
-    // nuevos si los hay). Es siempre el cierre de la conexión, también una consulta en vivo.
-    const chatsNuevos=misNotifsIniciales.filter(n=>!n.leida&&n.tipo==="chat");
-    const avisosPend=data.avisos.filter(a=>a.estado!=="Resuelto"&&a.estado!=="Cancelado");
-    if(chatsNuevos.length>0||avisosPend.length>0){
-      // Versión estructurada (texto + cliente por separado) para poder pintar el
-      // pop-up con el nombre del cliente en negrita; versión en texto plano (unida
-      // con guion) para el mensaje que se guarda en el historial de notificaciones.
-      const listaEstructurada=avisosPend.map(a=>{
-        const c=data.clientes.find(c=>c.id===a.clienteId);
-        return{texto:a.titulo,cliente:c?.nombreEmpresa||"sin cliente",municipio:c?.localidad||null};
-      });
-      const listaPlana=listaEstructurada.map(l=>l.texto+" — "+l.cliente);
-      const partes=[];
-      if(chatsNuevos.length>0)partes.push(`💬 Últimos mensajes de chat recibidos (${chatsNuevos.length}) — quién escribe y en qué canal:\n`+chatsNuevos.map(n=>"· "+n.titulo.replace("💬 ","")+" → \""+n.mensaje+"\"").join("\n"));
-      if(avisosPend.length>0)partes.push(`📋 ${avisosPend.length} aviso${avisosPend.length>1?"s":""} pendiente${avisosPend.length>1?"s":""}:\n`+listaPlana.map(l=>"· "+l).join("\n"));
-      cola.push({
-        id:"chat_av",notifIds:chatsNuevos.map(n=>n.id),color:COLOR_AVISO,categoria:"AVISOS",
-        linea:chatsNuevos.length>0?`${chatsNuevos.length} mensaje${chatsNuevos.length>1?"s":""} de chat nuevo${chatsNuevos.length>1?"s":""}`:null,
-        lista:avisosPend.length>0?listaEstructurada:null,
-        titulo:"📨 Resumen de tu conexión",mensaje:partes.join("\n\n"),
-        sintetico:avisosPend.length>0,logTipo:"avisos_pendientes_resumen"
-      });
-    }
-    if(cola.length>0){setPopupQueue(cola);setTotalPopups(cola.length);}
   },[user,syncStatus]);
-  const cerrarPopup=()=>{
-    const actual=popupQueue[0];
-    if(actual){
-      setData(d=>{
-        const propios=d.notificaciones[user.id]||[];
-        const idsAleer=new Set([actual.notifId,...(actual.notifIds||[])].filter(Boolean));
-        let actualizados=idsAleer.size>0?propios.map(n=>idsAleer.has(n.id)?{...n,leida:true}:n):propios;
-        if(actual.sintetico){
-          const registro=crearNotif(user.id,actual.logTipo||"popup",actual.titulo,actual.mensaje);
-          registro.leida=true;
-          actualizados=[registro,...actualizados];
-        }
-        return {...d,notificaciones:{...d.notificaciones,[user.id]:actualizados}};
-      });
-    }
-    setPopupQueue(q=>q.slice(1));
-  };
   const [avisoAAbrir,setAvisoAAbrir]=useState(null);
   const irAAviso=id=>{setAvisoAAbrir(id);setActive("asistencia");};
   const [clienteAAbrir,setClienteAAbrir]=useState(null);
@@ -17907,52 +17801,6 @@ function AppInner() {
       {isMobile&&<BottomNav/>}
       {isMobile&&<MoreDrawer/>}
       {cuentaOpen&&<MiCuenta userActual={user} setData={setData} onUpdateUser={setUser} onClose={()=>setCuentaOpen(false)}/>}
-      {popupQueue.length>0&&(()=>{
-        const p=popupQueue[0];
-        const pos=totalPopups-popupQueue.length+1;
-        return(
-        <div style={{position:"fixed",inset:0,background:"rgba(5,8,15,.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:20}}>
-          <div style={{width:"min(440px,100%)",maxHeight:"85vh",overflowY:"auto",background:"#151b2a",border:"1px solid "+p.color+"55",borderRadius:18,padding:"26px 24px",boxShadow:"0 30px 80px rgba(0,0,0,.6)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-              <div style={{width:42,height:42,borderRadius:11,background:p.color+"20",display:"flex",alignItems:"center",justifyContent:"center",color:p.color,flexShrink:0}}><Icon name="mail" size={20}/></div>
-              <div style={{color:p.color,fontWeight:900,fontSize:16,letterSpacing:".5px",textDecoration:"underline"}}>{p.categoria}</div>
-            </div>
-            {p.linea&&(
-              p.cliente ? (
-                <div style={{marginBottom:(p.vence||p.lista)?6:18}}>
-                  <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4}}>{fraseMayus(p.linea)}</div>
-                  <div style={{color:"#fff",fontSize:14,fontWeight:700,lineHeight:1.4}}>{p.cliente.toUpperCase()}</div>
-                  {p.municipio&&<div style={{color:"#dae0ee",fontSize:12,fontWeight:600,lineHeight:1.4}}>{capitalizaNombre(p.municipio)}</div>}
-                </div>
-              ) : (
-                <div style={{color:"#f1f3f9",fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:(p.vence||p.lista)?6:18}}>
-                  {p.categoria==="TAREAS" ? fraseMayus(p.linea) : fmtFrase(p.linea)}
-                </div>
-              )
-            )}
-            {p.vence&&<div style={{color:p.vence.startsWith("vencida")?"#ef4444":"#e4e9f6",fontSize:12,fontWeight:700,marginBottom:18}}>{conPunto(p.vence)}</div>}
-            {p.lista&&(
-              <div style={{marginBottom:18}}>
-                {p.lista.map((l,i)=>(
-                  <div key={i} style={{display:"flex",gap:8,color:"#c7d0e0",fontSize:13,lineHeight:1.5,marginBottom:i<p.lista.length-1?10:0}}>
-                    <span style={{width:6,height:6,minWidth:6,borderRadius:"50%",background:p.color,marginTop:6,flexShrink:0}}/>
-                    <div>
-                      <div>{fraseMayus(l.texto)}</div>
-                      {l.cliente&&<div style={{color:"#f1f3f9",fontWeight:700}}>{l.cliente.toUpperCase()}</div>}
-                      {l.municipio&&<div style={{color:"#dae0ee",fontSize:12,fontWeight:600}}>{capitalizaNombre(l.municipio)}</div>}
-                      {l.vence&&<div style={{color:l.vence.startsWith("vencida")?"#ef4444":"#dae0ee",fontSize:12,fontWeight:600}}>{conPunto(l.vence)}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-              <span style={{color:"#e4e9f6",fontSize:12,fontWeight:800}}>{pos}/{totalPopups}</span>
-              <button onClick={cerrarPopup} style={{...btnPrimary,padding:"10px 22px",fontSize:13,fontWeight:800}}>CERRAR</button>
-            </div>
-          </div>
-        </div>
-      );})()}
     </div>
   );
 }
