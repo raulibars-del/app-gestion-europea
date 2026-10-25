@@ -1398,7 +1398,7 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
 
 const Textarea = ({ value, onChange, placeholder="", rows=3 }) => <textarea value={value||""} onChange={onChange} placeholder={placeholder} rows={rows} style={{...inputStyle,resize:"vertical"}}/>;
 const StatCard = ({ label, value, icon, accent, sub }) => (
-  <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13,boxShadow:"0 2px 12px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.03)",position:"relative",overflow:"hidden"}}>
+  <div style={{background:"linear-gradient(145deg,#152035,#1a2a42)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13,boxShadow:"0 3px 16px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.04)",position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${accent},${accent}00)`}}/>
     <div style={{width:44,height:44,borderRadius:11,background:accent+"18",display:"flex",alignItems:"center",justifyContent:"center",color:accent,flexShrink:0,boxShadow:`0 0 20px ${accent}22`}}><Icon name={icon} size={20}/></div>
     <div>
@@ -2025,7 +2025,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const esStock = c.esStockInterno; const revendedor = c.revendedor;
           const colProp = esStock?"#f97316":esPropia?"#10b981":null;
           return(
-          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} className="em-aviso-card" style={{background:`linear-gradient(145deg,${esStock?"#160900":esPropia?"#071511":revendedor?"#120814":"#0c1424"},${esStock?"#1e1200":esPropia?"#0b1c18":revendedor?"#180b1e":"#101829"})`,border:`1px solid ${esStock?"rgba(249,115,22,0.2)":esPropia?"rgba(16,185,129,0.2)":revendedor?"rgba(236,72,153,0.18)":esCliente?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.05)"}`,borderRadius:12,padding:"13px 16px",cursor:"pointer",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}>
+          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} className="em-aviso-card" style={{background:`linear-gradient(145deg,${esStock?"#2a1400":esPropia?"#0d2018":revendedor?"#1e0f22":"#152035"},${esStock?"#331a00":esPropia?"#122818":revendedor?"#250f2a":"#1a2a42"})`,border:`1px solid ${esStock?"rgba(249,115,22,0.25)":esPropia?"rgba(16,185,129,0.25)":revendedor?"rgba(236,72,153,0.22)":esCliente?"rgba(59,130,246,0.18)":"rgba(255,255,255,0.06)"}`,borderRadius:12,padding:"13px 16px",cursor:"pointer",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
@@ -3967,7 +3967,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
                 className="em-aviso-card"
-                style={{background:`linear-gradient(145deg,#0c1424,#101829)`,border:`1px solid rgba(255,255,255,0.05)`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.55:1}}>
+                style={{background:`linear-gradient(145deg,#152035,#1a2a42)`,border:`1px solid rgba(255,255,255,0.06)`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.5:1}}>
                 {/* icono prioridad */}
                 <div style={{width:24,height:24,borderRadius:6,background:pc+"18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                   <Icon name="bell" size={11}/>
@@ -4004,7 +4004,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
               className="em-aviso-card"
-              style={{background:`linear-gradient(145deg,#0c1424,#101829)`,border:`1px solid ${av.enStandby?"rgba(51,65,85,0.6)":isCrit?"rgba(239,68,68,0.2)":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"rgba(245,158,11,0.2)":"rgba(255,255,255,0.05)"}`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:10,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box",opacity:av.enStandby?.55:1}}>
+              style={{background:`linear-gradient(145deg,#152035,#1a2a42)`,border:`1px solid ${av.enStandby?"rgba(51,65,85,0.5)":isCrit?"rgba(239,68,68,0.25)":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"rgba(245,158,11,0.25)":"rgba(255,255,255,0.06)"}`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:10,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box",opacity:av.enStandby?.5:1}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
@@ -10940,10 +10940,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
       {/* -- Dos columnas inferiores -- */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
         {/* Avisos pendientes */}
-        <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:13,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(239,68,68,0.04)"}}>
+        <div style={{background:"linear-gradient(145deg,#152035,#1a2a42)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,overflow:"hidden",boxShadow:"0 3px 16px rgba(0,0,0,0.55)"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(239,68,68,0.05)"}}>
             <div style={{display:"flex",alignItems:"center",gap:7}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 6px #ef4444"}}/>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 8px #ef4444"}}/>
               <span style={{fontWeight:700,fontSize:11,color:"#8b9db8",textTransform:"uppercase",letterSpacing:".8px"}}>Avisos pendientes</span>
             </div>
             <button onClick={() => setActive("asistencia")} style={{fontSize:11,color:"#ef4444",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"2px 9px",cursor:"pointer",fontWeight:600,transition:"background .12s"}}
@@ -10964,10 +10964,10 @@ const Dashboard = ({ data, setActive, userActual }) => {
           ))}
         </div>
         {/* Mis tareas */}
-        <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:13,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(139,92,246,0.04)"}}>
+        <div style={{background:"linear-gradient(145deg,#152035,#1a2a42)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,overflow:"hidden",boxShadow:"0 3px 16px rgba(0,0,0,0.55)"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(139,92,246,0.05)"}}>
             <div style={{display:"flex",alignItems:"center",gap:7}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:"#8b5cf6",boxShadow:"0 0 6px #8b5cf6"}}/>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#8b5cf6",boxShadow:"0 0 8px #8b5cf6"}}/>
               <span style={{fontWeight:700,fontSize:11,color:"#8b9db8",textTransform:"uppercase",letterSpacing:".8px"}}>Mis tareas</span>
             </div>
             <button onClick={() => setActive("tareas")} style={{fontSize:11,color:"#8b5cf6",background:"rgba(139,92,246,0.08)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:6,padding:"2px 9px",cursor:"pointer",fontWeight:600,transition:"background .12s"}}
