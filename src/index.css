@@ -1,0 +1,236 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   EUROPEA DE MAQUINARIA — Design System
+   Dark Premium + Electric Blue
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+:root {
+  /* Fondos */
+  --bg-root:      #060b12;
+  --bg-base:      #0a0f1a;
+  --bg-surface:   #0d1220;
+  --bg-elevated:  #111827;
+  --bg-hover:     #1a2235;
+  --bg-active:    #162037;
+  --bg-sidebar:   #080d18;
+
+  /* Bordes */
+  --border:       #1e2d40;
+  --border-light: #243447;
+  --border-focus: #3b82f6;
+
+  /* Texto */
+  --text-primary:   #e8edf5;
+  --text-secondary: #8b9db8;
+  --text-muted:     #4d6077;
+  --text-inverse:   #080d18;
+
+  /* Acento azul eléctrico */
+  --accent:         #3b82f6;
+  --accent-light:   #60a5fa;
+  --accent-dim:     rgba(59,130,246,0.12);
+  --accent-glow:    rgba(59,130,246,0.25);
+  --accent-border:  rgba(59,130,246,0.35);
+
+  /* Estados */
+  --success:    #10b981;
+  --warning:    #f59e0b;
+  --danger:     #ef4444;
+  --info:       #0ea5e9;
+
+  /* Sombras */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-lg:  0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05);
+  --shadow-xl:  0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-glow: 0 0 20px rgba(59,130,246,0.15);
+
+  /* Radio */
+  --r-xs:  5px;
+  --r-sm:  8px;
+  --r-md:  10px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+  --r-2xl: 22px;
+
+  /* Transiciones */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 350ms;
+}
+
+/* ─── Resets globales ────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-family: 'Inter', 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ─── Scrollbar custom ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Focus global (inputs/buttons que no tienen outline:none) ──────────── */
+:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 2px;
+}
+
+/* ─── Inputs & selects ───────────────────────────────────────────────────── */
+input, select, textarea {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+  outline: none !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* ─── Botones base ───────────────────────────────────────────────────────── */
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ─── Animaciones ────────────────────────────────────────────────────────── */
+@keyframes em-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes em-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes em-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes em-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes em-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes em-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.4); opacity: 0.7; }
+}
+
+/* ─── Clases utilitarias para animaciones ───────────────────────────────── */
+.em-fade-in    { animation: em-fade-in    var(--t-base) var(--ease) both; }
+.em-slide-up   { animation: em-slide-up   var(--t-base) var(--ease) both; }
+.em-scale-in   { animation: em-scale-in   var(--t-fast) var(--ease) both; }
+
+/* ─── Sidebar nav active indicator ──────────────────────────────────────── */
+.em-nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* ─── Modal backdrop ─────────────────────────────────────────────────────── */
+.em-modal-backdrop {
+  animation: em-fade-in var(--t-fast) ease both;
+}
+.em-modal-card {
+  animation: em-scale-in var(--t-base) var(--ease) both;
+}
+.em-modal-card-mobile {
+  animation: em-slide-up var(--t-base) var(--ease) both;
+}
+
+/* ─── Botón primario ─────────────────────────────────────────────────────── */
+.em-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: all var(--t-fast) ease;
+  box-shadow: 0 1px 3px rgba(37,99,235,0.3);
+}
+.em-btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+  transform: translateY(-1px);
+}
+.em-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ─── Subtle card hover ──────────────────────────────────────────────────── */
+.em-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.em-card:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ─── Sync dot pulse cuando guardando ───────────────────────────────────── */
+.em-sync-saving {
+  animation: em-pulse-dot 1s ease-in-out infinite;
+}

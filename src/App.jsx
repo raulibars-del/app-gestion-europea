@@ -653,9 +653,9 @@ const maquinaMarkerIcon = L.divIcon({
   popupAnchor: [0,-30],
 });
 const btnSm = (bg, color) => ({ background: bg,border: "none",borderRadius: 7,padding: "6px 8px",cursor: "pointer", color,display: "flex",alignItems: "center" });
-const btnPrimary = { background: "#3b82f6",color: "#fff",border: "none",borderRadius: 9,padding: "10px 22px",fontWeight: 700,cursor: "pointer",fontSize: 14 };
+const btnPrimary = { background:"linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)",color:"#fff",border:"none",borderRadius:9,padding:"10px 22px",fontWeight:600,cursor:"pointer",fontSize:14,boxShadow:"0 1px 4px rgba(37,99,235,0.25)",transition:"box-shadow .15s,opacity .15s",fontFamily:"inherit" };
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
-const inputStyle = { width: "100%",background: "#0d1117",border: "1px solid #2a3550",borderRadius: 8,padding: "9px 12px",color: "#f1f3f9",fontSize: 14,outline: "none",boxSizing: "border-box" };
+const inputStyle = { width:"100%",background:"#0a0f1c",border:"1px solid #1e2d40",borderRadius:9,padding:"9px 13px",color:"#e8edf5",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border-color .15s,box-shadow .15s",fontFamily:"inherit" };
 const ROL_MODULOS = {
   manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
   admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
@@ -822,35 +822,38 @@ const Icon = ({ name, size=18 }) => {
   );
 };
 const Badge = ({ text }) => {
-  const map = {"Facturada":"#16a34a","Facturado":"#16a34a","Completada":"#16a34a","Resuelto":"#16a34a","Ganada":"#16a34a","Pedido":"#2563eb","En curso":"#2563eb","Presupuesto":"#d97706","Pendiente":"#d97706","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#e1e6f2","Perdida":"#dc2626","Cancelada":"#e1e6f2","Cancelado":"#e1e6f2","Sin asignar":"#dc2626","A falta de material":"#f59e0b","Material disponible":"#14b8a6","Enviado presupuesto a espera aceptacion":"#0ea5e9","Presupuesto aceptado":"#8b5cf6","Alta":"#ef4444","Media":"#f59e0b","Leve":"#16a34a","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#dc2626","Consulta":"#8b5cf6","Otro":"#e1e6f2"};
+  const map = {"Facturada":"#10b981","Facturado":"#10b981","Completada":"#10b981","Resuelto":"#10b981","Ganada":"#10b981","Pedido":"#3b82f6","En curso":"#3b82f6","Presupuesto":"#f59e0b","Pendiente":"#f59e0b","Oferta enviada":"#0ea5e9","Negociación":"#8b5cf6","Prospecto":"#94a3b8","Perdida":"#ef4444","Cancelada":"#64748b","Cancelado":"#64748b","Sin asignar":"#ef4444","A falta de material":"#f59e0b","Material disponible":"#14b8a6","Enviado presupuesto a espera aceptacion":"#0ea5e9","Presupuesto aceptado":"#8b5cf6","Alta":"#ef4444","Media":"#f59e0b","Leve":"#10b981","Reparación":"#f59e0b","Montaje":"#3b82f6","Problema":"#ef4444","Consulta":"#8b5cf6","Otro":"#64748b"};
   const shortMap = {"Enviado presupuesto a espera aceptacion":"Ppto. pendiente","A falta de material":"Falta material","Material disponible":"Material listo","Presupuesto aceptado":"Ppto. aceptado"};
-  const c = map[text]||"#e1e6f2";
+  const c = map[text]||"#64748b";
   const label = shortMap[text]||text;
-  return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700,letterSpacing:".4px",whiteSpace:"nowrap"}}>{label}</span>;
+  return <span style={{background:c+"1a",color:c,border:`1px solid ${c}33`,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:600,letterSpacing:".3px",whiteSpace:"nowrap",lineHeight:1.4}}>{label}</span>;
 };
 const DiasBadge = ({ fecha, estado }) => {
   if(estado==="Resuelto"||estado==="Cancelado") return null;
-  const d=diasDesde(fecha); const c=d>=14?"#dc2626":d>=7?"#f59e0b":d>=3?"#d97706":"#16a34a";
-  return <span style={{background:c+"18",color:c,border:`1px solid ${c}44`,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}><Icon name="clock" size={11}/>{d===0?"Hoy":d===1?"1 día":`${d} días`}</span>;
+  const d=diasDesde(fecha); const c=d>=14?"#ef4444":d>=7?"#f59e0b":d>=3?"#f59e0b":"#10b981";
+  return <span style={{background:c+"1a",color:c,border:`1px solid ${c}33`,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}><Icon name="clock" size={10}/>{d===0?"Hoy":d===1?"1 día":`${d} días`}</span>;
 };
-const RolBadge = ({ rol }) => { const c=ROLES_COLOR[rol]||"#e1e6f2"; return <span style={{background:c+"20",color:c,border:`1px solid ${c}44`,borderRadius:6,padding:"2px 9px",fontSize:11,fontWeight:700}}>{ROLES_LABEL[rol]||rol}</span>; };
+const RolBadge = ({ rol }) => { const c=ROLES_COLOR[rol]||"#64748b"; return <span style={{background:c+"1a",color:c,border:`1px solid ${c}33`,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:600,letterSpacing:".3px"}}>{ROLES_LABEL[rol]||rol}</span>; };
 const Modal = ({ title, onClose, children, wide }) => {
   const mobile = window.innerWidth < 768;
   return (
-    <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.65)",zIndex:1000,display:"flex",alignItems:mobile?"flex-end":"center",justifyContent:"center",padding:mobile?0:16}}>
-      <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:mobile?"18px 18px 0 0":18,width:"100%",maxWidth:mobile?"100%":wide?820:560,maxHeight:mobile?"92dvh":"93vh",overflow:"auto",boxShadow:"0 32px 80px rgba(0,0,0,.7)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:"1px solid #2a3550",position:"sticky",top:0,background:"#151b2a",zIndex:1}}>
-          <span style={{fontWeight:800,fontSize:16,color:"#f1f3f9"}}>{title}</span>
-          <button onClick={onClose} style={{background:"#2a3550",border:"none",cursor:"pointer",color:"#e6ebf6",borderRadius:8,padding:"6px 8px",display:"flex"}}><Icon name="close"/></button>
+    <div className="em-modal-backdrop" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.72)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:1000,display:"flex",alignItems:mobile?"flex-end":"center",justifyContent:"center",padding:mobile?0:16}}>
+      <div className={mobile?"em-modal-card-mobile":"em-modal-card"} style={{background:"#0e1525",border:"1px solid #1e2d40",borderRadius:mobile?"20px 20px 0 0":16,width:"100%",maxWidth:mobile?"100%":wide?840:580,maxHeight:mobile?"92dvh":"93vh",overflow:"auto",boxShadow:"0 24px 64px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,0.05)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 22px",borderBottom:"1px solid #1e2d40",position:"sticky",top:0,background:"#0e1525",zIndex:1}}>
+          <span style={{fontWeight:700,fontSize:15,color:"#e8edf5",letterSpacing:"-0.1px"}}>{title}</span>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:"1px solid #1e2d40",cursor:"pointer",color:"#8b9db8",borderRadius:8,padding:"6px 9px",display:"flex",transition:"background .12s,color .12s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.color="#e8edf5";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="#8b9db8";}}
+          ><Icon name="close"/></button>
         </div>
-        <div style={{padding:mobile?"16px 16px 32px":"20px 24px"}}>{children}</div>
+        <div style={{padding:mobile?"16px 18px 36px":"22px 26px"}}>{children}</div>
       </div>
     </div>
   );
 };
 const Field = ({ label, children }) => (
-  <div style={{marginBottom:13}}>
-    <label style={{display:"block",fontSize:11,fontWeight:700,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".8px",marginBottom:5}}>{label}</label>
+  <div style={{marginBottom:14}}>
+    <label style={{display:"block",fontSize:11,fontWeight:600,color:"#8b9db8",textTransform:"uppercase",letterSpacing:".7px",marginBottom:6}}>{label}</label>
     {children}
   </div>
 );
@@ -1456,18 +1459,20 @@ const Login = ({ usuarios, onLogin }) => {
   const [usuario,setUsuario]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState("");
   const handle=()=>{ const u=usuarios.find(u=>u.nombre.toLowerCase()===usuario.toLowerCase()&&u.password===pass&&u.activo); if(u)onLogin(u); else setErr("Usuario o contraseña incorrectos"); };
   return (
-    <div style={{minHeight:"100vh",background:"#0d1117",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans','Segoe UI',sans-serif"}}>
-      <div style={{width:380,background:"#151b2a",border:"1px solid #2a3550",borderRadius:20,padding:"38px 34px",boxShadow:"0 32px 80px rgba(0,0,0,.5)"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:72,height:72,borderRadius:16,overflow:"hidden",margin:"0 auto 12px",display:"flex",alignItems:"center",justifyContent:"center"}}><img src={LOGO_URL} style={{width:72,height:72,objectFit:"contain"}} alt="Europea de Maquinaria"/></div>
-          <div style={{fontWeight:900,fontSize:18,color:"#f1f3f9"}}>EUROPEA DE MAQUINARIA</div>
-          <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Panel de Gestión</div>
+    <div style={{minHeight:"100vh",minHeight:"100dvh",background:"#060b12",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Inter','DM Sans',sans-serif",position:"relative",overflow:"hidden"}}>
+      {/* Glow de fondo */}
+      <div style={{position:"absolute",top:"35%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:400,background:"radial-gradient(ellipse at center,rgba(37,99,235,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{width:400,background:"#0d1220",border:"1px solid #1e2d40",borderRadius:20,padding:"40px 36px",boxShadow:"0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",position:"relative",zIndex:1,animation:"em-scale-in 250ms cubic-bezier(0.16,1,0.3,1)"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{width:76,height:76,borderRadius:18,overflow:"hidden",margin:"0 auto 16px",boxShadow:"0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.4)"}}><img src={LOGO_URL} style={{width:"100%",height:"100%",objectFit:"contain"}} alt="Europea de Maquinaria"/></div>
+          <div style={{fontWeight:800,fontSize:17,color:"#e8edf5",letterSpacing:"-0.2px"}}>EUROPEA DE MAQUINARIA</div>
+          <div style={{color:"#4d6077",fontSize:12,marginTop:4,letterSpacing:".3px"}}>Panel de Gestión</div>
         </div>
-        <Field label="Usuario"><input value={usuario} onChange={e=>setUsuario(e.target.value)} type="text" placeholder="Tu nombre de usuario" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()}/></Field>
-        <Field label="Contraseña"><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()}/></Field>
-        {err&&<div style={{background:"#dc262618",border:"1px solid #dc262644",borderRadius:8,padding:"8px 12px",color:"#dc2626",fontSize:13,marginBottom:12}}>{err}</div>}
-        <button onClick={handle} style={{...btnPrimary,width:"100%",justifyContent:"center",padding:"12px",fontSize:15,marginTop:4}}>Iniciar sesión</button>
-        <div style={{marginTop:20,textAlign:"center",color:"#e4e9f6",fontSize:12,letterSpacing:"0.5px",fontStyle:"italic"}}>Software por <span style={{color:"#f59e0b",fontWeight:700,fontStyle:"normal"}}>Raúl Ibars</span> · 2026 · v2.0<br/>Última actualización: {__BUILD_DATE__}</div>
+        <Field label="Usuario"><input value={usuario} onChange={e=>setUsuario(e.target.value)} type="text" placeholder="Nombre de usuario" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()} autoComplete="username"/></Field>
+        <Field label="Contraseña"><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handle()} autoComplete="current-password"/></Field>
+        {err&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:9,padding:"9px 13px",color:"#f87171",fontSize:13,marginBottom:14,display:"flex",alignItems:"center",gap:8}}><Icon name="alert" size={14}/>{err}</div>}
+        <button onClick={handle} style={{...btnPrimary,width:"100%",justifyContent:"center",display:"flex",alignItems:"center",padding:"13px",fontSize:14,marginTop:6}}>Iniciar sesión</button>
+        <div style={{marginTop:24,textAlign:"center",color:"#3d506a",fontSize:11,letterSpacing:"0.4px",lineHeight:1.6}}>Software por <span style={{color:"#f59e0b",fontWeight:600}}>Raúl Ibars</span> · 2026 · v2.0<br/>{__BUILD_DATE__}</div>
       </div>
     </div>
   );
@@ -17809,27 +17814,26 @@ function AppInner() {
     return null;
   };
   const handleNav = id => { setActive(id); setMenuOpen(false); };
+  const syncDotClass = syncStatus==="guardando" ? "em-sync-saving" : "";
   const Topbar = () => (
-    <div style={{height:isMobile?"calc(52px + env(safe-area-inset-top))":48,background:"#0a0f1a",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:"space-between",padding:isMobile?"env(safe-area-inset-top) 14px 0":"0 20px",flexShrink:0,position:"relative",zIndex:10}}>
+    <div style={{height:isMobile?"calc(54px + env(safe-area-inset-top))":50,background:"#080d18",borderBottom:"1px solid #1a2738",display:"flex",alignItems:"center",justifyContent:"space-between",padding:isMobile?"env(safe-area-inset-top) 14px 0":"0 22px",flexShrink:0,position:"relative",zIndex:10,boxShadow:"0 1px 0 rgba(255,255,255,0.03)"}}>
       {isMobile?(
         <>
-          {/* Logo móvil */}
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <img src={LOGO_URL} style={{width:28,height:28,borderRadius:7,objectFit:"contain"}} alt="EM"/>
-            <div style={{fontWeight:900,fontSize:12,color:"#f1f3f9",letterSpacing:".3px"}}>EUROPEA</div>
+            <img src={LOGO_URL} style={{width:28,height:28,borderRadius:8,objectFit:"contain",boxShadow:"0 0 0 1px rgba(255,255,255,0.08)"}} alt="EM"/>
+            <div style={{fontWeight:800,fontSize:12,color:"#e8edf5",letterSpacing:".5px"}}>EUROPEA</div>
           </div>
-          {/* Titulo módulo activo */}
-          <div style={{position:"absolute",left:"50%",transform:"translateX(-50%)",color:"#f1f3f9",fontWeight:700,fontSize:14}}>
+          <div style={{position:"absolute",left:"50%",transform:"translateX(-50%)",color:"#e8edf5",fontWeight:600,fontSize:14,letterSpacing:"-0.1px"}}>
             {navV.find(n=>n.id===active)?.label||""}
           </div>
-          {/* Notifs + avatar */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <div title={syncStatus==="error" && lastSaveError ? `Error al guardar: ${lastSaveError} (reintentando)` : SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
-            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#e4e9f6",display:"flex",alignItems:"center",padding:3,opacity:actualizando?0.5:1}}>
-              <Icon name="refresh" size={14}/>
-            </button>
+            <div className={syncDotClass} title={syncStatus==="error"&&lastSaveError?`Error: ${lastSaveError}`:SYNC_LABELS[syncStatus]} style={{width:6,height:6,borderRadius:"50%",background:SYNC_COLORS[syncStatus],flexShrink:0}}/>
+            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#8b9db8",display:"flex",alignItems:"center",padding:4,opacity:actualizando?0.4:1,transition:"color .12s"}}
+              onMouseEnter={e=>!actualizando&&(e.currentTarget.style.color="#e8edf5")}
+              onMouseLeave={e=>(e.currentTarget.style.color="#8b9db8")}
+            ><Icon name="refresh" size={14}/></button>
             <div ref={notifRef} style={{position:"relative"}}>
-              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"5px 7px",cursor:"pointer",color:"#e4e9f6",display:"flex",alignItems:"center",gap:3}}>
+              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"rgba(59,130,246,0.12)":"transparent",border:"1px solid "+(notifOpen?"rgba(59,130,246,0.3)":"transparent"),borderRadius:8,padding:"5px 7px",cursor:"pointer",color:notifOpen?"#60a5fa":"#8b9db8",display:"flex",alignItems:"center",transition:"all .12s"}}>
                 <Icon name="bell" size={16}/>
               </button>
               {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
@@ -17839,136 +17843,158 @@ function AppInner() {
         </>
       ):(
         <>
-          <div style={{color:"#f1f3f9",fontWeight:700,fontSize:15}}>
+          <div style={{color:"#e8edf5",fontWeight:600,fontSize:15,letterSpacing:"-0.2px"}}>
             {navV.find(n=>n.id===active)?.label||""}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div title={SYNC_LABELS[syncStatus]} style={{width:7,height:7,borderRadius:"50%",background:SYNC_COLORS[syncStatus]}}/>
-          <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#e4e9f6",display:"flex",alignItems:"center",padding:4,opacity:actualizando?0.5:1}}>
-            <Icon name="refresh" size={15}/>
-          </button>
-          <div ref={notifRef} style={{position:"relative"}}>
-            <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"#1a2236":"transparent",border:"1px solid "+(notifOpen?"#2a3550":"transparent"),borderRadius:7,padding:"6px 8px",cursor:"pointer",color:"#e4e9f6",display:"flex",alignItems:"center",gap:4}}>
-              <Icon name="bell" size={16}/>
-            </button>
-            {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
-          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div className={syncDotClass} title={SYNC_LABELS[syncStatus]} style={{width:6,height:6,borderRadius:"50%",background:SYNC_COLORS[syncStatus],flexShrink:0}}/>
+            <button onClick={actualizarManual} disabled={actualizando} title="Actualizar datos" style={{background:"transparent",border:"none",cursor:actualizando?"default":"pointer",color:"#8b9db8",display:"flex",alignItems:"center",padding:5,opacity:actualizando?0.4:1,borderRadius:7,transition:"background .12s,color .12s"}}
+              onMouseEnter={e=>{if(!actualizando){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="#e8edf5";}}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#8b9db8";}}
+            ><Icon name="refresh" size={15}/></button>
+            <div ref={notifRef} style={{position:"relative"}}>
+              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:notifOpen?"rgba(59,130,246,0.12)":"transparent",border:"1px solid "+(notifOpen?"rgba(59,130,246,0.3)":"transparent"),borderRadius:8,padding:"6px 8px",cursor:"pointer",color:notifOpen?"#60a5fa":"#8b9db8",display:"flex",alignItems:"center",gap:4,transition:"all .12s"}}>
+                <Icon name="bell" size={16}/>
+              </button>
+              {notifOpen&&<NotifPanel notifs={misNotifs} onClose={()=>setNotifOpen(false)} onIrAlChat={()=>{setActive("chat");setNotifOpen(false);}}/>}
+            </div>
           </div>
         </>
       )}
     </div>
   );
   const Sidebar = () => (
-    <aside style={{width:isTablet?64:248,background:"#0a0f1a",borderRight:"1px solid #1a2236",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s"}}>
+    <aside style={{width:isTablet?60:240,background:"#080d18",borderRight:"1px solid #1a2738",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s var(--ease,ease)"}}>
       {/* Logo */}
-      <div style={{padding:isTablet?"10px 8px":"10px 13px 9px",borderBottom:"1px solid #1a2236",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"flex-start",gap:9,flexShrink:0}}>
-        <img src={LOGO_URL} style={{width:30,height:30,borderRadius:8,objectFit:"contain",flexShrink:0}} alt="EM"/>
-        {!isTablet&&<div><div style={{fontWeight:900,fontSize:12,color:"#f1f3f9",letterSpacing:".4px"}}>EUROPEA</div><div style={{fontSize:10,color:"#e4e9f6",letterSpacing:".9px"}}>DE MAQUINARIA</div></div>}
+      <div style={{padding:isTablet?"12px 8px":"12px 14px 10px",borderBottom:"1px solid #1a2738",display:"flex",alignItems:"center",justifyContent:isTablet?"center":"flex-start",gap:10,flexShrink:0}}>
+        <img src={LOGO_URL} style={{width:32,height:32,borderRadius:9,objectFit:"contain",flexShrink:0,boxShadow:"0 0 0 1px rgba(255,255,255,0.08)"}} alt="EM"/>
+        {!isTablet&&<div><div style={{fontWeight:800,fontSize:12,color:"#e8edf5",letterSpacing:".5px"}}>EUROPEA</div><div style={{fontSize:10,color:"#4d6077",letterSpacing:"1px",marginTop:1}}>DE MAQUINARIA</div></div>}
       </div>
-      {/* Nav — flex column para que los items llenen el espacio sin scroll */}
-      <nav style={{padding:"4px 5px",flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      {/* Nav */}
+      <nav style={{padding:isTablet?"4px 5px":"4px 6px",flex:1,overflow:"hidden",display:"flex",flexDirection:"column",gap:1}}>
         {navV.map(n=>{
           const badge=navBadge(n.id);
+          const isAct=active===n.id;
           return(
             <button key={n.id} onClick={()=>handleNav(n.id)} title={isTablet?n.label:""}
-              style={{width:"100%",flex:1,minHeight:0,display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"6px":"4px 10px",borderRadius:7,border:"none",cursor:"pointer",background:active===n.id?n.color+"22":"transparent",color:active===n.id?n.color:"#e4e9f6",fontWeight:active===n.id?700:400,fontSize:14,position:"relative",transition:"background .12s"}}>
-              <span style={{display:"flex",alignItems:"center",gap:isTablet?0:9}}>
-                <Icon name={n.icon} size={isTablet?20:16}/>
-                {!isTablet&&n.label}
+              className={isAct?"em-nav-active":""}
+              style={{width:"100%",flex:1,minHeight:0,display:"flex",alignItems:"center",justifyContent:isTablet?"center":"space-between",padding:isTablet?"6px":"4px 10px 4px 12px",borderRadius:isTablet?8:"0 8px 8px 0",border:"none",cursor:"pointer",
+                background:isAct?"rgba(59,130,246,0.1)":"transparent",
+                color:isAct?"#60a5fa":"#6b7f96",
+                fontWeight:isAct?600:400,fontSize:13,position:"relative",transition:"background .12s,color .12s"}}
+              onMouseEnter={e=>{if(!isAct){e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="#c8d4e4";}}}
+              onMouseLeave={e=>{if(!isAct){e.currentTarget.style.background="transparent";e.currentTarget.style.color="#6b7f96";}}}>
+              <span style={{display:"flex",alignItems:"center",gap:isTablet?0:9,minWidth:0}}>
+                <Icon name={n.icon} size={isTablet?18:15} style={{flexShrink:0}}/>
+                {!isTablet&&<span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</span>}
               </span>
-              {badge&&!isTablet&&<span style={{background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 7px",fontSize:11,fontWeight:800}}>{badge}</span>}
-              {badge&&isTablet&&<span style={{position:"absolute",top:4,right:4,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800,minWidth:14,textAlign:"center"}}>{badge}</span>}
+              {badge&&!isTablet&&<span style={{background:n.id==="tareas"?"rgba(139,92,246,0.9)":"rgba(239,68,68,0.9)",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700,flexShrink:0}}>{badge}</span>}
+              {badge&&isTablet&&<span style={{position:"absolute",top:4,right:4,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:700,minWidth:14,textAlign:"center"}}>{badge}</span>}
             </button>
           );
         })}
       </nav>
       {/* Usuario */}
-      <div style={{padding:isTablet?"6px 5px":"7px 10px",borderTop:"1px solid #1a2236",flexShrink:0}}>
+      <div style={{padding:isTablet?"6px 5px":"8px 10px",borderTop:"1px solid #1a2738",flexShrink:0}}>
         {isTablet?(
-          <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"#1a2236",border:"none",borderRadius:6,padding:"7px",color:"#e4e9f6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="logout" size={14}/></button>
+          <button onClick={()=>setUser(null)} title="Cerrar sesión" style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #1a2738",borderRadius:7,padding:"7px",color:"#6b7f96",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s,color .12s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.1)";e.currentTarget.style.color="#ef4444";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="#6b7f96";}}
+          ><Icon name="logout" size={14}/></button>
         ):(
           <>
-            <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,cursor:"pointer"}}>
-              <Avatar u={user} size={27} fontSize={11}/>
-              <div style={{flex:1,minWidth:0}}><div style={{color:"#f1f3f9",fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
+            <div onClick={()=>setCuentaOpen(true)} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:9,marginBottom:7,cursor:"pointer",padding:"5px 4px",borderRadius:8,transition:"background .12s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.04)"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+            >
+              <Avatar u={user} size={28} fontSize={11}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:"#c8d4e4",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.nombre}</div>
+                <RolBadge rol={user.rol}/>
+              </div>
             </div>
-            <button onClick={()=>setUser(null)} style={{width:"100%",background:"#1a2236",border:"1px solid #2a3550",borderRadius:7,padding:"5px",color:"#e4e9f6",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontWeight:600}}><Icon name="logout" size={12}/>Cerrar sesión</button>
-            <div style={{marginTop:5,textAlign:"center",color:"#e4e9f6",fontSize:9,lineHeight:1.4,letterSpacing:"0.3px"}}>Software por <span style={{color:"#f59e0b",fontWeight:700}}>Raúl Ibars</span><br/>2026 · v2.0 · {__BUILD_DATE__}</div>
+            <button onClick={()=>setUser(null)} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid #1a2738",borderRadius:8,padding:"6px",color:"#6b7f96",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontWeight:500,transition:"background .12s,color .12s,border-color .12s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,0.08)";e.currentTarget.style.color="#ef4444";e.currentTarget.style.borderColor="rgba(239,68,68,0.2)";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.color="#6b7f96";e.currentTarget.style.borderColor="#1a2738";}}
+            ><Icon name="logout" size={12}/>Cerrar sesión</button>
+            <div style={{marginTop:6,textAlign:"center",color:"#3d506a",fontSize:9,lineHeight:1.5,letterSpacing:"0.3px"}}>por <span style={{color:"#f59e0b",fontWeight:600}}>Raúl Ibars</span> · v2.0 · {__BUILD_DATE__}</div>
           </>
         )}
       </div>
     </aside>
   );
   const BottomNav = () => (
-    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:60,background:"#0a0f1a",borderTop:"1px solid #1a2236",display:"flex",alignItems:"stretch",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)"}}>
+    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:62,background:"#080d18",borderTop:"1px solid #1a2738",display:"flex",alignItems:"stretch",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",boxShadow:"0 -4px 24px rgba(0,0,0,0.4)"}}>
       {bottomNav.map(n=>{
         const badge=navBadge(n.id);
         const isActive=active===n.id&&!menuOpen;
         return(
           <button key={n.id} onClick={()=>handleNav(n.id)}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?n.color:"#e4e9f6",cursor:"pointer",gap:3,position:"relative",padding:"6px 0"}}>
-            <div style={{position:"relative"}}>
-              <Icon name={n.icon} size={20}/>
-              {badge&&<span style={{position:"absolute",top:-5,right:-7,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800,minWidth:15,textAlign:"center"}}>{badge}</span>}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:3,position:"relative",padding:"6px 0",transition:"color .12s"}}>
+            <div style={{position:"relative",padding:3,borderRadius:8,background:isActive?"rgba(59,130,246,0.12)":"transparent",transition:"background .12s"}}>
+              <Icon name={n.icon} size={19}/>
+              {badge&&<span style={{position:"absolute",top:-4,right:-6,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:700,minWidth:15,textAlign:"center"}}>{badge}</span>}
             </div>
-            <span style={{fontSize:9,fontWeight:isActive?700:400,letterSpacing:".2px"}}>{n.label.split(" ")[0]}</span>
-            {isActive&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:28,height:3,borderRadius:"0 0 3px 3px",background:n.color}}/>}
+            <span style={{fontSize:9,fontWeight:isActive?700:400,letterSpacing:".3px"}}>{n.label.split(" ")[0]}</span>
+            {isActive&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2,borderRadius:"0 0 2px 2px",background:"#3b82f6",boxShadow:"0 0 8px rgba(59,130,246,0.5)"}}/>}
           </button>
         );
       })}
-      {/* Botón "Más" para el resto */}
       {moreNav.length>0&&(
         <button onClick={()=>setMenuOpen(p=>!p)}
-          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#e4e9f6",cursor:"pointer",gap:3,padding:"6px 0",position:"relative"}}>
-          {moreNav.some(n=>n.id===active)&&!menuOpen&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:28,height:3,borderRadius:"0 0 3px 3px",background:"#f59e0b"}}/>}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(260px,100%),1fr))",gap:2,width:18,height:18}}>
-            {[0,1,2,3].map(i=><div key={i} style={{background:menuOpen||(moreNav.some(n=>n.id===active))?"#f59e0b":"#e4e9f6",borderRadius:2}}/>)}
+          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:menuOpen||(moreNav.some(n=>n.id===active))?"#60a5fa":"#4d6077",cursor:"pointer",gap:3,padding:"6px 0",position:"relative",transition:"color .12s"}}>
+          {moreNav.some(n=>n.id===active)&&!menuOpen&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2,borderRadius:"0 0 2px 2px",background:"#3b82f6",boxShadow:"0 0 8px rgba(59,130,246,0.5)"}}/>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:2.5,width:16,height:16}}>
+            {[0,1,2,3].map(i=><div key={i} style={{background:menuOpen||(moreNav.some(n=>n.id===active))?"#60a5fa":"#4d6077",borderRadius:2,transition:"background .12s"}}/>)}
           </div>
-          <span style={{fontSize:9,fontWeight:700,letterSpacing:".2px"}}>Más</span>
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:".3px"}}>Más</span>
         </button>
       )}
     </nav>
   );
   const MoreDrawer = () => menuOpen&&(
     <>
-      <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.5)",zIndex:110}}/>
-      <div style={{position:"fixed",bottom:60,left:0,right:0,background:"#0a0f1a",borderTop:"1px solid #1a2236",zIndex:120,borderRadius:"16px 16px 0 0",padding:"16px 12px 8px"}}>
-        <div style={{width:36,height:4,borderRadius:2,background:"#2a3550",margin:"0 auto 16px"}}/>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100px,100%),1fr))",gap:8,marginBottom:16}}>
+      <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",backdropFilter:"blur(3px)",WebkitBackdropFilter:"blur(3px)",zIndex:110,animation:"em-fade-in 150ms ease"}}/>
+      <div style={{position:"fixed",bottom:62,left:0,right:0,background:"#080d18",borderTop:"1px solid #1a2738",zIndex:120,borderRadius:"18px 18px 0 0",padding:"14px 12px 10px",boxShadow:"0 -16px 48px rgba(0,0,0,0.5)",animation:"em-slide-up 200ms cubic-bezier(0.16,1,0.3,1)"}}>
+        <div style={{width:32,height:3,borderRadius:2,background:"#243447",margin:"0 auto 14px"}}/>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(90px,100%),1fr))",gap:6,marginBottom:14}}>
           {moreNav.map(n=>{
             const badge=navBadge(n.id);
+            const isAct=active===n.id;
             return(
               <button key={n.id} onClick={()=>handleNav(n.id)}
-                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 4px",borderRadius:10,border:"none",background:active===n.id?n.color+"20":"#151b2a",color:active===n.id?n.color:"#e4e9f6",cursor:"pointer",position:"relative"}}>
-                <div style={{position:"relative"}}><Icon name={n.icon} size={22}/>{badge&&<span style={{position:"absolute",top:-5,right:-7,background:"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:800}}>{badge}</span>}</div>
-                <span style={{fontSize:10,fontWeight:active===n.id?700:400,textAlign:"center",lineHeight:1.2}}>{n.label}</span>
+                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,padding:"10px 4px",borderRadius:11,border:"1px solid "+(isAct?"rgba(59,130,246,0.25)":"#1a2738"),background:isAct?"rgba(59,130,246,0.1)":"rgba(255,255,255,0.03)",color:isAct?"#60a5fa":"#8b9db8",cursor:"pointer",position:"relative",transition:"background .12s,border-color .12s,color .12s"}}>
+                <div style={{position:"relative"}}><Icon name={n.icon} size={21}/>{badge&&<span style={{position:"absolute",top:-5,right:-7,background:"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:700}}>{badge}</span>}</div>
+                <span style={{fontSize:10,fontWeight:isAct?600:400,textAlign:"center",lineHeight:1.3}}>{n.label}</span>
               </button>
             );
           })}
         </div>
-        {/* Usuario info + logout en el drawer */}
-        <div style={{borderTop:"1px solid #1a2236",paddingTop:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div onClick={()=>{setCuentaOpen(true);setMenuOpen(false);}} title="Mi cuenta" style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+        <div style={{borderTop:"1px solid #1a2738",paddingTop:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div onClick={()=>{setCuentaOpen(true);setMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
             <Avatar u={user} size={32} fontSize={13}/>
-            <div><div style={{color:"#f1f3f9",fontSize:13,fontWeight:700}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
+            <div><div style={{color:"#e8edf5",fontSize:13,fontWeight:600}}>{user.nombre}</div><RolBadge rol={user.rol}/></div>
           </div>
-          <button onClick={()=>setUser(null)} style={{background:"#1a2236",border:"1px solid #2a3550",borderRadius:8,padding:"7px 12px",color:"#e4e9f6",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:600}}><Icon name="logout" size={12}/>Salir</button>
+          <button onClick={()=>setUser(null)} style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:9,padding:"7px 13px",color:"#ef4444",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontWeight:500,transition:"background .12s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.15)"}
+            onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"}
+          ><Icon name="logout" size={12}/>Salir</button>
         </div>
       </div>
     </>
   );
   return (
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"#0d1117",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f3f9",overflow:"hidden",maxWidth:"100vw"}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100dvh",background:"#060b12",fontFamily:"'Inter','DM Sans','Segoe UI',sans-serif",color:"#e8edf5",overflow:"hidden",maxWidth:"100vw"}}>
       {nuevaVersionDisponible&&(
-        <div style={{background:"#1e3a5f",borderBottom:"2px solid #0ea5e9",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexShrink:0,zIndex:9999}}>
-          <span style={{color:"#e0f2fe",fontSize:13,fontWeight:600}}>🔄 Hay una nueva versión de la aplicación disponible.</span>
-          <button onClick={()=>window.location.reload()} style={{background:"#0ea5e9",color:"#fff",border:"none",borderRadius:7,padding:"5px 14px",fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0}}>Actualizar ahora</button>
+        <div style={{background:"rgba(37,99,235,0.15)",borderBottom:"1px solid rgba(59,130,246,0.3)",padding:"9px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexShrink:0,zIndex:9999,backdropFilter:"blur(8px)"}}>
+          <span style={{color:"#93c5fd",fontSize:13,fontWeight:500}}>Nueva versión disponible</span>
+          <button onClick={()=>window.location.reload()} style={{background:"linear-gradient(135deg,#2563eb,#3b82f6)",color:"#fff",border:"none",borderRadius:8,padding:"5px 16px",fontWeight:600,fontSize:12,cursor:"pointer",flexShrink:0,boxShadow:"0 1px 6px rgba(37,99,235,0.3)"}}>Actualizar</button>
         </div>
       )}
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
-        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 10px 76px":"20px 24px",maxWidth:"100%",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
+        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 12px 80px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} onIrAMaquina={puedeVer(user.rol,"maquinas")?irAMaquina:null} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
