@@ -657,10 +657,10 @@ const btnPrimary = { background:"linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)
 const btnOutline = { background: "none",color: "#e6ebf6",border: "1px solid #2a3550",borderRadius: 9,padding: "10px 22px",fontWeight: 600,cursor: "pointer",fontSize: 14 };
 const inputStyle = { width:"100%",background:"#0a0f1c",border:"1px solid #1e2d40",borderRadius:9,padding:"9px 13px",color:"#e8edf5",fontSize:14,outline:"none",boxSizing:"border-box",transition:"border-color .15s,box-shadow .15s",fontFamily:"inherit" };
 const ROL_MODULOS = {
-  manager:  ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
-  admin:    ["dashboard","asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
-  tecnico:  ["dashboard","asistencia","clientes","maquinas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords"],
-  comercial:["dashboard","asistencia","clientes","maquinas","ventas","visitas","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","tareas"],
+  manager:  ["asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","usuarios","ajustes","passwords","contabilidad","info-tecnica"],
+  admin:    ["asistencia","clientes","proveedores","maquinas","ventas","visitas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords","contabilidad"],
+  tecnico:  ["asistencia","clientes","maquinas","tareas","partes","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","passwords"],
+  comercial:["asistencia","clientes","maquinas","ventas","visitas","albaran","stock","stock-usada","inventario","documentacion","calendario","chat","fichaje","tareas"],
   carrusel: [], // accede solo al modo carrusel, sin módulos del app normal
 };
 const puedeVer = (rol, mod) => (ROL_MODULOS[rol] || []).includes(mod);
@@ -15677,7 +15677,6 @@ const InformacionTecnica = ({ data }) => {
 };
 
 const NAV_ITEMS = [
-  {id:"dashboard",      label:"Inicio",                icon:"dashboard",    color:"#3b82f6"},
   {id:"asistencia",     label:"Avisos",                icon:"bell",         color:"#ef4444"},
   {id:"tareas",         label:"Tareas",                icon:"tasks",        color:"#8b5cf6"},
   {id:"calendario",     label:"Calendario",            icon:"calendario",   color:"#f97316"},
