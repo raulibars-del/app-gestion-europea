@@ -1398,9 +1398,14 @@ const EscanearTarjetaModal = ({ onClose, onResultado }) => {
 
 const Textarea = ({ value, onChange, placeholder="", rows=3 }) => <textarea value={value||""} onChange={onChange} placeholder={placeholder} rows={rows} style={{...inputStyle,resize:"vertical"}}/>;
 const StatCard = ({ label, value, icon, accent, sub }) => (
-  <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13}}>
-    <div style={{width:44,height:44,borderRadius:11,background:accent+"20",display:"flex",alignItems:"center",justifyContent:"center",color:accent,flexShrink:0}}><Icon name={icon} size={20}/></div>
-    <div><div style={{fontSize:22,fontWeight:800,color:"#f1f3f9",lineHeight:1}}>{value}</div><div style={{fontSize:12,color:"#e4e9f6",marginTop:2}}>{label}</div>{sub&&<div style={{fontSize:11,color:accent,marginTop:2,fontWeight:600}}>{sub}</div>}</div>
+  <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:14,padding:"16px 18px",display:"flex",alignItems:"center",gap:13,boxShadow:"0 2px 12px rgba(0,0,0,0.45),0 0 0 1px rgba(255,255,255,0.03)",position:"relative",overflow:"hidden"}}>
+    <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${accent},${accent}00)`}}/>
+    <div style={{width:44,height:44,borderRadius:11,background:accent+"18",display:"flex",alignItems:"center",justifyContent:"center",color:accent,flexShrink:0,boxShadow:`0 0 20px ${accent}22`}}><Icon name={icon} size={20}/></div>
+    <div>
+      <div style={{fontSize:26,fontWeight:800,color:"#f1f3f9",lineHeight:1,letterSpacing:"-0.5px"}}>{value}</div>
+      <div style={{fontSize:12,color:"#8b9db8",marginTop:3}}>{label}</div>
+      {sub&&<div style={{fontSize:11,color:accent,marginTop:3,fontWeight:600}}>{sub}</div>}
+    </div>
   </div>
 );
 const crearNotif = (userId,tipo,titulo,mensaje,extra) => ({id:uid(),userId,tipo,titulo,mensaje,fecha:new Date().toISOString(),leida:false,...(extra||{})});
@@ -1993,8 +1998,11 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   const ordenes=(cId,mId)=>data.reparaciones.filter(r=>r.clienteId===cId&&r.maquinaClienteId===mId);
   if(vista===null) return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <h2 style={{color:"#f1f3f9",fontWeight:800,fontSize:22,margin:0}}>Clientes</h2>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div className="em-page-header" style={{marginBottom:0}}>
+          <h2>Clientes</h2>
+          <p>{data.clientes.length} empresas registradas</p>
+        </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>{setImportFilas([]);setImportError("");setModalImportar(true);}} style={{background:"#8b5cf6",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📥 Importar</button>
           <button onClick={()=>{setExportFiltro("todos");setExportValor("");setModalExportar(true);}} style={{background:"#10b981",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>📋 Exportar</button>
@@ -2017,9 +2025,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         {filtered.map(c=>{const pc=c.contactos.find(x=>x.principal)||c.contactos[0]; const esCliente = c.esCliente; const esPropia = c.esPropia; const esStock = c.esStockInterno; const revendedor = c.revendedor;
           const colProp = esStock?"#f97316":esPropia?"#10b981":null;
           return(
-          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} style={{background: esStock?"#1a0d00":esPropia?"#0d1a1a":revendedor?"#1a0d18":"#151b2a",border:`1px solid ${esStock?"#f9731655":esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}`,borderRadius:12,padding:"15px 18px",cursor:"pointer",transition:"border-color .15s",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}
-            onMouseEnter={e=>e.currentTarget.style.borderColor=esStock?"#f97316":esPropia?"#10b981":revendedor?"#ec4899":"#3b82f6"}
-            onMouseLeave={e=>e.currentTarget.style.borderColor=esStock?"#f9731655":esPropia?"#10b98155":revendedor?"#ec489966":esCliente?"#3b82f644":"#2a3550"}>
+          <div key={c.id} onClick={()=>{setVista(c.id);setTabM(null);}} className="em-aviso-card" style={{background:`linear-gradient(145deg,${esStock?"#160900":esPropia?"#071511":revendedor?"#120814":"#0c1424"},${esStock?"#1e1200":esPropia?"#0b1c18":revendedor?"#180b1e":"#101829"})`,border:`1px solid ${esStock?"rgba(249,115,22,0.2)":esPropia?"rgba(16,185,129,0.2)":revendedor?"rgba(236,72,153,0.18)":esCliente?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.05)"}`,borderRadius:12,padding:"13px 16px",cursor:"pointer",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
@@ -3835,13 +3841,13 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
   return (
     <div>
       {/* Cabecera */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-        <div>
-          <h2 style={{color:"#f1f3f9",fontWeight:900,fontSize:22,margin:0}}>Avisos</h2>
-          <p style={{color:"#e4e9f6",fontSize:13,margin:"3px 0 0"}}>Incidencias · Reparaciones · Montajes · Consultas</p>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div className="em-page-header" style={{marginBottom:0}}>
+          <h2>Avisos de asistencia</h2>
+          <p>Incidencias · Reparaciones · Montajes · Consultas · {avisosActivos} activos</p>
         </div>
-        <button onClick={openNewAv} style={{background:"linear-gradient(135deg,#ef4444,#f59e0b)",color:"#fff",border:"none",borderRadius:10,padding:"9px 16px",fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13}}>
-          <Icon name="plus" size={14} />Nuevo aviso
+        <button onClick={openNewAv} style={{background:"linear-gradient(135deg,#ef4444 0%,#dc2626 100%)",color:"#fff",border:"none",borderRadius:9,padding:"9px 16px",fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:7,fontSize:13,boxShadow:"0 2px 12px rgba(239,68,68,0.3)",letterSpacing:"0.1px",flexShrink:0}}>
+          <Icon name="plus" size={14}/>Nuevo aviso
         </button>
       </div>
       {/* Alertas rápidas */}
@@ -3911,25 +3917,22 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
         </div>
       )}
       {/* Filtros */}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
-        <select value={filtroAsignado} onChange={e=>{ setFiltroAsignado(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
-          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+      <div className="em-filter-bar">
+        <select value={filtroAsignado} onChange={e=>{ setFiltroAsignado(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }} className="em-filter-select">
           <option value="todos">Todos los usuarios</option>
           {data.usuarios.filter(u=>u.activo).map(u=><option key={u.id} value={u.id}>{u.nombre}</option>)}
         </select>
-        <select value={fe} onChange={e=>{ setFe(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }}
-          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+        <select value={fe} onChange={e=>{ setFe(e.target.value); setSoloSinAsignar(false); setSoloAntiguos(false); }} className="em-filter-select">
           {["Activos","Resueltos","Cancelados","Todos"].map(o=><option key={o} value={o}>{o}</option>)}
         </select>
-        <select value={orden} onChange={e=>setOrden(e.target.value)}
-          style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 10px",color:"#f1f3f9",fontSize:12,cursor:"pointer",outline:"none"}}>
+        <select value={orden} onChange={e=>setOrden(e.target.value)} className="em-filter-select">
           <option value="predeterminado">Orden predeterminado</option>
           <option value="fecha_asc">Fecha más antigua</option>
           <option value="fecha_desc">Fecha más reciente</option>
         </select>
-        <div style={{position:"relative",marginLeft:"auto",flex:"1 1 140px",maxWidth:220,minWidth:120}}>
-          <span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",color:"#e4e9f6"}}><Icon name="search" size={12} /></span>
-          <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar..." style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:7,padding:"5px 9px 5px 27px",color:"#f1f3f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}} />
+        <div className="em-search-wrap" style={{marginLeft:"auto",maxWidth:220,minWidth:120}}>
+          <span className="em-search-icon"><Icon name="search" size={12}/></span>
+          <input value={s} onChange={e => setS(e.target.value)} placeholder="Buscar aviso..." />
         </div>
       </div>
         <div style={{color:"#e4e9f6",fontSize:11,marginBottom:7,display:"flex",alignItems:"center",gap:8}}>
@@ -3963,7 +3966,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
-                style={{background:"#151b2a",borderLeft:`4px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.6:1}}>
+                className="em-aviso-card"
+                style={{background:`linear-gradient(145deg,#0c1424,#101829)`,border:`1px solid rgba(255,255,255,0.05)`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.55:1}}>
                 {/* icono prioridad */}
                 <div style={{width:24,height:24,borderRadius:6,background:pc+"18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                   <Icon name="bell" size={11}/>
@@ -3999,7 +4003,8 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           return (
             <div key={av.id} onClick={() => setDetalle(av)}
               data-sinasignar={(listaNombres(av,"asignados","asignado").length===0 || av.estado === "Sin asignar") ? "true" : undefined}
-              style={{background:"#151b2a",border:`1px solid ${av.enStandby?"#1e293b":isCrit?"#ef444444":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"#f59e0b44":"#2a3550"}`,borderLeft:`4px solid ${av.enStandby?"#334155":pc}`,borderRadius:11,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box"}}>
+              className="em-aviso-card"
+              style={{background:`linear-gradient(145deg,#0c1424,#101829)`,border:`1px solid ${av.enStandby?"rgba(51,65,85,0.6)":isCrit?"rgba(239,68,68,0.2)":(listaNombres(av,"asignados","asignado").length===0||av.estado==="Sin asignar")?"rgba(245,158,11,0.2)":"rgba(255,255,255,0.05)"}`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:10,padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"flex-start",gap:11,flexWrap:"wrap",maxWidth:"100%",minWidth:0,boxSizing:"border-box",opacity:av.enStandby?.55:1}}>
               <div style={{width:34,height:34,borderRadius:8,background:pc + "18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
                 <Icon name="bell" size={15} />
               </div>
@@ -10887,99 +10892,35 @@ const Dashboard = ({ data, setActive, userActual }) => {
   const misTareasEmpresa = misTareas.filter(t => t.esEmpresa);
   return (
     <div>
-      <div style={{marginBottom:18}}>
-        <h2 style={{color:"#f1f3f9",fontWeight:900,fontSize:22,margin:"0 0 2px"}}>
-          Bienvenido, {userActual.nombre.split(" ")[0]}
-        </h2>
-        <p style={{color:"#e4e9f6",fontSize:13,margin:0}}>
-          {new Date().toLocaleDateString("es-ES", { weekday: "long",year: "numeric",month: "long",day: "numeric" })}
-        </p>
+      <div className="em-page-header" style={{marginBottom:22}}>
+        <h2>Bienvenido, {userActual.nombre.split(" ")[0]}</h2>
+        <p>{new Date().toLocaleDateString("es-ES", { weekday: "long",year: "numeric",month: "long",day: "numeric" })}</p>
       </div>
       {/* -- KPIs clicables -- */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:18}}>
-        {/* Avisos activos → va a asistencia */}
-        <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:`1px solid ${criticos.length > 0 ? "#ef444444" :"#2a3550"}`,borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#ef4444"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = criticos.length > 0 ? "#ef444444" : "#2a3550"; e.currentTarget.style.transform = "none"; }}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-            <div style={{width:34,height:34,borderRadius:9,background:"#ef444420",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444"}}><Icon name="bell" size={16} /></div>
-            <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
-          </div>
-          <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{activos.length}</div>
-          <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Avisos activos</div>
-          {criticos.length > 0 && <div style={{marginTop:5,color:"#ef4444",fontSize:11,fontWeight:700}}>🔴 {criticos.length} alta prioridad</div>}
-        </div>
-        {/* A falta de material → va a asistencia */}
-        {faltaMaterial.length > 0 && (
-          <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:"1px solid #f59e0b44",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#f59e0b44"; e.currentTarget.style.transform = "none"; }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div style={{width:34,height:34,borderRadius:9,background:"#f59e0b20",display:"flex",alignItems:"center",justifyContent:"center",color:"#f59e0b"}}><Icon name="parts" size={16} /></div>
-              <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:20}}>
+        {/* helper para KPI card */}
+        {(()=>{
+          const KpiCard = ({accentColor, onClick, icon, value, label, sub, warn}) => (
+            <div onClick={onClick} className="em-kpi-card" style={{padding:"14px 16px",borderTop:`2px solid ${accentColor}55`}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${accentColor},${accentColor}00)`}}/>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                <div style={{width:34,height:34,borderRadius:9,background:accentColor+"18",display:"flex",alignItems:"center",justifyContent:"center",color:accentColor,flexShrink:0,boxShadow:`0 0 14px ${accentColor}18`}}><Icon name={icon} size={16}/></div>
+                <span style={{color:"#3d506a",fontSize:12,fontWeight:600}}>→</span>
+              </div>
+              <div style={{color:"#f1f3f9",fontWeight:900,fontSize:28,lineHeight:1,letterSpacing:"-0.5px"}}>{value}</div>
+              <div style={{color:"#6b7f96",fontSize:11,marginTop:4,fontWeight:500}}>{label}</div>
+              {sub&&<div style={{marginTop:5,color:warn||accentColor,fontSize:10,fontWeight:700}}>{sub}</div>}
             </div>
-            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{faltaMaterial.length}</div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>A falta de material</div>
-          </div>
-        )}
-        {/* Presupuesto enviado, en espera de aceptación → va a asistencia */}
-        {presupuestoEspera.length > 0 && (
-          <div onClick={() => setActive("asistencia")} style={{background:"#151b2a",border:"1px solid #0ea5e944",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#0ea5e9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#0ea5e944"; e.currentTarget.style.transform = "none"; }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div style={{width:34,height:34,borderRadius:9,background:"#0ea5e920",display:"flex",alignItems:"center",justifyContent:"center",color:"#0ea5e9"}}><Icon name="send" size={16} /></div>
-              <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
-            </div>
-            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{presupuestoEspera.length}</div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Presupuesto en espera</div>
-          </div>
-        )}
-        {/* Mis tareas pendientes → va a tareas */}
-        <div onClick={() => setActive("tareas")} style={{background:"#151b2a",border:`1px solid ${misTareasHoy.length > 0 ? "#8b5cf644" :"#2a3550"}`,borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#8b5cf6"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = misTareasHoy.length > 0 ? "#8b5cf644" : "#2a3550"; e.currentTarget.style.transform = "none"; }}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-            <div style={{position:"relative",width:34,height:34,borderRadius:9,background:"#8b5cf620",display:"flex",alignItems:"center",justifyContent:"center",color:"#8b5cf6"}}>
-              <Icon name="tasks" size={16} />
-              {/* Símbolo especial: marca que hay tareas de empresa (visibles para todos) entre las pendientes */}
-              {misTareasEmpresa.length > 0 && <span title="Incluye tareas de empresa" style={{position:"absolute",top:-6,right:-6,fontSize:13,background:"#0a0f1a",borderRadius:"50%",lineHeight:1,padding:1}}>🏢</span>}
-            </div>
-            <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
-          </div>
-          <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{misTareas.length}</div>
-          <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Mis tareas</div>
-          {misTareasHoy.length > 0 && <div style={{marginTop:5,color:"#f59e0b",fontSize:11,fontWeight:700}}>⚠️ {misTareasHoy.length} vencida{misTareasHoy.length > 1 ? "s" : ""}</div>}
-          {misTareasEmpresa.length > 0 && <div style={{marginTop:3,color:"#f59e0b",fontSize:11,fontWeight:700}}>🏢 {misTareasEmpresa.length} de empresa</div>}
-        </div>
-        {/* Clientes → va a clientes */}
-        {puedeVer(userActual.rol, "clientes") && (
-          <div onClick={() => setActive("clientes")} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a3550"; e.currentTarget.style.transform = "none"; }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div style={{width:34,height:34,borderRadius:9,background:"#3b82f620",display:"flex",alignItems:"center",justifyContent:"center",color:"#3b82f6"}}><Icon name="clients" size={16} /></div>
-              <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
-            </div>
-            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>{data.clientes.length}</div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Clientes</div>
-          </div>
-        )}
-        {/* Ventas pipeline */}
-        {puedeVer(userActual.rol, "ventas") && (
-          <div onClick={() => setActive("ventas")} style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:13,padding:"14px 16px",cursor:"pointer",transition:"border-color .15s,transform .1s"}}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#10b981"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a3550"; e.currentTarget.style.transform = "none"; }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-              <div style={{width:34,height:34,borderRadius:9,background:"#10b98120",display:"flex",alignItems:"center",justifyContent:"center",color:"#10b981"}}><Icon name="sales" size={16} /></div>
-              <span style={{color:"#e4e9f6",fontSize:11}}>→</span>
-            </div>
-            <div style={{color:"#f1f3f9",fontWeight:900,fontSize:26,lineHeight:1}}>
-              {data.ventas.filter(v => v.comercialId === userActual.id && ["Prospecto","Oferta enviada","Negociación"].includes(v.estado)).length}
-            </div>
-            <div style={{color:"#e4e9f6",fontSize:12,marginTop:3}}>Operaciones activas</div>
-          </div>
-        )}
+          );
+          return(<>
+            <KpiCard accentColor="#ef4444" onClick={()=>setActive("asistencia")} icon="bell" value={activos.length} label="Avisos activos" sub={criticos.length>0?`🔴 ${criticos.length} alta prioridad`:null} warn="#ef4444"/>
+            {faltaMaterial.length>0&&<KpiCard accentColor="#f59e0b" onClick={()=>setActive("asistencia")} icon="parts" value={faltaMaterial.length} label="A falta de material"/>}
+            {presupuestoEspera.length>0&&<KpiCard accentColor="#0ea5e9" onClick={()=>setActive("asistencia")} icon="send" value={presupuestoEspera.length} label="Presupuesto en espera"/>}
+            <KpiCard accentColor="#8b5cf6" onClick={()=>setActive("tareas")} icon="tasks" value={misTareas.length} label="Mis tareas" sub={misTareasHoy.length>0?`⚠️ ${misTareasHoy.length} vencida${misTareasHoy.length>1?"s":""}`:misTareasEmpresa.length>0?`🏢 ${misTareasEmpresa.length} de empresa`:null} warn="#f59e0b"/>
+            {puedeVer(userActual.rol,"clientes")&&<KpiCard accentColor="#3b82f6" onClick={()=>setActive("clientes")} icon="clients" value={data.clientes.length} label="Clientes"/>}
+            {puedeVer(userActual.rol,"ventas")&&<KpiCard accentColor="#10b981" onClick={()=>setActive("ventas")} icon="sales" value={data.ventas.filter(v=>v.comercialId===userActual.id&&["Prospecto","Oferta enviada","Negociación"].includes(v.estado)).length} label="Operaciones activas"/>}
+          </>);
+        })()}
       </div>
       {/* -- Alertas críticas -- */}
       {criticos.length > 0 && (
@@ -10997,43 +10938,53 @@ const Dashboard = ({ data, setActive, userActual }) => {
         </div>
       )}
       {/* -- Dos columnas inferiores -- */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:11}}>
-        {/* Avisos pendientes → clicable */}
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:14}}>
-          <div style={{fontWeight:700,fontSize:11,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
-            Avisos pendientes
-            <button onClick={() => setActive("asistencia")} style={{fontSize:11,color:"#ef4444",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Ver todos →</button>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+        {/* Avisos pendientes */}
+        <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:13,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(239,68,68,0.04)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#ef4444",boxShadow:"0 0 6px #ef4444"}}/>
+              <span style={{fontWeight:700,fontSize:11,color:"#8b9db8",textTransform:"uppercase",letterSpacing:".8px"}}>Avisos pendientes</span>
+            </div>
+            <button onClick={() => setActive("asistencia")} style={{fontSize:11,color:"#ef4444",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"2px 9px",cursor:"pointer",fontWeight:600,transition:"background .12s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,0.15)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,0.08)"}>Ver todos →</button>
           </div>
-          {activos.length === 0 && <div style={{color:"#e4e9f6",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin avisos activos ✓</div>}
-          {activos.slice(0, 5).map(a => (
-            <div key={a.id} onClick={() => setActive("asistencia")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1a2236",cursor:"pointer"}}
-              onMouseEnter={e => e.currentTarget.style.background = "#1a2236"}
+          {activos.length === 0 && <div style={{color:"#4d6077",fontSize:12,textAlign:"center",padding:"20px 0"}}>✓ Sin avisos activos</div>}
+          {activos.slice(0, 5).map((a,i) => (
+            <div key={a.id} onClick={() => setActive("asistencia")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 16px",borderBottom:i<Math.min(activos.length,5)-1?"1px solid rgba(255,255,255,0.04)":"none",cursor:"pointer",transition:"background .1s"}}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.025)"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
-                <div style={{color:"#e4e9f6",fontSize:11}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div>
+                <div style={{color:"#d4dff0",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.titulo}</div>
+                <div style={{color:"#4d6077",fontSize:11,marginTop:1}}>{data.clientes.find(c => c.id === a.clienteId)?.nombreEmpresa}</div>
               </div>
               <DiasBadge fecha={a.fechaAviso} estado={a.estado} />
             </div>
           ))}
         </div>
-        {/* Mis tareas pendientes → clicable */}
-        <div style={{background:"#151b2a",border:"1px solid #2a3550",borderRadius:12,padding:14}}>
-          <div style={{fontWeight:700,fontSize:11,color:"#e4e9f6",textTransform:"uppercase",letterSpacing:".7px",marginBottom:9,display:"flex",justifyContent:"space-between"}}>
-            Mis tareas
-            <button onClick={() => setActive("tareas")} style={{fontSize:11,color:"#8b5cf6",background:"none",border:"none",cursor:"pointer",fontWeight:700}}>Ver todas →</button>
+        {/* Mis tareas */}
+        <div style={{background:"linear-gradient(145deg,#0d1525,#111827)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:13,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(139,92,246,0.04)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#8b5cf6",boxShadow:"0 0 6px #8b5cf6"}}/>
+              <span style={{fontWeight:700,fontSize:11,color:"#8b9db8",textTransform:"uppercase",letterSpacing:".8px"}}>Mis tareas</span>
+            </div>
+            <button onClick={() => setActive("tareas")} style={{fontSize:11,color:"#8b5cf6",background:"rgba(139,92,246,0.08)",border:"1px solid rgba(139,92,246,0.2)",borderRadius:6,padding:"2px 9px",cursor:"pointer",fontWeight:600,transition:"background .12s"}}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(139,92,246,0.15)"}
+              onMouseLeave={e=>e.currentTarget.style.background="rgba(139,92,246,0.08)"}>Ver todas →</button>
           </div>
-          {misTareas.length === 0 && <div style={{color:"#e4e9f6",fontSize:12,textAlign:"center",padding:"12px 0"}}>Sin tareas pendientes ✓</div>}
-          {misTareas.slice(0, 5).map(t => {
+          {misTareas.length === 0 && <div style={{color:"#4d6077",fontSize:12,textAlign:"center",padding:"20px 0"}}>✓ Sin tareas pendientes</div>}
+          {misTareas.slice(0, 5).map((t,i) => {
             const d = Math.ceil((new Date(t.vence) - new Date(today())) / 86400000);
-            const vc = d < 0 ? "#dc2626" : d === 0 ? "#f59e0b" : d <= 2 ? "#f97316" : "#e4e9f6";
+            const vc = d < 0 ? "#dc2626" : d === 0 ? "#f59e0b" : d <= 2 ? "#f97316" : "#4d6077";
             return (
-              <div key={t.id} onClick={() => setActive("tareas")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #1a2236",cursor:"pointer"}}
-                onMouseEnter={e => e.currentTarget.style.background = "#1a2236"}
+              <div key={t.id} onClick={() => setActive("tareas")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 16px",borderBottom:i<Math.min(misTareas.length,5)-1?"1px solid rgba(255,255,255,0.04)":"none",cursor:"pointer",transition:"background .1s"}}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.025)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:"#f1f3f9",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.esEmpresa && "🏢 "}{t.titulo}</div>
-                  <div style={{color:vc,fontSize:11}}>{d < 0 ? `Vencida hace ${Math.abs(d)}d` : d === 0 ? "Vence hoy" : `Vence en ${d}d`}</div>
+                  <div style={{color:"#d4dff0",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.esEmpresa && "🏢 "}{t.titulo}</div>
+                  <div style={{color:vc,fontSize:11,marginTop:1}}>{d < 0 ? `Vencida hace ${Math.abs(d)}d` : d === 0 ? "Vence hoy" : `Vence en ${d}d`}</div>
                 </div>
                 <Badge text={t.prioridad} />
               </div>

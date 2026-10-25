@@ -234,3 +234,195 @@ button {
 .em-sync-saving {
   animation: em-pulse-dot 1s ease-in-out infinite;
 }
+
+/* ─── Cards con profundidad ─────────────────────────────────────────────── */
+.em-card-deep {
+  background: linear-gradient(145deg, #0d1525 0%, #111827 100%);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.03);
+  transition: box-shadow var(--t-fast) ease, border-color var(--t-fast) ease, transform var(--t-fast) ease;
+}
+.em-card-deep:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* ─── Aviso card ─────────────────────────────────────────────────────────── */
+.em-aviso-card {
+  background: linear-gradient(145deg, #0c1424 0%, #101829 100%);
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+  transition: box-shadow var(--t-fast) ease, transform 80ms ease;
+}
+.em-aviso-card:hover {
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07);
+  transform: translateY(-1px);
+}
+
+/* ─── KPI card clickable ─────────────────────────────────────────────────── */
+.em-kpi-card {
+  background: linear-gradient(160deg, #0d1525 0%, #0f1c30 100%);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.025);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow var(--t-fast) ease, border-color var(--t-fast) ease, transform 80ms ease;
+}
+.em-kpi-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.02) 0%, transparent 60%);
+  pointer-events: none;
+}
+.em-kpi-card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
+}
+
+/* ─── Gradient top accent on cards ──────────────────────────────────────── */
+.em-accent-top::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-top, linear-gradient(90deg, #3b82f6, #3b82f600));
+  border-radius: 12px 12px 0 0;
+}
+
+/* ─── Section page header ────────────────────────────────────────────────── */
+.em-page-header {
+  margin-bottom: 20px;
+}
+.em-page-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 3px;
+  letter-spacing: -0.3px;
+  background: linear-gradient(90deg, #e8edf5 60%, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.em-page-header p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+  letter-spacing: 0.1px;
+}
+
+/* ─── Filtro pills ────────────────────────────────────────────────────────── */
+.em-filter-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.em-filter-select {
+  background: #0d1525 !important;
+  border: 1px solid #1e2d40 !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  color: #8b9db8 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  outline: none !important;
+  font-family: inherit !important;
+  transition: border-color var(--t-fast), color var(--t-fast) !important;
+  appearance: auto;
+}
+.em-filter-select:hover {
+  border-color: #2a3f58 !important;
+  color: #c8d4e4 !important;
+}
+.em-filter-select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ─── Empty state ────────────────────────────────────────────────────────── */
+.em-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+}
+.em-empty-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+.em-empty p {
+  font-size: 13px;
+}
+
+/* ─── Tabla / lista row ──────────────────────────────────────────────────── */
+.em-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  gap: 10px;
+  transition: background var(--t-fast);
+}
+.em-row:hover {
+  background: rgba(255,255,255,0.025);
+}
+.em-row:last-child {
+  border-bottom: none;
+}
+
+/* ─── Icono de acción con borde ──────────────────────────────────────────── */
+.em-icon-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  flex-shrink: 0;
+}
+.em-icon-action:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* ─── Input search con icono ─────────────────────────────────────────────── */
+.em-search-wrap {
+  position: relative;
+  flex: 1 1 140px;
+}
+.em-search-wrap input {
+  width: 100%;
+  background: #0d1525;
+  border: 1px solid #1e2d40;
+  border-radius: 8px;
+  padding: 7px 10px 7px 32px;
+  color: #c8d4e4;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.em-search-wrap input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-dim) !important;
+}
+.em-search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
