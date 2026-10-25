@@ -3964,8 +3964,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             const esBloqMov = ESTADOS_BLOQUEADO_AV.includes(av.estado);
             const dColor = av.enStandby?"#64748b":esBloqMov?"#ec4899":d>=30?"#ef4444":d>=14?"#f97316":d>=7?"#f59e0b":"#22c55e";
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
-            const asigns = listaNombres(av,"asignados","asignado");
-            const primerTec = asigns.length>0 ? asigns[0].split(" ")[0] : null;
+            const maquinaInfo = [av.marca,av.modelo].filter(Boolean).join(" ") || null;
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
                 className="em-aviso-card"
@@ -3989,7 +3988,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {/* Fila 2: estado + técnico + botones horizontales */}
                 <div style={{display:"flex",alignItems:"center",gap:5}} onClick={e=>e.stopPropagation()}>
                   <span style={{background:"rgba(255,255,255,0.06)",color:"#8b9db8",fontSize:9,borderRadius:4,padding:"2px 6px",border:"1px solid rgba(255,255,255,0.08)",whiteSpace:"nowrap",flex:"0 1 auto",minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{av.enStandby?"⏸ Standby":av.estado}</span>
-                  {primerTec&&<span style={{color:"#4d6077",fontSize:9,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>👤 {primerTec}</span>}
+                  {maquinaInfo&&<span style={{color:"#4d6077",fontSize:9,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>⚙️ {maquinaInfo}</span>}
                   {av.estado==="Material disponible"&&<span style={{background:"#14b8a615",color:"#2dd4bf",border:"1px solid #14b8a630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap"}}>📦 Mat.</span>}
                   {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf615",color:"#a78bfa",border:"1px solid #8b5cf630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap"}}>✅ Ppto.</span>}
                   <div style={{display:"flex",gap:4,marginLeft:"auto",flexShrink:0}}>
