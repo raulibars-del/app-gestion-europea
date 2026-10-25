@@ -3962,39 +3962,41 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
           if (isMov) {
             const d = diasDesde(av.fechaAviso);
             const esBloqMov = ESTADOS_BLOQUEADO_AV.includes(av.estado);
-            const dColor = av.enStandby?"#64748b":esBloqMov?"#ec4899":d>=30?"#ffffff":d>=14?"#dc2626":d>=7?"#f59e0b":"#16a34a";
+            const dColor = av.enStandby?"#64748b":esBloqMov?"#ec4899":d>=30?"#ef4444":d>=14?"#f97316":d>=7?"#f59e0b":"#22c55e";
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
+            const asigns = listaNombres(av,"asignados","asignado");
+            const primerTec = asigns.length>0 ? asigns[0].split(" ")[0] : null;
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
                 className="em-aviso-card"
-                style={{background:`linear-gradient(145deg,#152035,#1a2a42)`,border:`1px solid rgba(255,255,255,0.06)`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,minWidth:0,opacity:av.enStandby?.5:1}}>
-                {/* icono prioridad */}
-                <div style={{width:24,height:24,borderRadius:6,background:pc+"18",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
-                  <Icon name="bell" size={11}/>
-                </div>
-                {/* info central */}
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{color:"#f1f3f9",fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{av.titulo}</div>
-                  <div style={{display:"flex",alignItems:"center",gap:5,marginTop:2,flexWrap:"wrap"}}>
-                    <span style={{color:"#9bacc8",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}}>{cN(av.clienteId)}</span>
-                    <span style={{background:"#1a2236",color:"#9bacc8",fontSize:9,borderRadius:3,padding:"1px 5px",border:"1px solid #2a3550",whiteSpace:"nowrap"}}>{av.estado}</span>
-                    {av.enStandby&&<span style={{background:"#1e293b",color:"#64748b",border:"1px solid #334155",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>⏸ Standby</span>}
-                    {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>📦 Mat. disponible</span>}
-                    {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:3,padding:"1px 5px",fontSize:9,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
+                style={{background:`linear-gradient(145deg,#152035,#1a2a42)`,border:`1px solid ${isCrit?"rgba(239,68,68,0.22)":"rgba(255,255,255,0.06)"}`,borderLeft:`3px solid ${av.enStandby?"#334155":pc}`,borderRadius:9,padding:"9px 10px 8px",cursor:"pointer",minWidth:0,opacity:av.enStandby?.5:1}}>
+                {/* Fila 1: icono + titulo + días */}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                  <div style={{width:22,height:22,borderRadius:5,background:pc+"20",display:"flex",alignItems:"center",justifyContent:"center",color:pc,flexShrink:0}}>
+                    <Icon name="bell" size={10}/>
                   </div>
-                </div>
-                {/* días compacto */}
-                {isPend && !av.enStandby && (
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,minWidth:36}}>
-                    <span style={{color:dColor,fontWeight:900,fontSize:22,lineHeight:1}}>{d}</span>
-                    <span style={{color:dColor,fontSize:9,fontWeight:700}}>días</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:"#e8edf5",fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.2}}>{av.titulo}</div>
+                    <div style={{color:"#6b7f96",fontSize:10,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cN(av.clienteId)}{av.tipo?` · ${av.tipo}`:""}</div>
                   </div>
-                )}
-                {/* botones mínimos */}
-                <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
-                  {isPend&&!av.enStandby&&<button onClick={()=>confirmarYResolver(av.id)} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:26,height:26}}><Icon name="check" size={11}/></button>}
-                  {isPend&&(userActual.rol==="manager"||userActual.rol==="admin")&&<button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={()=>toggleStandby(av.id)} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`,width:26,height:26}}>{av.enStandby?"▶":"⏸"}</button>}
-                  <button onClick={()=>openEditAv(av)} style={{...btnSm("#2a3550","#e6ebf6"),width:26,height:26}}><Icon name="edit" size={11}/></button>
+                  {isPend && !av.enStandby && (
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,minWidth:32}}>
+                      <span style={{color:dColor,fontWeight:900,fontSize:18,lineHeight:1}}>{d}</span>
+                      <span style={{color:dColor,fontSize:8,fontWeight:700,letterSpacing:"0.3px"}}>días</span>
+                    </div>
+                  )}
+                </div>
+                {/* Fila 2: estado + técnico + botones horizontales */}
+                <div style={{display:"flex",alignItems:"center",gap:5}} onClick={e=>e.stopPropagation()}>
+                  <span style={{background:"rgba(255,255,255,0.06)",color:"#8b9db8",fontSize:9,borderRadius:4,padding:"2px 6px",border:"1px solid rgba(255,255,255,0.08)",whiteSpace:"nowrap",flex:"0 1 auto",minWidth:0,overflow:"hidden",textOverflow:"ellipsis"}}>{av.enStandby?"⏸ Standby":av.estado}</span>
+                  {primerTec&&<span style={{color:"#4d6077",fontSize:9,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>👤 {primerTec}</span>}
+                  {av.estado==="Material disponible"&&<span style={{background:"#14b8a615",color:"#2dd4bf",border:"1px solid #14b8a630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap"}}>📦 Mat.</span>}
+                  {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf615",color:"#a78bfa",border:"1px solid #8b5cf630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap"}}>✅ Ppto.</span>}
+                  <div style={{display:"flex",gap:4,marginLeft:"auto",flexShrink:0}}>
+                    {isPend&&!av.enStandby&&<button onClick={e=>{e.stopPropagation();confirmarYResolver(av.id);}} style={{...btnSm("#16a34a18","#22c55e"),border:"1px solid #16a34a30",width:24,height:24,borderRadius:6}}><Icon name="check" size={10}/></button>}
+                    {isPend&&(userActual.rol==="manager"||userActual.rol==="admin")&&<button onClick={e=>{e.stopPropagation();toggleStandby(av.id);}} style={{...btnSm(av.enStandby?"#0ea5e918":"rgba(255,255,255,0.05)",av.enStandby?"#38bdf8":"#4d6077"),border:`1px solid ${av.enStandby?"#0ea5e930":"rgba(255,255,255,0.08)"}`,width:24,height:24,borderRadius:6,fontSize:11}}>{av.enStandby?"▶":"⏸"}</button>}
+                    <button onClick={e=>{e.stopPropagation();openEditAv(av);}} style={{...btnSm("rgba(255,255,255,0.05)","#8b9db8"),border:"1px solid rgba(255,255,255,0.08)",width:24,height:24,borderRadius:6}}><Icon name="edit" size={10}/></button>
+                  </div>
                 </div>
               </div>
             );
@@ -17945,7 +17947,7 @@ function AppInner() {
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
-        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"14px 12px 80px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
+        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"10px 10px 76px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} onIrAMaquina={puedeVer(user.rol,"maquinas")?irAMaquina:null} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
