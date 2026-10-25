@@ -9719,6 +9719,7 @@ const Contabilidad = ({ data, setData, userActual }) => {
       await fetch(MAIL_API_URL,{method:"POST",headers:{"Content-Type":"application/json","X-Api-Key":API_KEY},body:JSON.stringify({
         to:email.trim(),
         toName:p.proveedor||"",
+        cc:"admin@europeademaquinaria.com",
         subject:"Pedido de compra "+p.numero+" — Europea de Maquinaria",
         html,
         attachmentBase64:base64,
