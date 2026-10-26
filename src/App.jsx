@@ -3928,9 +3928,9 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                     {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf615",color:"#a78bfa",border:"1px solid #8b5cf630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>✅</span>}
                   </div>
                   <div style={{display:"flex",gap:4,flexShrink:0}}>
-                    {isPend&&!av.enStandby&&<button onClick={e=>{e.stopPropagation();confirmarYResolver(av.id);}} style={{...btnSm("#16a34a18","#22c55e"),border:"1px solid #16a34a30",width:24,height:24,borderRadius:6}}><Icon name="check" size={10}/></button>}
-                    {isPend&&(userActual.rol==="manager"||userActual.rol==="admin")&&<button onClick={e=>{e.stopPropagation();toggleStandby(av.id);}} style={{...btnSm(av.enStandby?"#0ea5e918":"rgba(255,255,255,0.05)",av.enStandby?"#38bdf8":"#4d6077"),border:`1px solid ${av.enStandby?"#0ea5e930":"rgba(255,255,255,0.08)"}`,width:24,height:24,borderRadius:6,fontSize:11}}>{av.enStandby?"▶":"⏸"}</button>}
-                    <button onClick={e=>{e.stopPropagation();openEditAv(av);}} style={{...btnSm("rgba(255,255,255,0.05)","#8b9db8"),border:"1px solid rgba(255,255,255,0.08)",width:24,height:24,borderRadius:6}}><Icon name="edit" size={10}/></button>
+                    {isPend&&!av.enStandby&&<button onClick={e=>{e.stopPropagation();confirmarYResolver(av.id);}} style={{...btnSm("#16a34a25","#22c55e"),border:"1px solid #16a34a40",width:36,height:36,borderRadius:8,justifyContent:"center",padding:0}}><Icon name="check" size={14}/></button>}
+                    {isPend&&(userActual.rol==="manager"||userActual.rol==="admin")&&<button onClick={e=>{e.stopPropagation();toggleStandby(av.id);}} style={{...btnSm(av.enStandby?"#0ea5e925":"rgba(255,255,255,0.07)",av.enStandby?"#38bdf8":"#5a7090"),border:`1px solid ${av.enStandby?"#0ea5e940":"rgba(255,255,255,0.12)"}`,width:36,height:36,borderRadius:8,fontSize:14,justifyContent:"center",padding:0}}>{av.enStandby?"▶":"⏸"}</button>}
+                    <button onClick={e=>{e.stopPropagation();openEditAv(av);}} style={{...btnSm("rgba(255,255,255,0.07)","#8b9db8"),border:"1px solid rgba(255,255,255,0.12)",width:36,height:36,borderRadius:8,justifyContent:"center",padding:0}}><Icon name="edit" size={14}/></button>
                   </div>
                 </div>
               </div>
@@ -4020,18 +4020,18 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 <Badge text={av.estado} />
                 {av.estado==="Material disponible"&&<span style={{background:"#14b8a618",color:"#2dd4bf",border:"1px solid #14b8a644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>📦 Material ya disponible</span>}
                 {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf618",color:"#a78bfa",border:"1px solid #8b5cf644",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap"}}>✅ Ppto. aceptado</span>}
-                <div style={{display:"flex",gap:3,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:110}}>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end",maxWidth:140}}>
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && !av.enStandby && (
-                    <button onClick={e => { e.stopPropagation(); confirmarYResolver(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44"}}><Icon name="check" size={12} /></button>
+                    <button onClick={e => { e.stopPropagation(); confirmarYResolver(av.id); }} style={{...btnSm("#16a34a20","#16a34a"),border:"1px solid #16a34a44",width:32,height:32,justifyContent:"center",padding:0}}><Icon name="check" size={14} /></button>
                   )}
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && !av.enStandby && (
-                    <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644"}}><Icon name="close" size={12} /></button>
+                    <button onClick={e => { e.stopPropagation(); setCancelTarget(av.id); setMotivoCancel(""); }} style={{...btnSm("#dc262620","#dc2626"),border:"1px solid #dc262644",width:32,height:32,justifyContent:"center",padding:0}}><Icon name="close" size={14} /></button>
                   )}
                   {av.estado !== "Resuelto" && av.estado !== "Cancelado" && (userActual.rol==="manager"||userActual.rol==="admin") && (
-                    <button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={e => { e.stopPropagation(); toggleStandby(av.id); }} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`}}>{av.enStandby?"▶":"⏸"}</button>
+                    <button title={av.enStandby?"Recuperar aviso":"Poner en standby"} onClick={e => { e.stopPropagation(); toggleStandby(av.id); }} style={{...btnSm(av.enStandby?"#0ea5e920":"#33415520",av.enStandby?"#38bdf8":"#64748b"),border:`1px solid ${av.enStandby?"#0ea5e944":"#33415566"}`,width:32,height:32,justifyContent:"center",padding:0,fontSize:13}}>{av.enStandby?"▶":"⏸"}</button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={btnSm("#2a3550", "#e6ebf6")}><Icon name="edit" size={12} /></button>
-                  <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={btnSm("#3b1c1c", "#dc2626")}><Icon name="trash" size={12} /></button>
+                  <button onClick={e => { e.stopPropagation(); openEditAv(av); }} style={{...btnSm("#2a3550","#e6ebf6"),width:32,height:32,justifyContent:"center",padding:0}}><Icon name="edit" size={14} /></button>
+                  <button onClick={e => { e.stopPropagation(); delAv(av.id); }} style={{...btnSm("#3b1c1c","#dc2626"),width:32,height:32,justifyContent:"center",padding:0}}><Icon name="trash" size={14} /></button>
                 </div>
               </div>
               </div>{/* fin wrapper días+acciones */}
