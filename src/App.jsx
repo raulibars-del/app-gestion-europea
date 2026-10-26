@@ -115,6 +115,10 @@ const uid = () => Date.now() + Math.random();
 // Quita tildes/diacríticos para que "vias" encuentre "VÍAS", "compresor" encuentre
 // "COMPRESÓR", etc. — la búsqueda no debe depender de que el usuario escriba acentos.
 const sinAcentos = (s) => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"");
+// Formato visual: primera letra mayúscula, resto minúscula
+const fmtSentence = (s) => { const t=String(s||"").trim(); return t?t[0].toUpperCase()+t.slice(1).toLowerCase():""; };
+// Primera palabra con mayúscula inicial, resto en minúscula
+const fmtMaquina = (s) => { const t=String(s||"").trim().toLowerCase(); return t?t[0].toUpperCase()+t.slice(1):""; };
 // Búsqueda multi-palabra: cada palabra escrita debe aparecer en alguno de los
 // campos indicados (en cualquier orden), así "bosch rodamiento" encuentra un
 // artículo aunque "bosch" esté en el proveedor y "rodamiento" en el nombre.
@@ -3898,7 +3902,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
             const esBloqMov = ESTADOS_BLOQUEADO_AV.includes(av.estado);
             const dColor = av.enStandby?"#64748b":esBloqMov?"#ec4899":d>=30?"#ef4444":d>=14?"#f97316":d>=7?"#f59e0b":"#22c55e";
             const isPend = av.estado!=="Resuelto"&&av.estado!=="Cancelado";
-            const maquinaInfo = [av.marca,av.modelo].filter(Boolean).join(" ") || null;
+            const maquinaInfo = [av.marca,av.modelo].filter(Boolean).map(fmtMaquina).join(" ") || null;
             return (
               <div key={av.id} onClick={() => setDetalle(av)}
                 className="em-aviso-card"
@@ -3922,7 +3926,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 {/* Fila 2: problema (débil) + estado + botones */}
                 <div style={{display:"flex",alignItems:"center",gap:5}} onClick={e=>e.stopPropagation()}>
                   <div style={{flex:1,minWidth:0,display:"flex",alignItems:"center",gap:5,overflow:"hidden"}}>
-                    <span style={{color:"#4d6077",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1,fontStyle:"italic"}}>{av.titulo}</span>
+                    <span style={{color:"#4d6077",fontSize:10,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1,fontStyle:"italic"}}>{fmtSentence(av.titulo)}</span>
                     <span style={{background:"rgba(255,255,255,0.06)",color:"#6b7f96",fontSize:9,borderRadius:4,padding:"2px 6px",border:"1px solid rgba(255,255,255,0.08)",whiteSpace:"nowrap",flexShrink:0}}>{av.enStandby?"⏸ Standby":av.tipo?av.tipo:av.estado}</span>
                     {av.estado==="Material disponible"&&<span style={{background:"#14b8a615",color:"#2dd4bf",border:"1px solid #14b8a630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>📦</span>}
                     {av.estado==="Presupuesto aceptado"&&<span style={{background:"#8b5cf615",color:"#a78bfa",border:"1px solid #8b5cf630",borderRadius:4,padding:"2px 5px",fontSize:9,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>✅</span>}
