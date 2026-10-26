@@ -17710,18 +17710,21 @@ function AppInner() {
     </aside>
   );
   const BottomNav = () => (
-    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:76,background:"rgba(6,9,16,0.97)",borderTop:"1px solid #1a2738",display:"flex",alignItems:"stretch",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",boxShadow:"0 -6px 32px rgba(0,0,0,0.55)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}}>
+    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:82,background:"#0d1525",borderTop:"2px solid #1e2d40",display:"flex",alignItems:"center",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",boxShadow:"0 -8px 32px rgba(0,0,0,0.7)",gap:6,padding:"0 8px"}}>
       {bottomNav.map(n=>{
         const badge=navBadge(n.id);
         const isActive=active===n.id&&!menuOpen;
         return(
           <button key={n.id} onClick={()=>handleNav(n.id)}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:4,position:"relative",padding:"8px 4px 6px",transition:"color .15s"}}>
-            <div style={{position:"relative",width:48,height:34,borderRadius:12,background:isActive?"rgba(59,130,246,0.15)":"transparent",border:isActive?"1px solid rgba(59,130,246,0.25)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",boxShadow:isActive?"0 0 16px rgba(59,130,246,0.15)":"none"}}>
-              <Icon name={n.icon} size={22}/>
-              {badge&&<span style={{position:"absolute",top:-5,right:-4,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 5px",fontSize:9,fontWeight:800,minWidth:16,textAlign:"center",lineHeight:"14px"}}>{badge}</span>}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",gap:5,position:"relative",padding:"10px 4px 8px",borderRadius:14,transition:"all .15s",
+              background:isActive?"linear-gradient(160deg,#1e3a6e,#162d58)":"#111c2e",
+              boxShadow:isActive?"0 2px 16px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.07)":"inset 0 1px 0 rgba(255,255,255,0.04)",
+              outline:isActive?"1px solid rgba(59,130,246,0.4)":"1px solid rgba(255,255,255,0.06)"}}>
+            <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <Icon name={n.icon} size={24} color={isActive?"#60a5fa":"#6b7f96"}/>
+              {badge&&<span style={{position:"absolute",top:-6,right:-8,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 5px",fontSize:9,fontWeight:800,minWidth:16,textAlign:"center",lineHeight:"14px"}}>{badge}</span>}
             </div>
-            <span style={{fontSize:10,fontWeight:isActive?700:500,letterSpacing:".2px",color:isActive?"#60a5fa":"#4d6077"}}>{n.label.split(" ")[0]}</span>
+            <span style={{fontSize:10,fontWeight:isActive?700:500,letterSpacing:".3px",color:isActive?"#93c5fd":"#6b7f96"}}>{n.label.split(" ")[0]}</span>
           </button>
         );
       })}
@@ -17729,13 +17732,14 @@ function AppInner() {
         const isMoreActive=menuOpen||(moreNav.some(n=>n.id===active));
         return(
           <button onClick={()=>setMenuOpen(p=>!p)}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isMoreActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:4,padding:"8px 4px 6px",position:"relative",transition:"color .15s"}}>
-            <div style={{width:48,height:34,borderRadius:12,background:isMoreActive?"rgba(59,130,246,0.15)":"transparent",border:isMoreActive?"1px solid rgba(59,130,246,0.25)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",boxShadow:isMoreActive?"0 0 16px rgba(59,130,246,0.15)":"none"}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:3,width:18,height:18}}>
-                {[0,1,2,3].map(i=><div key={i} style={{background:isMoreActive?"#60a5fa":"#4d6077",borderRadius:3,transition:"background .15s"}}/>)}
-              </div>
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",gap:5,padding:"10px 4px 8px",borderRadius:14,transition:"all .15s",
+              background:isMoreActive?"linear-gradient(160deg,#1e3a6e,#162d58)":"#111c2e",
+              boxShadow:isMoreActive?"0 2px 16px rgba(59,130,246,0.25), inset 0 1px 0 rgba(255,255,255,0.07)":"inset 0 1px 0 rgba(255,255,255,0.04)",
+              outline:isMoreActive?"1px solid rgba(59,130,246,0.4)":"1px solid rgba(255,255,255,0.06)"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:3.5,width:20,height:20}}>
+              {[0,1,2,3].map(i=><div key={i} style={{background:isMoreActive?"#60a5fa":"#6b7f96",borderRadius:3,transition:"background .15s"}}/>)}
             </div>
-            <span style={{fontSize:10,fontWeight:isMoreActive?700:500,letterSpacing:".2px",color:isMoreActive?"#60a5fa":"#4d6077"}}>Más</span>
+            <span style={{fontSize:10,fontWeight:isMoreActive?700:500,letterSpacing:".3px",color:isMoreActive?"#93c5fd":"#6b7f96"}}>Más</span>
           </button>
         );
       })()}
@@ -17744,7 +17748,7 @@ function AppInner() {
   const MoreDrawer = () => menuOpen&&(
     <>
       <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",backdropFilter:"blur(3px)",WebkitBackdropFilter:"blur(3px)",zIndex:110,animation:"em-fade-in 150ms ease"}}/>
-      <div style={{position:"fixed",bottom:76,left:0,right:0,background:"#080d18",borderTop:"1px solid #1a2738",zIndex:120,borderRadius:"18px 18px 0 0",padding:"14px 12px 10px",boxShadow:"0 -16px 48px rgba(0,0,0,0.5)",animation:"em-slide-up 200ms cubic-bezier(0.16,1,0.3,1)"}}>
+      <div style={{position:"fixed",bottom:82,left:0,right:0,background:"#080d18",borderTop:"1px solid #1a2738",zIndex:120,borderRadius:"18px 18px 0 0",padding:"14px 12px 10px",boxShadow:"0 -16px 48px rgba(0,0,0,0.5)",animation:"em-slide-up 200ms cubic-bezier(0.16,1,0.3,1)"}}>
         <div style={{width:32,height:3,borderRadius:2,background:"#243447",margin:"0 auto 14px"}}/>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(90px,100%),1fr))",gap:6,marginBottom:14}}>
           {moreNav.map(n=>{
@@ -17783,7 +17787,7 @@ function AppInner() {
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
-        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"10px 10px 92px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
+        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"10px 10px 96px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} onIrAMaquina={puedeVer(user.rol,"maquinas")?irAMaquina:null} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
