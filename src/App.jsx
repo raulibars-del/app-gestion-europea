@@ -17706,38 +17706,41 @@ function AppInner() {
     </aside>
   );
   const BottomNav = () => (
-    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:62,background:"#080d18",borderTop:"1px solid #1a2738",display:"flex",alignItems:"stretch",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",boxShadow:"0 -4px 24px rgba(0,0,0,0.4)"}}>
+    <nav style={{position:"fixed",bottom:0,left:0,right:0,height:76,background:"rgba(6,9,16,0.97)",borderTop:"1px solid #1a2738",display:"flex",alignItems:"stretch",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",boxShadow:"0 -6px 32px rgba(0,0,0,0.55)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)"}}>
       {bottomNav.map(n=>{
         const badge=navBadge(n.id);
         const isActive=active===n.id&&!menuOpen;
         return(
           <button key={n.id} onClick={()=>handleNav(n.id)}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:3,position:"relative",padding:"6px 0",transition:"color .12s"}}>
-            <div style={{position:"relative",padding:3,borderRadius:8,background:isActive?"rgba(59,130,246,0.12)":"transparent",transition:"background .12s"}}>
-              <Icon name={n.icon} size={19}/>
-              {badge&&<span style={{position:"absolute",top:-4,right:-6,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:700,minWidth:15,textAlign:"center"}}>{badge}</span>}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:4,position:"relative",padding:"8px 4px 6px",transition:"color .15s"}}>
+            <div style={{position:"relative",width:48,height:34,borderRadius:12,background:isActive?"rgba(59,130,246,0.15)":"transparent",border:isActive?"1px solid rgba(59,130,246,0.25)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",boxShadow:isActive?"0 0 16px rgba(59,130,246,0.15)":"none"}}>
+              <Icon name={n.icon} size={22}/>
+              {badge&&<span style={{position:"absolute",top:-5,right:-4,background:n.id==="tareas"?"#8b5cf6":"#ef4444",color:"#fff",borderRadius:9,padding:"1px 5px",fontSize:9,fontWeight:800,minWidth:16,textAlign:"center",lineHeight:"14px"}}>{badge}</span>}
             </div>
-            <span style={{fontSize:9,fontWeight:isActive?700:400,letterSpacing:".3px"}}>{n.label.split(" ")[0]}</span>
-            {isActive&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2,borderRadius:"0 0 2px 2px",background:"#3b82f6",boxShadow:"0 0 8px rgba(59,130,246,0.5)"}}/>}
+            <span style={{fontSize:10,fontWeight:isActive?700:500,letterSpacing:".2px",color:isActive?"#60a5fa":"#4d6077"}}>{n.label.split(" ")[0]}</span>
           </button>
         );
       })}
-      {moreNav.length>0&&(
-        <button onClick={()=>setMenuOpen(p=>!p)}
-          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:menuOpen||(moreNav.some(n=>n.id===active))?"#60a5fa":"#4d6077",cursor:"pointer",gap:3,padding:"6px 0",position:"relative",transition:"color .12s"}}>
-          {moreNav.some(n=>n.id===active)&&!menuOpen&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2,borderRadius:"0 0 2px 2px",background:"#3b82f6",boxShadow:"0 0 8px rgba(59,130,246,0.5)"}}/>}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:2.5,width:16,height:16}}>
-            {[0,1,2,3].map(i=><div key={i} style={{background:menuOpen||(moreNav.some(n=>n.id===active))?"#60a5fa":"#4d6077",borderRadius:2,transition:"background .12s"}}/>)}
-          </div>
-          <span style={{fontSize:9,fontWeight:700,letterSpacing:".3px"}}>Más</span>
-        </button>
-      )}
+      {moreNav.length>0&&(()=>{
+        const isMoreActive=menuOpen||(moreNav.some(n=>n.id===active));
+        return(
+          <button onClick={()=>setMenuOpen(p=>!p)}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:"none",background:"transparent",color:isMoreActive?"#60a5fa":"#4d6077",cursor:"pointer",gap:4,padding:"8px 4px 6px",position:"relative",transition:"color .15s"}}>
+            <div style={{width:48,height:34,borderRadius:12,background:isMoreActive?"rgba(59,130,246,0.15)":"transparent",border:isMoreActive?"1px solid rgba(59,130,246,0.25)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",boxShadow:isMoreActive?"0 0 16px rgba(59,130,246,0.15)":"none"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gridTemplateRows:"1fr 1fr",gap:3,width:18,height:18}}>
+                {[0,1,2,3].map(i=><div key={i} style={{background:isMoreActive?"#60a5fa":"#4d6077",borderRadius:3,transition:"background .15s"}}/>)}
+              </div>
+            </div>
+            <span style={{fontSize:10,fontWeight:isMoreActive?700:500,letterSpacing:".2px",color:isMoreActive?"#60a5fa":"#4d6077"}}>Más</span>
+          </button>
+        );
+      })()}
     </nav>
   );
   const MoreDrawer = () => menuOpen&&(
     <>
       <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",backdropFilter:"blur(3px)",WebkitBackdropFilter:"blur(3px)",zIndex:110,animation:"em-fade-in 150ms ease"}}/>
-      <div style={{position:"fixed",bottom:62,left:0,right:0,background:"#080d18",borderTop:"1px solid #1a2738",zIndex:120,borderRadius:"18px 18px 0 0",padding:"14px 12px 10px",boxShadow:"0 -16px 48px rgba(0,0,0,0.5)",animation:"em-slide-up 200ms cubic-bezier(0.16,1,0.3,1)"}}>
+      <div style={{position:"fixed",bottom:76,left:0,right:0,background:"#080d18",borderTop:"1px solid #1a2738",zIndex:120,borderRadius:"18px 18px 0 0",padding:"14px 12px 10px",boxShadow:"0 -16px 48px rgba(0,0,0,0.5)",animation:"em-slide-up 200ms cubic-bezier(0.16,1,0.3,1)"}}>
         <div style={{width:32,height:3,borderRadius:2,background:"#243447",margin:"0 auto 14px"}}/>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(90px,100%),1fr))",gap:6,marginBottom:14}}>
           {moreNav.map(n=>{
@@ -17776,7 +17779,7 @@ function AppInner() {
       <Topbar/>
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
         {!isMobile&&<Sidebar/>}
-        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"10px 10px 76px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
+        <main style={{flex:1,overflow:(active==="chat"&&isMobile)?"hidden":"auto",overflowX:"hidden",padding:isMobile?"10px 10px 92px":"22px 26px",maxWidth:"100%",background:"#060b12",...((active==="chat"&&isMobile)?{display:"flex",flexDirection:"column",minHeight:0}:{})}}>
           {active==="dashboard"&&<Dashboard data={data} setActive={setActive} userActual={user}/>}
           {active==="asistencia"&&puedeVer(user.rol,"asistencia")&&<AvisosAsistencia data={data} setData={setData} userActual={user} onNuevoAviso={onNuevoAviso} abrirAvisoId={avisoAAbrir} onAbrirAvisoId={()=>setAvisoAAbrir(null)} irACliente={irACliente} irAMaquina={irAMaquina}/>}
           {active==="clientes"&&puedeVer(user.rol,"clientes")&&<Clientes data={data} setData={setData} onIrADocMaquina={irADocMaquina} onIrAMaquina={puedeVer(user.rol,"maquinas")?irAMaquina:null} abrirClienteId={clienteAAbrir} onAbrirClienteId={()=>setClienteAAbrir(null)} userActual={user} onVenderMaquina={irAAlbaranConMaquina}/>}
