@@ -2033,7 +2033,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,minWidth:0}}>
               <div style={{flex:"1 1 200px",minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-                  <div style={{color: esStock?"#f97316":colProp?colProp:revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0}}>{c.nombreEmpresa}</div>
+                  <div style={{color: esStock?"#f97316":colProp?colProp:revendedor?"#ec4899":"#f1f3f9",fontWeight:800,fontSize:15,overflowWrap:"anywhere",wordBreak:"break-word",minWidth:0,textTransform:"uppercase"}}>{c.nombreEmpresa}</div>
                   {esStock && <span style={{background:"#f97316",color:"#1a0500",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🆕 STOCK MAQUINARIA</span>}
                   {esPropia && !esStock && <span style={{background:"#10b981",color:"#001a0a",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🏠 PROPIA</span>}
                   {revendedor && <span style={{background:"#ec4899",color:"#1a0014",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:900,letterSpacing:".5px",flexShrink:0}}>🔁 REVENDEDOR</span>}
@@ -2299,7 +2299,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
         <button onClick={()=>setVista(null)} style={{background:"#2a3550",border:"none",borderRadius:8,padding:"7px 9px",cursor:"pointer",color:"#e6ebf6",display:"flex"}}><Icon name="back" size={15}/></button>
         <div style={{flex:"1 1 200px",minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <h2 style={{color:c.esStockInterno?"#f97316":c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px"}}>{c.nombreEmpresa}</h2>
+            <h2 style={{color:c.esStockInterno?"#f97316":c.esPropia?"#10b981":"#f1f3f9",fontWeight:800,fontSize:19,margin:"0 0 2px",textTransform:"uppercase"}}>{c.nombreEmpresa}</h2>
             {c.esStockInterno && (
               <span style={{background:"#f97316",color:"#1a0500",borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:900,letterSpacing:".6px"}}>🆕 STOCK MAQUINARIA NUEVA</span>
             )}
@@ -3913,7 +3913,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                     <Icon name="bell" size={10}/>
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{color:"#e8edf5",fontWeight:800,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.2}}>{cN(av.clienteId)||"—"}</div>
+                    <div style={{color:"#e8edf5",fontWeight:800,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.2,textTransform:"uppercase"}}>{cN(av.clienteId)||"—"}</div>
                     {maquinaInfo&&<div style={{color:"#60a5fa",fontWeight:600,fontSize:11,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⚙ {maquinaInfo}</div>}
                   </div>
                   {isPend && !av.enStandby && (
