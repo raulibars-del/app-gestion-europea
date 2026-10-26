@@ -3969,7 +3969,7 @@ const AvisosAsistencia = ({ data, setData, userActual, onNuevoAviso, abrirAvisoI
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:5}}>
                   <span onClick={e=>{e.stopPropagation();irACliente&&irACliente(av.clienteId);}}
-                    style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word",cursor:irACliente?"pointer":"default",textDecoration:irACliente?"underline":"none",textUnderlineOffset:2}}
+                    style={{color:"#3b82f6",fontWeight:800,fontSize:13,overflowWrap:"anywhere",wordBreak:"break-word",cursor:irACliente?"pointer":"default",textDecoration:irACliente?"underline":"none",textUnderlineOffset:2,textTransform:"uppercase"}}
                     title="Ir a la ficha del cliente">🏢 {cN(av.clienteId)}</span>
                   {(()=>{const cl=data.clientes.find(c=>c.id===av.clienteId); return <>{cl?.revendedor&&<span style={{background:"#ec489930",color:"#ec4899",border:"1px solid #ec489960",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>🔁 REVENDEDOR</span>}{cl?.esCliente&&<span style={{background:"#faff0030",color:"#d4cc00",border:"1px solid #faff0060",borderRadius:4,padding:"0 5px",fontSize:10,fontWeight:800}}>CLIENTE</span>}</>;})()}
                 </div>
