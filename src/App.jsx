@@ -2712,7 +2712,7 @@ const Clientes = ({ data, setData, onIrADocMaquina, onIrAMaquina, abrirClienteId
   );
 };
 const Proveedores = ({ data, setData, userActual }) => {
-  const puedeEliminar = userActual?.rol==="manager";
+  const puedeEliminar = userActual?.rol==="manager"||userActual?.rol==="admin";
   const [search,setSearch]=useState("");
   const [modal,setModal]=useState(null); // null | "nuevo" | id(number)
   const [form,setForm]=useState({});
@@ -3136,7 +3136,7 @@ const Maquinas = ({ data, setData, userActual, abrirMaquinaCodigo, onAbrirMaquin
   const cliente = vista ? data.clientes.find(c=>c.id===vista.clienteId) : null;
   const maquina = cliente ? (cliente.maquinas||[]).find(m=>m.id===vista.maquinaId) : null;
 
-  const puedeEliminar = userActual?.rol==="manager";
+  const puedeEliminar = userActual?.rol==="manager"||userActual?.rol==="admin";
   const openEdit = m => { setForm({...m}); setModal(true); };
   const delMaquinaFicha = (clienteId, maquinaId) => {
     setData(d=>({...d, clientes: d.clientes.map(c=>c.id!==clienteId?c:{...c,maquinas:(c.maquinas||[]).filter(m=>m.id!==maquinaId)})}));
